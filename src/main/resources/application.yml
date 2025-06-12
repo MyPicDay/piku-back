@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: piku-back
+  profiles:
+    active: ${PROFILE:dev}
+  config:
+    import: optional:file:.env[.properties]
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  data:
+    web:
+      pageable:
+        default-page-size: 10
+        max-page-size: 100
+  jpa:
+    open-in-view: false
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:api-key-placeholder}
+    base-url: https://generativelanguage.googleapis.com/v1beta
+    models:
+      image-generation: gemini-2.0-flash-preview-image-generation
+      chat: gemini-2.0-flash
+    timeout: 30s
+
+jwt:
+  secret: ${JWT_KEY:LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

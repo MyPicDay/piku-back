@@ -1,0 +1,12 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${PROD_DB_URL:jdbc:mysql://localhost:3306/piku} # 개발용 DB URL (필요시 _dev 추가)
+    username: ${PROD_DB_USERNAME:root}
+    password: ${PROD_DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
