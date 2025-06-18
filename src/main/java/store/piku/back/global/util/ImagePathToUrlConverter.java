@@ -11,14 +11,14 @@ public class ImagePathToUrlConverter {
      *
      * @param imagePath DB에 저장된 이미지 경로 (예: "userId/filename.png")
      * @param requestMetaInfo HttpRequest 정보 (예: scheme="http", domain="localhost", port=8080)
-     * @return 완성된 URL (예: "http://localhost:8080/api/diaries/images/userId/filename.png"), 변환 불가 시 빈 문자열
+     * @return 완성된 URL (예: "http://localhost:8080/api/diary/images/userId/filename.png"), 변환 불가 시 빈 문자열
      */
     public String diaryImageUrl(String imagePath, RequestMetaInfo requestMetaInfo){
         if (imagePath == null || imagePath.isEmpty() || requestMetaInfo == null) {
             // TODO: 기본 이미지 URL 반환 등 예외 처리
             return "";
         }
-        return String.format("%s://%s:%d/api/diaries/images/%s",
+        return String.format("%s://%s:%d/api/diary/images/%s",
                 requestMetaInfo.scheme(),
                 requestMetaInfo.domain(),
                 requestMetaInfo.port(),
@@ -30,8 +30,8 @@ public class ImagePathToUrlConverter {
             return "";
         }
 
-        // 앞부분: "http://localhost:8080/api/diaries/images/"
-        String baseUrlPrefix = String.format("%s://%s:%d/api/diaries/images/",
+        // 앞부분: "http://localhost:8080/api/diary/images/"
+        String baseUrlPrefix = String.format("%s://%s:%d/api/diary/images/",
                 requestMetaInfo.scheme(),
                 requestMetaInfo.domain(),
                 requestMetaInfo.port());

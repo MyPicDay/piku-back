@@ -3,12 +3,13 @@ package store.piku.back.diary.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import store.piku.back.file.FileConstants;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
 import java.util.UUID;
 
 @Slf4j
@@ -16,9 +17,9 @@ import java.util.UUID;
 public class PhotoUtil {
 
     // 1. 파일명 생성
-    public String generateFileName(Date diaryDate, String originalFilename) {
-        String date = diaryDate.toInstant()
-                .atZone(ZoneId.systemDefault())
+    public String generateFileName(LocalDate diaryDate, String originalFilename) {
+        String date = diaryDate
+                .atStartOfDay(ZoneId.systemDefault())
                 .toLocalDate()
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         log.info("파일명 생성 - 현재 등록하는 일기날짜: {}", diaryDate);
@@ -30,9 +31,15 @@ public class PhotoUtil {
         return date + "_" + uuid + "_" + originalFilename;
     }
 
+    public String getDefaultPath(){
+        return System.getProperty("user.dir");
+    }
+
     // 2. 로컬 저장
     public String saveToLocal(MultipartFile photos, String userId, String filename) throws IOException {
-        String uploadDir = System.getProperty("user.dir") + "/uploads/" + userId;
+        String uploadPath = FileConstants.UPLOADS_BASE_DIR_NAME + "/" + userId;
+        String uploadDir = getDefaultPath() + "/" + uploadPath;
+
         new File(uploadDir).mkdirs();
         File destination = new File(uploadDir, filename);
 
@@ -40,7 +47,7 @@ public class PhotoUtil {
         photos.transferTo(destination);
 
         log.info("파일 저장 완료 - 저장 경로: {}", destination);
-        return "/uploads/" + userId + "/" + filename;
+        return userId + "/" + filename;
     }
 }
 

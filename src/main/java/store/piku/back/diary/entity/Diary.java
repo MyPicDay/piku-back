@@ -3,10 +3,11 @@ package store.piku.back.diary.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import store.piku.back.diary.enums.Status;
 import store.piku.back.global.entity.BaseEntity;
 import store.piku.back.user.entity.User;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 @Entity
 @Table
@@ -23,13 +24,13 @@ public class Diary extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    private Date date;
+    private LocalDate date;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    public Diary(String content, Status status, Date date, User user) {
+    public Diary(String content, Status status, LocalDate date, User user) {
         this.content = content;
         this.status = status;
         this.date = date;

@@ -1,4 +1,4 @@
-package store.piku.back.diary.entity;
+package store.piku.back.diary.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -6,5 +6,5 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Getter
 public enum Status {
-    PUBLIC, PRIVATE ,FRIENDS;
+    PUBLIC, PRIVATE ,FRIENDS
 }
