@@ -9,5 +9,6 @@ import java.util.List;
 
 
 public interface PhotoStorage {
-    void savePhoto(Diary diary, List<MultipartFile> photos, String userId) throws IOException;
+    void savePhoto(Diary diary, List<MultipartFile> photos, String userId, int coverPhotoIndex) throws IOException;
+    void saveAiPhoto(Diary diary, List<Long> aiPhotos, String userId, int coverPhotoIndex) throws IOException;
 }

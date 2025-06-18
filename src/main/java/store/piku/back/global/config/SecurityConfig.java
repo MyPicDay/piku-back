@@ -52,7 +52,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/diaries/images/{userId}/{fileName:.+}",
+                                "/api/diary/images/{userId}/{fileName:.+}",
                                 "/api/characters/fixed/**",
                                 "/api/notifications/subscribe",
                                 "/actuator/health"

@@ -27,10 +27,13 @@ public class Photo {
     @JsonBackReference
     private Diary diary;
 
-    // 생성자 추가 (필드 초기화용)
     public Photo(Diary diary, String url) {
         this.diary = diary;
         this.url = url;
+        this.represent = false;
     }
 
+    public void updateRepresent(Boolean represent) {
+        this.represent = represent;
+    }
 }
