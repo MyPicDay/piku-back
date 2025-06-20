@@ -1,5 +1,8 @@
 package store.piku.back.ai.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Tag(name = "AI", description = "AI 관련 API")
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -23,6 +27,8 @@ public class AiGeneratorController {
     private final ImageGenerationService imageGenerationService;
     private final RequestMetaMapper requestMetaMapper;
 
+    @Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
+    @SecurityRequirement(name = "JWT")
     @PostMapping("/diary/ai/generate")
     public ResponseEntity<AiDiaryResponseDTO> generateDiaryImage(@RequestBody Map<String, String> body, HttpServletRequest request, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         String content = body.get("content");

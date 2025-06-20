@@ -1,5 +1,10 @@
 package store.piku.back.diary.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +29,7 @@ import store.piku.back.global.util.RequestMetaMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
+@Tag(name = "Diary", description = "일기 관련 API")
 @RestController
 @Slf4j
 @RequestMapping("/api/diary")
@@ -34,7 +40,9 @@ public class DiaryController {
     private final FileUtil fileUtil;
     private final RequestMetaMapper requestMetaMapper;
 
-    @PostMapping
+    @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
+    @SecurityRequirement(name = "JWT")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDiaryDTO> createDiary(@ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
         ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
@@ -48,6 +56,8 @@ public class DiaryController {
         }
     }
 
+    @Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
+    @SecurityRequirement(name = "JWT")
     @GetMapping("/{diaryId}")
     public ResponseEntity<?> getDiaryWithPhotos(@PathVariable Long diaryId , HttpServletRequest request) {
         try {
@@ -70,8 +80,9 @@ public class DiaryController {
 
 
     // 이미지 파일 직접 스트림으로 반환하는 API 추가 ( 재요청 )
+    @Operation(summary = "일기 이미지 조회", description = "일기에 첨부된 이미지를 조회합니다.")
     @GetMapping("/images/{userId}/{filename:.+}")
-    public ResponseEntity<Resource> getFiles(@PathVariable String userId, @PathVariable String filename) {
+    public ResponseEntity<Resource> getFile(@Parameter(description = "사용자 ID") @PathVariable String userId, @Parameter(description = "이미지 파일명") @PathVariable String filename) {
         log.info("이미지 파일 요청 - userId: {}, filename: {}", userId, filename);
         try {
             Resource resource = fileUtil.loadFileAsResource(userId + "/" + filename);
@@ -90,6 +101,13 @@ public class DiaryController {
         }
     }
 
+    @Operation(summary = "월별 일기 목록 조회", description = "특정 사용자의 월별 일기 목록을 조회합니다. (캘린더용)")
+    @SecurityRequirement(name = "JWT")
+    @Parameters({
+            @Parameter(name = "userId", description = "사용자 ID", required = true),
+            @Parameter(name = "year", description = "조회할 연도", required = true),
+            @Parameter(name = "month", description = "조회할 월", required = true)
+    })
     @GetMapping("/user/{userId}/monthly")
     public ResponseEntity<List<CalendarDiaryResponseDTO>> getMonthlyDiaries(
             @AuthenticationPrincipal CustomUserDetails user,

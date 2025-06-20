@@ -106,6 +106,7 @@ public class DiaryService {
         }
     }
 
+
     @Transactional(readOnly = true)
     public ResponseDTO getDiaryWithPhotos(Long diaryId , HttpServletRequest request) {
 
