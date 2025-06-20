@@ -1,5 +1,9 @@
 package store.piku.back.auth.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.concurrent.TimeUnit;
 
+@Tag(name = "Auth", description = "인증/인가 관련 API")
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
@@ -37,6 +42,11 @@ public class AuthController {
     /*
     * 회원가입
     * */
+    @Operation(summary = "회원가입", description = "사용자 정보를 받아 회원가입을 진행합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "회원가입 성공"),
+            @ApiResponse(responseCode = "400", description = "회원가입 실패")
+    })
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest dto) {
         log.info("[회원가입] 요청 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
@@ -53,6 +63,11 @@ public class AuthController {
     /*
     * 로그인
     * */
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인을 진행하고 Access/Refresh 토큰을 발급합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "로그인 성공"),
+            @ApiResponse(responseCode = "401", description = "로그인 실패")
+    })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
         String deviceId = request.getHeader("Device-Id");
@@ -86,6 +101,11 @@ public class AuthController {
     /*
      * access token 재발급
      * */
+    @Operation(summary = "Access Token 재발급", description = "Cookie에 담긴 Refresh Token을 사용하여 새로운 Access Token을 재발급합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "토큰 재발급 성공"),
+            @ApiResponse(responseCode = "401", description = "Refresh Token 만료")
+    })
     @PostMapping("/reissue")
     public ResponseEntity<?> reissue(HttpServletRequest request) {
         String refreshToken = request.getHeader("Cookie").split("=")[1];
@@ -109,6 +129,11 @@ public class AuthController {
                 .body("토큰 재발급 성공");
     }
 
+    @Operation(summary = "로그아웃", description = "사용자 로그아웃을 처리하고 Refresh Token을 삭제합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "로그아웃 성공"),
+            @ApiResponse(responseCode = "401", description = "로그인 상태가 아님")
+    })
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails user, HttpServletRequest request) {
         if (user == null || user.getEmail() == null) {
