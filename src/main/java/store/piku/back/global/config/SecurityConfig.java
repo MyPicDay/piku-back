@@ -1,6 +1,7 @@
 package store.piku.back.global.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.env.Environment;
 import store.piku.back.auth.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -24,6 +27,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
+    private final Environment env;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -46,17 +50,29 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        List<String> permittedPaths = new ArrayList<>(Arrays.asList(
+                "/api/auth/**",
+                "/api/diary/images/{userId}/{fileName:.+}",
+                "/api/characters/fixed/**",
+                "/api/notifications/subscribe",
+                "/actuator/health"
+        ));
+
+        if (Arrays.asList(env.getActiveProfiles()).contains("dev")) {
+            permittedPaths.addAll(Arrays.asList(
+                    "/v3/api-docs/**",
+                    "/swagger-ui/**",
+                    "/swagger-resources/**",
+                    "/swagger-ui.html"
+            ));
+        }
+
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/api/diary/images/{userId}/{fileName:.+}",
-                                "/api/characters/fixed/**",
-                                "/api/notifications/subscribe",
-                                "/actuator/health"
-                        ).permitAll()
+                        .requestMatchers(permittedPaths.toArray(new String[0]))
+                        .permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement((sessionManagement) ->
