@@ -1,17 +1,22 @@
 package store.piku.back.diary.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
+import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
+import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
@@ -35,9 +40,10 @@ public class DiaryService {
     private final UserRepository userRepository;
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final JwtProvider jwtProvider;
 
     @Transactional
-    public boolean createDiary(DiaryDTO diaryDTO, String userId) {
+    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) {
         validateDiaryDTO(diaryDTO);
 
         List<MultipartFile> photos = diaryDTO.getPhotos();
@@ -71,7 +77,12 @@ public class DiaryService {
             log.error("사진 저장 실패 : {}", e.getMessage(), e);
             throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
         }
-        return true;
+
+        return new ResponseDiaryDTO(
+                diary.getId(),
+                diary.getContent()
+        );
+
     }
 
     private void validateDiaryDTO(DiaryDTO diaryDTO) {
@@ -95,30 +106,46 @@ public class DiaryService {
         }
     }
 
-
     @Transactional(readOnly = true)
-    public ResponseDTO getDiaryWithPhotos(Long diaryId) {
+    public ResponseDTO getDiaryWithPhotos(Long diaryId , HttpServletRequest request) {
+
 
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new EntityNotFoundException("Diary not found"));
-        log.info("{}일기 조회 완료", diaryId);
+
+
+        String token = request.getHeader("Authorization");
+        String email = jwtProvider.getEmailFromToken(token);
+
+        boolean isOwner = diary.getUser().getEmail().equals(email);
+
+        // 비공개 + 본인 아님 → 대표 사진만 반환
+        if (diary.getStatus() == Status.PRIVATE && !isOwner) {
+            String RepresentPhotoUrl = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId())
+                    .map(Photo::getUrl)
+                    .orElseThrow(() -> new EntityNotFoundException("대표사진이 없습니다."));
+            return new ResponseDTO(diary.getId(), diary.getStatus(), null, List.of(RepresentPhotoUrl), diary.getDate(), diary.getUser().getNickname());
+        }
+
 
         List<Photo> photos = photoRepository.findByDiaryId(diaryId);
         if (photos == null || photos.isEmpty()) {
             log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
             throw new EntityNotFoundException("Photos not found for diaryId: " + diaryId);
         }
-        log.info("{}일기 결합 사진 조회 완료 ", diaryId);
 
         List<String> photoUrls = photos.stream().map(Photo::getUrl).collect(Collectors.toList());
         log.info("조회된 사진 개수: {}, URLs: {}", photos.size(), photoUrls);
 
+
         return new ResponseDTO(
+                diary.getId(),
                 diary.getStatus(),
                 diary.getContent(),
                 photoUrls,
-                diary.getDate()
+                diary.getDate(),
+                diary.getUser().getNickname()
         );
     }
 

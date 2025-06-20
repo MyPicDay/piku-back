@@ -1,16 +1,20 @@
 package store.piku.back.diary.controller;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
+import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
@@ -31,31 +35,43 @@ public class DiaryController {
     private final RequestMetaMapper requestMetaMapper;
 
     @PostMapping
-    public ResponseEntity<String> createDiary(@ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ResponseDiaryDTO> createDiary(@ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
-        boolean isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
+        ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
 
-        if (isSaved) {
+        if (isSaved != null) {
             log.info("{}님 일기,사진 등록 성공", userDetails.getId());
-            return ResponseEntity.ok("사진이 성공적으로 저장되었습니다.");
+            return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
         } else {
             log.error("{}님 일기, 사진 등록 실패", userDetails.getId());
-            return ResponseEntity.internalServerError().body("사진 저장에 실패했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/{diaryId}")
-    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId) {
-        log.info("Diary 조회 요청 - diaryId: {}", diaryId);
-        ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId);
-        log.info("Diary 조회 완료 - diaryId: {}", diaryId);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getDiaryWithPhotos(@PathVariable Long diaryId , HttpServletRequest request) {
+        try {
+            log.info("Diary 조회 요청 - diaryId: {}", diaryId);
+
+            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, request);
+            return ResponseEntity.ok(response);
+
+        } catch (EntityNotFoundException e) {
+            // 엔티티(일기 또는 사진) 못 찾았을 때 404 반환
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (AccessDeniedException e) {
+            // 접근 권한 없을 때 403 반환
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (Exception e) {
+            // 기타 서버 에러 500 반환
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 에러가 발생했습니다.");
+        }
     }
 
 
     // 이미지 파일 직접 스트림으로 반환하는 API 추가 ( 재요청 )
     @GetMapping("/images/{userId}/{filename:.+}")
-    public ResponseEntity<Resource> getFile(@PathVariable String userId, @PathVariable String filename) {
+    public ResponseEntity<Resource> getFiles(@PathVariable String userId, @PathVariable String filename) {
         log.info("이미지 파일 요청 - userId: {}, filename: {}", userId, filename);
         try {
             Resource resource = fileUtil.loadFileAsResource(userId + "/" + filename);
