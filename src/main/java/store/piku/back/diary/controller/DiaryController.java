@@ -3,9 +3,13 @@ package store.piku.back.diary.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -13,7 +17,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
@@ -43,7 +46,7 @@ public class DiaryController {
     @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
     @SecurityRequirement(name = "JWT")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ResponseDiaryDTO> createDiary(@ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ResponseDiaryDTO> createDiary(@Valid @ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
         ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
 
@@ -56,26 +59,24 @@ public class DiaryController {
         }
     }
 
-    @Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "일기 조회 성공",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "인증 실패", content = @Content),
+            @ApiResponse(responseCode = "404", description = "대표 사진을 찾을 수 없음", content = @Content),
+            @ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
+    })
+    @Operation(summary = "일기 조회", description = "특정 일기의 상세 정보를 조회합니다.")
     @SecurityRequirement(name = "JWT")
     @GetMapping("/{diaryId}")
-    public ResponseEntity<?> getDiaryWithPhotos(@PathVariable Long diaryId , HttpServletRequest request) {
-        try {
+    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId , @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
             log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
-            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, request);
+            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, customUserDetails);
             return ResponseEntity.ok(response);
 
-        } catch (EntityNotFoundException e) {
-            // 엔티티(일기 또는 사진) 못 찾았을 때 404 반환
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        } catch (AccessDeniedException e) {
-            // 접근 권한 없을 때 403 반환
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
-        } catch (Exception e) {
-            // 기타 서버 에러 500 반환
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 에러가 발생했습니다.");
-        }
     }
 
 

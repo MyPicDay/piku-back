@@ -1,10 +1,7 @@
 package store.piku.back.diary.service;
 
-import jakarta.persistence.EntityNotFoundException;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,8 +14,10 @@ import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
 import store.piku.back.diary.enums.Status;
+import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
@@ -29,6 +28,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.stream.Collectors;
+
 
 @Service
 @Slf4j
@@ -108,47 +108,62 @@ public class DiaryService {
 
 
     @Transactional(readOnly = true)
-    public ResponseDTO getDiaryWithPhotos(Long diaryId , HttpServletRequest request) {
-
-
+    public ResponseDTO getDiaryWithPhotos(Long diaryId, CustomUserDetails customUserDetails) {
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(() -> new EntityNotFoundException("Diary not found"));
+                .orElseThrow(DiaryNotFoundException::new);
 
+        // 모든 사진 리스트 한 번만 조회
+        List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
+        if (photos == null || photos.isEmpty()) {
+            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
+            throw new DiaryNotFoundException();
+        }
 
-        String token = request.getHeader("Authorization");
-        String email = jwtProvider.getEmailFromToken(token);
+        // 대표 사진을 첫 번째로 위치시키기 (represent = true)
+        for (int i = 0; i < photos.size(); i++) {
+            if (Boolean.TRUE.equals(photos.get(i).getRepresent())) {
+                if (i != 0) {
+                    Photo representPhoto = photos.get(i);
+                    photos.remove(i);
+                    photos.add(0, representPhoto); // 대표 사진을 맨 앞으로 이동
+                }
+                break;
+            }
+        }
 
-        boolean isOwner = diary.getUser().getEmail().equals(email);
+        // 이제 photos에서 URL 리스트 생성
+        List<String> sortedPhotoUrls = photos.stream()
+                .map(Photo::getUrl)
+                .toList();
+
+        boolean isOwner = diary.getUser().getId().equals(customUserDetails.getId());
 
         // 비공개 + 본인 아님 → 대표 사진만 반환
         if (diary.getStatus() == Status.PRIVATE && !isOwner) {
-            String RepresentPhotoUrl = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId())
-                    .map(Photo::getUrl)
-                    .orElseThrow(() -> new EntityNotFoundException("대표사진이 없습니다."));
-            return new ResponseDTO(diary.getId(), diary.getStatus(), null, List.of(RepresentPhotoUrl), diary.getDate(), diary.getUser().getNickname());
+            return new ResponseDTO(
+                    diary.getId(),
+                    diary.getStatus(),
+                    null,
+                    List.of(sortedPhotoUrls.get(0)),
+                    diary.getDate(),
+                    diary.getUser().getNickname(),
+                    diary.getUser().getAvatar()
+            );
         }
 
-
-        List<Photo> photos = photoRepository.findByDiaryId(diaryId);
-        if (photos == null || photos.isEmpty()) {
-            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
-            throw new EntityNotFoundException("Photos not found for diaryId: " + diaryId);
-        }
-
-        List<String> photoUrls = photos.stream().map(Photo::getUrl).collect(Collectors.toList());
-        log.info("조회된 사진 개수: {}, URLs: {}", photos.size(), photoUrls);
-
-
+        // 공개이거나 본인일 경우 대표 사진 포함 전체 사진 리스트 반환
         return new ResponseDTO(
                 diary.getId(),
                 diary.getStatus(),
                 diary.getContent(),
-                photoUrls,
+                sortedPhotoUrls,
                 diary.getDate(),
-                diary.getUser().getNickname()
+                diary.getUser().getNickname(),
+                diary.getUser().getAvatar()
         );
     }
+
 
     public List<CalendarDiaryResponseDTO> findMonthlyDiaries(String userId, int year, int month, RequestMetaInfo requestMetaInfo) {
         YearMonth yearMonth = YearMonth.of(year, month);

@@ -1,5 +1,9 @@
 package store.piku.back.diary.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,19 +18,27 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DiaryDTO {
+    @NotNull
+    @Schema(description = "공개범위")
+    private Status status;
 
-    private Status status;  // private , public, friend
-
+    @NotBlank(message = "일기 내용은 비어 있을 수 없습니다.")
+    @Schema(description = "일기 내용")
     private String content;
 
-    private List<Long> aiPhotos; // AI 사진 (url로 받는다)
+    @Size(max = 3, message = "AI 사진은 최대 3개까지 업로드할 수 있습니다.")
+    @Schema(description = "AI 사진(대표 사진은 0번 인덱스)")
+    private List<Long> aiPhotos;
 
-    private List<MultipartFile> photos; // photo사진 (파일 받는거야)
+    @Schema(description = "내 앨범 사진")
+    private List<MultipartFile> photos;
 
+    @Schema(description = "일기날짜")
     private LocalDate date;
 
-    // NOTE: mainPhotoType은 일기 사진 중 대표 사진의 타입을 나타내고 대표 사진은 0의 인덱스를 가집니다
+    @Schema(description = "대표 사진의 타입 (대표 사진은 photos 리스트의 0번 인덱스에 위치합니다)")
     private DiaryPhotoType coverPhotoType;
 
+    @Schema(description = "대표 사진의 결정을 위한 사진 번호")
     private int coverPhotoIndex;
 }
