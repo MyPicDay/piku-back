@@ -137,7 +137,8 @@ public class DiaryService {
                     List.of(sortedPhotoUrls.get(0)),
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar()
+                    diary.getUser().getAvatar(),
+                    diary.getUser().getId()
             );
         }
 
@@ -149,7 +150,8 @@ public class DiaryService {
                 sortedPhotoUrls,
                 diary.getDate(),
                 diary.getUser().getNickname(),
-                diary.getUser().getAvatar()
+                diary.getUser().getAvatar(),
+                diary.getUser().getId()
         );
     }
 
@@ -212,7 +214,8 @@ public class DiaryService {
                     sortedPhotoUrls,
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar()
+                    diary.getUser().getAvatar(),
+                    diary.getUser().getId()
             );
         });
     }

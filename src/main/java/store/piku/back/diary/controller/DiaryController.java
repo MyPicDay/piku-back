@@ -144,7 +144,7 @@ public class DiaryController {
             Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable);
             return ResponseEntity.ok(page);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 여기 수정 예정
         }
     }
 }

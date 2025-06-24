@@ -28,4 +28,7 @@ public class ResponseDTO {
     @Schema(description = "사용자 프로필 사진")
     private String avatar;
 
+    private String userId;
+
+
 }
