@@ -3,12 +3,18 @@ package store.piku.back.diary.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
+import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
@@ -39,27 +46,37 @@ public class DiaryController {
     @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
     @SecurityRequirement(name = "JWT")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> createDiary(@ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ResponseDiaryDTO> createDiary(@Valid @ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
-        boolean isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
+        ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
 
-        if (isSaved) {
+        if (isSaved != null) {
             log.info("{}님 일기,사진 등록 성공", userDetails.getId());
-            return ResponseEntity.ok("사진이 성공적으로 저장되었습니다.");
+            return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
         } else {
             log.error("{}님 일기, 사진 등록 실패", userDetails.getId());
-            return ResponseEntity.internalServerError().body("사진 저장에 실패했습니다.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
-    @Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "일기 조회 성공",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "인증 실패", content = @Content),
+            @ApiResponse(responseCode = "404", description = "대표 사진을 찾을 수 없음", content = @Content),
+            @ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
+    })
+    @Operation(summary = "일기 조회", description = "특정 일기의 상세 정보를 조회합니다.")
     @SecurityRequirement(name = "JWT")
     @GetMapping("/{diaryId}")
-    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@Parameter(description = "일기 ID") @PathVariable Long diaryId) {
-        log.info("Diary 조회 요청 - diaryId: {}", diaryId);
-        ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId);
-        log.info("Diary 조회 완료 - diaryId: {}", diaryId);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId , @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+            log.info("Diary 조회 요청 - diaryId: {}", diaryId);
+
+            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, customUserDetails);
+            return ResponseEntity.ok(response);
+
     }
 
 
