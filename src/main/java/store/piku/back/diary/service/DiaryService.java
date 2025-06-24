@@ -207,6 +207,7 @@ public class DiaryService {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos);
 
+
             return new ResponseDTO(
                     diary.getId(),
                     diary.getStatus(),

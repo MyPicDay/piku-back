@@ -140,7 +140,6 @@ public class DiaryController {
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable) {
         try {
             log.info("Pageable: {}", pageable);
-
             Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable);
             return ResponseEntity.ok(page);
         } catch (Exception e) {
