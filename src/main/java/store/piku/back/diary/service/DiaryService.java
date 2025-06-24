@@ -2,6 +2,11 @@ package store.piku.back.diary.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -120,23 +125,7 @@ public class DiaryService {
             throw new DiaryNotFoundException();
         }
 
-        // 대표 사진을 첫 번째로 위치시키기 (represent = true)
-        for (int i = 0; i < photos.size(); i++) {
-            if (Boolean.TRUE.equals(photos.get(i).getRepresent())) {
-                if (i != 0) {
-                    Photo representPhoto = photos.get(i);
-                    photos.remove(i);
-                    photos.add(0, representPhoto); // 대표 사진을 맨 앞으로 이동
-                }
-                break;
-            }
-        }
-
-        // 이제 photos에서 URL 리스트 생성
-        List<String> sortedPhotoUrls = photos.stream()
-                .map(Photo::getUrl)
-                .toList();
-
+        List<String> sortedPhotoUrls = sortPhotos(photos);
         boolean isOwner = diary.getUser().getId().equals(customUserDetails.getId());
 
         // 비공개 + 본인 아님 → 대표 사진만 반환
@@ -179,5 +168,52 @@ public class DiaryService {
                     .orElse(null); // 대표 이미지가 없는 경우 null 처리, 혹은 기본 이미지 URL 설정
             return new CalendarDiaryResponseDTO(diary.getId(), coverPhotoUrl, diary.getDate());
         }).collect(Collectors.toList());
+    }
+
+
+    private List<String> sortPhotos(List<Photo> photos) {
+        for (int i = 0; i < photos.size(); i++) {
+            if (Boolean.TRUE.equals(photos.get(i).getRepresent())) {
+                if (i != 0) {
+                    Photo representPhoto = photos.remove(i);
+                    photos.add(0, representPhoto);
+                }
+                break;
+            }
+        }
+
+        return photos.stream()
+                .map(Photo::getUrl)
+                .toList();
+    }
+
+
+
+
+    /**
+     * 공개 상태인 일기들을 페이지네이션과 함께 조회하고,
+     * 각 일기별 대표 사진이 앞에 오도록 사진 URL 리스트를 정렬하여 반환합니다.
+     *
+     * @param pageable 조회할 페이지 번호 (0부터 시작)
+     * @return 공개된 일기 리스트의 DTO를 담은 Page
+     */
+
+    public Page<ResponseDTO> getAllDiaries(Pageable pageable) {
+        Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
+
+        return page.map(diary -> {
+            List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
+            List<String> sortedPhotoUrls = sortPhotos(photos);
+
+            return new ResponseDTO(
+                    diary.getId(),
+                    diary.getStatus(),
+                    diary.getContent(),
+                    sortedPhotoUrls,
+                    diary.getDate(),
+                    diary.getUser().getNickname(),
+                    diary.getUser().getAvatar()
+            );
+        });
     }
 }
