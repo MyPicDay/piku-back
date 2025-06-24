@@ -12,7 +12,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -122,5 +130,20 @@ public class DiaryController {
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         List<CalendarDiaryResponseDTO> diaries = diaryservice.findMonthlyDiaries(userId, year, month, requestMetaInfo);
         return ResponseEntity.ok(diaries);
+    }
+
+    @ApiResponses(value ={@ApiResponse(responseCode = "200",description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class)))})
+    @Operation(summary = "일기 전체 조회" ,description = "프론트에서 페이지수,정렬방법,페이지 크기 보내줄 수 있습니다.")
+    @GetMapping
+    public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
+            @ParameterObject
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable) {
+        try {
+            log.info("Pageable: {}", pageable);
+            Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable);
+            return ResponseEntity.ok(page);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 여기 수정 예정
+        }
     }
 }
