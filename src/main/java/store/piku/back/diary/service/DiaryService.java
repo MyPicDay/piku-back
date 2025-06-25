@@ -134,7 +134,7 @@ public class DiaryService {
                     List.of(sortedPhotoUrls.get(0)),
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    AvataUrl,
+                    diary.getUser().getAvatar(),
                     diary.getUser().getId()
             );
         }
@@ -147,7 +147,7 @@ public class DiaryService {
                 sortedPhotoUrls,
                 diary.getDate(),
                 diary.getUser().getNickname(),
-                AvataUrl,
+                diary.getUser().getAvatar(),
                 diary.getUser().getId()
         );
     }
@@ -204,8 +204,6 @@ public class DiaryService {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
 
-            String AvataUrl = imagePathToUrlConverter.diaryImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
-
             return new ResponseDTO(
                     diary.getId(),
                     diary.getStatus(),
@@ -213,7 +211,7 @@ public class DiaryService {
                     sortedPhotoUrls,
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    AvataUrl,
+                    diary.getUser().getAvatar(),
                     diary.getUser().getId()
             );
         });
