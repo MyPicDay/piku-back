@@ -125,7 +125,6 @@ public class DiaryService {
         List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
         boolean isOwner = diary.getUser().getId().equals(customUserDetails.getId());
 
-
         // 비공개 + 본인 아님 → 대표 사진만 반환
         if (diary.getStatus() == Status.PRIVATE && !isOwner) {
             return new ResponseDTO(
@@ -135,7 +134,7 @@ public class DiaryService {
                     List.of(sortedPhotoUrls.get(0)),
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar(),
+                    AvataUrl,
                     diary.getUser().getId()
             );
         }
@@ -148,7 +147,7 @@ public class DiaryService {
                 sortedPhotoUrls,
                 diary.getDate(),
                 diary.getUser().getNickname(),
-                diary.getUser().getAvatar(),
+                AvataUrl,
                 diary.getUser().getId()
         );
     }
@@ -205,6 +204,7 @@ public class DiaryService {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
 
+            String AvataUrl = imagePathToUrlConverter.diaryImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
 
             return new ResponseDTO(
                     diary.getId(),
@@ -213,7 +213,7 @@ public class DiaryService {
                     sortedPhotoUrls,
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar(),
+                    AvataUrl,
                     diary.getUser().getId()
             );
         });
