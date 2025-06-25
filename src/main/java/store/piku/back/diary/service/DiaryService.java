@@ -1,12 +1,11 @@
 package store.piku.back.diary.service;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -113,7 +112,7 @@ public class DiaryService {
 
 
     @Transactional(readOnly = true)
-    public ResponseDTO getDiaryWithPhotos(Long diaryId, CustomUserDetails customUserDetails) {
+    public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, CustomUserDetails customUserDetails) {
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(DiaryNotFoundException::new);
@@ -125,7 +124,7 @@ public class DiaryService {
             throw new DiaryNotFoundException();
         }
 
-        List<String> sortedPhotoUrls = sortPhotos(photos);
+        List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
         boolean isOwner = diary.getUser().getId().equals(customUserDetails.getId());
 
         // 비공개 + 본인 아님 → 대표 사진만 반환
@@ -173,7 +172,7 @@ public class DiaryService {
     }
 
 
-    private List<String> sortPhotos(List<Photo> photos) {
+    private List<String> sortPhotos(List<Photo> photos,RequestMetaInfo requestMetaInfo ) {
         for (int i = 0; i < photos.size(); i++) {
             if (Boolean.TRUE.equals(photos.get(i).getRepresent())) {
                 if (i != 0) {
@@ -185,7 +184,7 @@ public class DiaryService {
         }
 
         return photos.stream()
-                .map(Photo::getUrl)
+                .map(photo -> imagePathToUrlConverter.diaryImageUrl(photo.getUrl(), requestMetaInfo))
                 .toList();
     }
 
@@ -200,12 +199,12 @@ public class DiaryService {
      * @return 공개된 일기 리스트의 DTO를 담은 Page
      */
 
-    public Page<ResponseDTO> getAllDiaries(Pageable pageable) {
+    public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo) {
         Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
 
         return page.map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
-            List<String> sortedPhotoUrls = sortPhotos(photos);
+            List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
 
 
             return new ResponseDTO(

@@ -75,14 +75,15 @@ public class DiaryController {
             @ApiResponse(responseCode = "404", description = "대표 사진을 찾을 수 없음", content = @Content),
             @ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
     })
-    @Operation(summary = "일기 조회", description = "특정 일기의 상세 정보를 조회합니다.")
+    @Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
     @SecurityRequirement(name = "JWT")
     @GetMapping("/{diaryId}")
-    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId , @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId ,HttpServletRequest request , @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
             log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
-            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, customUserDetails);
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails);
             return ResponseEntity.ok(response);
 
     }
@@ -132,15 +133,20 @@ public class DiaryController {
         return ResponseEntity.ok(diaries);
     }
 
+
+
+
     @ApiResponses(value ={@ApiResponse(responseCode = "200",description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class)))})
     @Operation(summary = "일기 전체 조회" ,description = "프론트에서 페이지수,정렬방법,페이지 크기 보내줄 수 있습니다.")
     @GetMapping
     public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
             @ParameterObject
-            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable) {
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request) {
         try {
             log.info("Pageable: {}", pageable);
-            Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable);
+
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable ,requestMetaInfo);
             return ResponseEntity.ok(page);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 여기 수정 예정
