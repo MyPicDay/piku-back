@@ -2,6 +2,7 @@ package store.piku.back.friend.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
 import store.piku.back.friend.entity.FriendRequest;
@@ -9,7 +10,9 @@ import store.piku.back.friend.key.FriendRequestID;
 import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,5 +35,12 @@ public class FriendRequestService {
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
 
         }
+    }
+
+    public List<FriendsDto> getFriendList(String id) {
+        List<FriendsDto> friends = friendRepository.findAllByUserId(id);
+        return friends.stream()
+                .map(f -> new FriendsDto(f.getUserId(),f.getNickname(),f.getAvatar()))
+                .collect(Collectors.toList());
     }
 }

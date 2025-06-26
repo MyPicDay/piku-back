@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
-import store.piku.back.friend.entity.FriendRequest;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
+
+import java.util.List;
 
 
 @RestController
@@ -28,4 +30,11 @@ public class FriendRequestController {
         FriendRequestResponseDto savedRequest = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId());
         return ResponseEntity.ok(savedRequest);
     }
+
+    @GetMapping
+    public ResponseEntity<List<FriendsDto>> getFriendList(@AuthenticationPrincipal CustomUserDetails customUserDetails){
+        List<FriendsDto> friends = friendRequestService.getFriendList(customUserDetails.getId());
+        return ResponseEntity.ok(friends);
+    }
+
 }
