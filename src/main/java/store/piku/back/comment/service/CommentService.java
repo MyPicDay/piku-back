@@ -16,7 +16,6 @@ import store.piku.back.user.service.UserService;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 @Slf4j
 public class CommentService {
 
@@ -39,11 +38,7 @@ public class CommentService {
         Diary diary = diaryRepository.findById(commentDto.getDiaryId())
                 .orElseThrow(DiaryNotFoundException::new);
 
-        Comment comment = Comment.builder()
-                .content(commentDto.getContent())
-                .user(user)
-                .diary(diary)
-                .build();
+        Comment comment = new Comment(commentDto.getContent(), user, diary);
 
         Comment savedComment = commentRepository.save(comment);
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());

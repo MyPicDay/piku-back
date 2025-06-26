@@ -14,7 +14,6 @@ import static jakarta.persistence.FetchType.LAZY;
 @Entity
 @Table(name = "comments")
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Comment extends BaseEntity {
 
@@ -39,7 +38,6 @@ public class Comment extends BaseEntity {
     @OneToMany(mappedBy = "parent")
     private List<Comment> children = new ArrayList<>( );
 
-    @Builder
     public Comment(String content, User user, Diary diary) {
         this.content = content;
         this.user = user;
