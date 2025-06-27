@@ -4,12 +4,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
+import store.piku.back.friend.exception.FriendException;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
 
@@ -33,9 +35,17 @@ public class FriendRequestController {
             @RequestBody FriendRequestDto requestDto) {
 
         log.info("친구 요청(수락) 요청 "+ customUserDetails.getId()+ " 가 " + requestDto.getToUserId()+"에게");
-        FriendRequestResponseDto savedRequest = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId());
-        return ResponseEntity.ok(savedRequest);
+        try {
+            FriendRequestResponseDto savedRequest = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId());
+            return ResponseEntity.ok(savedRequest);
+
+        }catch(FriendException e){
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new FriendRequestResponseDto(false, e.getMessage())); // 체크...
+        }
     }
+
     @Operation(summary = "친구 목록 조회" , description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다")
     @GetMapping
     public ResponseEntity<List<FriendsDto>> getFriendList(@AuthenticationPrincipal CustomUserDetails customUserDetails){
