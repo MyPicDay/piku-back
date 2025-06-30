@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import store.piku.back.global.error.ErrorCode;
 
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = {"store.piku.back.diary", "store.piku.back.comment"})
 public class DiaryAcceptException {
 
     @ExceptionHandler(AccessDeniedException.class)
