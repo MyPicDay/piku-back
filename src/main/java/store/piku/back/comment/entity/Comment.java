@@ -44,7 +44,7 @@ public class Comment extends BaseEntity {
         this.diary = diary;
     }
 
-    public void setParent(Comment parent) {
+    public void connectParent(Comment parent) {
         if (this.parent != null) {
             this.parent.getChildren().remove(this);
         }
