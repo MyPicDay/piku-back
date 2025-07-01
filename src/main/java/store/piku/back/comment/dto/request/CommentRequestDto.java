@@ -1,4 +1,4 @@
-package store.piku.back.comment.dto;
+package store.piku.back.comment.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
@@ -8,11 +8,14 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "댓글 작성 DTO")
-public class CommentDto {
+public class CommentRequestDto {
 
-    @Schema(description = "일기 id")
+    @Schema(description = "일기 식별값")
     private Long diaryId ;
 
     @Schema(description = "댓글 내용")
     private String content ;
+
+    @Schema(description = "원 댓글 식별값")
+    private Long parentId;
 }

@@ -41,7 +41,7 @@ public class FriendRequestService {
         User fromUser = userService.getUserById(fromUserId);
         User toUser = userService.getUserById(toUserId);
 
-        if (fromUserId.equals(toUserId)) {
+        if (fromUserId.equals(toUserId)){
             throw new FriendException("자신에게 요청 할 수 없습니다.");
         }
 
@@ -53,19 +53,19 @@ public class FriendRequestService {
 
         if (existing.isPresent()) {
 
-            log.info(fromUserId + "와" + toUserId + "의 요청 수락 소프트 삭제 요청");
+            log.info(fromUserId + "와"+toUserId +"의 요청 수락 소프트 삭제 요청");
             friendRequestRepository.delete(existing.get());
 
-            log.info(toUserId + "," + fromUserId + " 사용자 친구 테이블 저장 요청");
+            log.info(toUserId +","+fromUserId +" 사용자 친구 테이블 저장 요청");
             friendRepository.save(new Friend(fromUserId, toUserId));
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
         } else {
-            log.info(toUserId + "," + fromUserId + " 사용자 친구 요청 테이블 추가 요청");
+            log.info(toUserId +","+fromUserId +" 사용자 친구 요청 테이블 추가 요청");
 
-            FriendRequest request = new FriendRequest(fromUserId, toUserId);
-            friendRequestRepository.save(request);
-            return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
+             FriendRequest request = new FriendRequest(fromUserId, toUserId);
+             friendRequestRepository.save(request);
+             return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
 
         }
     }

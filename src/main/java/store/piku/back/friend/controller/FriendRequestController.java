@@ -1,6 +1,12 @@
 package store.piku.back.friend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +35,32 @@ public class FriendRequestController {
     private final FriendRequestService friendRequestService;
 
 
-    @Operation(summary = "친구 요청,수락", description = "사용자가 다른 사용자에게 친구 요청을 보내거나, 이미 요청이 있을 경우 수락합니다.")
+    @Operation(summary = "친구 요청,수락", description = "사용자가 다른 사용자에게 친구 요청을 보내거나, 이미 요청이 있을 경우 수락합니다.")@ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 요청 성공 혹은 수락",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = FriendRequestResponseDto.class),
+                            examples = {
+                                    @ExampleObject(name = "요청 보냄", value = "{\"accepted\": false, \"message\": \"친구 요청을 보냈습니다.\"}"),
+                                    @ExampleObject(name = "요청 수락", value = "{\"accepted\": true, \"message\": \"친구 요청을 수락했습니다.\"}")
+                            }
+                    )
+            ),
+            @ApiResponse(responseCode = "409", description = "이미 친구인 상태",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = FriendRequestResponseDto.class),
+                            examples = @ExampleObject(value = "{\"accepted\": false, \"message\": \"이미 친구입니다.\"}")
+                    )
+            ),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (자신에게 요청 등)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = FriendRequestResponseDto.class),
+                            examples = @ExampleObject(value = "{\"accepted\": false, \"message\": \"자신에게 요청 할 수 없습니다.\"}")
+                    )
+            )
+    })
     @PostMapping
     public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
             @AuthenticationPrincipal CustomUserDetails customUserDetails,
@@ -49,6 +80,24 @@ public class FriendRequestController {
         }
     }
 
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "친구 목록 반환",
+                    content = @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = FriendsDto.class)),
+                            examples = @ExampleObject(value = "[" +
+                                    "{\"userId\": \"user1\", \"nickname\": \"닉네임1\", \"avatar\": \"avatar1.png\"}," +
+                                    "{\"userId\": \"user2\", \"nickname\": \"닉네임2\", \"avatar\": \"avatar2.png\"}" +
+                                    "]")
+                    )
+            ),
+            @ApiResponse(responseCode = "404", description = "사용자 정보 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(value = "null")
+                    )
+            )
+    })
     @Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다")
     @GetMapping
     public ResponseEntity<List<FriendsDto>> getFriendList(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
