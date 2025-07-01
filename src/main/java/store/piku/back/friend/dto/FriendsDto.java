@@ -7,13 +7,8 @@ import lombok.Data;
 @Data
 public class FriendsDto {
 
-     // id
      private String userId;
-
-    // 닉네임
      private String nickname;
-
-    // 아바타
      private String avatar;
 
 }

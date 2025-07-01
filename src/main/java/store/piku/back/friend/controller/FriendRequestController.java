@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import store.piku.back.friend.dto.*;
 import store.piku.back.friend.exception.AlreadyFriendsException;
 import store.piku.back.friend.exception.FriendException;
+import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.user.exception.UserNotFoundException;
@@ -60,6 +61,30 @@ public class FriendRequestController {
         }
     }
 
+    @Operation(summary = "받은 친구 요청 목록 조회", description = "나에게 온 친구 요청 목록을 조회합니다.")
+    @GetMapping("/requests")
+    public ResponseEntity<List<FriendsDto>> getFriendRequests(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        log.info(customUserDetails.getId() + " 의 받은 친구 요청 목록 조회");
+        List<FriendsDto> requests = friendRequestService.getFriendRequests(customUserDetails.getId());
+        return ResponseEntity.ok(requests);
+    }
 
 
+
+
+    @Operation(summary = "친구 요청 거절", description = "받은 친구 요청을 거절합니다.")
+    @DeleteMapping("/requests/{fromUserId}")
+    public ResponseEntity<FriendRequestResponseDto> rejectFriendRequest(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable String fromUserId) {
+        log.info(customUserDetails.getId() + " 가 " + fromUserId + " 의 친구 요청 거절");
+        try {
+            FriendRequestResponseDto response = friendRequestService.rejectFriendRequest(customUserDetails.getId(), fromUserId);
+            return ResponseEntity.ok(response);
+        } catch (FriendRequestNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new FriendRequestResponseDto(false, e.getMessage()));
+        }
+    }
 }

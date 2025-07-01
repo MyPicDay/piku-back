@@ -8,6 +8,7 @@ import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
 import store.piku.back.friend.entity.FriendRequest;
 import store.piku.back.friend.exception.FriendException;
+import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.key.FriendRequestID;
 import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
@@ -18,6 +19,7 @@ import store.piku.back.user.service.UserService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,7 +41,7 @@ public class FriendRequestService {
         User fromUser = userService.getUserById(fromUserId);
         User toUser = userService.getUserById(toUserId);
 
-        if (fromUserId.equals(toUserId)){
+        if (fromUserId.equals(toUserId)) {
             throw new FriendException("자신에게 요청 할 수 없습니다.");
         }
 
@@ -51,19 +53,19 @@ public class FriendRequestService {
 
         if (existing.isPresent()) {
 
-            log.info(fromUserId + "와"+toUserId +"의 요청 수락 소프트 삭제 요청");
+            log.info(fromUserId + "와" + toUserId + "의 요청 수락 소프트 삭제 요청");
             friendRequestRepository.delete(existing.get());
 
-            log.info(toUserId +","+fromUserId +" 사용자 친구 테이블 저장 요청");
+            log.info(toUserId + "," + fromUserId + " 사용자 친구 테이블 저장 요청");
             friendRepository.save(new Friend(fromUserId, toUserId));
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
         } else {
-            log.info(toUserId +","+fromUserId +" 사용자 친구 요청 테이블 추가 요청");
+            log.info(toUserId + "," + fromUserId + " 사용자 친구 요청 테이블 추가 요청");
 
-             FriendRequest request = new FriendRequest(fromUserId, toUserId);
-             friendRequestRepository.save(request);
-             return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
+            FriendRequest request = new FriendRequest(fromUserId, toUserId);
+            friendRequestRepository.save(request);
+            return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
 
         }
     }
@@ -89,7 +91,24 @@ public class FriendRequestService {
         return friends;
     }
 
+    public List<FriendsDto> getFriendRequests(String toUserId) {
+        log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
+        List<FriendRequest> requests = friendRequestRepository.findByToUserId(toUserId);
+        return requests.stream()
+                .map(request -> {
+                    User fromUser = userService.getUserById(request.getFromUserId());
+                    return new FriendsDto(fromUser.getId(), fromUser.getNickname(), fromUser.getAvatar());
+                })
+                .collect(Collectors.toList());
+    }
 
-
-
+    public FriendRequestResponseDto rejectFriendRequest(String toUserId, String fromUserId) {
+        log.info("친구 요청 거절: from {} to {}", fromUserId, toUserId);
+        FriendRequestID friendRequestID = new FriendRequestID(fromUserId, toUserId);
+        if (!friendRequestRepository.existsById(friendRequestID)) {
+            throw new FriendRequestNotFoundException("해당 친구 요청을 찾을 수 없습니다.");
+        }
+        friendRequestRepository.deleteById(friendRequestID);
+        return new FriendRequestResponseDto(true, "친구 요청을 거절했습니다.");
+    }
 }
