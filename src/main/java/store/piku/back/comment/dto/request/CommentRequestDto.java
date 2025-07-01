@@ -1,4 +1,4 @@
-package store.piku.back.comment.dto;
+package store.piku.back.comment.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;

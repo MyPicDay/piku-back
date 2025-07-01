@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResponseCommentDto {
+public class CommentResponseDto {
     private Long id;
     private String content;
     @JsonFormat(pattern = "yyyy-MM-dd")

@@ -5,8 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import store.piku.back.comment.dto.CommentRequestDto;
-import store.piku.back.comment.dto.response.ResponseCommentDto;
+import store.piku.back.comment.dto.request.CommentRequestDto;
+import store.piku.back.comment.dto.request.CommentUpdateDto;
+import store.piku.back.comment.dto.response.CommentResponseDto;
 import store.piku.back.comment.entity.Comment;
 import store.piku.back.comment.exception.CommentErrorCode;
 import store.piku.back.comment.exception.CommentException;
@@ -35,7 +36,7 @@ public class CommentService {
      * @return ResponseCommentDto 댓글 등록 dto
     * */
     @Transactional
-    public ResponseCommentDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException {
+    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException {
 
         User user = userService.getUserById(userId);
         Diary diary = diaryRepository.findById(commentRequestDto.getDiaryId())
@@ -55,10 +56,50 @@ public class CommentService {
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
-        return new ResponseCommentDto(
+        return new CommentResponseDto(
                 savedComment.getId(),
                 savedComment.getContent(),
                 savedComment.getCreatedAt()
+        );
+    }
+
+
+    /**
+     * 댓글 수정
+     *
+     * @param commentId 수정할 댓글 ID
+     * @param commentRequestDto 수정할 댓글 내용이 담긴 DTO
+     * @param userId 댓글 작성자 ID
+     * @return ResponseCommentDto 수정된 댓글 정보 DTO
+     * @throws CommentException 댓글 커스텀 예외
+     * */
+    @Transactional
+    public CommentResponseDto updateComment(Long commentId, CommentUpdateDto commentRequestDto, String userId) throws CommentException{
+        Comment comment = findCommentById(commentId);
+
+        if (!comment.getUser().getId().equals(userId)) {
+            log.error("본인의 댓글만 수정할 수 있습니다.");
+            throw new CommentException(CommentErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        if (comment.getDiary() != null) {
+            diaryRepository.findById(comment.getDiary().getId())
+                    .orElseThrow(DiaryNotFoundException::new);
+        } else {
+            // 댓글이 어떤 다이어리에도 속해있지 않은 경우
+            log.error("댓글 {}이 연결된 다이어리를 찾을 수 없습니다.", commentId);
+            throw new CommentException(CommentErrorCode.INVALID_REQUEST);
+        }
+
+        comment.updateContent(commentRequestDto.getContent());
+        Comment updatedComment = saveCommentToDb(comment, userId, comment.getDiary().getId());
+
+        log.info("사용자 {}님이 댓글 {} 수정 완료, 수정 내용: {}", userId, updatedComment.getId(), updatedComment.getContent());
+
+        return new CommentResponseDto(
+                updatedComment.getId(),
+                updatedComment.getContent(),
+                updatedComment.getCreatedAt()
         );
     }
 
@@ -93,4 +134,5 @@ public class CommentService {
             throw new CommentException(CommentErrorCode.DATABASE_ERROR, e);
         }
     }
+
 }
