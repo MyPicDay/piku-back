@@ -54,4 +54,10 @@ public class Comment extends BaseEntity {
         }
     }
 
+    public void updateContent(String content) {
+        if (content != null && !content.trim().isEmpty()) {
+            this.content = content;
+        }
+    }
+
 }
