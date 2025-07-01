@@ -5,14 +5,13 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import store.piku.back.friend.key.FriendID;
-import store.piku.back.global.entity.BaseEntity;
 
 @IdClass(FriendID.class)
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "friend")
-public class Friend extends BaseEntity {
+public class Friend {
 
     @Id
     @Column(name="user_id_1")

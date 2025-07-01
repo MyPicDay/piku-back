@@ -12,11 +12,12 @@ import store.piku.back.friend.key.FriendRequestID;
 import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.user.entity.User;
+import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.UserService;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -28,6 +29,9 @@ public class FriendRequestService {
     private final UserService userService;
 
 
+    public boolean areFriends(String userId1, String userId2) {
+        return friendRepository.existsFriendship(userId1, userId2);
+    }
 
     public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) {
 
@@ -37,6 +41,10 @@ public class FriendRequestService {
 
         if (fromUserId.equals(toUserId)){
             throw new FriendException("자신에게 요청 할 수 없습니다.");
+        }
+
+        if (areFriends(fromUserId, toUserId) || areFriends(toUserId, fromUserId)) {
+            throw new FriendException("이미 친구입니다.");
         }
 
         Optional<FriendRequest> existing = friendRequestRepository.findById(new FriendRequestID(toUser.getId(), fromUser.getId()));
@@ -66,9 +74,22 @@ public class FriendRequestService {
         User user = userService.getUserById(id);
 
         log.info("사용자 친구 조회 요청");
-        List<FriendsDto> friends = friendRepository.findAllByUserId(user.getId());
-        return friends.stream()
-                .map(f -> new FriendsDto(f.getUserId(),f.getNickname(),f.getAvatar()))
-                .collect(Collectors.toList());
+        List<String> friends_id = friendRepository.findFriendIds(user.getId());
+
+        List<FriendsDto> friends = new ArrayList<>();
+
+        for (String friendsId : friends_id) {
+            try {
+                User friend = userService.getUserById(friendsId);
+                friends.add(new FriendsDto(friend.getId(), friend.getNickname(), friend.getAvatar()));
+            } catch (UserNotFoundException e) {
+                log.warn("친구 정보 없음: {}", id);
+            }
+        }
+        return friends;
     }
+
+
+
+
 }
