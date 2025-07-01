@@ -17,13 +17,4 @@ public class CommentExceptionHandler {
         return new ResponseEntity<>(response, errorCode.getStatus());
     }
 
-
-    // 모든 예외 처리하는 핸들러
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
-        ErrorResponse response = new ErrorResponse("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다.");
-
-        // log.error("Unhandled exception in comment package", ex);
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
 }

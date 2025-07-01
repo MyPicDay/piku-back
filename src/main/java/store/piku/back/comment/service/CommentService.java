@@ -45,23 +45,15 @@ public class CommentService {
         Comment comment = new Comment(commentRequestDto.getContent(), user, diary);
 
         if (commentRequestDto.getParentId() != null) {
-            Comment parentComment = commentRepository.findById(commentRequestDto.getParentId())
-                    .orElseThrow(() -> new CommentException(CommentErrorCode.COMMENT_NOT_FOUND));
+            Comment parentComment = findCommentById(commentRequestDto.getParentId());
 
             if (parentComment.getParent() != null) {
                 throw new CommentException(CommentErrorCode.INVALID_PARENT_COMMENT);
             }
-            comment.setParent(parentComment);
+            comment.connectParent(parentComment);
         }
 
-        Comment savedComment;
-        try {
-            savedComment = commentRepository.save(comment);
-        } catch (DataAccessException e) {
-            log.error("DB 댓글 저장 실패. user: {}, diaryId: {}", userId, diary.getId(), e);
-            throw new CommentException(CommentErrorCode.DATABASE_ERROR, e);
-        }
-
+        Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
         return new CommentResponseDto(
@@ -83,12 +75,10 @@ public class CommentService {
      * */
     @Transactional
     public CommentResponseDto updateComment(Long commentId, CommentUpdateDto commentRequestDto, String userId) throws CommentException{
-
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new CommentException(CommentErrorCode.COMMENT_NOT_FOUND));
+        Comment comment = findCommentById(commentId);
 
         if (!comment.getUser().getId().equals(userId)) {
-//            log.error();
+            log.error("본인의 댓글만 수정할 수 있습니다.");
             throw new CommentException(CommentErrorCode.UNAUTHORIZED_ACCESS);
         }
 
@@ -97,19 +87,12 @@ public class CommentService {
                     .orElseThrow(DiaryNotFoundException::new);
         } else {
             // 댓글이 어떤 다이어리에도 속해있지 않은 경우
-            log.error("댓글 {}이(가) 연결된 다이어리를 찾을 수 없습니다.", commentId);
+            log.error("댓글 {}이 연결된 다이어리를 찾을 수 없습니다.", commentId);
             throw new CommentException(CommentErrorCode.INVALID_REQUEST);
         }
 
         comment.updateContent(commentRequestDto.getContent());
-        Comment updatedComment;
-
-        try {
-            updatedComment = commentRepository.save(comment);
-        } catch (DataAccessException e) {
-            log.error("DB 댓글 수정 실패. commentId: {}, userId: {}", commentId, userId, e);
-            throw new CommentException(CommentErrorCode.DATABASE_ERROR, e);
-        }
+        Comment updatedComment = saveCommentToDb(comment, userId, comment.getDiary().getId());
 
         log.info("사용자 {}님이 댓글 {} 수정 완료, 수정 내용: {}", userId, updatedComment.getId(), updatedComment.getContent());
 
@@ -119,4 +102,37 @@ public class CommentService {
                 updatedComment.getCreatedAt()
         );
     }
+
+    /**
+     * 주어진 ID로 댓글을 찾음
+     *
+     * @param commentId 찾을 댓글 ID
+     * @return 찾은 Comment 엔티티
+     * @throws CommentException 댓글을 찾을 수 없을 경우
+     */
+    private Comment findCommentById(Long commentId) {
+        return commentRepository.findById(commentId)
+                .orElseThrow(() -> {
+                    log.error("댓글 ID {}을(를) 찾을 수 없습니다.", commentId);
+                    return new CommentException(CommentErrorCode.COMMENT_NOT_FOUND);});
+    }
+
+    /**
+     * 댓글을 DB에 저장
+     *
+     * @param comment 저장할 Comment 엔티티
+     * @param userId  로그에 남길 사용자 ID
+     * @param diaryId 로그에 남길 다이어리 ID
+     * @return 저장된 Comment 엔티티
+     * @throws CommentException db 작업에 실패하는 경우
+     */
+    private Comment saveCommentToDb(Comment comment, String userId, Long diaryId) {
+        try {
+            return commentRepository.save(comment);
+        } catch (DataAccessException e) {
+            log.error("DB 댓글 저장/수정 실패. user: {}, diaryId: {}, commentId: {}", userId, diaryId, comment.getId(), e);
+            throw new CommentException(CommentErrorCode.DATABASE_ERROR, e);
+        }
+    }
+
 }
