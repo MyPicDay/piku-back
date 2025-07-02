@@ -109,9 +109,15 @@ public class FriendRequestController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
     }
-
-    @Operation(summary = "받은 친구 요청 목록 조회", description = "나에게 온 친구 요청 목록을 조회합니다.")
-    @GetMapping("/requests")
+    @Operation(
+            summary = "받은 친구 요청 목록 조회",
+            description = "나에게 온 친구 요청 목록을 조회합니다.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "친구 요청 목록 조회 성공",
+                            content = @Content(array = @ArraySchema(schema = @Schema(implementation = FriendsDto.class)))),
+                    @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content)
+            }
+    )    @GetMapping("/requests")
     public ResponseEntity<List<FriendsDto>> getFriendRequests(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
         log.info(customUserDetails.getId() + " 의 받은 친구 요청 목록 조회");
         List<FriendsDto> requests = friendRequestService.getFriendRequests(customUserDetails.getId());
@@ -119,13 +125,37 @@ public class FriendRequestController {
     }
 
 
-
-
-    @Operation(summary = "친구 요청 거절", description = "받은 친구 요청을 거절합니다.")
+    @Operation(
+            summary = "친구 요청 거절",
+            description = "받은 친구 요청을 거절합니다.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "친구 요청 거절 성공",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            value = "{\"message\": \"친구 요청을 거절했습니다.\", \"accepted\": false}"
+                                    ),
+                                    schema = @Schema(implementation = FriendRequestResponseDto.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "친구 요청이 존재하지 않음",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            value = "{\"message\": \"해당 친구 요청을 찾을 수 없습니다.\", \"accepted\": false}"
+                                    ),
+                                    schema = @Schema(implementation = FriendRequestResponseDto.class)
+                            )
+                    )
+            }
+    )
     @DeleteMapping("/requests/{fromUserId}")
-    public ResponseEntity<FriendRequestResponseDto> rejectFriendRequest(
-            @AuthenticationPrincipal CustomUserDetails customUserDetails,
-            @PathVariable String fromUserId) {
+    public ResponseEntity<FriendRequestResponseDto> rejectFriendRequest( @AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                         @PathVariable String fromUserId) {
         log.info(customUserDetails.getId() + " 가 " + fromUserId + " 의 친구 요청 거절");
         try {
             FriendRequestResponseDto response = friendRequestService.rejectFriendRequest(customUserDetails.getId(), fromUserId);

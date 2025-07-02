@@ -106,9 +106,10 @@ public class FriendRequestService {
         log.info("친구 요청 거절: from {} to {}", fromUserId, toUserId);
         FriendRequestID friendRequestID = new FriendRequestID(fromUserId, toUserId);
         if (!friendRequestRepository.existsById(friendRequestID)) {
-            throw new FriendRequestNotFoundException("해당 친구 요청을 찾을 수 없습니다.");
+            log.info("친구 조회 실패 : from {} to {}", fromUserId, toUserId);
+            throw new FriendRequestNotFoundException("해당 친구 요청 기록을 찾을 수 없습니다.");
         }
         friendRequestRepository.deleteById(friendRequestID);
-        return new FriendRequestResponseDto(true, "친구 요청을 거절했습니다.");
+        return new FriendRequestResponseDto(false, "친구 요청을 거절했습니다.");
     }
 }
