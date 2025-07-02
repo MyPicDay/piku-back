@@ -112,4 +112,17 @@ public class FriendRequestService {
         friendRequestRepository.deleteById(friendRequestID);
         return new FriendRequestResponseDto(false, "친구 요청을 거절했습니다.");
     }
+
+
+
+    public FriendRequestResponseDto cancelFriendRequest(String fromUserId, String toUserId) {
+        log.info("친구 요청 취소: from {} to {}", fromUserId, toUserId);
+        FriendRequestID friendRequestID = new FriendRequestID(fromUserId, toUserId);
+        if (!friendRequestRepository.existsById(friendRequestID)) {
+            log.warn("취소할 친구 요청을 찾을 수 없습니다: from {} to {}", fromUserId, toUserId);
+            throw new FriendRequestNotFoundException("요청 보낸 기록이 없습니다.");
+        }
+        friendRequestRepository.deleteById(friendRequestID);
+        return new FriendRequestResponseDto(false, "친구 요청을 취소했습니다.");
+    }
 }

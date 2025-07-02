@@ -166,4 +166,46 @@ public class FriendRequestController {
                     .body(new FriendRequestResponseDto(false, e.getMessage()));
         }
     }
+
+    @Operation(
+            summary = "친구 요청 취소",
+            description = "친구 요청을 취소합니다.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "친구 요청 취소 성공",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            value = "{\"message\": \"친구 요청을 취소했습니다.\", \"accepted\": false}"
+                                    ),
+                                    schema = @Schema(implementation = FriendRequestResponseDto.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "취소할 친구 요청이 존재하지 않음",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            value = "{\"message\": \"취소할 친구 요청을 찾을 수 없습니다.\", \"accepted\": false}"
+                                    ),
+                                    schema = @Schema(implementation = FriendRequestResponseDto.class)
+                            )
+                    )
+            }
+    )
+    @DeleteMapping("/cancel/{toUserId}")
+    public ResponseEntity<FriendRequestResponseDto> cancelFriendRequest(@AuthenticationPrincipal CustomUserDetails customUserDetails,
+                                                                          @PathVariable String toUserId) {
+        log.info(customUserDetails.getId() + " 가 " + toUserId + " 에게 보낸 친구 요청 취소");
+        try {
+            FriendRequestResponseDto response = friendRequestService.cancelFriendRequest(customUserDetails.getId(), toUserId);
+            return ResponseEntity.ok(response);
+        } catch (FriendRequestNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new FriendRequestResponseDto(false, e.getMessage()));
+        }
+    }
 }
