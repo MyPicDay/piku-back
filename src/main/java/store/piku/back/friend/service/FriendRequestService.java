@@ -2,6 +2,8 @@ package store.piku.back.friend.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
@@ -12,6 +14,8 @@ import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.key.FriendRequestID;
 import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
+import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.UserService;
@@ -27,6 +31,7 @@ import java.util.stream.Collectors;
 public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
+    private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRepository friendRepository;
     private final UserService userService;
 
@@ -52,7 +57,6 @@ public class FriendRequestService {
         Optional<FriendRequest> existing = friendRequestRepository.findById(new FriendRequestID(toUser.getId(), fromUser.getId()));
 
         if (existing.isPresent()) {
-
             log.info(fromUserId + "와"+toUserId +"의 요청 수락 소프트 삭제 요청");
             friendRequestRepository.delete(existing.get());
 
@@ -66,41 +70,42 @@ public class FriendRequestService {
              FriendRequest request = new FriendRequest(fromUserId, toUserId);
              friendRequestRepository.save(request);
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
-
         }
     }
 
-    public List<FriendsDto> getFriendList(String id) {
-
-        log.info("사용자 조회 요청");
-        User user = userService.getUserById(id);
+    public Page<FriendsDto> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 
         log.info("사용자 친구 조회 요청");
-        List<String> friends_id = friendRepository.findFriendIds(user.getId());
+        Page<String> friends_id = friendRepository.findFriendIds(id,pageable);
 
-        List<FriendsDto> friends = new ArrayList<>();
-
-        for (String friendsId : friends_id) {
+        return friends_id.map(friendId -> {
             try {
-                User friend = userService.getUserById(friendsId);
-                friends.add(new FriendsDto(friend.getId(), friend.getNickname(), friend.getAvatar()));
+                User friend = userService.getUserById(friendId);
+                String avatarUrl = imagePathToUrlConverter.diaryImageUrl(friend.getAvatar(), requestMetaInfo);
+                return new FriendsDto(friend.getId(), friend.getNickname(), avatarUrl);
             } catch (UserNotFoundException e) {
-                log.warn("친구 정보 없음: {}", id);
+                log.warn("친구 정보 없음: {}", friendId);
+                return new FriendsDto(friendId, "탈퇴한 사용자", null); // 기본값 처리 이게 맞을까??
             }
-        }
-        return friends;
+        });
     }
 
-    public List<FriendsDto> getFriendRequests(String toUserId) {
+
+
+
+    public Page<FriendsDto> findFriendRequests(Pageable pageable,String toUserId , RequestMetaInfo requestMetaInfo) {
         log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
-        List<FriendRequest> requests = friendRequestRepository.findByToUserId(toUserId);
-        return requests.stream()
-                .map(request -> {
-                    User fromUser = userService.getUserById(request.getFromUserId());
-                    return new FriendsDto(fromUser.getId(), fromUser.getNickname(), fromUser.getAvatar());
-                })
-                .collect(Collectors.toList());
+        Page<FriendRequest> requests = friendRequestRepository.findByToUserId(toUserId,pageable);
+
+        return requests.map(request -> {
+            User fromUser = userService.getUserById(request.getFromUserId());
+            String avatarUrl = imagePathToUrlConverter.diaryImageUrl(fromUser.getAvatar(), requestMetaInfo);
+            return new FriendsDto(fromUser.getId(), fromUser.getNickname(), avatarUrl);
+        });
     }
+
+
+
 
     public FriendRequestResponseDto rejectFriendRequest(String toUserId, String fromUserId) {
         log.info("친구 요청 거절: from {} to {}", fromUserId, toUserId);
