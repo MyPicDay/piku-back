@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import store.piku.back.diary.enums.Status;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Schema(description = "일기 조회 응답DTO")
@@ -28,8 +29,9 @@ public class ResponseDTO {
     @Schema(description = "사용자 프로필 사진")
     private String avatar;
 
-    
     private String userId;
+
+    private LocalDateTime createdAt;
 
 
 }

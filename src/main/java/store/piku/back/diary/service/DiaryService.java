@@ -42,7 +42,23 @@ public class DiaryService {
     private final UserRepository userRepository;
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
-    private final JwtProvider jwtProvider;
+
+    /**
+     * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
+     *
+     * @param diaryId 조회할 일기의 ID
+     * @return 조회된 Diary 엔티티
+     * @throws DiaryNotFoundException 해당 ID의 일기가 존재하지 않을 경우
+     */
+    public Diary getDiaryById(Long diaryId) {
+        return diaryRepository.findById(diaryId)
+                .orElseThrow(() -> {
+                    log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
+                    return new DiaryNotFoundException();
+                });
+    }
+
+
 
     @Transactional
     public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) {
@@ -112,8 +128,7 @@ public class DiaryService {
     @Transactional(readOnly = true)
     public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, CustomUserDetails customUserDetails) {
         log.info("{} 일기 내용 조회 요청", diaryId);
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(DiaryNotFoundException::new);
+        Diary diary = getDiaryById(diaryId);
 
         // 모든 사진 리스트 한 번만 조회
         List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
@@ -135,7 +150,8 @@ public class DiaryService {
                     diary.getDate(),
                     diary.getUser().getNickname(),
                     diary.getUser().getAvatar(),
-                    diary.getUser().getId()
+                    diary.getUser().getId(),
+                    diary.getCreatedAt()
             );
         }
 
@@ -148,7 +164,8 @@ public class DiaryService {
                 diary.getDate(),
                 diary.getUser().getNickname(),
                 diary.getUser().getAvatar(),
-                diary.getUser().getId()
+                diary.getUser().getId(),
+                diary.getCreatedAt()
         );
     }
 
@@ -196,7 +213,6 @@ public class DiaryService {
      * @param pageable 조회할 페이지 번호 (0부터 시작)
      * @return 공개된 일기 리스트의 DTO를 담은 Page
      */
-
     public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo) {
         Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
 
@@ -212,7 +228,8 @@ public class DiaryService {
                     diary.getDate(),
                     diary.getUser().getNickname(),
                     diary.getUser().getAvatar(),
-                    diary.getUser().getId()
+                    diary.getUser().getId(),
+                    diary.getCreatedAt()
             );
         });
     }
