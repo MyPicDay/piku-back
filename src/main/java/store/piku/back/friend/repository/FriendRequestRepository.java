@@ -5,9 +5,11 @@ import org.springframework.stereotype.Repository;
 import store.piku.back.friend.entity.FriendRequest;
 import store.piku.back.friend.key.FriendRequestID;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface FriendRequestRepository extends JpaRepository<FriendRequest, FriendRequestID> {
     Optional<FriendRequest> findByFromUserIdAndToUserId(String fromUserId, String toUserId);
+    List<FriendRequest> findByToUserId(String toUserId);
 }

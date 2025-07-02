@@ -7,7 +7,6 @@ import lombok.Data;
 @AllArgsConstructor
 @Data
 public class FriendsDto {
-
     @Schema(description = "친구의 사용자 ID", example = "friend123")
     private String userId;
 
