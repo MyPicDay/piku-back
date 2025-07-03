@@ -20,6 +20,7 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
@@ -46,7 +47,7 @@ public class DiaryService {
     private final UserService userService;
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
-
+    private final FriendRequestService friendRequestService;
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
      *
@@ -137,22 +138,26 @@ public class DiaryService {
 
 
     @Transactional(readOnly = true)
-    public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, CustomUserDetails customUserDetails) {
+    public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo,String user_id) {
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = getDiaryById(diaryId);
 
         // 모든 사진 리스트 한 번만 조회
         List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
-        if (photos == null || photos.isEmpty()) {
-            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
-            throw new DiaryNotFoundException();
-        }
+//        if (photos == null || photos.isEmpty()) {
+//            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
+//            throw new DiaryNotFoundException();
+//        }
 
         List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
-        boolean isOwner = diary.getUser().getId().equals(customUserDetails.getId());
+        boolean isOwner = diary.getUser().getId().equals(user_id);
+        boolean isFriend = friendRequestService.areFriends(diary.getUser().getId(), user_id);
+
+        String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
 
         // 비공개 + 본인 아님 → 대표 사진만 반환
-        if (diary.getStatus() == Status.PRIVATE && !isOwner) {
+        if ((diary.getStatus() == Status.PRIVATE && !isOwner)
+                || (diary.getStatus() == Status.FRIENDS && !isOwner && !isFriend)) {
             return new ResponseDTO(
                     diary.getId(),
                     diary.getStatus(),
@@ -160,7 +165,7 @@ public class DiaryService {
                     List.of(sortedPhotoUrls.get(0)),
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar(),
+                    avatarUrl,
                     diary.getUser().getId(),
                     diary.getCreatedAt()
             );
@@ -174,7 +179,7 @@ public class DiaryService {
                 sortedPhotoUrls,
                 diary.getDate(),
                 diary.getUser().getNickname(),
-                diary.getUser().getAvatar(),
+                avatarUrl,
                 diary.getUser().getId(),
                 diary.getCreatedAt()
         );
