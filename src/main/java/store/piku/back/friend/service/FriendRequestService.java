@@ -79,7 +79,7 @@ public class FriendRequestService {
         return friends_id.map(friendId -> {
             try {
                 User friend = userService.getUserById(friendId);
-                String avatarUrl = imagePathToUrlConverter.diaryImageUrl(friend.getAvatar(), requestMetaInfo);
+                String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
                 return new FriendsDto(friend.getId(), friend.getNickname(), avatarUrl);
             } catch (UserNotFoundException e) {
                 log.warn("친구 정보 없음: {}", friendId);
@@ -97,7 +97,7 @@ public class FriendRequestService {
 
         return requests.map(request -> {
             User fromUser = userService.getUserById(request.getFromUserId());
-            String avatarUrl = imagePathToUrlConverter.diaryImageUrl(fromUser.getAvatar(), requestMetaInfo);
+            String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(fromUser.getAvatar(), requestMetaInfo);
             return new FriendsDto(fromUser.getId(), fromUser.getNickname(), avatarUrl);
         });
     }
