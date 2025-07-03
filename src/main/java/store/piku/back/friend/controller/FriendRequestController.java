@@ -8,8 +8,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,9 +25,9 @@ import store.piku.back.friend.exception.FriendException;
 import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
+import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.global.util.RequestMetaMapper;
 import store.piku.back.user.exception.UserNotFoundException;
-
-import java.util.List;
 
 
 @Tag(name = "Friend" ,description = "친구 관련 API")
@@ -33,6 +38,7 @@ import java.util.List;
 public class FriendRequestController {
 
     private final FriendRequestService friendRequestService;
+    private final RequestMetaMapper requestMetaMapper;
 
 
     @Operation(summary = "친구 요청,수락", description = "사용자가 다른 사용자에게 친구 요청을 보내거나, 이미 요청이 있을 경우 수락합니다.")@ApiResponses({
@@ -80,6 +86,9 @@ public class FriendRequestController {
         }
     }
 
+
+
+    @Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "친구 목록 반환",
                     content = @Content(
@@ -91,6 +100,7 @@ public class FriendRequestController {
                                     "]")
                     )
             ),
+            @ApiResponse(responseCode = "204", description = "친구 목록이 없음 (No Content)"),
             @ApiResponse(responseCode = "404", description = "사용자 정보 없음",
                     content = @Content(
                             mediaType = "application/json",
@@ -98,36 +108,53 @@ public class FriendRequestController {
                     )
             )
     })
-    @Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다")
     @GetMapping
-    public ResponseEntity<List<FriendsDto>> getFriendList(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<Page<FriendsDto>> findFriendList(
+            @ParameterObject
+            @PageableDefault Pageable pageable, @AuthenticationPrincipal CustomUserDetails customUserDetails , HttpServletRequest request) {
         log.info(customUserDetails.getId() + " 의 친구 목록 조회 요청");
-        try {
-            List<FriendsDto> friends = friendRequestService.getFriendList(customUserDetails.getId());
+
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            Page<FriendsDto> friends = friendRequestService.findFriendList(pageable,customUserDetails.getId(),requestMetaInfo);
+
+            if (friends.isEmpty()) {
+                log.info("사용자 {}의 친구 내역이 없습니다.",  customUserDetails.getId());
+                return ResponseEntity.noContent().build();
+            }
             return ResponseEntity.ok(friends);
-        } catch (UserNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-        }
     }
+
+
     @Operation(
-            summary = "받은 친구 요청 목록 조회",
-            description = "나에게 온 친구 요청 목록을 조회합니다.",
+            summary = "받은 요청 목록 조회", description = "나에게 온 친구 요청 목록을 조회합니다.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "친구 요청 목록 조회 성공",
                             content = @Content(array = @ArraySchema(schema = @Schema(implementation = FriendsDto.class)))),
+                    @ApiResponse(responseCode = "204", description = "받은 요청 없음 (No Content)"),
                     @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content)
             }
-    )    @GetMapping("/requests")
-    public ResponseEntity<List<FriendsDto>> getFriendRequests(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    )
+    @GetMapping("/requests")
+    public ResponseEntity<Page<FriendsDto>> findFriendRequests(
+            @ParameterObject
+            @PageableDefault Pageable pageable,@AuthenticationPrincipal CustomUserDetails customUserDetails, HttpServletRequest request) {
         log.info(customUserDetails.getId() + " 의 받은 친구 요청 목록 조회");
-        List<FriendsDto> requests = friendRequestService.getFriendRequests(customUserDetails.getId());
+
+        RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+        Page<FriendsDto> requests = friendRequestService.findFriendRequests(pageable, customUserDetails.getId(),requestMetaInfo);
+
+        if (requests.isEmpty()) {
+            log.info("사용자 {}의 요청 내역이 없습니다.",  customUserDetails.getId());
+            return ResponseEntity.noContent().build();
+        }
         return ResponseEntity.ok(requests);
     }
 
 
+
+
     @Operation(
-            summary = "친구 요청 거절",
-            description = "받은 친구 요청을 거절합니다.",
+            summary = "친구 요청 거절", description = "받은 친구 요청을 거절합니다.",
             responses = {
                     @ApiResponse(
                             responseCode = "200",
@@ -167,9 +194,10 @@ public class FriendRequestController {
         }
     }
 
+
+
     @Operation(
-            summary = "친구 요청 취소",
-            description = "친구 요청을 취소합니다.",
+            summary = "친구 요청 취소", description = "친구 요청을 취소합니다.",
             responses = {
                     @ApiResponse(
                             responseCode = "200",

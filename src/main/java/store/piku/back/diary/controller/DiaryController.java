@@ -7,19 +7,15 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.io.Resource;
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,6 +34,8 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
+import store.piku.back.user.exception.UserNotFoundException;
+
 import java.util.List;
 
 @Tag(name = "Diary", description = "일기 관련 API")
@@ -51,21 +49,29 @@ public class DiaryController {
     private final FileUtil fileUtil;
     private final RequestMetaMapper requestMetaMapper;
 
+
     @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
-    @SecurityRequirement(name = "JWT")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDiaryDTO> createDiary(@Valid @ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
-        ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
-
-        if (isSaved != null) {
-            log.info("{}님 일기,사진 등록 성공", userDetails.getId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
-        } else {
-            log.error("{}님 일기, 사진 등록 실패", userDetails.getId());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        try {
+            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
+            if (isSaved != null) {
+                return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+            } else {
+                log.error("{}님 일기, 사진 등록 실패", userDetails.getId());
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+            }
+        }catch(UserNotFoundException e) {
+            log.error("유저를 찾을 수 없습니다: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(null);        }
     }
+
+
+
+
+
 
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "일기 조회 성공",
@@ -76,7 +82,6 @@ public class DiaryController {
             @ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
     })
     @Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
-    @SecurityRequirement(name = "JWT")
     @GetMapping("/{diaryId}")
     public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId ,HttpServletRequest request , @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
@@ -112,7 +117,6 @@ public class DiaryController {
     }
 
     @Operation(summary = "월별 일기 목록 조회", description = "특정 사용자의 월별 일기 목록을 조회합니다. (캘린더용)")
-    @SecurityRequirement(name = "JWT")
     @Parameters({
             @Parameter(name = "userId", description = "사용자 ID", required = true),
             @Parameter(name = "year", description = "조회할 연도", required = true),
