@@ -88,7 +88,7 @@ public class DiaryController {
             log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
             RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails);
+            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails.getId());
             return ResponseEntity.ok(response);
 
     }
