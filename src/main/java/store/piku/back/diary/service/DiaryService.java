@@ -17,18 +17,22 @@ import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
+import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
+import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.repository.UserRepository;
+import store.piku.back.user.service.UserService;
 
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 
@@ -39,47 +43,70 @@ public class DiaryService {
 
     private final DiaryRepository diaryRepository;
     private final PhotoRepository photoRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
-    private final JwtProvider jwtProvider;
+
+    /**
+     * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
+     *
+     * @param diaryId 조회할 일기의 ID
+     * @return 조회된 Diary 엔티티
+     * @throws DiaryNotFoundException 해당 ID의 일기가 존재하지 않을 경우
+     */
+    public Diary getDiaryById(Long diaryId) {
+        return diaryRepository.findById(diaryId)
+                .orElseThrow(() -> {
+                    log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
+                    return new DiaryNotFoundException();
+                });
+    }
 
     @Transactional
-    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) {
-        validateDiaryDTO(diaryDTO);
+    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) throws UserNotFoundException {
 
-        List<MultipartFile> photos = diaryDTO.getPhotos();
-        List<Long> aiPhotos = diaryDTO.getAiPhotos();
+        log.info("사용자 조회");
+        User user = userService.getUserById(userId);
 
-        log.info("사용자 [{}] - 일기 등록 시작. 내용: {}, 사진 개수: {}, 등록 날짜: {}",
-                userId, diaryDTO.getContent(), photos.size(), diaryDTO.getDate());
+        Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user, diaryDTO.getDate());
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("사용자 ID [{}]에 해당하는 사용자를 찾을 수 없습니다.", userId);
-                    return new IllegalArgumentException("사용자를 찾을 수 없습니다. ");
-                });
+        if (existingDiary.isPresent()) {
+            log.info("일기 날짜 중복 요청");
+            throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryDTO.getDate());
+        }
 
         Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(),diaryDTO.getDate(), user);
         diary = diaryRepository.save(diary);
         log.info("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
 
-        try {
-            int photoCoverIndex = -1;
-            int aiCoverIndex = -1;
-            if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()){
-                aiCoverIndex = diaryDTO.getCoverPhotoIndex();
-            }  else {
-                photoCoverIndex = diaryDTO.getCoverPhotoIndex();
-            }
-            photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
-            photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
-            log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
-        } catch (IOException e) {
-            log.error("사진 저장 실패 : {}", e.getMessage(), e);
-            throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
-        }
 
+            validateDiaryDTO(diaryDTO);
+
+            List<MultipartFile> photos = diaryDTO.getPhotos();
+            List<Long> aiPhotos = diaryDTO.getAiPhotos();
+
+            try {
+                int photoCoverIndex = -1;
+                int aiCoverIndex = -1;
+
+                if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
+                    aiCoverIndex = diaryDTO.getCoverPhotoIndex();
+                } else {
+                    photoCoverIndex = diaryDTO.getCoverPhotoIndex();
+                }
+
+                if (photos != null ) {
+                    photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
+                }
+
+                if (aiPhotos != null) {
+                    photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
+                }
+                log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
+            } catch (IOException e) {
+                log.error("사진 저장 실패 : {}", e.getMessage(), e);
+                throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
+            }
         return new ResponseDiaryDTO(
                 diary.getId(),
                 diary.getContent()
@@ -112,8 +139,7 @@ public class DiaryService {
     @Transactional(readOnly = true)
     public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, CustomUserDetails customUserDetails) {
         log.info("{} 일기 내용 조회 요청", diaryId);
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(DiaryNotFoundException::new);
+        Diary diary = getDiaryById(diaryId);
 
         // 모든 사진 리스트 한 번만 조회
         List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
@@ -135,7 +161,8 @@ public class DiaryService {
                     diary.getDate(),
                     diary.getUser().getNickname(),
                     diary.getUser().getAvatar(),
-                    diary.getUser().getId()
+                    diary.getUser().getId(),
+                    diary.getCreatedAt()
             );
         }
 
@@ -148,7 +175,8 @@ public class DiaryService {
                 diary.getDate(),
                 diary.getUser().getNickname(),
                 diary.getUser().getAvatar(),
-                diary.getUser().getId()
+                diary.getUser().getId(),
+                diary.getCreatedAt()
         );
     }
 
@@ -196,7 +224,6 @@ public class DiaryService {
      * @param pageable 조회할 페이지 번호 (0부터 시작)
      * @return 공개된 일기 리스트의 DTO를 담은 Page
      */
-
     public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo) {
         Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
 
@@ -212,7 +239,8 @@ public class DiaryService {
                     diary.getDate(),
                     diary.getUser().getNickname(),
                     diary.getUser().getAvatar(),
-                    diary.getUser().getId()
+                    diary.getUser().getId(),
+                    diary.getCreatedAt()
             );
         });
     }

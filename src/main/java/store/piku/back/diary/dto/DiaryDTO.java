@@ -27,18 +27,18 @@ public class DiaryDTO {
     private String content;
 
     @Size(max = 3, message = "AI 사진은 최대 3개까지 업로드할 수 있습니다.")
-    @Schema(description = "AI 사진(대표 사진은 0번 인덱스)")
+    @Schema(description = "AI 사진 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 ) ")
     private List<Long> aiPhotos;
 
-    @Schema(description = "내 앨범 사진")
+    @Schema(description = "내 앨범 사진 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 )", nullable = true)
     private List<MultipartFile> photos;
 
-    @Schema(description = "일기날짜")
+    @Schema(description = "일기날짜 ")
     private LocalDate date;
 
-    @Schema(description = "대표 사진의 타입 (대표 사진은 photos 리스트의 0번 인덱스에 위치합니다)")
+    @Schema(description = "대표 사진의 타입 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 ) ")
     private DiaryPhotoType coverPhotoType;
 
-    @Schema(description = "대표 사진의 결정을 위한 사진 번호")
-    private int coverPhotoIndex;
+    @Schema(description = "대표 사진의 결정을 위한 사진 번호 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 )")
+    private Integer  coverPhotoIndex;
 }

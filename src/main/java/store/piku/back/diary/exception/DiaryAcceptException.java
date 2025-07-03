@@ -25,6 +25,15 @@ public class DiaryAcceptException {
         ErrorResponse error = new ErrorResponse(errorCode.getStatus(), errorCode.getMessage(), request.getRequestURI());
         return ResponseEntity.status(HttpStatus.valueOf(errorCode.getStatus())).body(error);
     }
+    @ExceptionHandler(DuplicateDiaryException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateDiaryException(DuplicateDiaryException ex, HttpServletRequest request) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),      // 409
+                ex.getMessage(),                  // 예외 메시지
+                request.getRequestURI()           // 요청 경로
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
