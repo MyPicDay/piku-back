@@ -19,7 +19,7 @@ import store.piku.back.comment.exception.CommentException;
 import store.piku.back.comment.repository.CommentRepository;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.exception.DiaryNotFoundException;
-import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.service.DiaryService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.service.UserService;
 
@@ -29,8 +29,8 @@ import store.piku.back.user.service.UserService;
 public class CommentService {
 
     private final UserService userService;
-    private final DiaryRepository diaryRepository;
     private final CommentRepository commentRepository;
+    private final DiaryService diaryService;
 
 
     /**
@@ -44,8 +44,7 @@ public class CommentService {
     public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException {
 
         User user = userService.getUserById(userId);
-        Diary diary = diaryRepository.findById(commentRequestDto.getDiaryId())
-                .orElseThrow(DiaryNotFoundException::new);
+        Diary diary = diaryService.getDiaryById(commentRequestDto.getDiaryId());
 
         Comment comment = new Comment(commentRequestDto.getContent(), user, diary);
 
@@ -93,8 +92,7 @@ public class CommentService {
         }
 
         if (comment.getDiary() != null) {
-            diaryRepository.findById(comment.getDiary().getId())
-                    .orElseThrow(DiaryNotFoundException::new);
+            diaryService.getDiaryById(comment.getDiary().getId());
         } else {
             // 댓글이 어떤 다이어리에도 속해있지 않은 경우
             log.error("댓글 {}이 연결된 다이어리를 찾을 수 없습니다.", commentId);
@@ -125,8 +123,7 @@ public class CommentService {
     public Page<CommentListResponseDto> getRootCommentsByDiaryId(Long diaryId, int page, int size) {
 
         log.info("원댓글 조회 시작: diaryId={}, page={}, size={}", diaryId, page, size);
-        Diary diary = diaryRepository.findById(diaryId)
-                .orElseThrow(DiaryNotFoundException::new);
+        diaryService.getDiaryById(diaryId);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Comment> rootCommentsPage = commentRepository.findByDiaryIdAndParentIsNull(diaryId, pageable);
         log.info("일기 ID {}에 대한 {} 페이지, {}개 크기의 루트 댓글 {}개 조회 완료.", diaryId, page, size, rootCommentsPage.getTotalElements());
@@ -161,6 +158,22 @@ public class CommentService {
             return dto;
         });
     }
+
+    /**
+     * diaryId 를 기준으로 댓글과 대댓글을 포함한 전체 개수를 반환합니다.
+     *
+     * @param diaryId 다이어리 ID
+     * @return 댓글과 대댓글의 전체 개수
+     */
+    @Transactional(readOnly = true)
+    public long countAllCommentsByDiaryId(Long diaryId) {
+        diaryService.getDiaryById(diaryId);
+
+        long count = commentRepository.countAllByDiaryId(diaryId);
+        log.info("일기 ID {}에 달린 전체 댓글 수: {}", diaryId, count);
+        return count;
+    }
+
 
 
 
