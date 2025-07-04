@@ -235,6 +235,7 @@ public class DiaryService {
         return page.map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
+            String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
 
             return new ResponseDTO(
                     diary.getId(),
@@ -243,7 +244,7 @@ public class DiaryService {
                     sortedPhotoUrls,
                     diary.getDate(),
                     diary.getUser().getNickname(),
-                    diary.getUser().getAvatar(),
+                    avatarUrl,
                     diary.getUser().getId(),
                     diary.getCreatedAt()
             );

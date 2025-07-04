@@ -1,6 +1,7 @@
 package store.piku.back.friend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -88,19 +90,9 @@ public class FriendRequestController {
 
 
 
-    @Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다")
+    @Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "친구 목록 반환",
-                    content = @Content(
-                            mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = FriendsDto.class)),
-                            examples = @ExampleObject(value = "[" +
-                                    "{\"userId\": \"user1\", \"nickname\": \"닉네임1\", \"avatar\": \"avatar1.png\"}," +
-                                    "{\"userId\": \"user2\", \"nickname\": \"닉네임2\", \"avatar\": \"avatar2.png\"}" +
-                                    "]")
-                    )
-            ),
-            @ApiResponse(responseCode = "204", description = "친구 목록이 없음 (No Content)"),
+            @ApiResponse(responseCode = "200", description = "친구 목록 반환"),
             @ApiResponse(responseCode = "404", description = "사용자 정보 없음",
                     content = @Content(
                             mediaType = "application/json",
@@ -111,17 +103,18 @@ public class FriendRequestController {
     @GetMapping
     public ResponseEntity<Page<FriendsDto>> findFriendList(
             @ParameterObject
-            @PageableDefault Pageable pageable, @AuthenticationPrincipal CustomUserDetails customUserDetails , HttpServletRequest request) {
+            @PageableDefault(sort = "userId1", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,HttpServletRequest request) {
         log.info(customUserDetails.getId() + " 의 친구 목록 조회 요청");
 
-            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            Page<FriendsDto> friends = friendRequestService.findFriendList(pageable,customUserDetails.getId(),requestMetaInfo);
+        RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+        Page<FriendsDto> friends = friendRequestService.findFriendList(pageable,customUserDetails.getId(),requestMetaInfo);
 
-            if (friends.isEmpty()) {
-                log.info("사용자 {}의 친구 내역이 없습니다.",  customUserDetails.getId());
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.ok(friends);
+//        if (friends.isEmpty()) {
+//            log.info("사용자 {}의 친구 내역이 없습니다.",  customUserDetails.getId());
+//            return ResponseEntity.noContent().build();
+//            }
+        return ResponseEntity.ok(friends);
     }
 
 

@@ -3,6 +3,7 @@ package store.piku.back.friend.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import store.piku.back.friend.key.FriendID;
 
@@ -11,6 +12,7 @@ import store.piku.back.friend.key.FriendID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "friend")
+@Getter
 public class Friend {
 
     @Id
