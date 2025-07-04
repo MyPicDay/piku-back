@@ -74,20 +74,25 @@ public class FriendRequestService {
     public Page<FriendsDto> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 
         log.info("사용자 친구 조회 요청");
-        Page<String> friends_id = friendRepository.findFriendIds(id,pageable);
+        // 1. Repository에서 Page<Friend>를 받습니다.
+        Page<Friend> friendsPage = friendRepository.findFriendsByUserId(id, pageable);
 
-        return friends_id.map(friendId -> {
+        // 2. Page<Friend>를 Page<FriendsDto>로 변환합니다.
+        Page<FriendsDto> ret = friendsPage.map(friendEntity -> {
+            // 현재 사용자가 아닌 상대방의 ID를 찾습니다.
+            String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
+
             try {
                 User friend = userService.getUserById(friendId);
                 String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
                 return new FriendsDto(friend.getId(), friend.getNickname(), avatarUrl);
             } catch (UserNotFoundException e) {
                 log.warn("친구 정보 없음: {}", friendId);
-                return new FriendsDto(friendId, "탈퇴한 사용자", null); // 기본값 처리 이게 맞을까??
+                return new FriendsDto(friendId, "탈퇴한 사용자", null);
             }
         });
+        return ret;
     }
-
 
 
 
