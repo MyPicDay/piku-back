@@ -20,6 +20,7 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.file.FileUtil;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
@@ -46,7 +47,7 @@ public class DiaryService {
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
-
+    private final FileUtil fileUtil;
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
      *
@@ -65,6 +66,9 @@ public class DiaryService {
     @Transactional
     public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) throws UserNotFoundException {
 
+        validateDiaryDTO(diaryDTO);
+
+
         log.info("사용자 조회");
         User user = userService.getUserById(userId);
 
@@ -80,33 +84,32 @@ public class DiaryService {
         log.info("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
 
 
-            validateDiaryDTO(diaryDTO);
 
-            List<MultipartFile> photos = diaryDTO.getPhotos();
-            List<Long> aiPhotos = diaryDTO.getAiPhotos();
+        List<MultipartFile> photos = diaryDTO.getPhotos();
+        List<Long> aiPhotos = diaryDTO.getAiPhotos();
 
-            try {
-                int photoCoverIndex = -1;
-                int aiCoverIndex = -1;
+        try {
+            int photoCoverIndex = -1;
+            int aiCoverIndex = -1;
 
-                if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
-                    aiCoverIndex = diaryDTO.getCoverPhotoIndex();
-                } else {
-                    photoCoverIndex = diaryDTO.getCoverPhotoIndex();
-                }
-
-                if (photos != null ) {
-                    photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
-                }
-
-                if (aiPhotos != null) {
-                    photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
-                }
-                log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
-            } catch (IOException e) {
-                log.error("사진 저장 실패 : {}", e.getMessage(), e);
-                throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
+            if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
+                aiCoverIndex = diaryDTO.getCoverPhotoIndex();
+            } else {
+                photoCoverIndex = diaryDTO.getCoverPhotoIndex();
             }
+
+            if (photos != null ) {
+                photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
+            }
+
+            if (aiPhotos != null) {
+                photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
+            }
+            log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
+        } catch (IOException e) {
+            log.error("사진 저장 실패 : {}", e.getMessage(), e);
+            throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
+        }
         return new ResponseDiaryDTO(
                 diary.getId(),
                 diary.getContent()
@@ -122,6 +125,34 @@ public class DiaryService {
           list = diaryDTO.getPhotos();
         }
         validateCoverPhoto(list, diaryDTO.getCoverPhotoIndex());
+        validatePhotos(diaryDTO.getPhotos());
+    }
+
+    private void validatePhotos(List<MultipartFile> photos) {
+        for (MultipartFile file : photos) {
+            String originalFilename = file.getOriginalFilename();
+
+            if (originalFilename == null || !originalFilename.contains(".")) {
+                throw new IllegalArgumentException("유효하지 않은 파일 이름입니다: " + originalFilename);
+            }
+
+            String contentType = fileUtil.getContentType(originalFilename);
+
+            // 허용할 이미지 타입 목록
+            List<String> allowedImageTypes = List.of(
+                    "image/jpeg",
+                    "image/heic",
+                    "image/png",
+                    "image/gif",
+                    "image/webp",
+                    "image/bmp",
+                    "image/svg+xml"
+            );
+
+            if (!allowedImageTypes.contains(contentType)) {
+                throw new IllegalArgumentException("허용되지 않는 이미지 확장자입니다: " + originalFilename);
+            }
+        }
     }
 
     private void validateCoverPhoto(List list, int coverPhotoIndex){
