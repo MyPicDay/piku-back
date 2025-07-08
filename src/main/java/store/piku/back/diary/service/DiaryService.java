@@ -127,12 +127,8 @@ public class DiaryService {
         validatePhotos(diaryDTO.getPhotos());
     }
 
-    private void validatePhotos(List<MultipartFile> coverPhotos) {
-        if (coverPhotos == null || coverPhotos.isEmpty()) {
-            throw new IllegalArgumentException("사진 파일이 없습니다.");
-        }
-
-        for (MultipartFile file : coverPhotos) {
+    private void validatePhotos(List<MultipartFile> photos) {
+        for (MultipartFile file : photos) {
             String originalFilename = file.getOriginalFilename();
 
             if (originalFilename == null || !originalFilename.contains(".")) {
