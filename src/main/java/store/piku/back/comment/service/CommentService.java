@@ -20,6 +20,8 @@ import store.piku.back.comment.repository.CommentRepository;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
+import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.service.UserService;
 
@@ -31,6 +33,7 @@ public class CommentService {
     private final UserService userService;
     private final CommentRepository commentRepository;
     private final DiaryService diaryService;
+    private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 
     /**
@@ -114,50 +117,45 @@ public class CommentService {
     /**
      * 특정 일기의 루트 댓글을 페이징하여 조회하고, 각 댓글의 대댓글 개수를 포함합니다.
      *
-     * @param diaryId 일기 ID
-     * @param page    페이지 번호 (0부터 시작)
-     * @param size    한 페이지당 댓글 수
+     * @param diaryId 다이어리 식별값
+     * @param pageable 페이지 정보
      * @return 페이징된 CommentListResponseDto 목록
      */
     @Transactional(readOnly = true)
-    public Page<CommentListResponseDto> getRootCommentsByDiaryId(Long diaryId, int page, int size) {
+    public Page<CommentListResponseDto> getRootCommentsByDiaryId(Long diaryId, Pageable pageable , RequestMetaInfo requestMetaInfo) {
 
-        log.info("원댓글 조회 시작: diaryId={}, page={}, size={}", diaryId, page, size);
         diaryService.getDiaryById(diaryId);
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Comment> rootCommentsPage = commentRepository.findByDiaryIdAndParentIsNull(diaryId, pageable);
-        log.info("일기 ID {}에 대한 {} 페이지, {}개 크기의 루트 댓글 {}개 조회 완료.", diaryId, page, size, rootCommentsPage.getTotalElements());
+        log.info("일기 ID {}에 대한 {} 페이지, {}개 크기의 루트 댓글 {}개 조회 완료.", diaryId, pageable.getPageNumber(), pageable.getPageSize(), rootCommentsPage.getTotalElements());
 
         return rootCommentsPage.map(rootComment -> {
-            CommentListResponseDto dto = CommentListResponseDto.fromEntity(rootComment);
-            dto.setReplyCount(commentRepository.countByParentId(rootComment.getId()));
-            return dto;
+            String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(rootComment.getUser().getAvatar(), requestMetaInfo);
+            int replyCount = commentRepository.countByParentId(rootComment.getId());
+
+            return CommentListResponseDto.fromEntity(rootComment, avatarUrl, replyCount);
         });
     }
 
     /**
      * 특정 부모 댓글의 대댓글 목록을 페이징하여 조회합니다.
      *
-     * @param parentCommentId 부모 댓글 ID
-     * @param page            페이지 번호 (0부터 시작)
-     * @param size            한 페이지당 대댓글 수
+     * @param parentCommentId 부모 댓글 식별값
+     * @param pageable 페이지 정보
      * @return 페이징된 CommentListResponseDto 목록
      */
     @Transactional(readOnly = true)
-    public Page<CommentListResponseDto> getRepliesByParentCommentId(Long parentCommentId, int page, int size) {
+    public Page<CommentListResponseDto> getRepliesByParentCommentId(Long parentCommentId, Pageable pageable , RequestMetaInfo requestMetaInfo) {
 
-        log.info("대댓글 조회 시작: parentCommentId={}, page={}, size={}", parentCommentId, page, size);
-        Comment comment = findCommentById(parentCommentId);
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").ascending());
+        findCommentById(parentCommentId);
         Page<Comment> repliesPage = commentRepository.findByParentId(parentCommentId, pageable);
-        log.info("부모 댓글 ID {}에 대한 {} 페이지, {}개 크기의 대댓글 {}개 조회 완료.", parentCommentId, page, size, repliesPage.getTotalElements());
+        log.info("부모 댓글 ID {}에 대한 {} 페이지, {}개 크기의 대댓글 {}개 조회 완료.", parentCommentId, pageable.getPageNumber(), pageable.getPageSize(), repliesPage.getTotalElements());
 
         return repliesPage.map(replyComment -> {
-            CommentListResponseDto dto = CommentListResponseDto.fromEntity(replyComment);
-            dto.setReplyCount(0);
-            return dto;
+            String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(replyComment.getUser().getAvatar(), requestMetaInfo);
+            return CommentListResponseDto.fromEntity(replyComment, avatarUrl, 0);
         });
     }
+
 
     /**
      * diaryId 를 기준으로 댓글과 대댓글을 포함한 전체 개수를 반환합니다.
