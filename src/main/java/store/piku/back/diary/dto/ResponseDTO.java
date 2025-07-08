@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 
 import java.time.LocalDate;
@@ -32,6 +33,9 @@ public class ResponseDTO {
     private String userId;
 
     private LocalDateTime createdAt;
+
+    private FriendStatus friendStatus;
+
 
 
 }

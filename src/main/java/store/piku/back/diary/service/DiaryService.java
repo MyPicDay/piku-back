@@ -16,6 +16,7 @@ import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
@@ -198,7 +199,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    null
             );
         }
 
@@ -212,7 +214,8 @@ public class DiaryService {
                 diary.getUser().getNickname(),
                 avatarUrl,
                 diary.getUser().getId(),
-                diary.getCreatedAt()
+                diary.getCreatedAt(),
+                null
         );
     }
 
@@ -285,6 +288,7 @@ public class DiaryService {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
+            FriendStatus friendshipStatus = friendRequestService.getFriendshipStatus(user_id, diary.getUser().getId());
 
             return new ResponseDTO(
                     diary.getId(),
@@ -295,7 +299,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    friendshipStatus
             );
         });
     }

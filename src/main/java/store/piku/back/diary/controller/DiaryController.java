@@ -149,7 +149,9 @@ public class DiaryController {
     @GetMapping
     public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
             @ParameterObject
-            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
         try {
             log.info("Pageable: {}", pageable);
 
