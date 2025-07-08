@@ -7,7 +7,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
@@ -15,18 +14,17 @@ import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.friend.service.FriendRequestService;
-import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
-import store.piku.back.user.repository.UserRepository;
 import store.piku.back.user.service.UserService;
 
 import java.io.IOException;
@@ -48,6 +46,7 @@ public class DiaryService {
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
+
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
      *
@@ -167,7 +166,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    null
             );
         }
 
@@ -181,7 +181,8 @@ public class DiaryService {
                 diary.getUser().getNickname(),
                 avatarUrl,
                 diary.getUser().getId(),
-                diary.getCreatedAt()
+                diary.getCreatedAt(),
+                null
         );
     }
 
@@ -229,13 +230,14 @@ public class DiaryService {
      * @param pageable 조회할 페이지 번호 (0부터 시작)
      * @return 공개된 일기 리스트의 DTO를 담은 Page
      */
-    public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo) {
+    public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo,String user_id) {
         Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
 
         return page.map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
+            FriendStatus friendshipStatus = friendRequestService.getFriendshipStatus(user_id, diary.getUser().getId());
 
             return new ResponseDTO(
                     diary.getId(),
@@ -246,7 +248,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    friendshipStatus
             );
         });
     }
