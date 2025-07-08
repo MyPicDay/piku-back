@@ -21,7 +21,9 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.UserService;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -93,6 +95,14 @@ public class FriendRequestService {
             }
         });
         return ret;
+    }
+
+    public List<String> findFriendIdList(Pageable pageable, String userId,RequestMetaInfo requestMetaInfo) {
+        Page<FriendsDto> friendsPage = findFriendList(pageable, userId, requestMetaInfo); // requestMetaInfo 필요 없으면 null
+
+        return friendsPage.stream()
+                .map(FriendsDto::getUserId)
+                .collect(Collectors.toList());
     }
 
 

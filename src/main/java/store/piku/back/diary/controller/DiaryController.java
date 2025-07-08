@@ -151,6 +151,7 @@ public class DiaryController {
             @ParameterObject
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
         try {
             log.info("Pageable: {}", pageable);
 
