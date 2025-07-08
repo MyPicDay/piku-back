@@ -65,7 +65,11 @@ public class DiaryController {
         }catch(UserNotFoundException e) {
             log.error("유저를 찾을 수 없습니다: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);        }
+                    .body(null);
+        } catch (IllegalArgumentException e) {
+            log.error("일기 생성 중 오류 발생: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
     }
 
 

@@ -219,6 +219,7 @@ public class FileUtil {
 
         return switch (extension) {
             case "jpg", "jpeg" -> "image/jpeg";
+            case "heic" -> "image/heic";
             case "png" -> "image/png";
             case "gif" -> "image/gif";
             case "webp" -> "image/webp";
