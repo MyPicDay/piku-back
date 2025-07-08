@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -154,8 +155,16 @@ public class DiaryController {
 
         log.info("Pageable: {}", pageable);
 
+        // TODO: 임시 조치 수정 필요
+        Pageable forcedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "userId1")
+        );
+
+
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable ,requestMetaInfo,customUserDetails.getId());
+        Page<ResponseDTO> page = diaryservice.getAllDiaries(forcedPageable ,requestMetaInfo,customUserDetails.getId());
         return ResponseEntity.ok(page);
     }
 }

@@ -270,8 +270,7 @@ public class DiaryService {
         Pageable sortedPageable = PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC)
-                // Sort.by(Sort.Direction.DESC, "createdAt")
+                Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
         if (!friendIds.isEmpty()) {
