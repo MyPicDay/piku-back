@@ -18,24 +18,25 @@ public class CommentListResponseDto {
     private String content;
     private Long parentId;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    @Setter
     private int replyCount;
 
 
-    public static CommentListResponseDto fromEntity(Comment comment) {
+    public static CommentListResponseDto fromEntity(Comment comment, String avatarUrl, int replyCount) {
         String nickname = (comment.getUser() != null) ? comment.getUser().getNickname() : "me";
-        String profileImage = (comment.getUser() != null) ? comment.getUser().getAvatar() : null;
 
         return CommentListResponseDto.builder()
                 .id(comment.getId())
                 .diaryId(comment.getDiary() != null ? comment.getDiary().getId() : null)
                 .userId(comment.getUser() != null ? comment.getUser().getId() : null)
                 .nickname(nickname)
-                .avatar(profileImage)
+                .avatar(avatarUrl)
                 .content(comment.getContent())
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
+                .replyCount(replyCount)
                 .build();
     }
 
