@@ -152,14 +152,10 @@ public class DiaryController {
             @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        try {
-            log.info("Pageable: {}", pageable);
+        log.info("Pageable: {}", pageable);
 
-            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable ,requestMetaInfo,customUserDetails.getId());
-            return ResponseEntity.ok(page);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 여기 수정 예정
-        }
+        RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+        Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable ,requestMetaInfo,customUserDetails.getId());
+        return ResponseEntity.ok(page);
     }
 }
