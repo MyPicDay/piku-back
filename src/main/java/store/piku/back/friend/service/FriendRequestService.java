@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
@@ -20,7 +21,9 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.UserService;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -94,6 +97,14 @@ public class FriendRequestService {
         return ret;
     }
 
+    public List<String> findFriendIdList(Pageable pageable, String userId,RequestMetaInfo requestMetaInfo) {
+        Page<FriendsDto> friendsPage = findFriendList(pageable, userId, requestMetaInfo); // requestMetaInfo 필요 없으면 null
+
+        return friendsPage.stream()
+                .map(FriendsDto::getUserId)
+                .collect(Collectors.toList());
+    }
+
 
 
     public Page<FriendsDto> findFriendRequests(Pageable pageable,String toUserId , RequestMetaInfo requestMetaInfo) {
@@ -132,5 +143,18 @@ public class FriendRequestService {
         }
         friendRequestRepository.deleteById(friendRequestID);
         return new FriendRequestResponseDto(false, "친구 요청을 취소했습니다.");
+    }
+
+
+    public FriendStatus getFriendshipStatus(String currentUserId, String otherUserId) {
+        if (areFriends(currentUserId, otherUserId)) {
+            return FriendStatus.FRIENDS;
+        } else if (friendRequestRepository.findByFromUserIdAndToUserId(currentUserId, otherUserId).isPresent()) {
+            return FriendStatus.REQUESTED; // 내가 요청함
+        } else if (friendRequestRepository.findByFromUserIdAndToUserId(otherUserId, currentUserId).isPresent()) {
+            return FriendStatus.RECEIVED; // 내가 받은 요청
+        } else {
+            return FriendStatus.NONE;
+        }
     }
 }

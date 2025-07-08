@@ -3,7 +3,9 @@ package store.piku.back.diary.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,6 +16,7 @@ import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
@@ -196,7 +199,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    null
             );
         }
 
@@ -210,7 +214,8 @@ public class DiaryService {
                 diary.getUser().getNickname(),
                 avatarUrl,
                 diary.getUser().getId(),
-                diary.getCreatedAt()
+                diary.getCreatedAt(),
+                null
         );
     }
 
@@ -258,13 +263,32 @@ public class DiaryService {
      * @param pageable 조회할 페이지 번호 (0부터 시작)
      * @return 공개된 일기 리스트의 DTO를 담은 Page
      */
-    public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo) {
-        Page<Diary> page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
+    public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo,String user_id) {
+
+        List<String> friendIds = friendRequestService.findFriendIdList(pageable,user_id,requestMetaInfo);
+        Page<Diary> page;
+
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        if (!friendIds.isEmpty()) {
+            page = diaryRepository.findByUserIdInAndStatus(friendIds, Status.FRIENDS, pageable);
+            if (page.isEmpty()) {
+                page = diaryRepository.findByStatus(Status.PUBLIC, sortedPageable);
+            }
+
+        } else {
+            page = diaryRepository.findByStatus(Status.PUBLIC, sortedPageable);
+        }
 
         return page.map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = sortPhotos(photos,requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
+            FriendStatus friendshipStatus = friendRequestService.getFriendshipStatus(user_id, diary.getUser().getId());
 
             return new ResponseDTO(
                     diary.getId(),
@@ -275,7 +299,8 @@ public class DiaryService {
                     diary.getUser().getNickname(),
                     avatarUrl,
                     diary.getUser().getId(),
-                    diary.getCreatedAt()
+                    diary.getCreatedAt(),
+                    friendshipStatus
             );
         });
     }
