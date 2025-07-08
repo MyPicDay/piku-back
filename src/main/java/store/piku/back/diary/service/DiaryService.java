@@ -143,7 +143,6 @@ public class DiaryService {
             // 허용할 이미지 타입 목록
             List<String> allowedImageTypes = List.of(
                     "image/jpeg",
-                    "image/heic",
                     "image/png",
                     "image/gif",
                     "image/webp",
