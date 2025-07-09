@@ -1,7 +1,6 @@
 package store.piku.back.friend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -101,14 +100,14 @@ public class FriendRequestController {
             )
     })
     @GetMapping
-    public ResponseEntity<Page<FriendsDto>> findFriendList(
+    public ResponseEntity<Page<FriendsDTO>> findFriendList(
             @ParameterObject
             @PageableDefault(sort = "userId1", direction = Sort.Direction.DESC) Pageable pageable,
             @AuthenticationPrincipal CustomUserDetails customUserDetails,HttpServletRequest request) {
         log.info(customUserDetails.getId() + " 의 친구 목록 조회 요청");
 
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<FriendsDto> friends = friendRequestService.findFriendList(pageable,customUserDetails.getId(),requestMetaInfo);
+        Page<FriendsDTO> friends = friendRequestService.findFriendList(pageable,customUserDetails.getId(),requestMetaInfo);
 
 //        if (friends.isEmpty()) {
 //            log.info("사용자 {}의 친구 내역이 없습니다.",  customUserDetails.getId());
@@ -124,19 +123,19 @@ public class FriendRequestController {
             summary = "받은 요청 목록 조회", description = "나에게 온 친구 요청 목록을 조회합니다.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "친구 요청 목록 조회 성공",
-                            content = @Content(array = @ArraySchema(schema = @Schema(implementation = FriendsDto.class)))),
+                            content = @Content(array = @ArraySchema(schema = @Schema(implementation = FriendsDTO.class)))),
                     @ApiResponse(responseCode = "204", description = "받은 요청 없음 (No Content)"),
                     @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content)
             }
     )
     @GetMapping("/requests")
-    public ResponseEntity<Page<FriendsDto>> findFriendRequests(
+    public ResponseEntity<Page<FriendsDTO>> findFriendRequests(
             @ParameterObject
             @PageableDefault Pageable pageable,@AuthenticationPrincipal CustomUserDetails customUserDetails, HttpServletRequest request) {
         log.info(customUserDetails.getId() + " 의 받은 친구 요청 목록 조회");
 
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<FriendsDto> requests = friendRequestService.findFriendRequests(pageable, customUserDetails.getId(),requestMetaInfo);
+        Page<FriendsDTO> requests = friendRequestService.findFriendRequests(pageable, customUserDetails.getId(),requestMetaInfo);
 
         if (requests.isEmpty()) {
             log.info("사용자 {}의 요청 내역이 없습니다.",  customUserDetails.getId());
