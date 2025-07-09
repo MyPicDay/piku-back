@@ -18,4 +18,8 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     Page<Diary> findByStatus(Status status, Pageable pageable);
 
     Optional<Diary> findByUserAndDate(User user, LocalDate date);
+
+    Page<Diary> findByUserIdInAndStatus(List<String> friendIds, Status status, Pageable pageable);
+
+    long countByUserId(String userId);
 }

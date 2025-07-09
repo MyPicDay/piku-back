@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -149,15 +150,21 @@ public class DiaryController {
     @GetMapping
     public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
             @ParameterObject
-            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request) {
-        try {
-            log.info("Pageable: {}", pageable);
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            Page<ResponseDTO> page = diaryservice.getAllDiaries(pageable ,requestMetaInfo);
-            return ResponseEntity.ok(page);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 여기 수정 예정
-        }
+        log.info("Pageable: {}", pageable);
+
+        // TODO: 임시 조치 수정 필요
+        Pageable forcedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "userId1")
+        );
+
+
+        RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+        Page<ResponseDTO> page = diaryservice.getAllDiaries(forcedPageable ,requestMetaInfo,customUserDetails.getId());
+        return ResponseEntity.ok(page);
     }
 }

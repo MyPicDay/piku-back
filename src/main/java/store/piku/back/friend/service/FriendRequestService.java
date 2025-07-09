@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import store.piku.back.friend.dto.FriendsDTO;
+import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
 import store.piku.back.friend.entity.FriendRequest;
@@ -20,7 +21,9 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.UserService;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -94,6 +97,14 @@ public class FriendRequestService {
         return ret;
     }
 
+    public List<String> findFriendIdList(Pageable pageable, String userId,RequestMetaInfo requestMetaInfo) {
+        Page<FriendsDTO> friendsPage = findFriendList(pageable, userId, requestMetaInfo); // requestMetaInfo 필요 없으면 null
+
+        return friendsPage.stream()
+                .map(FriendsDTO::getUserId)
+                .collect(Collectors.toList());
+    }
+
 
 
     public Page<FriendsDTO> findFriendRequests(Pageable pageable, String toUserId , RequestMetaInfo requestMetaInfo) {
@@ -132,5 +143,32 @@ public class FriendRequestService {
         }
         friendRequestRepository.deleteById(friendRequestID);
         return new FriendRequestResponseDto(false, "친구 요청을 취소했습니다.");
+    }
+
+
+    public FriendStatus getFriendshipStatus(String currentUserId, String otherUserId) {
+        if (areFriends(currentUserId, otherUserId)) {
+            return FriendStatus.FRIENDS;
+        } else if (friendRequestRepository.findByFromUserIdAndToUserId(currentUserId, otherUserId).isPresent()) {
+            return FriendStatus.REQUESTED; // 내가 요청함
+        } else if (friendRequestRepository.findByFromUserIdAndToUserId(otherUserId, currentUserId).isPresent()) {
+            return FriendStatus.RECEIVED; // 내가 받은 요청
+        } else {
+            return FriendStatus.NONE;
+        }
+    }
+
+
+    /**
+     * 특정 사용자의 친구 수를 반환합니다.
+     * 사용자가 userId1 또는 userId2로 포함된 모든 친구 관계를 카운트합니다.
+     *
+     * @param userId 친구 수를 조회할 사용자의 ID
+     * @return 해당 사용자의 총 친구 수
+     */
+    public int countFriends(String userId) {
+        log.info("사용자 ID: {} 의 친구 수 조회 요청", userId);
+
+        return friendRepository.countByUserId1OrUserId2(userId, userId);
     }
 }
