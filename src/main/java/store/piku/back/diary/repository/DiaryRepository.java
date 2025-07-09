@@ -20,4 +20,6 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     Optional<Diary> findByUserAndDate(User user, LocalDate date);
 
     Page<Diary> findByUserIdInAndStatus(List<String> friendIds, Status status, Pageable pageable);
+
+    long countByUserId(String userId);
 }

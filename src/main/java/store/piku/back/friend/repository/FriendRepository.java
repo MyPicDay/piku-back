@@ -23,4 +23,6 @@ public interface FriendRepository extends JpaRepository<Friend, FriendID> {
             )
     boolean existsFriendship(String userId1, String userId2);
 
+    int countByUserId1OrUserId2(String userId1, String userId2);
+
 }
