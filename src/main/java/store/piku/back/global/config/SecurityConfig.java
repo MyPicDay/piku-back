@@ -53,7 +53,8 @@ public class SecurityConfig {
                 "/api/diary/images/{userId}/{fileName:.+}",
                 "/api/characters/fixed/**",
                 "/api/notifications/subscribe",
-                "/actuator/health"
+                "/actuator/health",
+                "/api/search"
         ));
 
         if (Arrays.asList(env.getActiveProfiles()).contains("dev")) {

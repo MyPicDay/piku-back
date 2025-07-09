@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import store.piku.back.friend.dto.FriendsDTO;
 import store.piku.back.diary.enums.FriendStatus;
-import store.piku.back.friend.dto.FriendsDto;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
 import store.piku.back.friend.entity.FriendRequest;
@@ -74,47 +74,47 @@ public class FriendRequestService {
         }
     }
 
-    public Page<FriendsDto> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
+    public Page<FriendsDTO> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 
         log.info("사용자 친구 조회 요청");
         // 1. Repository에서 Page<Friend>를 받습니다.
         Page<Friend> friendsPage = friendRepository.findFriendsByUserId(id, pageable);
 
         // 2. Page<Friend>를 Page<FriendsDto>로 변환합니다.
-        Page<FriendsDto> ret = friendsPage.map(friendEntity -> {
+        Page<FriendsDTO> ret = friendsPage.map(friendEntity -> {
             // 현재 사용자가 아닌 상대방의 ID를 찾습니다.
             String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
 
             try {
                 User friend = userService.getUserById(friendId);
                 String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
-                return new FriendsDto(friend.getId(), friend.getNickname(), avatarUrl);
+                return new FriendsDTO(friend.getId(), friend.getNickname(), avatarUrl);
             } catch (UserNotFoundException e) {
                 log.warn("친구 정보 없음: {}", friendId);
-                return new FriendsDto(friendId, "탈퇴한 사용자", null);
+                return new FriendsDTO(friendId, "탈퇴한 사용자", null);
             }
         });
         return ret;
     }
 
     public List<String> findFriendIdList(Pageable pageable, String userId,RequestMetaInfo requestMetaInfo) {
-        Page<FriendsDto> friendsPage = findFriendList(pageable, userId, requestMetaInfo); // requestMetaInfo 필요 없으면 null
+        Page<FriendsDTO> friendsPage = findFriendList(pageable, userId, requestMetaInfo); // requestMetaInfo 필요 없으면 null
 
         return friendsPage.stream()
-                .map(FriendsDto::getUserId)
+                .map(FriendsDTO::getUserId)
                 .collect(Collectors.toList());
     }
 
 
 
-    public Page<FriendsDto> findFriendRequests(Pageable pageable,String toUserId , RequestMetaInfo requestMetaInfo) {
+    public Page<FriendsDTO> findFriendRequests(Pageable pageable, String toUserId , RequestMetaInfo requestMetaInfo) {
         log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
         Page<FriendRequest> requests = friendRequestRepository.findByToUserId(toUserId,pageable);
 
         return requests.map(request -> {
             User fromUser = userService.getUserById(request.getFromUserId());
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(fromUser.getAvatar(), requestMetaInfo);
-            return new FriendsDto(fromUser.getId(), fromUser.getNickname(), avatarUrl);
+            return new FriendsDTO(fromUser.getId(), fromUser.getNickname(), avatarUrl);
         });
     }
 
