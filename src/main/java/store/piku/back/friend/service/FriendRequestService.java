@@ -157,4 +157,18 @@ public class FriendRequestService {
             return FriendStatus.NONE;
         }
     }
+
+
+    /**
+     * 특정 사용자의 친구 수를 반환합니다.
+     * 사용자가 userId1 또는 userId2로 포함된 모든 친구 관계를 카운트합니다.
+     *
+     * @param userId 친구 수를 조회할 사용자의 ID
+     * @return 해당 사용자의 총 친구 수
+     */
+    public int countFriends(String userId) {
+        log.info("사용자 ID: {} 의 친구 수 조회 요청", userId);
+
+        return friendRepository.countByUserId1OrUserId2(userId, userId);
+    }
 }

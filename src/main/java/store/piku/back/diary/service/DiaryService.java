@@ -319,4 +319,17 @@ public class DiaryService {
             );
         });
     }
+
+    /**
+     * 특정 사용자가 작성한 일기의 총 개수를 반환합니다.
+     *
+     * @param userId 일기 개수를 조회할 사용자의 ID
+     * @return 해당 사용자가 작성한 일기의 총 개수
+     */
+    @Transactional(readOnly = true)
+    public long countDiariesByUserId(String userId) {
+        log.info("사용자 ID: {} 의 일기 개수 조회 요청", userId);
+
+        return diaryRepository.countByUserId(userId);
+    }
 }
