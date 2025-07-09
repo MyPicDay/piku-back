@@ -17,12 +17,5 @@ public class FriendsDTO {
     @Schema(description = "친구의 아바타 URL 또는 이미지 경로", example = "https://example.com/avatar.jpg")
     private String avatar;
 
-    public static FriendsDTO from(User user) {
-        return new FriendsDTO(
-                user.getId(),
-                user.getNickname(),
-                // TODO userProfileImage, isFollowing 하드 코딩
-                ""
-        );
-        }
+
 }

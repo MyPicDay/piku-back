@@ -13,7 +13,7 @@ import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
