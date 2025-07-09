@@ -252,7 +252,26 @@ public class DiaryService {
                 .toList();
     }
 
+    public Pageable sanitizePageable(Pageable pageable, List<String> allowedSortFields) {
+        int page = Math.max(pageable.getPageNumber(), 0);
+        int size = Math.min(Math.max(pageable.getPageSize(), 1), 100);
 
+        Sort safeSort = Sort.unsorted();
+
+        for (Sort.Order order : pageable.getSort()) {
+            String property = order.getProperty();
+            if (allowedSortFields.contains(property)) {
+                safeSort = safeSort.and(Sort.by(order));
+            } else {
+                log.warn("정렬 필드 '{}' 은 허용되지 않았습니다. 무시됩니다.", property);
+            }
+        }
+        if (!safeSort.isSorted()) {
+            safeSort = Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        return PageRequest.of(page, size, safeSort);
+    }
 
 
     /**
@@ -264,23 +283,20 @@ public class DiaryService {
      */
     public Page<ResponseDTO> getAllDiaries(Pageable pageable ,RequestMetaInfo requestMetaInfo,String user_id) {
 
-        List<String> friendIds = friendRequestService.findFriendIdList(pageable,user_id,requestMetaInfo);
+        List<String> allowed = List.of("createdAt");
+        Pageable safePageable = sanitizePageable(pageable,allowed);
+        List<String> friendIds = friendRequestService.findFriendIdList(safePageable,user_id,requestMetaInfo);
         Page<Diary> page;
 
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "createdAt")
-        );
 
         if (!friendIds.isEmpty()) {
             page = diaryRepository.findByUserIdInAndStatus(friendIds, Status.FRIENDS, pageable);
             if (page.isEmpty()) {
-                page = diaryRepository.findByStatus(Status.PUBLIC, sortedPageable);
+                page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
             }
 
         } else {
-            page = diaryRepository.findByStatus(Status.PUBLIC, sortedPageable);
+            page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
         }
 
         return page.map(diary -> {

@@ -24,6 +24,7 @@ public class Diary extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+
     private LocalDate date;
 
     @ManyToOne
