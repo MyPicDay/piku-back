@@ -28,7 +28,7 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
-import store.piku.back.user.service.UserService;
+import store.piku.back.user.service.reader.UserReader;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -45,7 +45,7 @@ public class DiaryService {
 
     private final DiaryRepository diaryRepository;
     private final PhotoRepository photoRepository;
-    private final UserService userService;
+    private final UserReader userReader;
     private final PhotoStorage photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
@@ -72,7 +72,7 @@ public class DiaryService {
 
 
         log.info("사용자 조회");
-        User user = userService.getUserById(userId);
+        User user = userReader.getUserById(userId);
 
         Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user, diaryDTO.getDate());
 
