@@ -75,9 +75,6 @@ public class DiaryController {
 
 
 
-
-
-
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "일기 조회 성공",
                     content = @Content(mediaType = "application/json",
@@ -135,7 +132,6 @@ public class DiaryController {
             @RequestParam int month,
             HttpServletRequest request
     ) {
-        // 해당하는 연과 월에 맞는 다이어리 정보들을 반환합니다
         // TODO: userId가 현재 로그인한 사용자와 다를 경우 예외 처리 추가
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         List<CalendarDiaryResponseDTO> diaries = diaryservice.findMonthlyDiaries(userId, year, month, requestMetaInfo);
@@ -145,26 +141,31 @@ public class DiaryController {
 
 
 
+
+
     @ApiResponses(value ={@ApiResponse(responseCode = "200",description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class)))})
-    @Operation(summary = "일기 전체 조회" ,description = "프론트에서 페이지수,정렬방법,페이지 크기 보내줄 수 있습니다.")
+    @Operation(
+            summary = "일기 전체 조회",
+            description = """
+        프론트에서 페이지수, 정렬방법, 페이지 크기 보내줄 수 있습니다.
+        - page: 0 이상 정수
+        - size: 1~100 사이 정수
+        - sort: createdAt, title, weather 만 허용
+    """
+    )
     @GetMapping
     public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
             @ParameterObject
-            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 3) Pageable pageable,HttpServletRequest request,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 10) Pageable pageable,HttpServletRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-        log.info("Pageable: {}", pageable);
 
-        // TODO: 임시 조치 수정 필요
-        Pageable forcedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "userId1")
-        );
+        List<String> allowed = List.of("createdAt", "userId", "date");
+        Pageable safePageable = diaryservice.sanitizePageable(pageable,allowed);
 
-
+        log.info("safePageable: {}", safePageable);
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<ResponseDTO> page = diaryservice.getAllDiaries(forcedPageable ,requestMetaInfo,customUserDetails.getId());
+        Page<ResponseDTO> page = diaryservice.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
         return ResponseEntity.ok(page);
     }
 }
