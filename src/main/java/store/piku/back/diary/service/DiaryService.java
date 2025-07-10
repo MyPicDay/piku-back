@@ -173,7 +173,6 @@ public class DiaryService {
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = getDiaryById(diaryId);
 
-        // 모든 사진 리스트 한 번만 조회
         List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
 //        if (photos == null || photos.isEmpty()) {
 //            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);

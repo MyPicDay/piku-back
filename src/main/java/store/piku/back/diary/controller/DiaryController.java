@@ -105,8 +105,6 @@ public class DiaryController {
             Resource resource = fileUtil.loadFileAsResource(userId + "/" + filename);
             String contentType = fileUtil.getContentType(filename);
 
-            log.info("이미지 파일 로드 성공 - 경로: {}/{}", userId, filename);
-
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
@@ -150,7 +148,7 @@ public class DiaryController {
         프론트에서 페이지수, 정렬방법, 페이지 크기 보내줄 수 있습니다.
         - page: 0 이상 정수
         - size: 1~100 사이 정수
-        - sort: createdAt, title, weather 만 허용
+        - sort: "createdAt", "userId", "date" 중 하나
     """
     )
     @GetMapping
