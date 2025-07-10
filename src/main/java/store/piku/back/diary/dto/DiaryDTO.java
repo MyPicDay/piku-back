@@ -33,12 +33,15 @@ public class DiaryDTO {
     @Schema(description = "내 앨범 사진 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 )", nullable = true)
     private List<MultipartFile> photos;
 
+    @NotNull
     @Schema(description = "일기날짜 ")
     private LocalDate date;
 
+    @NotNull
     @Schema(description = "대표 사진의 타입 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 ) ")
     private DiaryPhotoType coverPhotoType;
 
+    @NotNull
     @Schema(description = "대표 사진의 결정을 위한 사진 번호 ( 값을 넣지 않을 시에 'Send empty value' 클릭 하지 마세요 )")
     private Integer  coverPhotoIndex;
 }
