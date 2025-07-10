@@ -100,11 +100,11 @@ public class DiaryService {
                 photoCoverIndex = diaryDTO.getCoverPhotoIndex();
             }
 
-            if (photos != null ) {
+            if (photos != null && !photos.isEmpty()) {
                 photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
             }
 
-            if (aiPhotos != null) {
+            if (aiPhotos != null && !aiPhotos.isEmpty()) {
                 photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
             }
             log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
