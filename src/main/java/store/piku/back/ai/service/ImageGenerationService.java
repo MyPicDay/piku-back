@@ -8,8 +8,8 @@ import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
-import store.piku.back.user.service.UserService;
 import org.springframework.stereotype.Service;
+import store.piku.back.user.service.reader.UserReader;
 
 @Service
 @Slf4j
@@ -19,13 +19,13 @@ public class ImageGenerationService {
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final GeminiApiClient geminiApiClient;
     private final DiaryImageGenerationService diaryImageGenerationService;
-    private final UserService userService;
     private final FileUtil fileUtil;
+    private final UserReader userReader;
 
     public AiDiaryResponseDTO diaryImage(String content, String userId, RequestMetaInfo requestMetaInfo) {
         log.info("사용자 ID '{}' 일기 이미지 생성 요청", userId);
 
-        User user = userService.getUserById(userId);
+        User user = userReader.getUserById(userId);
         String avatarPath = user.getAvatar();
 
         String characterImageBase64 = fileUtil.getImageAsBase64(avatarPath);

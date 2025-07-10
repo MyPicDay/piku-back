@@ -19,7 +19,7 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
-import store.piku.back.user.service.UserService;
+import store.piku.back.user.service.reader.UserReader;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +34,7 @@ public class FriendRequestService {
     private final FriendRequestRepository friendRequestRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRepository friendRepository;
-    private final UserService userService;
+    private final UserReader userReader;
 
 
     public boolean areFriends(String userId1, String userId2) {
@@ -44,8 +44,8 @@ public class FriendRequestService {
     public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) {
 
         log.info("사용자 조회 요청");
-        User fromUser = userService.getUserById(fromUserId);
-        User toUser = userService.getUserById(toUserId);
+        User fromUser = userReader.getUserById(fromUserId);
+        User toUser = userReader.getUserById(toUserId);
 
         if (fromUserId.equals(toUserId)){
             throw new FriendException("자신에게 요청 할 수 없습니다.");
@@ -86,7 +86,7 @@ public class FriendRequestService {
             String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
 
             try {
-                User friend = userService.getUserById(friendId);
+                User friend = userReader.getUserById(friendId);
                 String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
                 return new FriendsDto(friend.getId(), friend.getNickname(), avatarUrl);
             } catch (UserNotFoundException e) {
@@ -112,7 +112,7 @@ public class FriendRequestService {
         Page<FriendRequest> requests = friendRequestRepository.findByToUserId(toUserId,pageable);
 
         return requests.map(request -> {
-            User fromUser = userService.getUserById(request.getFromUserId());
+            User fromUser = userReader.getUserById(request.getFromUserId());
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(fromUser.getAvatar(), requestMetaInfo);
             return new FriendsDto(fromUser.getId(), fromUser.getNickname(), avatarUrl);
         });
