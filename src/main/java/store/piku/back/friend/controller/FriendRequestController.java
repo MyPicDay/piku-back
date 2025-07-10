@@ -137,10 +137,6 @@ public class FriendRequestController {
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         Page<FriendsDTO> requests = friendRequestService.findFriendRequests(pageable, customUserDetails.getId(),requestMetaInfo);
 
-        if (requests.isEmpty()) {
-            log.info("사용자 {}의 요청 내역이 없습니다.",  customUserDetails.getId());
-            return ResponseEntity.noContent().build();
-        }
         return ResponseEntity.ok(requests);
     }
 
