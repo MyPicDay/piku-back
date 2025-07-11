@@ -10,11 +10,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import store.piku.back.global.dto.ValidationErrorResponse;
 import store.piku.back.global.error.ErrorCode;
 import store.piku.back.global.error.ErrorResponse;
 import store.piku.back.global.notification.DiscordWebhookService;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -69,6 +71,30 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
         ErrorResponse response = new ErrorResponse(errorCode.getStatus(), errorCode.getMessage());
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // 1. 클라이언트가 연결을 끊은 경우 (Broken pipe 등)
+    @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
+    public void handleClientDisconnected(Exception e, HttpServletRequest request) {
+        if (isBrokenPipe(e)) {
+            log.warn("Client disconnected before response was sent: {}", e.getMessage());
+            // 응답하지 않음 (response는 더 이상 사용 불가)
+        } else {
+            discordWebhookService.ifPresent(service -> service.sendExceptionNotification(e, request));
+            log.error("Unhandled IOException or async error", e);
+        }
+    }
+
+    private boolean isBrokenPipe(Throwable e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof IOException && cause.getMessage() != null &&
+                    cause.getMessage().toLowerCase().contains("broken pipe")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
 }
