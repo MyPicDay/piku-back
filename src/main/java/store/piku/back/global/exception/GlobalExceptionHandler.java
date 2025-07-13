@@ -73,28 +73,30 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // 1. 클라이언트가 연결을 끊은 경우 (Broken pipe 등)
-    @ExceptionHandler({AsyncRequestNotUsableException.class, IOException.class})
-    public void handleClientDisconnected(Exception e, HttpServletRequest request) {
-        if (isBrokenPipe(e)) {
-            log.warn("Client disconnected before response was sent: {}", e.getMessage());
-            // 응답하지 않음 (response는 더 이상 사용 불가)
-        } else {
-            discordWebhookService.ifPresent(service -> service.sendExceptionNotification(e, request));
-            log.error("Unhandled IOException or async error", e);
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<ErrorResponse> handleIOException(IOException ex, HttpServletRequest request) throws IOException {
+        String message = ex.getMessage();
+
+        if (message != null && isConnectionReset(message)) {
+            // 클라이언트가 스트림 중간에 연결을 끊은 케이스
+            log.debug("스트림 중단: 클라이언트 연결 끊김 - {} {}", request.getMethod(), request.getRequestURI());
+            return ResponseEntity.noContent().build();
         }
+
+        // 그 외 IOException은 다시 던져서 기본 처리
+        discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
+        log.error("IOException occurred: {}", message, ex);
+        return new ResponseEntity<>(
+                new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "파일 처리 중 오류가 발생했습니다."),
+                HttpStatus.INTERNAL_SERVER_ERROR
+        );
     }
 
-    private boolean isBrokenPipe(Throwable e) {
-        Throwable cause = e;
-        while (cause != null) {
-            if (cause instanceof IOException && cause.getMessage() != null &&
-                    cause.getMessage().toLowerCase().contains("broken pipe")) {
-                return true;
-            }
-            cause = cause.getCause();
-        }
-        return false;
+    private boolean isConnectionReset(String message) {
+        // OS나 JDK에 따라 메시지가 다를 수 있으므로 유사 패턴 포함
+        return message.contains("Connection reset by peer")
+                || message.contains("Broken pipe")
+                || message.contains("An existing connection was forcibly closed");
     }
 
 }
