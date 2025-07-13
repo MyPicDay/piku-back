@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import store.piku.back.global.dto.ValidationErrorResponse;
 import store.piku.back.global.error.ErrorCode;
 import store.piku.back.global.error.ErrorResponse;
@@ -25,6 +26,20 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private final Optional<DiscordWebhookService> discordWebhookService;
+
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleAsyncStreamFailure(AsyncRequestNotUsableException ex, HttpServletRequest request) {
+        String message = ex.getMessage();
+
+        if (message != null && message.startsWith("ServletOutputStream failed")) {
+            log.debug("ServletOutputStream 전송 중 끊김 처리됨: {} {}", request.getMethod(), request.getRequestURI());
+            return; // 예외 무시
+        }
+
+        // 그 외는 운영에 남기기 (선택)
+        log.error("Unhandled AsyncRequestNotUsableException: {}", message, ex);
+        discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {

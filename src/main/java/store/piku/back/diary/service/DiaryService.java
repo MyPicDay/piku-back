@@ -102,12 +102,12 @@ public class DiaryService {
 
             if (photos != null && !photos.isEmpty()) {
                 photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
+                log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
             }
 
             if (aiPhotos != null && !aiPhotos.isEmpty()) {
                 photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
             }
-            log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
         } catch (IOException e) {
             log.error("사진 저장 실패 : {}", e.getMessage(), e);
             throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
