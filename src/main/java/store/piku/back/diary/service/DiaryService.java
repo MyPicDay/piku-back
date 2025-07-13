@@ -131,6 +131,9 @@ public class DiaryService {
     }
 
     private void validatePhotos(List<MultipartFile> photos) {
+        if (photos == null || photos.isEmpty()) {
+            return;
+        }
         for (MultipartFile file : photos) {
             String originalFilename = file.getOriginalFilename();
 
