@@ -17,6 +17,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.comment.dto.request.CommentRequestDto;
 import store.piku.back.comment.dto.request.CommentUpdateDto;
+import store.piku.back.comment.dto.response.CommentDeleteResponseDto;
 import store.piku.back.comment.dto.response.CommentListResponseDto;
 import store.piku.back.comment.dto.response.CommentResponseDto;
 import store.piku.back.comment.service.CommentService;
@@ -64,6 +65,7 @@ public class CommentController {
 
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         Page<CommentListResponseDto> rootCommentsPage = commentService.getRootCommentsByDiaryId(diaryId, pageable ,requestMetaInfo);
+
         return ResponseEntity.status(HttpStatus.OK).body(rootCommentsPage);
     }
 
@@ -77,7 +79,17 @@ public class CommentController {
 
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         Page<CommentListResponseDto> repliesPage = commentService.getRepliesByParentCommentId(parentCommentId, pageable, requestMetaInfo);
+
         return ResponseEntity.ok(repliesPage);
+    }
+
+    @Operation(summary = "댓글 삭제", description = "댓글을 삭제합니다.")
+    @DeleteMapping("/{commentId}")
+    public ResponseEntity<CommentDeleteResponseDto> deleteComment(@PathVariable Long commentId, @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("사용자 {}님이 {} 댓글 삭제 요청", userDetails.getId(), commentId);
+        CommentDeleteResponseDto isDeleted = commentService.deleteComment(commentId, userDetails.getId());
+
+        return ResponseEntity.status(HttpStatus.OK).body(isDeleted);
     }
 
 }
