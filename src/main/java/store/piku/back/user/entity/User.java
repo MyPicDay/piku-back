@@ -22,6 +22,7 @@ public class User extends BaseEntity {
 
     private String password;
 
+    @Column(unique = true, nullable = false)
     private String nickname;
 
     private String avatar;
@@ -37,6 +38,14 @@ public class User extends BaseEntity {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+    }
+
+    public User(String id, String email, String password, String newNickname, String avatar) {
+        this.id = id;
+        this.email = email;
+        this.password = password;
+        this.nickname = newNickname;
+        this.avatar = avatar;
     }
 
     public void changeAvatar(String avatar) {
