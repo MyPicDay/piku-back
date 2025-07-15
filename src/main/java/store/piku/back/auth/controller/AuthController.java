@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import store.piku.back.auth.dto.LoginRequest;
 import store.piku.back.auth.dto.SignupRequest;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import store.piku.back.global.util.CookieUtils;
 
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +40,7 @@ public class AuthController {
     private final AuthService authService;
     private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final CookieUtils cookieUtils;
 
     /*
     * 회원가입
@@ -83,7 +86,7 @@ public class AuthController {
                     .secure(true)
                     .path("/")
                     .maxAge(TimeUnit.DAYS.toSeconds(7))
-                    .sameSite("None")
+                    .sameSite("Lax")
                     .build();
 
             LoginResponse loginResponse = new LoginResponse("로그인 성공", userInfo);
@@ -108,9 +111,12 @@ public class AuthController {
     })
     @PostMapping("/reissue")
     public ResponseEntity<?> reissue(HttpServletRequest request) {
-        String refreshToken = request.getHeader("Cookie").split("=")[1];
+        String refreshToken = cookieUtils.getCookieValue(request, "refreshToken");
 
-        // refreshToken 유효성 검사
+        if (refreshToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh Token이 없습니다.");
+        }
+
         if (!jwtProvider.validateToken(refreshToken)) {
             refreshTokenRepository.deleteByRefreshToken(refreshToken);
             return ResponseEntity.status(401).body("Refresh Token 만료됨");
@@ -125,7 +131,7 @@ public class AuthController {
         // 새 Access Token 발급
         String newAccessToken = jwtProvider.generateAccessToken(email);
         return ResponseEntity.ok()
-                .header("Authorization", "Bearer " + newAccessToken)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + newAccessToken)
                 .body("토큰 재발급 성공");
     }
 
