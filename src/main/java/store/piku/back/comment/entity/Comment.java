@@ -60,4 +60,8 @@ public class Comment extends BaseEntity {
         }
     }
 
+    public boolean isDeleted() {
+        return this.getDeletedAt() != null;
+    }
+
 }
