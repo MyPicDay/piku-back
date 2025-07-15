@@ -17,4 +17,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("SELECT u FROM User u WHERE u.nickname LIKE :keyword")
     Page<User> searchByName(@Param("keyword") String keyword, Pageable pageable);
 
+    boolean existsByNickname(String nickname);
+
 }

@@ -3,14 +3,12 @@ package store.piku.back.diary.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.service.DiaryImageGenerationService;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.file.FileConstants;
 
 import java.io.IOException;
 import java.util.List;
@@ -69,5 +67,3 @@ public class LocalPhotoStorage implements PhotoStorage{
     }
 
 }
-
-
