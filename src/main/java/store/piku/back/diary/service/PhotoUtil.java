@@ -27,8 +27,9 @@ public class PhotoUtil {
         String uuid = UUID.randomUUID().toString().substring(0, 8);
 
 
-        log.info("파일명 생성완료  - 생성명:{} ",  date + "_" + uuid + "_" + originalFilename );
-        return date + "_" + uuid + "_" + originalFilename;
+        String fileName = date + "_" + uuid;
+        log.info("파일명 생성완료  - 생성명:{} ",  fileName);
+        return fileName;
     }
 
     public String getDefaultPath(){
