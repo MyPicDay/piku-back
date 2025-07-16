@@ -1,5 +1,7 @@
 package store.piku.back.diary.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -8,7 +10,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -22,8 +26,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
@@ -35,9 +39,10 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
-import store.piku.back.user.exception.UserNotFoundException;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @Tag(name = "Diary", description = "일기 관련 API")
 @RestController
@@ -49,27 +54,39 @@ public class DiaryController {
     private final DiaryService diaryservice;
     private final FileUtil fileUtil;
     private final RequestMetaMapper requestMetaMapper;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
 
     @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ResponseDiaryDTO> createDiary(@Valid @ModelAttribute DiaryDTO diaryDTO, @AuthenticationPrincipal CustomUserDetails userDetails) {
-        log.info("{}님 일기와 {} 등록 요청", userDetails.getId(), diaryDTO.getPhotos());
+    public ResponseEntity<ResponseDiaryDTO> createDiary(
+            @Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class))
+            @RequestPart("diary") String diaryDtoString,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
         try {
-            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, userDetails.getId());
+            DiaryDTO diaryDTO = objectMapper.readValue(diaryDtoString, DiaryDTO.class);
+            Set<ConstraintViolation<DiaryDTO>> violations = validator.validate(diaryDTO);
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+
+            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, photos, userDetails.getId());
             if (isSaved != null) {
                 return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
-            } else {
-                log.error("{}님 일기, 사진 등록 실패", userDetails.getId());
-                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
             }
-        }catch(UserNotFoundException e) {
-            log.error("유저를 찾을 수 없습니다: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(null);
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+        } catch (JsonProcessingException e) {
+            log.error("JSON parsing error for diary data: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (IllegalArgumentException e) {
             log.error("일기 생성 중 오류 발생: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        } catch (IOException e) {
+            log.error("IOException 발생: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 

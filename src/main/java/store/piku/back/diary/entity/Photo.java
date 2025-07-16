@@ -22,6 +22,9 @@ public class Photo {
 
     private Boolean represent;
 
+    // 일기 사진 순서
+    private Integer photoOrder;
+
     @ManyToOne
     @JoinColumn(name="diary_id")
     @JsonBackReference
@@ -31,6 +34,13 @@ public class Photo {
         this.diary = diary;
         this.url = url;
         this.represent = false;
+    }
+
+    public Photo(Diary diary, String url, Integer photoOrder) {
+        this.diary = diary;
+        this.url = url;
+        this.represent = false;
+        this.photoOrder = photoOrder;
     }
 
     public void updateRepresent(Boolean represent) {

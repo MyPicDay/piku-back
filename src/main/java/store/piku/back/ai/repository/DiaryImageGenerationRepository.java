@@ -11,4 +11,6 @@ public interface DiaryImageGenerationRepository extends JpaRepository<DiaryImage
     List<DiaryImageGeneration> findByDiaryIdIsNull();
 
     Optional<DiaryImageGeneration> findByUserIdAndFilePath(String userId, String filePath);
+
+    boolean existsByIdAndUserId(Long id, String userId);
 }
