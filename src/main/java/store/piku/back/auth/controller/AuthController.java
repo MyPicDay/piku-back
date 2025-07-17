@@ -9,13 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import store.piku.back.auth.constants.AuthConstants;
 import store.piku.back.auth.dto.LoginRequest;
 import store.piku.back.auth.dto.SignupRequest;
 import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.dto.response.LoginResponse;
-import store.piku.back.auth.entity.RefreshToken;
-import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.auth.repository.RefreshTokenRepository;
 import store.piku.back.auth.service.AuthService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -28,8 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import store.piku.back.global.util.CookieUtils;
 
-import java.util.concurrent.TimeUnit;
-
 @Tag(name = "Auth", description = "인증/인가 관련 API")
 @Slf4j
 @RestController
@@ -38,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 public class AuthController {
 
     private final AuthService authService;
-    private final JwtProvider jwtProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final CookieUtils cookieUtils;
 
@@ -73,7 +69,7 @@ public class AuthController {
     })
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
-        String deviceId = request.getHeader("Device-Id");
+        String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
         log.info("[로그인] 요청 수신: 이메일={}", dto.getEmail());
 
         try {
@@ -81,18 +77,12 @@ public class AuthController {
             UserInfo userInfo = authService.getUserInfoByEmail(dto.getEmail());
             log.info("[로그인] 성공 : 이메일={}", dto.getEmail());
 
-            ResponseCookie responseCookie = ResponseCookie.from("refreshToken",tokens.getRefreshToken())
-                    .httpOnly(true)
-                    .secure(true)
-                    .path("/")
-                    .maxAge(TimeUnit.DAYS.toSeconds(7))
-                    .sameSite("Lax")
-                    .build();
+            ResponseCookie responseCookie = authService.newCookieRefreshToken(tokens.getRefreshToken());
 
             LoginResponse loginResponse = new LoginResponse("로그인 성공", userInfo);
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + tokens.getAccessToken())
+                    .header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + tokens.getAccessToken())
                     .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
                     .body(loginResponse);
         } catch (RuntimeException e) {
@@ -111,27 +101,18 @@ public class AuthController {
     })
     @PostMapping("/reissue")
     public ResponseEntity<?> reissue(HttpServletRequest request) {
-        String refreshToken = cookieUtils.getCookieValue(request, "refreshToken");
+        String refreshToken = cookieUtils.getCookieValue(request, AuthConstants.REFRESH_TOKEN);
 
-        if (refreshToken == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh Token이 없습니다.");
+        String newAccessToken = authService.reissueAccessToken(refreshToken);
+        ResponseCookie resetCookie = authService.removeCookieRefreshToken();
+        if (newAccessToken == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, resetCookie.toString())
+                    .body("Access Token 재발급 실패: 유효하지 않은 Refresh Token");
         }
-
-        if (!jwtProvider.validateToken(refreshToken)) {
-            refreshTokenRepository.deleteByRefreshToken(refreshToken);
-            return ResponseEntity.status(401).body("Refresh Token 만료됨");
-        }
-
-        // 저장된 refreshToken에서 email 추출
-        RefreshToken tokenEntity = refreshTokenRepository.findByRefreshToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("저장된 리프레시 토큰 없음"));
-
-        String email = tokenEntity.getKey().split("-")[0];
-
-        // 새 Access Token 발급
-        String newAccessToken = jwtProvider.generateAccessToken(email);
         return ResponseEntity.ok()
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + newAccessToken)
+                .header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + newAccessToken)
                 .body("토큰 재발급 성공");
     }
 
@@ -145,16 +126,10 @@ public class AuthController {
         if (user == null || user.getEmail() == null) {
             return ResponseEntity.status(401).body("로그인 상태가 아닙니다.");
         }
-        String key = user.getEmail() + "-" + request.getHeader("Device-Id");
+        String key = user.getEmail() + "-" + request.getHeader(AuthConstants.DEVICE_ID_HEADER);
         refreshTokenRepository.deleteById(key);
 
-        ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(0)
-                .sameSite("None")
-                .build();
+        ResponseCookie deleteCookie = authService.removeCookieRefreshToken();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())

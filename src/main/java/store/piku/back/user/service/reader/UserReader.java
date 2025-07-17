@@ -9,7 +9,6 @@ import store.piku.back.global.exception.BusinessException;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.dto.response.UserInfoDTO;
 import store.piku.back.user.entity.User;
-import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.repository.UserRepository;
 
 @Slf4j
@@ -29,6 +28,18 @@ public class UserReader {
      */
     public User getUserById(String userId) {
         return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * 이메일을 입력받아 유저를 조회합니다. 유저가 존재하지 않는다면 USER_NOT_FOUND 예외 발생.
+     *
+     * @param email 조회할 유저의 이메일
+     * @return User 이메일 기준으로 유저를 조회하여 반환
+     * @throws BusinessException 유저가 존재하지 않을 경우 USER_NOT_FOUND 에러 코드와 함께 발생
+     */
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
