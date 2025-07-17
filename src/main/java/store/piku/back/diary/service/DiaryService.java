@@ -9,10 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
-import store.piku.back.diary.dto.DiaryDTO;
-import store.piku.back.diary.dto.ResponseDTO;
-import store.piku.back.diary.dto.ResponseDiaryDTO;
+import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
@@ -331,7 +328,21 @@ public class DiaryService {
     @Transactional(readOnly = true)
     public long countDiariesByUserId(String userId) {
         log.info("사용자 ID: {} 의 일기 개수 조회 요청", userId);
-
         return diaryRepository.countByUserId(userId);
+    }
+
+
+    /**
+     * 해당 프로필 사용자의 월별 일기 수를 반환합니다.
+     *
+     * @param profileId
+     * @return "2025-06": 4,
+     *     "2025-07": 13
+     */
+    public List<DiaryMonthCountDTO> getMonthlyDiaryCount(String profileId) {
+        LocalDate monthsAgo = LocalDate.now().minusMonths(6).withDayOfMonth(1);
+        List<DiaryMonthCountDTO> counts = diaryRepository.countDiariesPerMonth(profileId,monthsAgo);
+
+        return counts;
     }
 }
