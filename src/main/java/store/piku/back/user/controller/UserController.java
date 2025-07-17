@@ -42,8 +42,6 @@ public class UserController {
         ProfilePreviewDTO profilePreview = userProfileServie.getProfilePreviewByUserId(userId, userDetails.getId(), requestMetaInfo);
         return ResponseEntity.status(HttpStatus.OK).body(profilePreview);
     }
-
-
     @Operation(summary = "사용자 프로필 조회")
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponseDTO> getUserProfile(@PathVariable String userId, @AuthenticationPrincipal CustomUserDetails userDetails, HttpServletRequest request) {
@@ -51,7 +49,6 @@ public class UserController {
         UserProfileResponseDTO profile = userProfileServie.getUserProfile(userId,userDetails.getId(),requestMetaInfo);
         return ResponseEntity.ok(profile);
     }
-
 
     @Operation(summary = "닉네임 중복조회 검사"
     ,  responses = {

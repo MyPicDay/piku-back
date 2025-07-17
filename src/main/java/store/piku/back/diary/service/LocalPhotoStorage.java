@@ -23,7 +23,7 @@ public class LocalPhotoStorage implements PhotoStorage{
     private final DiaryImageGenerationService diaryImageGenerationService;
 
     @Override
-    public void savePhoto(Diary diary, List<MultipartFile> photos, String userId, int coverPhotoIndex) throws IOException {
+    public void oldSavePhoto(Diary diary, List<MultipartFile> photos, String userId, int coverPhotoIndex) throws IOException {
         log.info("사진 저장 시작 - 사용자: {}, 일기 날짜: {}, 사진 개수: {}", userId, diary.getDate(), photos.size());
 
         int i = 0;
@@ -45,7 +45,7 @@ public class LocalPhotoStorage implements PhotoStorage{
     }
 
     @Override
-    public void saveAiPhoto(Diary diary, List<Long> aiPhotos, String userId, int coverPhotoIndex) throws IOException {
+    public void oldSaveAiPhoto(Diary diary, List<Long> aiPhotos, String userId, int coverPhotoIndex) {
         log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}, AI 사진 개수: {}", userId, diary.getDate(), aiPhotos.size());
 
         int i = 0;
@@ -66,4 +66,44 @@ public class LocalPhotoStorage implements PhotoStorage{
         }
     }
 
+    @Override
+    public void savePhoto(Diary diary, MultipartFile photo, String userId, Integer order) throws IOException {
+        log.info("사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+
+        if (!photo.isEmpty()) {
+            String originalFilename = photo.getOriginalFilename();
+            String filename = photoUtil.generateFileName(diary.getDate(), originalFilename);
+
+            String filePath = photoUtil.saveToLocal(photo, userId, filename);
+            Photo savePhoto = new Photo(diary, filePath, order);
+            if (order == 0) {
+                savePhoto.updateRepresent(true); // 첫 번째 사진을 대표 사진으로 설정
+            }
+            photoRepository.save(savePhoto);
+        } else {
+            log.warn("빈 파일 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+        }
+    }
+
+    @Override
+    public void saveAiPhoto(Diary diary, Long aiPhoto, String userId, Integer order) {
+        log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+
+        if (aiPhoto != null) {
+            DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.findById(aiPhoto);
+            String filePath = diaryImageGeneration.getFilePath();
+
+            Photo savePhoto = new Photo(diary, filePath, order);
+            if (order == 0) {
+                savePhoto.updateRepresent(true); // 첫 번째 AI 사진을 대표 사진으로 설정
+            }
+            photoRepository.save(savePhoto);
+            diaryImageGenerationService.updateDiaryId(aiPhoto, diary.getId());
+        } else {
+            log.warn("빈 AI 사진 ID 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+        }
+    }
+
 }
+
+
