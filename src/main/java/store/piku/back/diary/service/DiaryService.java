@@ -413,4 +413,19 @@ public class DiaryService {
 
         return diaryRepository.countByUserId(userId);
     }
+
+
+    /**
+     * 해당 프로필 사용자의 월별 일기 수를 반환합니다.
+     *
+     * @param profileId
+     * @return "2025-06": 4,
+     *     "2025-07": 13
+     */
+    public List<DiaryMonthCountDTO> getMonthlyDiaryCount(String profileId) {
+        LocalDate monthsAgo = LocalDate.now().minusMonths(6).withDayOfMonth(1);
+        List<DiaryMonthCountDTO> counts = diaryRepository.countDiariesPerMonth(profileId,monthsAgo);
+
+        return counts;
+    }
 }

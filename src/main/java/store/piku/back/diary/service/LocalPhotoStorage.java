@@ -105,3 +105,5 @@ public class LocalPhotoStorage implements PhotoStorage{
     }
 
 }
+
+
