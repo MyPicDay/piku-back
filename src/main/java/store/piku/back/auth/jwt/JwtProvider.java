@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import store.piku.back.auth.constants.AuthConstants;
 import store.piku.back.global.config.CustomUserDetailService;
 import store.piku.back.global.config.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,9 +26,6 @@ public class JwtProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    private final long accessValidityInMs = 3600000; // 1시간
-    private final long refreshValidityInMs = 36000000; // 10시간
-
     public JwtProvider(CustomUserDetailService customUserDetailService) {
         this.customUserDetailService = customUserDetailService;
     }
@@ -40,7 +38,7 @@ public class JwtProvider {
 
       Claims claims = Jwts.claims().setSubject(email);
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + accessValidityInMs);
+        Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
         claims.put("roles", List.of("ROLE_USER"));
@@ -63,7 +61,7 @@ public class JwtProvider {
         log.info("[JWT Refresh Token 생성] 생성 시작");
 
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + refreshValidityInMs);
+        Date expiry = new Date(now.getTime() + AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
         log.debug("[JWT Refresh Token 생성] 완료 : 만료시간={}", expiry);
