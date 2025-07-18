@@ -10,7 +10,7 @@ public class Notification extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long receiverId;
+    private String receiverId;
     private NotificationType type;
     private String message;
     private Boolean isRead;
