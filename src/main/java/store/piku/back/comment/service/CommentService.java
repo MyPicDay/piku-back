@@ -21,6 +21,8 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.service.reader.UserReader;
 
@@ -33,6 +35,7 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final DiaryService diaryService;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationService notificationService;
 
 
     /**
@@ -66,6 +69,14 @@ public class CommentService {
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
+        if (!user.getId().equals(diary.getUser().getId())) {
+            notificationService.saveNotification(
+                    diary.getUser().getId(), // 알림 받을 사람 = 다이어리 주인
+                    NotificationType.COMMENT,
+                    user.getNickname() ,
+                    "/diaries/" + diary.getId()
+            );
+        }
         return new CommentResponseDto(
                 savedComment.getId(),
                 savedComment.getContent(),

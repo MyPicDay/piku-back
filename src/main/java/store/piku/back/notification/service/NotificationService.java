@@ -106,6 +106,25 @@ public class NotificationService {
         }
     }
 
+    @Transactional
+    public void saveNotification(String receiverId, NotificationType type, String nickname, String relatedId  ) {
+        String message = nickname + "님이 회원님의 게시글에 댓글을 남겼습니다.";
+
+        Notification notification = new Notification(
+                null,
+                receiverId,
+                type,
+                message,
+                false,         // isRead 기본값 false
+                relatedId
+        );
+
+        notificationRepository.save(notification);
+    }
+
+
+
+
     private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
         Map<String, Object> eventCaches = emitterRepository.findAllEventCacheStartWithByUserId(String.valueOf(userId));
         eventCaches.entrySet().stream()
