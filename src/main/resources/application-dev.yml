@@ -15,11 +15,3 @@ spring:
       hibernate:
         format_sql: ${DEV_DB_FORMAT_SQL:true}
         use_sql_comments: ${DEV_DB_USE_SQL_COMMENTS:true}
-
-storage:
-  endpoint: ${MINIO_URL:http://localhost:9000}
-  public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
-  region: ap-northeast-2
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
-  bucket: ${MINIO_BUCKET:piku}

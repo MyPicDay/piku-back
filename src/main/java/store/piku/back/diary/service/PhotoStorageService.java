@@ -1,6 +1,10 @@
 package store.piku.back.diary.service;
 
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MinioClient;
+import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -18,8 +22,9 @@ import store.piku.back.file.FileUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -30,14 +35,16 @@ public class PhotoStorageService {
     private final PhotoRepository photoRepository;
     private final StorageProperties storageProperties;
     private final FileUtil fileUtil;
+    private final Environment environment;
 
     public PhotoStorageService(S3Client s3Client, PhotoUtil photoUtil, PhotoRepository photoRepository,
-                               StorageProperties storageProperties, FileUtil fileUtil) {
+                               StorageProperties storageProperties, FileUtil fileUtil, Environment environment) {
         this.s3Client = s3Client;
         this.photoUtil = photoUtil;
         this.photoRepository = photoRepository;
         this.storageProperties = storageProperties;
         this.fileUtil = fileUtil;
+        this.environment = environment;
     }
 
     public void savePhoto(Diary diary, MultipartFile photo, String userId, Integer order) throws IOException {
@@ -97,13 +104,44 @@ public class PhotoStorageService {
         }
     }
 
-        /**
+    // 개발 환경용
+    public String getMinIOStoragePhotoUrl(String objectName) throws Exception {
+        // MinIO 클라이언트 생성
+        MinioClient minioClient = MinioClient.builder()
+                .endpoint(storageProperties.getEndpoint()) // MinIO 주소
+                .credentials(storageProperties.getAccessKey(), storageProperties.getSecretKey()) // 접속 키
+                .build();
+
+        // Presigned URL 생성 (예: 30분 동안 유효)
+        String url = minioClient.getPresignedObjectUrl(
+                GetPresignedObjectUrlArgs.builder()
+                        .method(Method.GET) // 다운로드용 presigned URL
+                        .bucket(storageProperties.getBucket()) // 버킷 이름
+                        .object(objectName) // 오브젝트 이름
+                        .expiry(30, TimeUnit.MINUTES) // 유효 시간
+                        .build()
+        );
+        return url;
+    }
+
+    /**
      * S3 호환 스토리지의 객체에 대한 미리 서명된 URL을 생성합니다.
      *
      * @param objectName 스토리지 내 객체의 키 (파일 이름)
      * @return 생성된 미리 서명된 URL 문자열, 실패 시 null
      */
     public String getPhotoUrl(String objectName) {
+
+        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (!isProd) {
+            try{
+                return getMinIOStoragePhotoUrl(objectName);
+            }catch (Exception e){
+                log.error("MinIO에서 미리 서명된 URL 생성 실패: {}", e.getMessage(), e);
+                return null;
+            }
+        }
+
         // S3Presigner 빌더를 생성하고 기본 설정을 구성합니다.
         S3Presigner.Builder presignerBuilder = S3Presigner.builder()
                 .region(Region.of(storageProperties.getRegion()))
@@ -112,12 +150,6 @@ public class PhotoStorageService {
                                 storageProperties.getAccessKey(),
                                 storageProperties.getSecretKey()
                         )));
-
-        // MinIO와 같은 S3 호환 스토리지를 위한 엔드포인트가 설정된 경우 적용합니다.
-        final String endpoint = storageProperties.getEndpoint();
-        if (endpoint != null && !endpoint.isEmpty()) {
-            presignerBuilder.endpointOverride(URI.create(endpoint));
-        }
 
         try (S3Presigner presigner = presignerBuilder.build()) {
             // 1. URL을 생성할 객체에 대한 요청을 만듭니다.
@@ -135,13 +167,6 @@ public class PhotoStorageService {
             // 3. 내부 엔드포인트 기준으로 미리 서명된 URL을 생성합니다.
             String internalPresignedUrl = presigner.presignGetObject(presignRequest).url().toString();
 
-            // 4. 외부 접근용 publicUrl이 설정된 경우, URL의 호스트 부분을 교체합니다.
-            final String publicUrl = storageProperties.getPublicUrl();
-            if (publicUrl != null && !publicUrl.isEmpty()) {
-                // 예: http://minio-service:9000/... -> https://cdn.example.com/...
-                return internalPresignedUrl.replace(endpoint, publicUrl);
-            }
-
             return internalPresignedUrl;
 
         } catch (Exception e) {
@@ -150,97 +175,6 @@ public class PhotoStorageService {
             return null;
         }
     }
-
-
-
-
-    // public String getPhotoUrl(String objectName) {
-    //     log.info("storageProperties endpoint: {}", storageProperties.getEndpoint());
-    //     log.info("MinIO Endpoint: {}", storageProperties.getEndpoint());
-
-
-    //     try {
-    //         // 1. S3 객체 요청 생성: 특정 버킷에서 주어진 키(objectName)를 가진 객체를 가져오기 위한 요청을 만듭니다.
-    //         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-    //                 .bucket(storageProperties.getBucket())
-    //                 .key(objectName)
-    //                 .build();
-
-    //         // 2. 서명 만료 시간 설정: 생성될 미리 서명된 URL의 유효 기간을 12시간으로 설정합니다.
-    //         Duration expiration = Duration.ofHours(12);
-
-    //         // 3. S3Presigner 빌더 초기화: S3 객체에 대한 미리 서명된 URL을 생성하는 데 사용될 S3Presigner를 구성합니다.
-    //         S3Presigner.Builder presignerBuilder = S3Presigner.builder()
-    //                 .credentialsProvider(StaticCredentialsProvider.create(
-    //                         AwsBasicCredentials.create(
-    //                                 storageProperties.getAccessKey(),
-    //                                 storageProperties.getSecretKey()
-    //                         )))
-    //                 .region(Region.of(storageProperties.getRegion()));
-
-    //         // 4. 엔드포인트 오버라이드 (MinIO 지원): MinIO와 같은 S3 호환 스토리지 사용을 위해 엔드포인트를 동적으로 설정합니다.
-    //         if (storageProperties.getEndpoint() != null && !storageProperties.getEndpoint().isEmpty()) {
-    //             presignerBuilder.endpointOverride(URI.create(storageProperties.getEndpoint())); // ex) http://localhost:9000
-    //             log.info("MinIO Endpoint: {}", storageProperties.getEndpoint());
-    //         }
-
-    //         // 5. S3Presigner 생성 및 URL 생성: 구성된 빌더를 사용하여 S3Presigner 인스턴스를 생성하고, try-with-resources 구문으로 자동 리소스 관리를 보장합니다.
-    //         try (S3Presigner presigner = presignerBuilder.build()) {
-    //             // 6. 미리 서명된 URL 요청 생성: 만료 시간과 S3 객체 요청을 포함하여 최종 요청을 구성합니다.
-    //             GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-    //                     .signatureDuration(expiration)
-    //                     .getObjectRequest(getObjectRequest)
-    //                     .build();
-
-    //             // 7. 미리 서명된 URL 생성 실행: presignGetObject 메서드를 호출하여 실제 URL을 생성합니다.
-    //             String presignedUrl = presigner.presignGetObject(presignRequest).url().toString();
-
-    //             // 8. Public URL로 변환: 외부에서 접근 가능한 Public URL이 설정된 경우, 내부 엔드포인트 주소를 Public URL로 교체합니다.
-    //             if (storageProperties.getPublicUrl() != null && !storageProperties.getPublicUrl().isEmpty()) {
-    //                 return presignedUrl.replace(storageProperties.getEndpoint(), storageProperties.getPublicUrl());
-    //             }
-
-    //             // 9. 생성된 URL 반환: Public URL 설정이 없으면 생성된 presignedUrl을 그대로 반환합니다.
-    //             return presignedUrl;
-    //         }
-
-    //     } catch (Exception e) {
-    //         // 10. 예외 처리: URL 생성 과정에서 오류가 발생하면 로그를 남기고 null을 반환합니다.
-    //         log.warn("Presigned URL 생성 실패: {}", e.getMessage(), e);
-    //         return null;
-    //     }
-    // }
-
-    /**
-     * 파일 다운로드를 위한 미리 서명된 URL을 생성합니다.
-     * 이 코드는 S3와 MinIO 모두에서 동일하게 동작합니다.
-     * @param objectName 파일 키 (경로 포함 파일명)
-     * @return 생성된 URL
-     */
-//    public URL generateDownloadUrl(String objectName) {
-//        try {
-//            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-//                    .bucket(storageProperties.getBucket())
-//                    .key(objectName)
-//                    .build();
-//
-//
-//            GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-//                    .signatureDuration(Duration.ofHours(12))
-//                    .getObjectRequest(getObjectRequest)
-//                    .build();
-//
-//            PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
-//            return presignedRequest.url();
-//
-//        } catch (Exception e) {
-//            // 실제 프로덕션 코드에서는 더 구체적인 예외 처리를 권장합니다.
-//            throw new RuntimeException("URL 생성 중 오류가 발생했습니다.", e);
-//        }
-//    }
-
-
-
 
     public String saveAIPhoto(String base64Data, String userId, String fileExtension) {
         String objectName = null;
