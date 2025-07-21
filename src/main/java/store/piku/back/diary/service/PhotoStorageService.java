@@ -7,8 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -145,11 +143,13 @@ public class PhotoStorageService {
         // S3Presigner 빌더를 생성하고 기본 설정을 구성합니다.
         S3Presigner.Builder presignerBuilder = S3Presigner.builder()
                 .region(Region.of(storageProperties.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(
-                                storageProperties.getAccessKey(),
-                                storageProperties.getSecretKey()
-                        )));
+                // ec2에 직접 할당
+                // .credentialsProvider(StaticCredentialsProvider.create(
+                //         AwsBasicCredentials.create(
+                //                 storageProperties.getAccessKey(),
+                //                 storageProperties.getSecretKey()
+                //         )))
+                ;
 
         try (S3Presigner presigner = presignerBuilder.build()) {
             // 1. URL을 생성할 객체에 대한 요청을 만듭니다.
