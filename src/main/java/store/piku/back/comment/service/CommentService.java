@@ -69,12 +69,13 @@ public class CommentService {
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
+        String message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
         if (!user.getId().equals(diary.getUser().getId())) {
             notificationService.saveNotification(
                     diary.getUser().getId(), // 알림 받을 사람 = 다이어리 주인
                     NotificationType.COMMENT,
-                    user.getNickname() ,
-                    "/diaries/" + diary.getId()
+                    message,
+                    String.valueOf(diary.getId())
             );
         }
         return new CommentResponseDto(

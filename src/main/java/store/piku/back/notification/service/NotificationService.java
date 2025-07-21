@@ -1,10 +1,18 @@
 package store.piku.back.notification.service;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import store.piku.back.diary.entity.Diary;
+import store.piku.back.diary.entity.Photo;
+import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.diary.service.DiaryService;
+import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.dto.NotificationDTO;
+import store.piku.back.notification.dto.response.CommentNotificationDTO;
 import store.piku.back.notification.entity.Notification;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.repository.EmitterRepository;
@@ -13,8 +21,10 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.service.reader.UserReader;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -25,9 +35,11 @@ public class NotificationService {
     private final EmitterRepository emitterRepository;
     private final NotificationRepository notificationRepository;
     private final UserReader userReader;
+    private final PhotoRepository photoRepository;
+    private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 
-    // 구독 메서드
+    // SSE 연결 ( 알림 구독 시작할 때)
     public SseEmitter subscribe(String userId, String lastEventId) {
         String emitterId = userId + "_" + System.currentTimeMillis();
         SseEmitter emitter = emitterRepository.save(emitterId, new SseEmitter(DEFAULT_TIMEOUT));
@@ -54,75 +66,21 @@ public class NotificationService {
         }
     }
 
-    @Transactional
-    public void send(User receiver, NotificationType notificationType, String content, String url) {
-        Notification notification = notificationRepository.save(createNotification(receiver, notificationType, content, url));
-
-        String receiverId = String.valueOf(receiver.getId());
-        String eventId = receiverId + "_" + System.currentTimeMillis();
-        Map<String, SseEmitter> emitters = emitterRepository.findAllEmitterStartWithByUserId(receiverId);
-        emitters.forEach(
-                (key, emitter) -> {
-                    emitterRepository.saveEventCache(key, notification); // 놓쳤을 때 캐시에 저장
-                    sendToClient(emitter, eventId, notification);
-                }
-        );
-    }
-
-    private Notification createNotification(User receiver, NotificationType notificationType, String content, String url) {
-
-        if(notificationType.equals(NotificationType.FRIEND)) {
-            return Notification.builder()
-                    .receiver(receiver)
-                    .notificationType(notificationType)
-                    .content(content)
-                    .url(url)
-                    .isRead(false)
-                    .build();
-        }else if(notificationType.equals(NotificationType.COMMENT)) {
-            return  Notification.builder()
-                    .receiver(receiver)
-                    .notificationType(notificationType)
-                    .content(content)
-                    .url(url)
-                    .isRead(false)
-                    .build();
-        }
-       return null;
-    }
-
-    public void sendNotification(SseEmitter emitter, String eventId, String emitterId) {
-        try {
-            SseEmitter.SseEventBuilder event = SseEmitter.event()
-                    .id(eventId)         // 이벤트 고유 ID
-                    .name("message")  ;   // 이벤트 이름 (필요시 사용)
-                            // 전송할 메시지 데이터
-
-            emitter.send(event);
-        } catch (IOException e) {
-            // 전송 실패 시 emitter 제거 등 예외 처리
-            emitterRepository.deleteById(emitterId);
-            e.printStackTrace();
-        }
-    }
 
     @Transactional
-    public void saveNotification(String receiverId, NotificationType type, String nickname, String relatedId  ) {
-        String message = nickname + "님이 회원님의 게시글에 댓글을 남겼습니다.";
+    public void saveNotification(String receiverId, NotificationType type, String message, String relatedId) {
 
         Notification notification = new Notification(
                 null,
                 receiverId,
                 type,
                 message,
-                false,         // isRead 기본값 false
+                false,
                 relatedId
         );
 
         notificationRepository.save(notification);
     }
-
-
 
 
     private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
@@ -133,12 +91,67 @@ public class NotificationService {
     }
 
 
-    public List<NotificationDTO> getNotifications(String userId) {
-        User user= userReader.getUserById(userId);
-        List<NotificationDTO> notifications = notificationRepository.findAllByUser(user);
+    public List<CommentNotificationDTO> getNotifications(String userId, RequestMetaInfo requestMetaInfo) {
+        List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(userId);
+
+        List<CommentNotificationDTO> dtos = new ArrayList<>();
+
+        for (Notification n : notifications) {
+            String thumbnailUrl = null;
+
+            if (n.getType() == NotificationType.COMMENT && n.getRelatedId() != null) {
+                try {
+                    Long diaryId = Long.parseLong(n.getRelatedId());
+                    Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diaryId);
+                    thumbnailUrl = representPhotoOpt
+                            .map(Photo::getUrl)
+                            .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
+                            .orElse(null);
+                } catch (NumberFormatException e) {
+                    // relatedId가 숫자가 아닐 경우 예외 처리
+                    // 필요하면 로그 남기기
+                }
+            }
+            else if (n.getType() == NotificationType.FRIEND && n.getRelatedId() != null) {
+                try {
+                    User friend = userReader.getUserById(n.getRelatedId());
+                    thumbnailUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
+                } catch (Exception e) {
+                    // 유저 조회 실패 시 처리
+                }
+            }
+
+            dtos.add(new CommentNotificationDTO(
+                    n.getRelatedId(),
+                    n.getIsRead(),
+                    n.getReceiverId(),
+                    n.getMessage(),
+                    thumbnailUrl
+            ));
+        }
+        return dtos;
     }
 
 
+    @Transactional
+    public boolean markAsRead(Long notificationId) {
+        Optional<Notification> notificationOpt = notificationRepository.findById(String.valueOf(notificationId));
+        if (notificationOpt.isPresent()) {
+            notificationOpt.get().markAsRead();
+            return true;
+        }
+        return false;
+    }
 
+    @Transactional
+    public boolean deleteNotification(Long notificationId,String userId) {
+        Notification notification = notificationRepository.findById(String.valueOf(notificationId)).orElse(null);
+
+        if (notificationRepository.existsById(String.valueOf(notificationId))&& notification.getReceiverId().equals(userId)) {
+            notificationRepository.deleteById(String.valueOf(notificationId));
+            return true;
+        }
+        return false;
+    }
 
 }

@@ -17,9 +17,11 @@ import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.notification.entity.NotificationType;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +35,7 @@ public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationService notificationService;
     private final FriendRepository friendRepository;
     private final UserReader userReader;
 
@@ -63,6 +66,15 @@ public class FriendRequestService {
 
             log.info(toUserId +","+fromUserId +" 사용자 친구 테이블 저장 요청");
             friendRepository.save(new Friend(fromUserId, toUserId));
+
+            String message = fromUser.getNickname() + "님이 친구 수락했습니다";
+            notificationService.saveNotification(
+                    fromUser.getId(),
+                    NotificationType.FRIEND,
+                    message,
+                    fromUserId
+
+            );
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
         } else {
@@ -70,6 +82,15 @@ public class FriendRequestService {
 
              FriendRequest request = new FriendRequest(fromUserId, toUserId);
              friendRequestRepository.save(request);
+
+             String message = fromUser.getNickname() + "님이 친구 요청을 보냈습니다";
+             notificationService.saveNotification(
+                    fromUser.getId(),
+                    NotificationType.FRIEND,
+                     message,
+                    toUserId
+
+            );
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
         }
     }
