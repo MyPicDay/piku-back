@@ -1,7 +1,9 @@
 package store.piku.back.user.service;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import store.piku.back.friend.dto.FriendsDTO;
@@ -87,23 +89,17 @@ public class UserService {
             return new NicknameChangeResponseDTO(false, "이미 사용 중인 닉네임입니다.", newNickname);
         }
 
-        try {
-            User old = userReader.getUserById(userId);
 
-            User updated = new User(
-                    old.getId(),
-                    old.getEmail(),
-                    old.getPassword(),
-                    newNickname,
-                    old.getAvatar()
-            );
 
-            userRepository.save(updated);
-            return new NicknameChangeResponseDTO(true, "닉네임 변경 완료", newNickname);
-        } finally {
-            nicknameHoldMap.remove(newNickname);
+            try {
+                userRepository.updateNickname(userId, newNickname);
+                return new NicknameChangeResponseDTO(true, "닉네임 변경 완료", newNickname);
+            } catch (DataIntegrityViolationException | ConstraintViolationException e) {
+                // DB에 동일 닉네임이 존재해서 UNIQUE 제약 위반
+                return new NicknameChangeResponseDTO(false, "이미 사용 중인 닉네임입니다. (DB 충돌)", newNickname);
+            }
         }
     }
 
-}
+
 
