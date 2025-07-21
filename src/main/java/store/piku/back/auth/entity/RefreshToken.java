@@ -23,6 +23,7 @@ public class RefreshToken {
     public RefreshToken(String key, String refreshToken, String userId) {
         this.key = key;
         this.refreshToken = refreshToken;
+        this.userId = userId;
     }
 
     public void updateToken(String newToken) {
