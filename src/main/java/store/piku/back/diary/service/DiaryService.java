@@ -9,7 +9,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.repository.DiaryImageGenerationRepository;
+import store.piku.back.ai.service.DiaryImageGenerationService;
 import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
@@ -46,11 +48,12 @@ public class DiaryService {
     private final DiaryRepository diaryRepository;
     private final PhotoRepository photoRepository;
     private final UserReader userReader;
-    private final PhotoStorage photoStorage;
+    private final PhotoStorageService photoStorage;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
     private final FileUtil fileUtil;
     private final DiaryImageGenerationRepository diaryImageGenerationRepository;
+    private final DiaryImageGenerationService diaryImageGenerationService;
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
      *
@@ -84,7 +87,7 @@ public class DiaryService {
         // imageInfos를 순회하면서 하나씩 저장
         for(DiaryImageInfo info : infos) {
             if (info.getType() == DiaryPhotoType.AI_IMAGE) {
-                photoStorage.saveAiPhoto(diary, info.getAiPhotoId(), userId, info.getOrder());
+                saveAiPhoto(diary, info.getAiPhotoId(), userId, info.getOrder());
             } else {
                 if (info.getPhotoIndex() != null && photos != null && info.getPhotoIndex() < photos.size()) {
                     photoStorage.savePhoto(diary, photos.get(info.getPhotoIndex()), userId, info.getOrder());
@@ -96,6 +99,24 @@ public class DiaryService {
                 diary.getId(),
                 diary.getContent()
         );
+    }
+
+    public void saveAiPhoto(Diary diary, Long aiPhoto, String userId, Integer order) {
+        log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+
+        if (aiPhoto != null) {
+            DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.findById(aiPhoto);
+            String filePath = diaryImageGeneration.getFilePath();
+
+            Photo savePhoto = new Photo(diary, filePath, order);
+            if (order == 0) {
+                savePhoto.updateRepresent(true); // 첫 번째 AI 사진을 대표 사진으로 설정
+            }
+            photoRepository.save(savePhoto);
+            diaryImageGenerationService.updateDiaryId(aiPhoto, diary.getId());
+        } else {
+            log.warn("빈 AI 사진 ID 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+        }
     }
 
     // @Transactional
@@ -310,7 +331,7 @@ public class DiaryService {
         return diaries.stream().map(diary -> {
             String coverPhotoUrl = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId())
                     .map(Photo::getUrl)
-                    .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
+                    .map(photoStorage::getPhotoUrl)
                     .orElse(null); // 대표 이미지가 없는 경우 null 처리, 혹은 기본 이미지 URL 설정
             return new CalendarDiaryResponseDTO(diary.getId(), coverPhotoUrl, diary.getDate());
         }).collect(Collectors.toList());
@@ -329,7 +350,7 @@ public class DiaryService {
         }
 
         return photos.stream()
-                .map(photo -> imagePathToUrlConverter.diaryImageUrl(photo.getUrl(), requestMetaInfo))
+                .map(photo -> photoStorage.getPhotoUrl(photo.getUrl()))
                 .toList();
     }
 

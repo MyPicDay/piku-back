@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import store.piku.back.ai.dto.AiDiaryResponseDTO;
 import store.piku.back.ai.entity.DiaryImageGeneration;
+import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.user.entity.User;
 import org.springframework.stereotype.Service;
 import store.piku.back.user.service.reader.UserReader;
@@ -16,11 +16,11 @@ import store.piku.back.user.service.reader.UserReader;
 @RequiredArgsConstructor
 public class ImageGenerationService {
 
-    private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final GeminiApiClient geminiApiClient;
     private final DiaryImageGenerationService diaryImageGenerationService;
     private final FileUtil fileUtil;
     private final UserReader userReader;
+    private final PhotoStorageService photoStorage;
 
     public AiDiaryResponseDTO diaryImage(String content, String userId, RequestMetaInfo requestMetaInfo) {
         log.info("사용자 ID '{}' 일기 이미지 생성 요청", userId);
@@ -46,14 +46,13 @@ public class ImageGenerationService {
         }
 
         // CalendarController
-        String imageUrl = imagePathToUrlConverter.diaryImageUrl(generatedImageRelativePath, requestMetaInfo);
+        String aiUrl = photoStorage.getPhotoUrl(generatedImageRelativePath);
         DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.save(userId, prompt, generatedImageRelativePath);
-        log.info("생성된 이미지 URL: {}", imageUrl);
-        AiDiaryResponseDTO responseDTO = new AiDiaryResponseDTO(
+        log.info("생성된 이미지 URL: {}", aiUrl);
+        return new AiDiaryResponseDTO(
                 diaryImageGeneration.getId(),
-                imageUrl
+                aiUrl
         );
-        return responseDTO;
     }
 
     /**
@@ -61,7 +60,7 @@ public class ImageGenerationService {
      * 생성된 이미지의 저장 경로 (userId/filename.png)를 반환합니다.
      */
     private String generateCharacterActionImage(String prompt, String characterImageBase64, String userId) {
-        log.info("Gemini API 호출 (멀티모달): 사용자 ID: {}", userId);
+        log.info("Gemini API 호출 (멀티모달: 사용자 ID: {}", userId);
 
         try {
             // Gemini API 멀티모달 호출 (이미지 + 텍스트)
@@ -70,7 +69,7 @@ public class ImageGenerationService {
             if (base64ImageData != null && !base64ImageData.isEmpty()) {
                 // FileUtil을 사용하여 Base64 데이터를 파일로 저장
                 // fileUtil.saveBase64AsFile은 "userId/filename.ext" 형태의 경로 반환
-                String savedFilePathSuffix = fileUtil.saveBase64AsFile(base64ImageData, userId, "png");
+                String savedFilePathSuffix = photoStorage.saveAIPhoto(base64ImageData, userId, "png");
                 log.info("Gemini API 행위 이미지 생성 및 저장 성공: 사용자 ID: {}, 경로: {}", userId, savedFilePathSuffix);
                 return savedFilePathSuffix; // "userId/filename.png" 반환
             } else {
