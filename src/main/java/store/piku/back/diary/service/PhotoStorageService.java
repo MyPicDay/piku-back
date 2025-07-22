@@ -76,7 +76,7 @@ public class PhotoStorageService {
             }
         } catch (Exception e) {
             log.warn("Exception occured while saving photo : {}", e.getMessage(), e);
-            throw new IOException("S3 파일 저장 중 오류 발생", e);
+            throw new RuntimeException("S3 파일 저장 중 오류 발생", e);
         }
     }
 
