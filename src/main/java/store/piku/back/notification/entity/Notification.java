@@ -22,7 +22,7 @@ public class Notification extends BaseEntity {
     private NotificationType type;
     private String message;
     private Boolean isRead;
-    private String relatedId; // 관련 게시물, 관련 친구 id
+    private String relatedId;
 
     public void markAsRead() {
         this.isRead = true;

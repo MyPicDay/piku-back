@@ -1,20 +1,18 @@
 package store.piku.back.notification.service;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
-import store.piku.back.notification.dto.NotificationDTO;
-import store.piku.back.notification.dto.response.CommentNotificationDTO;
+import store.piku.back.notification.dto.response.NotificationResponseDTO;
 import store.piku.back.notification.entity.Notification;
 import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.exception.NotificationNotFoundException;
 import store.piku.back.notification.repository.EmitterRepository;
 import store.piku.back.notification.repository.NotificationRepository;
 import store.piku.back.user.entity.User;
@@ -28,6 +26,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationService {
 
     private static final Long DEFAULT_TIMEOUT = 60L*1000*60;
@@ -46,8 +45,11 @@ public class NotificationService {
         emitter.onCompletion(() -> emitterRepository.deleteById(emitterId));
         emitter.onTimeout(() -> emitterRepository.deleteById(emitterId));
 
+        long unreadCount = notificationRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(userId);
         String eventId = userId + "_" + System.currentTimeMillis();
-        sendToClient(emitter, eventId,"EventStream Created. [userId=" + userId +"]");
+
+        emitterRepository.saveEventCache(emitterId, String.valueOf(unreadCount));;
+        sendToClient(emitter, eventId, String.valueOf(unreadCount));
 
         if (!lastEventId.isEmpty()) {
             sendLostData(lastEventId, userId, emitterId, emitter);
@@ -55,12 +57,19 @@ public class NotificationService {
         return emitter;
     }
 
-    public void sendToClient(SseEmitter emitter, String eventId, Object data) {
+    private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
+        Map<String, Object> eventCaches = emitterRepository.findAllEventCacheStartWithByUserId(String.valueOf(userId));
+        eventCaches.entrySet().stream()
+                .filter(entry -> lastEventId.compareTo(entry.getKey()) < 0)
+                .forEach(entry -> {
+                    String unreadCount = (String) entry.getValue(); // 알림 개수 (문자열)
+                    sendToClient(emitter, entry.getKey(), unreadCount);
+                });
+    }
+    public void sendToClient(SseEmitter emitter, String eventId, String message) {
         try {
-            emitter.send(SseEmitter.event()
-                    .id(eventId)
-                    .data(data));
-        } catch (IOException exception) {
+            emitter.send(SseEmitter.event().id(eventId).data(message));
+        } catch (IOException e) {
             emitterRepository.deleteById(eventId);
             throw new RuntimeException("연결 오류!");
         }
@@ -70,6 +79,7 @@ public class NotificationService {
     @Transactional
     public void saveNotification(String receiverId, NotificationType type, String message, String relatedId) {
 
+        log.info("알림 저장 요청 - receiverId: {}, type: {}, message: {}, relatedId: {}", receiverId, type, message, relatedId);
         Notification notification = new Notification(
                 null,
                 receiverId,
@@ -78,50 +88,36 @@ public class NotificationService {
                 false,
                 relatedId
         );
-
         notificationRepository.save(notification);
     }
 
 
-    private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
-        Map<String, Object> eventCaches = emitterRepository.findAllEventCacheStartWithByUserId(String.valueOf(userId));
-        eventCaches.entrySet().stream()
-                .filter(entry -> lastEventId.compareTo(entry.getKey()) < 0)
-                .forEach(entry -> sendToClient(emitter, entry.getKey(), entry.getValue()));
-    }
-
-
-    public List<CommentNotificationDTO> getNotifications(String userId, RequestMetaInfo requestMetaInfo) {
+    public List<NotificationResponseDTO> getNotifications(String userId, RequestMetaInfo requestMetaInfo) {
+        log.info("알림 조회 시작 - userId: {}", userId);
         List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(userId);
 
-        List<CommentNotificationDTO> dtos = new ArrayList<>();
+        List<NotificationResponseDTO> dtos = new ArrayList<>();
 
         for (Notification n : notifications) {
             String thumbnailUrl = null;
 
+            log.info("댓글 알림 조회 시작 - userId: {}", userId);
             if (n.getType() == NotificationType.COMMENT && n.getRelatedId() != null) {
-                try {
                     Long diaryId = Long.parseLong(n.getRelatedId());
                     Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diaryId);
                     thumbnailUrl = representPhotoOpt
                             .map(Photo::getUrl)
                             .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
                             .orElse(null);
-                } catch (NumberFormatException e) {
-                    // relatedId가 숫자가 아닐 경우 예외 처리
-                    // 필요하면 로그 남기기
-                }
             }
             else if (n.getType() == NotificationType.FRIEND && n.getRelatedId() != null) {
-                try {
-                    User friend = userReader.getUserById(n.getRelatedId());
+                log.info("친구 알림 조회 시작 - userId: {}", userId);
+                User friend = userReader.getUserById(n.getRelatedId());
                     thumbnailUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
-                } catch (Exception e) {
-                    // 유저 조회 실패 시 처리
-                }
             }
 
-            dtos.add(new CommentNotificationDTO(
+            dtos.add(new NotificationResponseDTO(
+                    n.getId(),
                     n.getRelatedId(),
                     n.getIsRead(),
                     n.getReceiverId(),
@@ -132,23 +128,46 @@ public class NotificationService {
         return dtos;
     }
 
+    public Optional<Notification> findNotificationById(String notificationId) {
+        Optional<Notification> notificationOpt = notificationRepository.findById(notificationId);
+        if (notificationOpt.isEmpty()) {
+            throw new NotificationNotFoundException("알림이 존재하지 않습니다. ID: " + notificationId);
+        }
+        return notificationOpt;
+    }
 
     @Transactional
-    public boolean markAsRead(Long notificationId) {
-        Optional<Notification> notificationOpt = notificationRepository.findById(String.valueOf(notificationId));
+    public boolean markAsRead(Long notificationId, String userId) {
+
+        Optional<Notification> notificationOpt = findNotificationById(String.valueOf(notificationId));
+
         if (notificationOpt.isPresent()) {
-            notificationOpt.get().markAsRead();
+            Notification notification = notificationOpt.get();
+
+            if (!notification.getReceiverId().equals(userId)) {
+                log.warn("사용자 {}가 본인의 알림이 아닌 알림 {}에 접근 시도", userId, notificationId);
+                return false;
+            }
+
+            notification.markAsRead();
             return true;
         }
+
         return false;
     }
 
     @Transactional
-    public boolean deleteNotification(Long notificationId,String userId) {
-        Notification notification = notificationRepository.findById(String.valueOf(notificationId)).orElse(null);
+    public boolean deleteNotification(Long notificationId, String userId) {
+        Optional<Notification> notificationOpt = findNotificationById(String.valueOf(notificationId));
 
-        if (notificationRepository.existsById(String.valueOf(notificationId))&& notification.getReceiverId().equals(userId)) {
-            notificationRepository.deleteById(String.valueOf(notificationId));
+        if (notificationOpt.isPresent()) {
+            Notification notification = notificationOpt.get();
+
+            if (!notification.getReceiverId().equals(userId)) {
+                log.warn("사용자 {}가 본인의 알림이 아닌 알림 {}에 삭제 시도", userId, notificationId);
+                return false;
+            }
+            notification.inactive();
             return true;
         }
         return false;

@@ -17,6 +17,7 @@ import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.repository.NotificationRepository;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
@@ -35,6 +36,7 @@ public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
     private final FriendRepository friendRepository;
     private final UserReader userReader;
@@ -69,7 +71,7 @@ public class FriendRequestService {
 
             String message = fromUser.getNickname() + "님이 친구 수락했습니다";
             notificationService.saveNotification(
-                    fromUser.getId(),
+                    toUser.getId(),
                     NotificationType.FRIEND,
                     message,
                     fromUserId
@@ -84,13 +86,18 @@ public class FriendRequestService {
              friendRequestRepository.save(request);
 
              String message = fromUser.getNickname() + "님이 친구 요청을 보냈습니다";
-             notificationService.saveNotification(
-                    fromUser.getId(),
-                    NotificationType.FRIEND,
-                     message,
-                    toUserId
-
+             boolean alreadyNotified = notificationRepository.existsByRelatedIdAndReceiverIdAndType(
+                    fromUserId, toUserId, NotificationType.FRIEND
             );
+
+             if (!alreadyNotified) {
+                notificationService.saveNotification(
+                        toUser.getId(),
+                        NotificationType.FRIEND,
+                        message,
+                        fromUserId
+                );
+            }
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
         }
     }

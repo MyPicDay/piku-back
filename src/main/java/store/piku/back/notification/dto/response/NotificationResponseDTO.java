@@ -7,8 +7,9 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CommentNotificationDTO {
+public class NotificationResponseDTO {
 
+    private Long id;
     private String relatedId;
     private Boolean isRead;
     private String receiverId;
