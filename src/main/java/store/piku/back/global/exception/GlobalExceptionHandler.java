@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,6 +21,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -62,6 +64,18 @@ public class GlobalExceptionHandler {
         );
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParams(MissingServletRequestParameterException ex) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("error", "Missing required request parameter");
+        errorResponse.put("parameterName", ex.getParameterName());
+        errorResponse.put("parameterType", ex.getParameterType());
+        errorResponse.put("message", String.format("'%s' parameter of type '%s' is missing",
+                ex.getParameterName(), ex.getParameterType()));
+
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -126,5 +140,7 @@ public class GlobalExceptionHandler {
                 || message.contains("Broken pipe")
                 || message.contains("An existing connection was forcibly closed");
     }
+
+
 
 }
