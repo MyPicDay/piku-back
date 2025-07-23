@@ -7,8 +7,8 @@ spring:
     import: optional:file:.env[.properties]
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
+      max-file-size: 7MB
+      max-request-size: 7MB
   data:
     web:
       pageable:
@@ -34,3 +34,10 @@ management:
     web:
       exposure:
         include: health
+
+storage:
+  endpoint: ${STORAGE_URL:http://localhost:9000}
+  region: ap-northeast-2
+  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  bucket: ${STORAGE_BUCKET:piku}

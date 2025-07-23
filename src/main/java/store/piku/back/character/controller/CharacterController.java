@@ -1,5 +1,8 @@
 package store.piku.back.character.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import store.piku.back.character.dto.CharacterResponseDTO;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Tag(name = "Character", description = "캐릭터 관련 API")
 @Slf4j
 @RestController
 @RequestMapping("/api/characters")
@@ -25,6 +29,7 @@ public class CharacterController {
     private final CharacterService characterService;
 
     // 고정 캐릭터 목록 조회 API
+    @Operation(summary = "고정 캐릭터 목록 조회", description = "기본으로 제공되는 고정 캐릭터 목록을 조회합니다.")
     @GetMapping("/fixed")
     public ResponseEntity<List<CharacterResponseDTO>> getFixedCharacters() {
         List<CharacterResponseDTO> fixedCharacters = characterService.getFixedCharacters().stream()
@@ -34,8 +39,9 @@ public class CharacterController {
     }
 
     // 고정 캐릭터 이미지 조회 API
+    @Operation(summary = "고정 캐릭터 이미지 조회", description = "고정 캐릭터의 이미지를 조회합니다.")
     @GetMapping("/fixed/{fileName:.+}")
-    public ResponseEntity<Resource> getFixedCharacterImage(@PathVariable String fileName) {
+    public ResponseEntity<Resource> getFixedCharacterImage(@Parameter(description = "이미지 파일명", example = "base_image_1.png") @PathVariable String fileName) {
         try {
             Resource resource = characterService.getFixedCharacterImageAsResource(fileName);
 

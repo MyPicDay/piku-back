@@ -2,6 +2,10 @@ package store.piku.back.auth.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseCookie;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import store.piku.back.auth.constants.AuthConstants;
 import store.piku.back.auth.dto.LoginRequest;
 import store.piku.back.auth.dto.SignupRequest;
 import store.piku.back.auth.dto.TokenDto;
@@ -14,6 +18,7 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import store.piku.back.user.service.reader.UserReader;
 
 @Service
 @Slf4j
@@ -25,6 +30,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final CharacterService characterService;
+    private final UserReader userReader;
 
     /**
      * 회원가입
@@ -49,6 +55,14 @@ public class AuthService {
         log.info("[회원 가입] 완료 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
     }
 
+
+    public void validateLoginPassword(String requestPassword, String storedPassword, String email) {
+        if (!passwordEncoder.matches(requestPassword, storedPassword)) {
+            log.warn("[로그인] 실패 - 비밀번호 불일치 : 이메일={}", email);
+            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+        }
+        log.info("[비밀번호 검증 성공] 비밀번호가 일치합니다.");
+    }
     /**
      * 로그인
      */
@@ -56,28 +70,76 @@ public class AuthService {
         log.info("[로그인] 서비스 호출 : 이메일={}", dto.getEmail());
         String keyId = dto.getEmail() + "-" + deviceId;
 
-        User user = userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> {
-                    log.warn("[로그인] 실패 - 존재하지 않는 사용자 : 이메일={}", dto.getEmail());
-                    return new RuntimeException("존재하지 않는 사용자입니다.");
-                });
+        User user = userReader.getUserByEmail(dto.getEmail());
 
-        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            log.warn("[로그인] 실패 - 비밀번호 불일치 : 이메일={}", dto.getEmail());
-            throw new RuntimeException("비밀번호가 일치하지 않습니다.");
-        }
+        validateLoginPassword(dto.getPassword(), user.getPassword(), dto.getEmail());
 
         log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
-        String accessToken = jwtProvider.generateAccessToken(user.getEmail());
-        String refreshToken = jwtProvider.generateRefreshToken();
-
-        RefreshToken refreshTokenEntity = new RefreshToken(keyId, refreshToken);
-        refreshTokenRepository.save(refreshTokenEntity);
+        String accessToken = getNewAccessToken(dto.getEmail());
+        String refreshToken = getNewRefreshToken(dto.getEmail(), deviceId, user.getId());
 
         log.info("[JWT Refresh Token 저장 완료] key={}, refreshToken={}", keyId, refreshToken);
 
         return new TokenDto(accessToken, refreshToken);
     }
+
+    public String getNewAccessToken(String email) {
+        String newAccessToken = jwtProvider.generateAccessToken(email);
+        return newAccessToken;
+    }
+
+    private String getNewRefreshToken(String email, String deviceId, String userId) {
+        String keyId = email + "-" + deviceId;
+        String newRefreshToken = jwtProvider.generateRefreshToken();
+        RefreshToken refreshTokenEntity = new RefreshToken(keyId, newRefreshToken, userId);
+        refreshTokenRepository.save(refreshTokenEntity);
+        log.info("[JWT Refresh Token 저장 완료] key={}, refresh Token={}", keyId, newRefreshToken);
+        return newRefreshToken;
+    }
+
+    @Transactional
+    public String reissueAccessToken(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            return null;
+        }
+
+        if (!jwtProvider.validateToken(refreshToken)) {
+            refreshTokenRepository.deleteByRefreshToken(refreshToken);
+            return null;
+        }
+
+        // 저장된 refreshToken에서 email 추출
+        RefreshToken tokenEntity = refreshTokenRepository.findByRefreshToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("저장된 리프레시 토큰 없음"));
+
+        String email = tokenEntity.getKey().split("-")[0];
+
+        // 새 Access Token 발급
+        String newAccessToken = jwtProvider.generateAccessToken(email);
+        return newAccessToken;
+    }
+
+    public ResponseCookie removeCookieRefreshToken() {
+        return ResponseCookie.from(AuthConstants.REFRESH_TOKEN, "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+    }
+
+    public ResponseCookie newCookieRefreshToken(String refreshToken) {
+        return ResponseCookie.from(AuthConstants.REFRESH_TOKEN, refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME)
+                .sameSite("Lax")
+                .build();
+    }
+
+
 
     public UserInfo getUserInfoByEmail(String email) {
         User user = userRepository.findByEmail(email)

@@ -71,32 +71,33 @@ services:
       - piku-network
 
 
-#  minio:
-#    image: minio/minio:latest
-#    container_name: piku-minio
-#    ports:
-#      - "${MINIO_API_PORT:-9000}:9000"    # MinIO API 포트 (환경 변수로 관리 또는 기본값 9000)
-#      - "${MINIO_CONSOLE_PORT:-9001}:9001" # MinIO Console 포트 (환경 변수로 관리 또는 기본값 9001)
-#    profiles:
-#      - "dev"
-#    environment:
-#      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}       # .env 파일 또는 기본값 minioadmin 사용
-#      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin} # .env 파일 또는 기본값 minioadmin 사용
-#    volumes:
-#      - minio-data:/data # MinIO 데이터 지속성을 위한 볼륨
-#    networks:
-#      - dev-piku-network # dev 프로필 서비스 접근용
-#      - piku-network     # prod 프로필 서비스 접근용
-#    command: server /data --console-address ":9001"
-#    healthcheck:
-#      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-#      interval: 30s
-#      timeout: 20s
-#      retries: 3
+  minio:
+    image: minio/minio:latest
+    container_name: piku-minio
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"    # MinIO API 포트 (환경 변수로 관리 또는 기본값 9000)
+      - "${MINIO_CONSOLE_PORT:-9001}:9001" # MinIO Console 포트 (환경 변수로 관리 또는 기본값 9001)
+    profiles:
+      - "dev"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}       # .env 파일 또는 기본값 minioadmin 사용
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin} # .env 파일 또는 기본값 minioadmin 사용
+    volumes:
+      - minio-data:/data # MinIO 데이터 지속성을 위한 볼륨
+    networks:
+      - dev-piku-network # dev 프로필 서비스 접근용
+      - piku-network     # prod 프로필 서비스 접근용
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
 volumes:
   piku-data:
   dev-piku-data:
+  minio-data:
 #  minio-data: # MinIO 데이터를 위한 새 볼륨
 
 networks:

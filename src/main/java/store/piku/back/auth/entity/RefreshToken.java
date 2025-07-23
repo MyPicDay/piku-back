@@ -18,9 +18,12 @@ public class RefreshToken {
 
     private String refreshToken;
 
-    public RefreshToken(String key, String refreshToken) {
+    private String userId;
+
+    public RefreshToken(String key, String refreshToken, String userId) {
         this.key = key;
         this.refreshToken = refreshToken;
+        this.userId = userId;
     }
 
     public void updateToken(String newToken) {
