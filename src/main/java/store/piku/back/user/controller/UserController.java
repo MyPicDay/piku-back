@@ -74,10 +74,11 @@ public class UserController {
             @ApiResponse(responseCode = "409", description = "점유 정보가 없거나 만료되었거나 본인이 아닙니다."),
             @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.")
     })
-    @PatchMapping("/nickname")
+    @PatchMapping("/profile")
     public ResponseEntity<NicknameChangeResponseDTO> changeNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                                    @RequestParam String newNickname) {
-        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), newNickname);
+                                                                    @RequestParam(required = false) String newNickname,
+                                                                    @RequestParam(required = false) String characterId) {
+        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), newNickname, characterId);
         return changed.isSuccess()
                 ? ResponseEntity.ok(changed)
                 : ResponseEntity.status(HttpStatus.CONFLICT).body(changed);
