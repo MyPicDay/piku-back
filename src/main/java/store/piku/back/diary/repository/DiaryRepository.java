@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import store.piku.back.diary.dto.DiaryMonthCountDTO;
 import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.enums.Status;
 import store.piku.back.user.entity.User;
 
 import java.time.LocalDate;
@@ -18,11 +17,7 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
 
     List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end);
 
-    Page<Diary> findByStatus(Status status, Pageable pageable);
-
     Optional<Diary> findByUserAndDate(User user, LocalDate date);
-
-    Page<Diary> findByUserIdInAndStatus(List<String> friendIds, Status status, Pageable pageable);
 
     long countByUserId(String userId);
 
@@ -37,4 +32,12 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
             @Param("userId") String userId,
             @Param("monthsAgo") LocalDate monthsAgo
     );
+
+    @Query("""
+    SELECT d FROM Diary d
+    WHERE (d.user.id IN :friendIds AND d.status = 'FRIENDS')
+       OR d.status = 'PUBLIC'
+    ORDER BY CASE WHEN (d.user.id IN :friendIds AND d.status = 'FRIENDS') THEN 0 ELSE 1 END, d.createdAt DESC
+""")
+    Page<Diary> findFeedByFriendIdsOrPublic(List<String> friendIds, Pageable safePageable);
 }

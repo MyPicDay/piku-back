@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
+import store.piku.back.character.entity.Character;
+import store.piku.back.character.service.CharacterService;
 import store.piku.back.friend.dto.FriendsDTO;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
@@ -14,8 +17,6 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import store.piku.back.user.service.reader.UserReader;
-import store.piku.back.character.service.CharacterService;
-import store.piku.back.character.entity.Character;
 
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -164,6 +165,22 @@ public class UserService {
             message = "캐릭터가 성공적으로 변경되었습니다.";
         }
         return new NicknameChangeResponseDTO(true, message, nickname, characterChanged ? characterId : null);
+    }
+
+    public boolean updateProfileImage(String id, Long imageId) {
+        User user = userReader.getUserById(id);
+
+        if (!user.getId().equals(id)) {
+            throw new AccessDeniedException("본인만 프로필 이미지를 변경할 수 있습니다.");
+        }
+
+        Character character = characterService.getCharacterById(imageId);
+        String avatarUrl = characterService.getFixedCharacterImageUrl(character.getId());
+
+        user.changeAvatar(avatarUrl);
+        userRepository.save(user);
+
+        return true;
     }
 }
 
