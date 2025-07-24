@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
+import store.piku.back.user.dto.request.UpdateProfilePayload;
 import store.piku.back.user.dto.response.NicknameChangeResponseDTO;
 import store.piku.back.user.dto.response.NicknameResponseDTO;
 import store.piku.back.user.dto.response.ProfilePreviewDTO;
@@ -71,7 +72,7 @@ public class UserController {
 
 
 
-    @Operation(summary = "변경할 닉네임 등록")
+    @Operation(summary = "변경할 닉네임/캐릭터 사진 등록")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "닉네임 변경 성공"),
             @ApiResponse(responseCode = "409", description = "점유 정보가 없거나 만료되었거나 본인이 아닙니다."),
@@ -79,9 +80,8 @@ public class UserController {
     })
     @PatchMapping("/profile")
     public ResponseEntity<NicknameChangeResponseDTO> changeNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                                    @RequestParam(required = false) String newNickname,
-                                                                    @RequestParam(required = false) String characterId) {
-        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), newNickname, characterId);
+                                                                    @RequestBody UpdateProfilePayload updateProfilePayload) {
+        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), updateProfilePayload.getNewNickname(), updateProfilePayload.getCharacterId());
         return changed.isSuccess()
                 ? ResponseEntity.ok(changed)
                 : ResponseEntity.status(HttpStatus.CONFLICT).body(changed);

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.util.StringUtils;
 import store.piku.back.character.entity.Character;
 import store.piku.back.character.service.CharacterService;
 import store.piku.back.friend.dto.FriendsDTO;
@@ -80,8 +81,8 @@ public class UserService {
 
 
     @Transactional
-    public NicknameChangeResponseDTO reserveAndChangeNickname(String userId, String newNickname, String characterId) {
-        if ((newNickname == null || newNickname.isEmpty()) && (characterId == null || characterId.isEmpty())) {
+    public NicknameChangeResponseDTO reserveAndChangeNickname(String userId, String newNickname, Long characterId) {
+        if ((!StringUtils.hasText(newNickname)) && (characterId == null)) {
             return new NicknameChangeResponseDTO(false, "변경할 닉네임이나 캐릭터 정보가 없습니다.", null, null);
         }
 
@@ -107,14 +108,14 @@ public class UserService {
         boolean characterChanged = !targetAvatar.equals(oldAvatar);
 
         if (!nicknameChanged && !characterChanged) {
-            return new NicknameChangeResponseDTO(true, "변경 사항이 없습니다.", oldNickname, characterId);
+            return new NicknameChangeResponseDTO(true, "변경 사항이 없습니다.", oldNickname, targetAvatar);
         }
 
         try {
-            User updatedUser = new User(user.getId(), user.getEmail(), user.getPassword(), targetNickname, targetAvatar);
+            User updatedUser = new User(user.getId(), user.getEmail(), user.getPassword(), targetNickname,  targetAvatar);
             userRepository.save(updatedUser);
 
-            return buildSuccessResponse(nicknameChanged, characterChanged, targetNickname, characterId);
+            return buildSuccessResponse(nicknameChanged, characterChanged, targetNickname, targetAvatar);
         } finally {
             if (nicknameChanged) {
                 nicknameHoldMap.remove(newNickname);
@@ -139,13 +140,14 @@ public class UserService {
         return newNickname;
     }
 
-    private String getUpdatedAvatar(String characterId, String oldAvatar) {
-        if (characterId == null || characterId.isEmpty()) {
+    private String getUpdatedAvatar(Long characterId, String oldAvatar) {
+        if (characterId == null) {
             return oldAvatar;
         }
         try {
-            Character character = characterService.getCharacterById(Long.parseLong(characterId));
-            return character.getImageUrl().equals(oldAvatar) ? oldAvatar : character.getImageUrl();
+            String newCharacter = characterService.getFixedCharacterImageUrl(characterId);
+
+            return newCharacter.equals(oldAvatar) ? oldAvatar : newCharacter;
         } catch (NumberFormatException e) {
             log.warn("Invalid character ID format: {}", characterId);
             throw new RuntimeException("유효하지 않은 캐릭터 ID 형식입니다.");
@@ -155,7 +157,7 @@ public class UserService {
         }
     }
 
-    private NicknameChangeResponseDTO buildSuccessResponse(boolean nicknameChanged, boolean characterChanged, String nickname, String characterId) {
+    private NicknameChangeResponseDTO buildSuccessResponse(boolean nicknameChanged, boolean characterChanged, String nickname, String avatar) {
         String message;
         if (nicknameChanged && characterChanged) {
             message = "닉네임과 캐릭터가 성공적으로 변경되었습니다.";
@@ -164,7 +166,7 @@ public class UserService {
         } else { // characterChanged
             message = "캐릭터가 성공적으로 변경되었습니다.";
         }
-        return new NicknameChangeResponseDTO(true, message, nickname, characterChanged ? characterId : null);
+        return new NicknameChangeResponseDTO(true, message, nickname, characterChanged ? avatar : null);
     }
 
     public boolean updateProfileImage(String id, Long imageId) {
