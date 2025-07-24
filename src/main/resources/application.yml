@@ -16,6 +16,18 @@ spring:
         max-page-size: 100
   jpa:
     open-in-view: false
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${SUPPORT_EMAIL:piku@gmail.com}
+    password: ${EMAIL_PWD:abcd abcd efgh efgh}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          timeout: 5000
+          starttls:
+            enable: true
 
 gemini:
   api:

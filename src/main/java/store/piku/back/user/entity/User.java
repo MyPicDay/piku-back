@@ -52,4 +52,12 @@ public class User extends BaseEntity {
         this.avatar = avatar;
 
     }
+
+    /**
+     * 비밀번호를 변경하는 비즈니스 메서드
+     * @param newHashedPassword 암호화된 새로운 비밀번호
+     */
+    public void updatePassword(String newHashedPassword) {
+        this.password = newHashedPassword;
+    }
 }

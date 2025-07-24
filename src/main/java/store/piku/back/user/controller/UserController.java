@@ -18,8 +18,10 @@ import store.piku.back.user.dto.response.NicknameChangeResponseDTO;
 import store.piku.back.user.dto.response.NicknameResponseDTO;
 import store.piku.back.user.dto.response.ProfilePreviewDTO;
 import store.piku.back.user.dto.response.UserProfileResponseDTO;
+import store.piku.back.user.entity.User;
 import store.piku.back.user.service.UserProfileService;
 import store.piku.back.user.service.UserService;
+import store.piku.back.user.service.reader.UserReader;
 
 
 @Tag(name = "Users", description = "유저 관련 API")
@@ -32,6 +34,7 @@ public class UserController {
     private final UserProfileService userProfileServie;
     private final RequestMetaMapper requestMetaMapper;
     private final UserService userService;
+    private final UserReader userReader;
 
     @Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보 시 사용될 정보를 조회하여 반환합니다.")
     @GetMapping("/{userId}/profile-preview")
@@ -84,4 +87,14 @@ public class UserController {
     }
 
 
+    @PutMapping("/profile-image")
+    public ResponseEntity<Void> updateProfileImage(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestParam Long imageId) {
+
+        boolean success = userService.updateProfileImage(customUserDetails.getId(), imageId);
+        if (success) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
