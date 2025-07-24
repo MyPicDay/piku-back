@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import store.piku.back.character.entity.Character;
+import store.piku.back.character.service.CharacterService;
 import store.piku.back.friend.dto.FriendsDTO;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
@@ -28,6 +31,7 @@ public class UserService {
 
     private final ConcurrentHashMap<String, NicknameHold> nicknameHoldMap = new ConcurrentHashMap<>();
     private final long HOLD_DURATION_MS = 180000; // 300초 점유
+    private final CharacterService characterService;
 
     /**
      * 키워드로 유저를 검색해 친구 목록을 조회합니다.
@@ -105,5 +109,21 @@ public class UserService {
         }
     }
 
+
+    public boolean updateProfileImage(String id, Long imageId) {
+        User user = userReader.getUserById(id);
+
+        if (!user.getId().equals(id)) {
+            throw new AccessDeniedException("본인만 프로필 이미지를 변경할 수 있습니다.");
+        }
+
+        Character character = characterService.getCharacterById(imageId);
+        String avatarUrl = characterService.getFixedCharacterImageUrl(character.getId());
+
+        user.changeAvatar(avatarUrl);
+        userRepository.save(user);
+
+        return true;
+    }
 }
 
