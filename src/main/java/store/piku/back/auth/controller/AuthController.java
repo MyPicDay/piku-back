@@ -10,7 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import store.piku.back.auth.constants.AuthConstants;
+import store.piku.back.auth.dto.request.EmailValidRequest;
 import store.piku.back.auth.dto.request.LoginRequest;
+import store.piku.back.auth.dto.request.PwdResetRequest;
 import store.piku.back.auth.dto.request.SignupRequest;
 import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
@@ -170,16 +172,22 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "인증 코드 검증 실패")
     })
     @PostMapping("/verify-code")
-    public ResponseEntity<String> verifyCode(@RequestBody Map<String, String> request) {
-        VerificationType type = VerificationType.valueOf(request.get("type").toUpperCase());
+    public ResponseEntity<String> verifyCode(@RequestBody EmailValidRequest dto) {
+        authService.verifyCode(dto, VerificationType.SIGN_UP);
 
-        boolean isVerified = authService.verifyCode(request.get("email"), request.get("code"), type);
+        return ResponseEntity.ok("이메일 인증이 성공적으로 완료되었습니다.");
+    }
 
-        if (isVerified) {
-            return ResponseEntity.ok("이메일 인증이 성공적으로 완료되었습니다.");
-        } else {
-            return ResponseEntity.badRequest().body("인증 코드가 올바르지 않거나 만료되었습니다.");
-        }
+
+    @Operation(summary = "이메일 인증 및 비밀번호 재설정", description = "본인인증을 위해 발송된 인증코드가 유효하고, 일치하는지 검증 후 새로운 비밀번호로 변경합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "인증 코드 검증 및 비밀번호 변경 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 코드 검증 및 비밀번호 변경 실패")
+    })
+    @PostMapping("/verify-code/password-reset")
+    public ResponseEntity<String> verifyCodeAndResetPwd(@RequestBody PwdResetRequest dto) {
+        authService.verifyCodeAndResetPwd(dto);
+
+        return ResponseEntity.ok("이메일 인증 및 비밀번호 변경이 성공적으로 완료되었습니다.");
     }
 }
-

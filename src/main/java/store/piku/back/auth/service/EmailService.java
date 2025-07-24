@@ -7,6 +7,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Random;
 
 @Service
@@ -30,7 +31,7 @@ public class EmailService {
      * @param toEmail 수신자 이메일 주소
      * @return 생성된 인증 코드
      */
-    public String sendVerificationEmail(String toEmail) throws MessagingException {
+    public String sendVerificationEmail(String toEmail) throws MessagingException, UnsupportedEncodingException {
         String code = createVerificationCode();
         String subject = "[PikU] 이메일 인증";
 
@@ -46,6 +47,7 @@ public class EmailService {
                 + "<br>"
                 + "</body></html>";
 
+        helper.setFrom("mypikuofficial@gmail.com", "PikU | 피쿠");
         helper.setTo(toEmail);
         helper.setSubject(subject);
         helper.setText(htmlContent, true);
