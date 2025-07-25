@@ -80,6 +80,26 @@ public class PhotoStorageService {
         }
     }
 
+    public String uploadToStorage(MultipartFile image, String userId, String objectKey){
+        try {
+            ensureBucketExists(storageProperties.getBucket());
+
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(storageProperties.getBucket())
+                    .key(objectKey)
+                    .contentType(image.getContentType())
+                    .contentLength(image.getSize())
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(image.getInputStream(), image.getSize()));
+
+            return objectKey;
+        } catch (IOException e) {
+            throw new RuntimeException("이미지 업로드 중 오류 발생", e);
+        }
+    }
+
+
 
 
     private void ensureBucketExists(String bucketName) {
