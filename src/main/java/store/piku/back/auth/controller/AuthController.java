@@ -17,7 +17,6 @@ import store.piku.back.auth.dto.request.SignupRequest;
 import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.dto.response.LoginResponse;
-import store.piku.back.auth.enums.VerificationType;
 import store.piku.back.auth.repository.RefreshTokenRepository;
 import store.piku.back.auth.service.AuthService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -154,6 +153,7 @@ public class AuthController {
         return ResponseEntity.ok("회원가입용 인증 이메일이 발송되었습니다.");
     }
 
+
     @Operation(summary = "비밀번호 재설정 이메일 발송", description = "비밀번호 재설정시 사용자 본인인증을 위해 인증코드를 이메일로 발송합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "이메일 발송 성공"),
@@ -173,18 +173,18 @@ public class AuthController {
     })
     @PostMapping("/verify-code")
     public ResponseEntity<String> verifyCode(@RequestBody EmailValidRequest dto) {
-        authService.verifyCode(dto, VerificationType.SIGN_UP);
+        authService.verifyCode(dto);
 
         return ResponseEntity.ok("이메일 인증이 성공적으로 완료되었습니다.");
     }
 
 
-    @Operation(summary = "이메일 인증 및 비밀번호 재설정", description = "본인인증을 위해 발송된 인증코드가 유효하고, 일치하는지 검증 후 새로운 비밀번호로 변경합니다.")
+    @Operation(summary = "비밀번호 재설정", description = "비밀번호를 새로운 비밀번호로 변경합니다.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "인증 코드 검증 및 비밀번호 변경 성공"),
-            @ApiResponse(responseCode = "401", description = "인증 코드 검증 및 비밀번호 변경 실패")
+            @ApiResponse(responseCode = "200", description = "비밀번호 변경 성공"),
+            @ApiResponse(responseCode = "401", description = "비밀번호 변경 실패")
     })
-    @PostMapping("/verify-code/password-reset")
+    @PostMapping("/password-reset")
     public ResponseEntity<String> verifyCodeAndResetPwd(@RequestBody PwdResetRequest dto) {
         authService.verifyCodeAndResetPwd(dto);
 

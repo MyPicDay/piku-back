@@ -18,9 +18,6 @@ public class PwdResetRequest {
     @Schema(description = "사용자 이메일", example = "test@gmail.com")
     private String email;
 
-    @Schema(description = "본인 인증 코드", example = "123456")
-    private String code;
-
     @Schema(description = "새로운 비밀번호", example = "newPassword1234")
     private String password;
 }

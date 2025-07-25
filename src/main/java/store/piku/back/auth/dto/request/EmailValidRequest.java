@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import store.piku.back.auth.enums.VerificationType;
 
 @Data
 @AllArgsConstructor
@@ -20,4 +21,7 @@ public class EmailValidRequest {
 
     @Schema(description = "본인 인증 코드", example = "123456")
     private String code;
+
+    @Schema(description = "이메일 인증 목적", example = "SIGN_UP")
+    private VerificationType type;
 }

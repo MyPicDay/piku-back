@@ -15,12 +15,14 @@ import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.entity.RefreshToken;
 import store.piku.back.auth.entity.Verification;
+import store.piku.back.auth.entity.VerifiedEmail;
 import store.piku.back.auth.enums.VerificationType;
 import store.piku.back.auth.exception.AuthErrorCode;
 import store.piku.back.auth.exception.AuthException;
 import store.piku.back.auth.repository.VerificationRepository;
 import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.auth.repository.RefreshTokenRepository;
+import store.piku.back.auth.repository.VerifiedEmailRepository;
 import store.piku.back.character.service.CharacterService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.repository.UserRepository;
@@ -45,18 +47,33 @@ public class AuthService {
     private final CharacterService characterService;
     private final EmailService emailService;
     private final UserReader userReader;
+    private final VerifiedEmailRepository verifiedEmailRepository;
 
     /**
-     * 회원가입
+     * 회원가입 처리 메서드
+     * - 이메일 중복 여부 확인
+     * - 이메일 인증 여부 확인 (최근 10분 이내)
+     * - 비밀번호 암호화 및 User 엔티티 생성
+     * - 아바타 이미지 설정
+     * - 회원 정보 저장
+     *
+     * @param dto 회원가입 요청 정보 (이메일, 비밀번호, 닉네임, 고정 캐릭터 ID 등)
      */
+    @Transactional
     public void signup(SignupRequest dto) {
         log.info("[회원 가입] 서비스 호출 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
 
-        // 이메일 존재 여부 확인
         if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
             log.warn("[회원가입] 이미 존재하는 이메일 요청 : 이메일={}", dto.getEmail());
-            throw new RuntimeException("이미 존재하는 이메일입니다.");
+            throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
         }
+
+        VerifiedEmail verified = getValidVerifiedEmail(dto.getEmail(), VerificationType.SIGN_UP);
+        log.info("[회원가입] 이메일 인증 정보 확인 완료. verifiedId={}", verified.getId());
+
+        verified.markUsed();
+        verifiedEmailRepository.save(verified);
+        log.info("[회원가입] 이메일 인증 정보 사용 처리 완료.");
 
         User user = new User(
                 dto.getEmail(),
@@ -77,8 +94,14 @@ public class AuthService {
         }
         log.info("[비밀번호 검증 성공] 비밀번호가 일치합니다.");
     }
+
+
     /**
-     * 로그인
+     * 로그인 요청을 처리하고, 액세스 토큰 및 리프레시 토큰을 발급하는 메서드
+     *
+     * @param dto 로그인 요청 정보 (이메일, 비밀번호 등)
+     * @param deviceId 로그인 요청을 보낸 디바이스 식별자
+     * @return 발급된 JWT 액세스 토큰과 리프레시 토큰
      */
     public TokenDto login(LoginRequest dto, String deviceId) {
         log.info("[로그인] 서비스 호출 : 이메일={}", dto.getEmail());
@@ -180,11 +203,12 @@ public class AuthService {
     public void sendSignUpVerificationEmail(String email) {
         String code = null;
         if (userRepository.existsByEmail(email)) {
-            throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
+            log.info("이미 가입된 이메일로 인증 요청 감지. email= {}", email);
         }
 
         try {
             code = emailService.sendVerificationEmail(email);
+            log.info("회원가입을 위한 인증 이메일을 발송합니다. email= {}", email);
         } catch (MessagingException | UnsupportedEncodingException e) {
             throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
         }
@@ -202,11 +226,12 @@ public class AuthService {
     public void sendPasswordResetVerificationEmail(String email) {
         String code = null;
         if (!userRepository.existsByEmail(email)) {
-            throw new AuthException(AuthErrorCode.USER_NOT_FOUND);
+            log.info("가입되지 않은 이메일로 비밀번호 재설정을 요청 감지. email= {}", email);
         }
 
         try {
             code = emailService.sendVerificationEmail(email);
+            log.info("비밀번호 재설정을 위한 인증 이메일을 발송합니다. email= {}", email);
         }  catch (MessagingException | UnsupportedEncodingException e) {
             throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
         }
@@ -223,15 +248,18 @@ public class AuthService {
      */
     @Transactional
     public void saveVerificationCode(String email, String code, VerificationType type) {
+        log.info("[인증 코드 저장] 서비스 호출. email={}, type={}", email, type);
+
         Optional<Verification> verificationOpt = verificationRepository.findByEmailAndType(email, type);
 
         if (verificationOpt.isPresent()) {
-            // 기존에 코드가 있으면, 새 코드로 업데이트
             Verification verification = verificationOpt.get();
+            log.info("[인증 코드 저장] 기존 인증 정보를 새 코드로 갱신합니다. verificationId={}", verification.getId());
             verification.updateCode(code);
         } else {
             Verification verification = new Verification(email, code, type);
             verificationRepository.save(verification);
+            log.info("[인증 코드 저장] 신규 인증 정보 저장 완료. verificationId={}", verification.getId());
         }
     }
 
@@ -241,30 +269,37 @@ public class AuthService {
      * 성공 시 해당 인증 정보는 DB에서 삭제되며, 실패 시 각 상황에 맞는 예외를 발생시킵니다.
      *
      * @param dto  사용자가 입력한 이메일과 인증 코드를 담은 DTO
-     * @param type 인증 목적 (회원가입, 비밀번호 재설정 등)
      * @throws AuthException 인증 요청이 존재하지 않거나, 코드가 만료되거나, 코드가 일치하지 않을 경우 발생
      */
     @Transactional
-    public void verifyCode(EmailValidRequest dto, VerificationType type) {
+    public void verifyCode(EmailValidRequest dto) {
 
-        Verification verification = verificationRepository.findByEmailAndType(dto.getEmail(), type)
-                .orElseThrow(() -> new AuthException(AuthErrorCode.VERIFICATION_NOT_FOUND));
+        Verification verification = verificationRepository.findByEmailAndType(dto.getEmail(), dto.getType())
+                .orElseThrow(() -> {
+                    log.warn("[코드 검증] 해당 이메일의 인증 요청 정보를 찾을 수 없음. email={}", dto.getEmail());
+                    return new AuthException(AuthErrorCode.VERIFICATION_NOT_FOUND);
+                });
+        log.info("[코드 검증] DB에서 인증 요청 정보를 찾았습니다. verificationId={}", verification.getId());
 
         if (verification.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("[코드 검증] 인증 코드가 만료되었습니다. verificationId={}", verification.getId());
             verificationRepository.delete(verification);
             throw new AuthException(AuthErrorCode.CODE_EXPIRED);
         }
 
         if (!verification.getCode().equals(dto.getCode())) {
+            log.warn("[코드 검증] 인증 코드가 일치하지 않습니다. verificationId={}", verification.getId());
             throw new AuthException(AuthErrorCode.CODE_MISMATCH);
         }
+        log.info("[코드 검증] 코드 일치 확인 완료. verificationId={}", verification.getId());
 
         verificationRepository.delete(verification);
+        verifiedEmailRepository.save(new VerifiedEmail(dto.getEmail(), dto.getType()));
+
     }
 
     /**
-     * 인증 코드를 검증하고 사용자의 비밀번호를 재설정합니다.
-     * 비밀번호 재설정용 인증 코드가 유효한지 확인한 후, 성공 시 사용자의 비밀번호를 변경합니다.
+     * 사용자의 비밀번호를 재설정합니다.
      *
      * @param dto 사용자가 입력한 이메일, 인증 코드, 새로운 비밀번호를 담은 DTO
      * @throws AuthException 인증 코드가 유효하지 않을 경우
@@ -272,11 +307,52 @@ public class AuthService {
     @Transactional
     public void verifyCodeAndResetPwd(PwdResetRequest dto) {
 
-        EmailValidRequest emailValidRequest = new EmailValidRequest(dto.getEmail(), dto.getCode());
+        // 이메일 존재 여부 확인
+        if (userRepository.findByEmail(dto.getEmail()).isEmpty()) {
+            log.warn("[비밀번호 재설정] 존재하지 않는 이메일로 비밀번호 재설정 요청 : 이메일={}", dto.getEmail());
+            throw new AuthException(AuthErrorCode.USER_NOT_FOUND);
+        }
 
-        verifyCode(emailValidRequest, VerificationType.PASSWORD_RESET);
+        VerifiedEmail verified = getValidVerifiedEmail(dto.getEmail(), VerificationType.PASSWORD_RESET);
+        log.info("[비밀번호 재설정] 이메일 인증 정보 확인 완료. verifiedId={}", verified.getId());
+
+        verified.markUsed();
+        verifiedEmailRepository.save(verified);
+
         User user = userReader.getUserByEmail(dto.getEmail());
         user.updatePassword(passwordEncoder.encode(dto.getPassword()));
+        log.info("[비밀번호 재설정] 완료. userId={}", user.getId());
 
     }
+
+
+    /**
+     * 유효한 이메일 인증 정보를 조회하고 검증하는 메서드
+     *
+     * @param email 사용자 이메일
+     * @param type 인증 종류 (예: 회원가입, 비밀번호 찾기 등)
+     * @return 유효성이 검증된 VerifiedEmail 객체
+     * @throws AuthException 인증 기록이 없거나, 만료되었거나, 이미 사용된 경우 발생
+     */
+    public VerifiedEmail getValidVerifiedEmail(String email, VerificationType type) {
+        VerifiedEmail latest = verifiedEmailRepository.findTopByEmailAndTypeOrderByVerifiedAtDesc(email, type)
+                .orElseThrow(() -> {
+                    log.warn("[이메일 인증 실패] 인증 기록 없음 : 이메일={}, type={}", email, type);
+                    return new AuthException(AuthErrorCode.EMAIL_VERIFICATION_NOT_FOUND);
+                });
+
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(AuthConstants.VERIFICATION_EXPIRATION_MINUTES);
+        if (latest.getVerifiedAt().isBefore(cutoff)) {
+            log.warn("[이메일 인증 실패] 인증 만료됨 : 이메일={}, type={}", email, type);
+            throw new AuthException(AuthErrorCode.EMAIL_VERIFICATION_EXPIRED);
+        }
+
+        if (latest.getUsed()) {
+            log.warn("[이메일 인증 실패] 인증 이미 사용됨 : 이메일={}, type={}", email, type);
+            throw new AuthException(AuthErrorCode.EMAIL_VERIFICATION_ALREADY_USED);
+        }
+
+        return latest;
+    }
+
 }
