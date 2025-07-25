@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 import store.piku.back.auth.constants.AuthConstants;
 import store.piku.back.auth.dto.request.EmailValidRequest;
 import store.piku.back.auth.dto.request.LoginRequest;
@@ -20,14 +21,11 @@ import store.piku.back.auth.dto.response.LoginResponse;
 import store.piku.back.auth.enums.VerificationType;
 import store.piku.back.auth.repository.RefreshTokenRepository;
 import store.piku.back.auth.service.AuthService;
+import store.piku.back.auth.service.EmailService;
 import store.piku.back.global.config.CustomUserDetails;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import store.piku.back.global.util.CookieUtils;
 import java.util.Map;
 
@@ -41,6 +39,7 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final CookieUtils cookieUtils;
+    private final EmailService emailService;
 
     /*
     * 회원가입
@@ -142,7 +141,6 @@ public class AuthController {
     }
 
 
-
     @Operation(summary = "회원가입 이메일 발송", description = "회원가입시 사용자 본인인증과 이메일 중복확인을 위해 인증코드를 이메일로 발송합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "이메일 발송 성공"),
@@ -190,4 +188,16 @@ public class AuthController {
 
         return ResponseEntity.ok("이메일 인증 및 비밀번호 변경이 성공적으로 완료되었습니다.");
     }
+
+
+    @GetMapping("/email")
+    public ResponseEntity<String> checkEmailDomain(@RequestParam String email) {
+        boolean isAllowed = emailService.isEmailAllowed(email);
+        if (isAllowed) {
+            return ResponseEntity.ok("허용된 이메일 도메인입니다.");
+        } else {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("허용되지 않은 이메일 도메인입니다.");
+        }
+    }
+
 }

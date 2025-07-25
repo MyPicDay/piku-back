@@ -6,6 +6,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;
+import store.piku.back.auth.repository.AllowedEmailDomainRepository;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Random;
@@ -15,6 +16,7 @@ import java.util.Random;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final AllowedEmailDomainRepository allowedEmailDomainRepository;
 
     /**
      * 6자리 인증 코드를 생성합니다.
@@ -57,4 +59,8 @@ public class EmailService {
         return code;
     }
 
+    public boolean isEmailAllowed(String email) {
+        String domain = email.substring(email.indexOf("@") + 1);
+        return allowedEmailDomainRepository.existsByDomain(domain);
+    }
 }

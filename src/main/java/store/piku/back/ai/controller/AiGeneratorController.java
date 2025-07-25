@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import store.piku.back.ai.dto.AiDiaryResponseDTO;
 import store.piku.back.ai.service.ImageGenerationService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -33,10 +34,16 @@ public class AiGeneratorController {
     public ResponseEntity<AiDiaryResponseDTO> generateDiaryImage(@RequestBody Map<String, String> body, HttpServletRequest request, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         String content = body.get("content");
         String userId = customUserDetails.getId();
-
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
-        log.info("Generated image URL: {}", dto.getUrl());
-        return ResponseEntity.ok(dto);
+
+        try {
+            AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
+            log.info("Generated image URL: {}", dto.getUrl());
+            return ResponseEntity.ok(dto);
+        } catch (RuntimeException e) {
+            log.error("AI 이미지 생성 실패", e);
+            AiDiaryResponseDTO errorDto = new AiDiaryResponseDTO(null, null, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
 }

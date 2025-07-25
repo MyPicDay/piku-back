@@ -51,7 +51,8 @@ public class ImageGenerationService {
         log.info("생성된 이미지 URL: {}", aiUrl);
         return new AiDiaryResponseDTO(
                 diaryImageGeneration.getId(),
-                aiUrl
+                aiUrl,
+                null
         );
     }
 
