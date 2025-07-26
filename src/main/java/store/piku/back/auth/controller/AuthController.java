@@ -27,6 +27,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import store.piku.back.global.util.CookieUtils;
+
+import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Auth", description = "인증/인가 관련 API")
@@ -200,4 +202,10 @@ public class AuthController {
         }
     }
 
+    @Operation(summary = "허용된 이메일 도메인 목록 조회", description = "허용된 이메일 도메인 목록을 조회합니다.")
+    @GetMapping("/email-domains")
+    public ResponseEntity<List<String>> getAllowedEmailDomains() {
+        List<String> response = emailService.getAllowedEmailDomains();
+        return ResponseEntity.ok(response);
+    }
 }

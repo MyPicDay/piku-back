@@ -6,9 +6,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.util.StringUtils;
+import store.piku.back.auth.entity.AllowedEmail;
 import store.piku.back.auth.repository.AllowedEmailDomainRepository;
 
 import java.io.UnsupportedEncodingException;
+import java.util.List;
 import java.util.Random;
 
 @Service
@@ -60,7 +63,16 @@ public class EmailService {
     }
 
     public boolean isEmailAllowed(String email) {
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            return false;
+        }
         String domain = email.substring(email.indexOf("@") + 1);
         return allowedEmailDomainRepository.existsByDomain(domain);
+    }
+
+    public List<String> getAllowedEmailDomains() {
+        return allowedEmailDomainRepository.findAll().stream()
+                .map(AllowedEmail::getDomain)
+                .toList();
     }
 }

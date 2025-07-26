@@ -16,7 +16,8 @@ public enum AuthErrorCode {
     CODE_EXPIRED(HttpStatus.BAD_REQUEST, "CODE_EXPIRED", "인증 코드가 만료되었습니다."),
     CODE_MISMATCH(HttpStatus.BAD_REQUEST, "CODE_MISMATCH", "인증 코드가 일치하지 않습니다."),
 
-    EMAIL_SEND_FAILURE(HttpStatus.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILURE", "이메일 발송에 실패했습니다.");
+    EMAIL_SEND_FAILURE(HttpStatus.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILURE", "이메일 발송에 실패했습니다."),
+    INVALID_EMAIL(HttpStatus.BAD_REQUEST, "INVALID_EMAIL" , "지원하지 않는 이메일 형식입니다." ),;
 
     private final HttpStatus status;
     private final String errorCode;
