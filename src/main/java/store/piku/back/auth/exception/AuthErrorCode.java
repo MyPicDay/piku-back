@@ -20,7 +20,8 @@ public enum AuthErrorCode {
     EMAIL_VERIFICATION_EXPIRED(HttpStatus.BAD_REQUEST, "EMAIL_VERIFICATION_EXPIRED", "이메일 인증이 만료되었습니다."),
     EMAIL_VERIFICATION_ALREADY_USED(HttpStatus.BAD_REQUEST, "EMAIL_VERIFICATION_ALREADY_USED","이메일 인증이 이미 사용되었습니다."),
 
-    EMAIL_SEND_FAILURE(HttpStatus.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILURE", "이메일 발송에 실패했습니다.");
+    EMAIL_SEND_FAILURE(HttpStatus.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILURE", "이메일 발송에 실패했습니다."),
+    NICKNAME_NOT_RESERVED(HttpStatus.BAD_REQUEST, "NICKNAME_NOT_RESERVED", "닉네임 중복검사 해주세요");
 
     private final HttpStatus status;
     private final String errorCode;

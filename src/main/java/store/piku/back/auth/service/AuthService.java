@@ -3,14 +3,15 @@ package store.piku.back.auth.service;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import store.piku.back.auth.constants.AuthConstants;
-import store.piku.back.auth.dto.request.EmailValidRequest;
-import store.piku.back.auth.dto.request.LoginRequest;
-import store.piku.back.auth.dto.request.PwdResetRequest;
-import store.piku.back.auth.dto.request.SignupRequest;
+import store.piku.back.auth.dto.request.*;
 import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.entity.RefreshToken;
@@ -28,6 +29,7 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import store.piku.back.user.service.UserService;
 import store.piku.back.user.service.reader.UserReader;
 
 import java.io.UnsupportedEncodingException;
@@ -48,6 +50,8 @@ public class AuthService {
     private final EmailService emailService;
     private final UserReader userReader;
     private final VerifiedEmailRepository verifiedEmailRepository;
+    private final UserService userService;
+
 
     /**
      * 회원가입 처리 메서드
@@ -74,6 +78,9 @@ public class AuthService {
         verified.markUsed();
         verifiedEmailRepository.save(verified);
         log.info("[회원가입] 이메일 인증 정보 사용 처리 완료.");
+
+        // 닉네임 중복조회
+        userService.validateNicknameReservation(dto.getNickname(), dto.getEmail());
 
         User user = new User(
                 dto.getEmail(),
@@ -353,6 +360,16 @@ public class AuthService {
         }
 
         return latest;
+    }
+
+    @PostMapping("/nickname")
+    public ResponseEntity<Void> checkNickname(@RequestBody NicknameRequestDTO request) {
+        boolean reserved = userService.tryReserveNicknameForSignup(request.getNickname(), request.getEmail());
+        if (reserved) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
 }

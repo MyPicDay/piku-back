@@ -1,5 +1,7 @@
 package store.piku.back.user.service;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -7,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.util.StringUtils;
+import store.piku.back.auth.exception.AuthErrorCode;
+import store.piku.back.auth.exception.AuthException;
 import store.piku.back.character.entity.Character;
 import store.piku.back.character.service.CharacterService;
 import store.piku.back.friend.dto.FriendsDTO;
@@ -58,14 +62,9 @@ public class UserService {
 
 
 
-
     public boolean tryReserveNickname(String nickname, String userId) {
 
         long now = System.currentTimeMillis();
-
-        User user = userReader.getUserById(userId);
-        if (nickname.equals(user.getNickname())) return true;
-
         if (userRepository.existsByNickname(nickname)) return false;
 
         boolean reserved = nicknameHoldMap.compute(nickname, (key, hold) -> {
@@ -74,6 +73,29 @@ public class UserService {
             }
             return hold;
         }).getUserId().equals(userId);
+
+        return reserved;
+    }
+
+
+    /**
+     * 닉네임 예약 시도 메서드
+     *
+     * @param nickname 예약하려는 닉네임
+     * @param email 예약 시도하는 사용자의 이메일 (식별자 역할)
+     * @return 닉네임 예약 성공 여부 (true: 예약 성공 또는 본인이 이미 예약한 닉네임, false: 닉네임이 이미 DB에 존재하거나 다른 사람이 예약 중)
+     */
+    public boolean tryReserveNicknameForSignup(String nickname, String email) {
+
+        long now = System.currentTimeMillis();
+        if (userRepository.existsByNickname(nickname)) return false;
+
+        boolean reserved = nicknameHoldMap.compute(nickname, (key, hold) -> {
+            if (hold == null || now - hold.getTimestamp() > HOLD_DURATION_MS) {
+                return new NicknameHold(email, now);
+            }
+            return hold;
+        }).getUserId().equals(email);
 
         return reserved;
     }
@@ -183,6 +205,17 @@ public class UserService {
         userRepository.save(user);
 
         return true;
+    }
+
+    //  닉네임 중복검사 여부
+    public void validateNicknameReservation(@NotBlank String nickname, @Email String email) {
+        long now = System.currentTimeMillis();
+
+        NicknameHold hold = nicknameHoldMap.get(nickname);
+
+        if (hold == null || now - hold.getTimestamp() > HOLD_DURATION_MS) {
+            throw new AuthException(AuthErrorCode.NICKNAME_NOT_RESERVED);
+        }
     }
 }
 
