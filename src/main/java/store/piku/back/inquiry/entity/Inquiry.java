@@ -20,6 +20,7 @@ public class Inquiry extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(nullable = false, length = 1000)
     private String content;
 
     private String imageUrl;

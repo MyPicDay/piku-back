@@ -28,6 +28,40 @@ public class DiscordWebhookService {
 
     private final WebClient.Builder webClientBuilder;
 
+    public String getErrorMessage(Exception e) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        e.printStackTrace(pw);
+        String stackTrace = sw.toString();
+        if (stackTrace.length() > 500) {
+            stackTrace = stackTrace.substring(0, 250) + "\n...\n...\n" + stackTrace.substring(stackTrace.length() - 250);
+        }
+        return stackTrace;
+    }
+
+    public void sendErrorLogNotification(String message){
+        log.info("Sending error log notification to Discord...");
+
+        DiscordEmbed embed = new DiscordEmbed(
+                "🚨 Error Log",
+                message,
+                Color.RED.getRGB() & 0xFFFFFF,
+                List.of(new EmbedField("Error Message", message, false))
+        );
+
+        DiscordMessage discordMessage = new DiscordMessage("Error Log Notification", List.of(embed));
+
+        webClientBuilder.build()
+            .post()
+            .uri(webhookUrl)
+            .bodyValue(discordMessage)
+            .retrieve()
+            .bodyToMono(Void.class)
+            .doOnSuccess(v -> log.info("Successfully sent error log notification to Discord."))
+            .doOnError(error -> log.error("Failed to send error log notification to Discord.", error))
+            .subscribe();
+    }
+
     public void sendExceptionNotification(Exception e, HttpServletRequest request) {
         log.info("Sending exception notification to Discord...");
 
