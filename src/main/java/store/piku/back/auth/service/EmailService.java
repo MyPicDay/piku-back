@@ -75,6 +75,8 @@ public class EmailService {
         return allowedEmailDomainRepository.findAll().stream()
                 .map(AllowedEmail::getDomain)
                 .toList();
+    }
+
     public void sendFeedbackEmail(String content, MultipartFile image) throws MessagingException, UnsupportedEncodingException {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
