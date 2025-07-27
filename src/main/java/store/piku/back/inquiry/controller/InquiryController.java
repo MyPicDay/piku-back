@@ -2,6 +2,8 @@ package store.piku.back.inquiry.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,21 +28,18 @@ public class InquiryController {
 
     @Operation(
             summary = "문의 작성",
-            description = "사용자가 문의 내용을 작성하고, 선택적으로 이미지를 업로드합니다."
+            description = "사용자가 문의 내용을 작성하고, 선택적으로 이미지를 업로드합니다.  \n " +
+                    "이미지는 선택이며, 문의 내용은 최대 1000자까지 입력할 수 있습니다."
     )
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Void> saveInquiry(
-            @RequestPart String content,
+            @RequestPart @Valid @Size(max = 1000) String content,
             @RequestPart(required = false) MultipartFile image,
             @AuthenticationPrincipal CustomUserDetails customUserDetails
     ) {
         String userId = customUserDetails.getId();
 
-        try {
-            inquiryService.saveInquiry(userId, content, image);
-            return ResponseEntity.status(HttpStatus.CREATED).build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        inquiryService.saveInquiry(userId, content, image);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }
