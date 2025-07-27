@@ -8,7 +8,6 @@ import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.auth.service.EmailService;
 import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.diary.service.PhotoUtil;
-import store.piku.back.global.notification.DiscordWebhookService;
 import store.piku.back.inquiry.entity.Inquiry;
 import store.piku.back.inquiry.repository.InquiryRepository;
 import store.piku.back.user.entity.User;
@@ -16,6 +15,7 @@ import store.piku.back.user.service.reader.UserReader;
 
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +27,6 @@ public class InquiryService {
     private final UserReader userReader;
     private final PhotoUtil photoUtil;
     private final EmailService emailService;
-    private final DiscordWebhookService discordWebhookService;
 
     public void saveInquiry(String userId, String content, MultipartFile image) {
         User user = userReader.getUserById(userId);
@@ -35,7 +34,7 @@ public class InquiryService {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
             String originalFilename = image.getOriginalFilename();
-            String filename = photoUtil.generateFileName(LocalDate.now(), originalFilename);
+            String filename = photoUtil.generateFileName(LocalDate.now(), Objects.requireNonNull(originalFilename));
             String UUID = userId.substring(0, 8);
             String objectKey = "inquiry/"+ LocalDate.now() + "/" + UUID +"_" +filename;
 
@@ -45,9 +44,7 @@ public class InquiryService {
         try{
             emailService.sendFeedbackEmail(content, image);
         }catch (MessagingException | UnsupportedEncodingException e) {
-            String errorMessage = discordWebhookService.getErrorMessage(e);
             log.error("피드백 이메일 전송 실패: {}", e.getMessage());
-            discordWebhookService.sendErrorLogNotification(errorMessage);
         }
 
         Inquiry inquiry = new Inquiry(user, content, imageUrl);
