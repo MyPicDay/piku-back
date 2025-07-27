@@ -9,4 +9,5 @@ import lombok.Data;
 public class AiDiaryResponseDTO {
     private Long id;
     private String url;
+    private String message;
 }
