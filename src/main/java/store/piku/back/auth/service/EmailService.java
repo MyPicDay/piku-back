@@ -7,10 +7,15 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.util.StringUtils;
+import store.piku.back.auth.entity.AllowedEmail;
+import store.piku.back.auth.repository.AllowedEmailDomainRepository;
+
+import java.io.UnsupportedEncodingException;
+import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.auth.constants.EmailConstants;
 
-import java.io.UnsupportedEncodingException;
 import java.util.Objects;
 import java.util.Random;
 
@@ -19,6 +24,7 @@ import java.util.Random;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final AllowedEmailDomainRepository allowedEmailDomainRepository;
 
     @Value("${spring.mail.username}")
     private String adminEmail;
@@ -55,6 +61,20 @@ public class EmailService {
         mailSender.send(mimeMessage);
 
         return code;
+    }
+
+    public boolean isEmailAllowed(String email) {
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            return false;
+        }
+        String domain = email.substring(email.indexOf("@") + 1);
+        return allowedEmailDomainRepository.existsByDomain(domain);
+    }
+
+    public List<String> getAllowedEmailDomains() {
+        return allowedEmailDomainRepository.findAll().stream()
+                .map(AllowedEmail::getDomain)
+                .toList();
     }
 
     public void sendFeedbackEmail(String content, MultipartFile image) throws MessagingException, UnsupportedEncodingException {
