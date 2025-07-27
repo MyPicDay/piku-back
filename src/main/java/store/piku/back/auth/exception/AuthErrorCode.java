@@ -13,8 +13,12 @@ public enum AuthErrorCode {
 
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "이미 가입된 이메일입니다."),
 
+    EMAIL_VERIFICATION_NOT_FOUND(HttpStatus.FORBIDDEN, "EMAIL_VERIFICATION_NOT_FOUND", "이메일 인증을 먼저 완료해주세요."),
+
     CODE_EXPIRED(HttpStatus.BAD_REQUEST, "CODE_EXPIRED", "인증 코드가 만료되었습니다."),
     CODE_MISMATCH(HttpStatus.BAD_REQUEST, "CODE_MISMATCH", "인증 코드가 일치하지 않습니다."),
+    EMAIL_VERIFICATION_EXPIRED(HttpStatus.BAD_REQUEST, "EMAIL_VERIFICATION_EXPIRED", "이메일 인증이 만료되었습니다."),
+    EMAIL_VERIFICATION_ALREADY_USED(HttpStatus.BAD_REQUEST, "EMAIL_VERIFICATION_ALREADY_USED","이메일 인증이 이미 사용되었습니다."),
 
     EMAIL_SEND_FAILURE(HttpStatus.INTERNAL_SERVER_ERROR, "EMAIL_SEND_FAILURE", "이메일 발송에 실패했습니다."),
     INVALID_EMAIL(HttpStatus.BAD_REQUEST, "INVALID_EMAIL" , "지원하지 않는 이메일 형식입니다." ),;
