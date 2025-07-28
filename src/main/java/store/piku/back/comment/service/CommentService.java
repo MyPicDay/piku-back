@@ -141,12 +141,17 @@ public class CommentService {
     public Page<CommentListResponseDto> getRootCommentsByDiaryId(Long diaryId, Pageable pageable , RequestMetaInfo requestMetaInfo) {
 
         diaryService.getDiaryById(diaryId);
-        Page<Comment> rootCommentsPage = commentRepository.findByDiaryIdAndParentIsNull(diaryId, pageable);
+        Page<Comment> rootCommentsPage = commentRepository.findVisibleRootCommentsByDiaryId(diaryId, pageable);
         log.info("일기 ID {}에 대한 {} 페이지, {}개 크기의 루트 댓글 {}개 조회 완료.", diaryId, pageable.getPageNumber(), pageable.getPageSize(), rootCommentsPage.getTotalElements());
 
         return rootCommentsPage.map(rootComment -> {
-            String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(rootComment.getUser().getAvatar(), requestMetaInfo);
-            int replyCount = commentRepository.countByParentId(rootComment.getId());
+
+            String avatarUrl = null;
+            if (rootComment.getDeletedAt() == null) {
+                avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(rootComment.getUser().getAvatar(), requestMetaInfo);
+            }
+
+            int replyCount = commentRepository.countByParentIdAndDeletedAtIsNull(rootComment.getId());
 
             return CommentListResponseDto.fromEntity(rootComment, avatarUrl, replyCount);
         });
@@ -164,7 +169,7 @@ public class CommentService {
 
         Comment parentComment = validateCommentExists(parentCommentId);
         diaryService.getDiaryById(parentComment.getDiary().getId());
-        Page<Comment> repliesPage = commentRepository.findByParentId(parentCommentId, pageable);
+        Page<Comment> repliesPage = commentRepository.findByParentIdAndDeletedAtIsNull(parentCommentId, pageable);
         log.info("부모 댓글 ID {}에 대한 {} 페이지, {}개 크기의 대댓글 {}개 조회 완료.", parentCommentId, pageable.getPageNumber(), pageable.getPageSize(), repliesPage.getTotalElements());
 
         return repliesPage.map(replyComment -> {

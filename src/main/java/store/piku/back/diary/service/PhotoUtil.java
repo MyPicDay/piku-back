@@ -26,8 +26,14 @@ public class PhotoUtil {
 
         String uuid = UUID.randomUUID().toString().substring(0, 8);
 
+        String extension = "";
 
-        String fileName = date + "_" + uuid;
+        int dotIndex = originalFilename.lastIndexOf(".");
+        if (dotIndex > 0) {
+            extension = originalFilename.substring(dotIndex); // ".jpg" 등 포함
+        }
+
+        String fileName = date + "_" + uuid + extension;
         log.info("파일명 생성완료  - 생성명:{} ",  fileName);
         return fileName;
     }

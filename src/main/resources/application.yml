@@ -34,3 +34,10 @@ management:
     web:
       exposure:
         include: health
+
+storage:
+  endpoint: ${STORAGE_URL:http://localhost:9000}
+  region: ap-northeast-2
+  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+  bucket: ${STORAGE_BUCKET:piku}

@@ -74,7 +74,7 @@ public class UserController {
             @ApiResponse(responseCode = "409", description = "점유 정보가 없거나 만료되었거나 본인이 아닙니다."),
             @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.")
     })
-    @PostMapping("/nickname")
+    @PatchMapping("/nickname")
     public ResponseEntity<NicknameChangeResponseDTO> changeNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
                                                                     @RequestParam String newNickname) {
         NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), newNickname);
