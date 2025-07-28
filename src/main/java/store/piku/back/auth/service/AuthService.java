@@ -362,14 +362,4 @@ public class AuthService {
         return latest;
     }
 
-    @PostMapping("/nickname")
-    public ResponseEntity<Void> checkNickname(@RequestBody NicknameRequestDTO request) {
-        boolean reserved = userService.tryReserveNicknameForSignup(request.getNickname(), request.getEmail());
-        if (reserved) {
-            return ResponseEntity.ok().build();
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
-    }
-
 }

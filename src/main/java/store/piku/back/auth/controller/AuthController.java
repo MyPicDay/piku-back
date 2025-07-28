@@ -10,10 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import store.piku.back.auth.constants.AuthConstants;
-import store.piku.back.auth.dto.request.EmailValidRequest;
-import store.piku.back.auth.dto.request.LoginRequest;
-import store.piku.back.auth.dto.request.PwdResetRequest;
-import store.piku.back.auth.dto.request.SignupRequest;
+import store.piku.back.auth.dto.request.*;
 import store.piku.back.auth.dto.TokenDto;
 import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.dto.response.LoginResponse;
@@ -28,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import store.piku.back.global.util.CookieUtils;
+import store.piku.back.user.service.UserService;
+
 import java.util.Map;
 
 @Tag(name = "Auth", description = "인증/인가 관련 API")
@@ -40,6 +39,7 @@ public class AuthController {
     private final AuthService authService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final CookieUtils cookieUtils;
+    private final UserService userService;
 
     /*
     * 회원가입
@@ -190,4 +190,24 @@ public class AuthController {
 
         return ResponseEntity.ok("이메일 인증 및 비밀번호 변경이 성공적으로 완료되었습니다.");
     }
+
+
+    @Operation(
+            summary = "닉네임 중복조회 검사",
+            description = "회원가입 시 닉네임 중복 검사합니다.",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "사용 가능한 닉네임입니다."),
+                    @ApiResponse(responseCode = "400", description = "이미 사용 중인 닉네임이거나 형식이 잘못되었습니다.")
+            }
+    )    @PostMapping("/nickname")
+    public ResponseEntity<Void> checkNickname(@RequestBody NicknameRequestDTO request) {
+        boolean reserved = userService.tryReserveNickname(request.getNickname(), request.getEmail());
+        if (reserved) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+
 }

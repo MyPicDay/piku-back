@@ -61,44 +61,29 @@ public class UserService {
     }
 
 
-
-    public boolean tryReserveNickname(String nickname, String userId) {
-
-        long now = System.currentTimeMillis();
-        if (userRepository.existsByNickname(nickname)) return false;
-
-        boolean reserved = nicknameHoldMap.compute(nickname, (key, hold) -> {
-            if (hold == null || now - hold.getTimestamp() > HOLD_DURATION_MS) {
-                return new NicknameHold(userId, now);
-            }
-            return hold;
-        }).getUserId().equals(userId);
-
-        return reserved;
-    }
-
-
     /**
      * 닉네임 예약 시도 메서드
      *
      * @param nickname 예약하려는 닉네임
-     * @param email 예약 시도하는 사용자의 이메일 (식별자 역할)
+     * @param identifier 예약 시도하는 사용자의 이메일 (식별자 역할)
      * @return 닉네임 예약 성공 여부 (true: 예약 성공 또는 본인이 이미 예약한 닉네임, false: 닉네임이 이미 DB에 존재하거나 다른 사람이 예약 중)
      */
-    public boolean tryReserveNicknameForSignup(String nickname, String email) {
+    public boolean tryReserveNickname(String nickname, String identifier) {
 
         long now = System.currentTimeMillis();
         if (userRepository.existsByNickname(nickname)) return false;
 
         boolean reserved = nicknameHoldMap.compute(nickname, (key, hold) -> {
             if (hold == null || now - hold.getTimestamp() > HOLD_DURATION_MS) {
-                return new NicknameHold(email, now);
+                return new NicknameHold(identifier, now);
             }
             return hold;
-        }).getUserId().equals(email);
+        }).getUserId().equals(identifier);
 
         return reserved;
     }
+
+
 
 
 
