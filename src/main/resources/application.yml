@@ -29,6 +29,9 @@ spring:
           starttls:
             enable: true
 
+firebase:
+  key-path: ${GOOGLE_APPLICATION_CREDENTIALS:firebase-json-key}
+
 gemini:
   api:
     key: ${GEMINI_API_KEY:api-key-placeholder}

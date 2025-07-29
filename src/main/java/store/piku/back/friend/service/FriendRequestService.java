@@ -1,5 +1,6 @@
 package store.piku.back.friend.service;
 
+//import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,6 @@ import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.repository.NotificationRepository;
-import store.piku.back.notification.service.FcmTokenService;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
@@ -40,7 +40,6 @@ public class FriendRequestService {
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
-    private final FcmTokenService fcmTokenService;
     private final FriendRepository friendRepository;
     private final UserReader userReader;
 
@@ -49,7 +48,8 @@ public class FriendRequestService {
         return friendRepository.existsFriendship(userId1, userId2);
     }
 
-    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) throws FirebaseMessagingException {
+    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId)
+    {
 
         log.info("사용자 조회 요청");
         User fromUser = userReader.getUserById(fromUserId);
@@ -73,10 +73,7 @@ public class FriendRequestService {
             friendRepository.save(new Friend(fromUserId, toUserId));
 
             String message = fromUser.getNickname() + "님이 친구 수락했습니다";
-            String token = fcmTokenService.getTokenByUserId(toUser.getId());
-
-            fcmTokenService.sendMessage(token, "친구 요청", message);
-            notificationService.saveNotification(
+            notificationService.sendNotification(
                     toUser.getId(),
                     NotificationType.FRIEND,
                     message,
@@ -96,11 +93,9 @@ public class FriendRequestService {
                     fromUserId, toUserId, NotificationType.FRIEND
             );
 
-            String token = fcmTokenService.getTokenByUserId(toUser.getId());
-            fcmTokenService.sendMessage(token, "친구 요청", message);
 
             if (!alreadyNotified) {
-                notificationService.saveNotification(
+                notificationService.sendNotification(
                         toUser.getId(),
                         NotificationType.FRIEND,
                         message,

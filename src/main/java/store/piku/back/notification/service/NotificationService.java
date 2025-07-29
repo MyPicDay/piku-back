@@ -36,6 +36,7 @@ public class NotificationService {
     private final UserReader userReader;
     private final PhotoRepository photoRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationProvider notificationProvider;
 
 
     public SseEmitter subscribe(String userId, String lastEventId) {
@@ -79,7 +80,7 @@ public class NotificationService {
 
 
     @Transactional
-    public void saveNotification(String receiverId, NotificationType type, String message, String relatedId) {
+    public void sendNotification(String receiverId, NotificationType type, String message, String relatedId) {
 
         log.info("알림 저장 요청 - receiverId: {}, type: {}, message: {}, relatedId: {}", receiverId, type, message, relatedId);
         Notification notification = new Notification(
@@ -91,6 +92,15 @@ public class NotificationService {
                 relatedId
         );
         notificationRepository.save(notification);
+
+        try {
+            String token = notificationProvider.getTokenByUserId(receiverId);
+            if(token != null) {
+                notificationProvider.sendMessage(token, message);
+            }
+        } catch (Exception e) {
+            log.warn("FCM 전송 실패: {}", e.getMessage());
+        }
     }
 
 

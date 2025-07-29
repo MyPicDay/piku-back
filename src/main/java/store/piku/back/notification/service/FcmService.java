@@ -5,17 +5,19 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import store.piku.back.notification.entity.FcmToken;
 import store.piku.back.notification.repository.FcmTokenRepository;
 
 @Service
 @RequiredArgsConstructor
-public class FcmTokenService {
+@Profile("dev")
+public class FcmService implements NotificationProvider {
 
     private final FcmTokenRepository fcmTokenRepository;
 
-
+    @Override
     public String getTokenByUserId(String userId) {
         return fcmTokenRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("토큰이 존재하지 않습니다."))
@@ -23,6 +25,7 @@ public class FcmTokenService {
     }
 
 
+    @Override
     public void saveToken(String userId, String token) {
         fcmTokenRepository.findByUserId(userId).ifPresentOrElse(
                 existing -> existing.updateToken(token),
@@ -30,11 +33,11 @@ public class FcmTokenService {
         );
     }
 
-    public void sendMessage(String targetToken,String title, String body) throws FirebaseMessagingException {
+    @Override
+    public void sendMessage(String targetToken, String body) throws FirebaseMessagingException {
         Message message = Message.builder()
                 .setToken(targetToken)
                 .setNotification(Notification.builder()
-                        .setTitle(title)
                         .setBody(body)
                         .build())
                 .build();
