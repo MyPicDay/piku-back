@@ -14,12 +14,15 @@ import org.springframework.web.bind.annotation.*;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
+import store.piku.back.user.dto.request.UpdateProfilePayload;
 import store.piku.back.user.dto.response.NicknameChangeResponseDTO;
 import store.piku.back.user.dto.response.NicknameResponseDTO;
 import store.piku.back.user.dto.response.ProfilePreviewDTO;
 import store.piku.back.user.dto.response.UserProfileResponseDTO;
+import store.piku.back.user.entity.User;
 import store.piku.back.user.service.UserProfileService;
 import store.piku.back.user.service.UserService;
+import store.piku.back.user.service.reader.UserReader;
 
 
 @Tag(name = "Users", description = "유저 관련 API")
@@ -32,6 +35,7 @@ public class UserController {
     private final UserProfileService userProfileServie;
     private final RequestMetaMapper requestMetaMapper;
     private final UserService userService;
+    private final UserReader userReader;
 
     @Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보 시 사용될 정보를 조회하여 반환합니다.")
     @GetMapping("/{userId}/profile-preview")
@@ -68,20 +72,30 @@ public class UserController {
 
 
 
-    @Operation(summary = "변경할 닉네임 등록")
+    @Operation(summary = "변경할 닉네임/캐릭터 사진 등록")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "닉네임 변경 성공"),
             @ApiResponse(responseCode = "409", description = "점유 정보가 없거나 만료되었거나 본인이 아닙니다."),
             @ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.")
     })
-    @PatchMapping("/nickname")
+    @PatchMapping("/profile")
     public ResponseEntity<NicknameChangeResponseDTO> changeNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                                    @RequestParam String newNickname) {
-        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), newNickname);
+                                                                    @RequestBody UpdateProfilePayload updateProfilePayload) {
+        NicknameChangeResponseDTO changed = userService.reserveAndChangeNickname(userDetails.getId(), updateProfilePayload.getNewNickname(), updateProfilePayload.getCharacterId());
         return changed.isSuccess()
                 ? ResponseEntity.ok(changed)
                 : ResponseEntity.status(HttpStatus.CONFLICT).body(changed);
     }
 
 
+    @PutMapping("/profile-image")
+    public ResponseEntity<Void> updateProfileImage(@AuthenticationPrincipal CustomUserDetails customUserDetails, @RequestParam Long imageId) {
+
+        boolean success = userService.updateProfileImage(customUserDetails.getId(), imageId);
+        if (success) {
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }

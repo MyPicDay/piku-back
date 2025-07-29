@@ -1,9 +1,10 @@
-package store.piku.back.auth.dto;
+package store.piku.back.auth.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,7 +20,8 @@ public class SignupRequest {
     private String email;
 
     @NotBlank
-    @Schema(description = "사용자 패스워드", example = "1")
+    @Pattern(regexp = "^(?=.*[!@#$%^&*])[A-Za-z0-9!@#$%^&*]+$", message = "비밀번호는 특수문자를 적어도 한 번 포함해야 합니다.")
+    @Schema(description = "사용자 패스워드", example = "abc@123")
     private String password;
 
     @NotBlank

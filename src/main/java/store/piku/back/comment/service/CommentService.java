@@ -139,9 +139,9 @@ public class CommentService {
     /**
      * 댓글 식별값 기준으로 댓글을 삭제합니다.
      *
-     * @param commentId 수정할 댓글 ID
+     * @param commentId 삭제할 댓글 ID
      * @param userId 댓글 작성자 ID
-     * @return ResponseCommentDto 수정된 댓글 정보 DTO
+     * @return ResponseCommentDto 삭제된 댓글 정보 DTO
      * @throws CommentException 댓글 커스텀 예외
      * */
     @Transactional

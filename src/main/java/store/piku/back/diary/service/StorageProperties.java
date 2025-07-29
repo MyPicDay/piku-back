@@ -18,4 +18,3 @@ public class StorageProperties {
     private String publicUrl;
 
 }
-

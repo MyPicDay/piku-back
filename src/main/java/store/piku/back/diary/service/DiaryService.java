@@ -388,18 +388,9 @@ public class DiaryService {
         List<String> allowed = List.of("createdAt");
         Pageable safePageable = sanitizePageable(pageable,allowed);
         List<String> friendIds = friendRequestService.findFriendIdList(safePageable,user_id,requestMetaInfo);
-        Page<Diary> page;
 
+        Page<Diary> page = diaryRepository.findFeedByFriendIdsOrPublic(friendIds, safePageable);
 
-        if (!friendIds.isEmpty()) {
-            page = diaryRepository.findByUserIdInAndStatus(friendIds, Status.FRIENDS, pageable);
-            if (page.isEmpty()) {
-                page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
-            }
-
-        } else {
-            page = diaryRepository.findByStatus(Status.PUBLIC, pageable);
-        }
 
         return page.map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
