@@ -2,12 +2,21 @@ package store.piku.back.auth.service;
 
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.util.StringUtils;
+import store.piku.back.auth.entity.AllowedEmail;
+import store.piku.back.auth.repository.AllowedEmailDomainRepository;
 
 import java.io.UnsupportedEncodingException;
+import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
+import store.piku.back.auth.constants.EmailConstants;
+
+import java.util.Objects;
 import java.util.Random;
 
 @Service
@@ -15,6 +24,10 @@ import java.util.Random;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final AllowedEmailDomainRepository allowedEmailDomainRepository;
+
+    @Value("${spring.mail.username}")
+    private String adminEmail;
 
     /**
      * 6자리 인증 코드를 생성합니다.
@@ -38,16 +51,9 @@ public class EmailService {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "utf-8");
 
-        String htmlContent = "<html><body>"
-                + "<h2>이메일 인증</h2>"
-                + "<p style='margin:10px 0;'>안녕하세요. 나만의 캐릭터로 기록하는 하루 한 장, <b>PikU</b> 입니다.</p>"
-                + "<p>본인 인증을 위한 이메일 인증 코드는 다음과 같습니다.</p>"
-                + "<p style='font-size: 20px; font-weight: bold; color: #1a73e8; margin: 15px 0; letter-spacing: 2px;'>" + code + "</p>"
-                + "<p>이 코드를 웹사이트에 입력하여 인증을 완료해주세요.</p>"
-                + "<br>"
-                + "</body></html>";
+        String htmlContent = String.format(EmailConstants.AUTH_CODE_CONTENT, code);
 
-        helper.setFrom("mypikuofficial@gmail.com", "PikU | 피쿠");
+        helper.setFrom(adminEmail, "PikU | 피쿠");
         helper.setTo(toEmail);
         helper.setSubject(subject);
         helper.setText(htmlContent, true);
@@ -57,4 +63,36 @@ public class EmailService {
         return code;
     }
 
+    public boolean isEmailAllowed(String email) {
+        if (!StringUtils.hasText(email) || !email.contains("@")) {
+            return false;
+        }
+        String domain = email.substring(email.indexOf("@") + 1);
+        return allowedEmailDomainRepository.existsByDomain(domain);
+    }
+
+    public List<String> getAllowedEmailDomains() {
+        return allowedEmailDomainRepository.findAll().stream()
+                .map(AllowedEmail::getDomain)
+                .toList();
+    }
+
+    public void sendFeedbackEmail(String content, MultipartFile image) throws MessagingException, UnsupportedEncodingException {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
+
+        String subject = "[PikU] 피드백";
+        String htmlContent = String.format(EmailConstants.FEEDBACK, content);
+
+        helper.setFrom(adminEmail, "PikU | 피쿠");
+        helper.setTo(adminEmail);
+        helper.setSubject(subject);
+        helper.setText(htmlContent, true);
+
+        if (image != null && !image.isEmpty()) {
+            helper.addAttachment(Objects.requireNonNull(image.getOriginalFilename()), image);
+        }
+
+        mailSender.send(mimeMessage);
+    }
 }

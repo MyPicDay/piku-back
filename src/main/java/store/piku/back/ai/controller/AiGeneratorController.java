@@ -45,9 +45,17 @@ public class AiGeneratorController {
                     .body("일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.");
         }
 
+
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
-        log.info("Generated image URL: {}", dto.getUrl());
-        return ResponseEntity.ok(dto);
+
+        try {
+            AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
+            log.info("Generated image URL: {}", dto.getUrl());
+            return ResponseEntity.ok(dto);
+        } catch (RuntimeException e) {
+            log.error("AI 이미지 생성 실패", e);
+            AiDiaryResponseDTO errorDto = new AiDiaryResponseDTO(null, null, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
+        }
     }
 }

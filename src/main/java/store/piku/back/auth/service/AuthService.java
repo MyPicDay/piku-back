@@ -201,7 +201,12 @@ public class AuthService {
      */
     @Transactional
     public void sendSignUpVerificationEmail(String email) {
-        String code = null;
+        // 이메일 검증
+        if (!emailService.isEmailAllowed(email)) {
+            throw new AuthException(AuthErrorCode.INVALID_EMAIL);
+        }
+
+        String code;
         if (userRepository.existsByEmail(email)) {
             log.info("이미 가입된 이메일로 인증 요청 감지. email= {}", email);
         }
@@ -224,7 +229,7 @@ public class AuthService {
      */
     @Transactional
     public void sendPasswordResetVerificationEmail(String email) {
-        String code = null;
+        String code;
         if (!userRepository.existsByEmail(email)) {
             log.info("가입되지 않은 이메일로 비밀번호 재설정을 요청 감지. email= {}", email);
         }
