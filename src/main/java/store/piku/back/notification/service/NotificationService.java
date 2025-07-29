@@ -38,7 +38,6 @@ public class NotificationService {
     private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 
-    // SSE 연결 ( 알림 구독 시작할 때)
     public SseEmitter subscribe(String userId, String lastEventId) {
         String emitterId = userId + "_" + System.currentTimeMillis();
         SseEmitter emitter = emitterRepository.save(emitterId, new SseEmitter(DEFAULT_TIMEOUT));
@@ -66,6 +65,7 @@ public class NotificationService {
                     sendToClient(emitter, entry.getKey(), unreadCount);
                 });
     }
+
     public void sendToClient(SseEmitter emitter, String eventId, String message) {
         try {
             emitter.send(SseEmitter.event().id(eventId).data(message));
@@ -74,6 +74,8 @@ public class NotificationService {
             throw new RuntimeException("연결 오류!");
         }
     }
+
+
 
 
     @Transactional

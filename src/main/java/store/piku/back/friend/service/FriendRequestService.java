@@ -1,5 +1,6 @@
 package store.piku.back.friend.service;
 
+import com.google.firebase.messaging.FirebaseMessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.repository.NotificationRepository;
+import store.piku.back.notification.service.FcmTokenService;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
@@ -38,6 +40,7 @@ public class FriendRequestService {
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final FcmTokenService fcmTokenService;
     private final FriendRepository friendRepository;
     private final UserReader userReader;
 
@@ -46,7 +49,7 @@ public class FriendRequestService {
         return friendRepository.existsFriendship(userId1, userId2);
     }
 
-    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) {
+    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) throws FirebaseMessagingException {
 
         log.info("사용자 조회 요청");
         User fromUser = userReader.getUserById(fromUserId);
@@ -70,6 +73,9 @@ public class FriendRequestService {
             friendRepository.save(new Friend(fromUserId, toUserId));
 
             String message = fromUser.getNickname() + "님이 친구 수락했습니다";
+            String token = fcmTokenService.getTokenByUserId(toUser.getId());
+
+            fcmTokenService.sendMessage(token, "친구 요청", message);
             notificationService.saveNotification(
                     toUser.getId(),
                     NotificationType.FRIEND,
@@ -90,7 +96,10 @@ public class FriendRequestService {
                     fromUserId, toUserId, NotificationType.FRIEND
             );
 
-             if (!alreadyNotified) {
+            String token = fcmTokenService.getTokenByUserId(toUser.getId());
+            fcmTokenService.sendMessage(token, "친구 요청", message);
+
+            if (!alreadyNotified) {
                 notificationService.saveNotification(
                         toUser.getId(),
                         NotificationType.FRIEND,
@@ -105,12 +114,9 @@ public class FriendRequestService {
     public Page<FriendsDTO> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 
         log.info("사용자 친구 조회 요청");
-        // 1. Repository에서 Page<Friend>를 받습니다.
         Page<Friend> friendsPage = friendRepository.findFriendsByUserId(id, pageable);
 
-        // 2. Page<Friend>를 Page<FriendsDto>로 변환합니다.
         Page<FriendsDTO> ret = friendsPage.map(friendEntity -> {
-            // 현재 사용자가 아닌 상대방의 ID를 찾습니다.
             String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
 
             try {
