@@ -8,7 +8,8 @@ spring:
       port: 6379
       username: ${PROD_REDIS_USERNAME:piku-app-user}
       password: ${PROD_REDIS_PASSWORD:1234}
-      ssl: true
+      ssl:
+        enabled: true
   datasource:
     url: ${PROD_DB_URL:jdbc:mysql://localhost:3306/piku} # 개발용 DB URL (필요시 _dev 추가)
     username: ${PROD_DB_USERNAME:root}
