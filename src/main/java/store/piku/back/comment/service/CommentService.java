@@ -71,29 +71,26 @@ public class CommentService {
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
-        Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
-        String parentUserId = parentComment.getUser().getId();
+        String receiverId = null;
+        String message = null;
+        try{
+            Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
+            receiverId = parentComment.getUser().getId();
+            message = user.getNickname() + "님이 회원님의 댓글에 답글을 달았습니다.";
+        }catch (CommentException e){
+            message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
+            receiverId = diary.getUser().getId();
 
-        if (!userId.equals(parentUserId)) {
-            String replyBody = user.getNickname() + "님이 회원님의 댓글에 답글을 달았습니다.";
-            notificationService.sendNotification(
-                    parentUserId,
-                    NotificationType.COMMENT,
-                    replyBody,
-                    String.valueOf(diary.getId())
-            );
+        }finally {
+            if (receiverId != null && message != null) {
+                notificationService.sendNotification(
+                        receiverId,
+                        NotificationType.COMMENT,
+                        message,
+                        String.valueOf(diary.getId())
+                );
+            }
         }
-
-        if (!user.getId().equals(diary.getUser().getId())) {
-            String message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
-            notificationService.sendNotification(
-                    diary.getUser().getId(),
-                    NotificationType.COMMENT,
-                    message,
-                    String.valueOf(diary.getId())
-            );
-        }
-
 
         return new CommentResponseDto(
                 savedComment.getId(),
