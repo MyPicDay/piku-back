@@ -30,10 +30,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
-import store.piku.back.diary.dto.DiaryDTO;
-import store.piku.back.diary.dto.ResponseDTO;
-import store.piku.back.diary.dto.ResponseDiaryDTO;
+import store.piku.back.diary.dto.request.UpdateDiaryRequestDTO;
+import store.piku.back.diary.dto.response.CalendarDiaryResponseDTO;
+import store.piku.back.diary.dto.request.DiaryDTO;
+import store.piku.back.diary.dto.response.ResponseDTO;
+import store.piku.back.diary.dto.response.ResponseDiaryDTO;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
@@ -185,4 +186,35 @@ public class DiaryController {
         Page<ResponseDTO> page = diaryservice.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
         return ResponseEntity.ok(page);
     }
+
+
+    @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDiaryDTO> updateDiary(
+            @Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = UpdateDiaryRequestDTO.class))
+            @RequestPart("diary") @Valid @Size(max = 500)  String diaryDtoString,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        try {
+            UpdateDiaryRequestDTO updatediaryDTO = objectMapper.readValue(diaryDtoString, UpdateDiaryRequestDTO.class);
+            Set<ConstraintViolation<UpdateDiaryRequestDTO>> violations = validator.validate(updatediaryDTO);
+
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+            ResponseDiaryDTO isSaved = diaryservice.updateDiary(updatediaryDTO, photos, userDetails.getId());
+
+
+            if (isSaved != null) {
+                return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+            }
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+
+        } catch (IOException e) {
+            log.error("IOException 발생: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+
+    }
+
 }
