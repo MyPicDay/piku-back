@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import store.piku.back.ai.exception.AiImageGenerationFailException;
 import store.piku.back.global.service.RedisService;
 import store.piku.back.ai.dto.AiDiaryResponseDTO;
 import store.piku.back.ai.service.ImageGenerationService;
@@ -52,7 +53,11 @@ public class AiGeneratorController {
             AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
             log.info("Generated image URL: {}", dto.getUrl());
             return ResponseEntity.ok(dto);
-        } catch (RuntimeException e) {
+        }
+        catch (AiImageGenerationFailException e) {
+            return ResponseEntity.status(HttpStatus.REQUEST_TIMEOUT)
+                    .body(new AiDiaryResponseDTO(null, null, "AI 응답이 없음 & AI 서버 응답 지연"));
+        }catch (RuntimeException e) {
             log.error("AI 이미지 생성 실패", e);
             AiDiaryResponseDTO errorDto = new AiDiaryResponseDTO(null, null, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);

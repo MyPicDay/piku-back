@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import store.piku.back.global.entity.BaseEntity;
 
 
 @Entity
@@ -12,11 +13,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-public class Photo {
+public class Photo extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
     private String url;
 
@@ -40,4 +41,11 @@ public class Photo {
     public void updateRepresent(Boolean represent) {
         this.represent = represent;
     }
+    public void updatePhotoOrder(Integer photoOrder) {
+        this.photoOrder = photoOrder;
+    }
+    public void changeRepresent(boolean value) {
+        this.represent = value;
+    }
+
 }

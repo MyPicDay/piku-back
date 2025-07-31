@@ -1,6 +1,7 @@
 package store.piku.back.diary.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import store.piku.back.diary.enums.Status;
@@ -37,6 +38,13 @@ public class Diary extends BaseEntity {
         this.status = status;
         this.date = date;
         this.user = user;
+    }
+
+    public void updateContent(@NotBlank String content) {
+        this.content = content;
+    }
+    public void updateStatus(Status status) {
+        this.status = status;
     }
 
 }

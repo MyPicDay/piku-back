@@ -1,33 +1,38 @@
-package store.piku.back.diary.dto;
+package store.piku.back.diary.dto.request;
+
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import store.piku.back.diary.dto.response.DiaryImageInfo;
 import store.piku.back.diary.enums.Status;
 
-import java.time.LocalDate;
 import java.util.List;
 
-@Data
-@AllArgsConstructor
+@Getter
 @NoArgsConstructor
-public class DiaryDTO {
+@AllArgsConstructor
+@Schema(description = "일기 수정 요청 DTO ")
+public class UpdateDiaryRequestDTO {
+
     @NotNull
     @Schema(description = "공개범위")
-    private Status status;
+    private Long diaryId ;
 
-    @NotBlank(message = "일기 내용은 비어 있을 수 없습니다.")
+    @NotBlank
     @Schema(description = "일기 내용")
     private String content;
 
     @NotNull
-    @Schema(description = "일기 이미지 정보들")
-    private List<DiaryImageInfo> imageInfos;
+    @Schema(description = "공개범위")
+    private Status status;
 
     @NotNull
-    @Schema(description = "일기날짜 ")
-    private LocalDate date;
+    @Schema(description = "일기 이미지 정보들")
+    private List<DiaryImageInfo> imageInfo;
+
+
 }
