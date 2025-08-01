@@ -24,7 +24,7 @@ public class LocalFcmService implements NotificationProvider {
     }
 
     @Override
-    public void saveToken(String userId, String token) {
+    public void saveToken(String userId, String token , String deviceId) {
         log.info("fcm 토큰 저장(가정)");
     }
 }

@@ -26,10 +26,10 @@ public class FcmService implements NotificationProvider {
 
 
     @Override
-    public void saveToken(String userId, String token) {
+    public void saveToken(String userId, String token, String deviceId) {
         fcmTokenRepository.findByUserId(userId).ifPresentOrElse(
                 existing -> existing.updateToken(token),
-                () -> fcmTokenRepository.save(new FcmToken(userId, token))
+                () -> fcmTokenRepository.save(new FcmToken(userId, token,deviceId))
         );
     }
 

@@ -40,42 +40,66 @@ public class NotificationService {
 
 
     public SseEmitter subscribe(String userId, String lastEventId) {
+
+        log.info("[Emitter 생성 요청]");
         String emitterId = userId + "_" + System.currentTimeMillis();
         SseEmitter emitter = emitterRepository.save(emitterId, new SseEmitter(DEFAULT_TIMEOUT));
-        emitter.onCompletion(() -> emitterRepository.deleteById(emitterId));
-        emitter.onTimeout(() -> emitterRepository.deleteById(emitterId));
 
+        emitter.onCompletion(() -> {
+            log.info("[Emitter 종료 - Completion] emitterId: {}", emitterId);
+            emitterRepository.deleteById(emitterId);
+        });
+
+        emitter.onTimeout(() -> {
+            log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
+            emitterRepository.deleteById(emitterId);
+        });
+
+        log.info("[안읽은 알림 개수 조회 요청] userId: {}", userId);
         long unreadCount = notificationRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(userId);
+
         String eventId = userId + "_" + System.currentTimeMillis();
 
-        emitterRepository.saveEventCache(emitterId, String.valueOf(unreadCount));;
-        sendToClient(emitter, eventId, String.valueOf(unreadCount));
+        log.info("[이벤트 캐시 저장 요청] emiiterId: {}, eventId :{}", emitterId, eventId);
+        emitterRepository.saveEventCache(eventId, String.valueOf(unreadCount));
+
+        log.info("[클라이언트로 초기 데이터 전송 요청]");
+        sendToClient(emitter, eventId, emitterId, String.valueOf(unreadCount));
 
         if (!lastEventId.isEmpty()) {
+            log.info("[이전 이벤트 ID 존재 ] lastEventId: {} → 유실 데이터 복구 시도", lastEventId);
             sendLostData(lastEventId, userId, emitterId, emitter);
         }
         return emitter;
     }
 
     private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
+        log.info("[유실 이벤트 복구 시작] userId: {}, lastEventId: {}", userId, lastEventId);
+
         Map<String, Object> eventCaches = emitterRepository.findAllEventCacheStartWithByUserId(String.valueOf(userId));
+        log.info("[이벤트 캐시 조회] 총 {}개 캐시 존재 - userId: {}", eventCaches.size(), userId);
+
+
         eventCaches.entrySet().stream()
                 .filter(entry -> lastEventId.compareTo(entry.getKey()) < 0)
                 .forEach(entry -> {
                     String unreadCount = (String) entry.getValue(); // 알림 개수 (문자열)
-                    sendToClient(emitter, entry.getKey(), unreadCount);
+
+                    log.info("[유실 이벤트 전송] eventId: {}" , unreadCount);
+                    sendToClient(emitter, entry.getKey(), emitterId , unreadCount);
                 });
     }
 
-    public void sendToClient(SseEmitter emitter, String eventId, String message) {
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, String message) {
         try {
+            log.info("[이벤트 전송 시도] eventId: {}, message: {}", eventId, message);
             emitter.send(SseEmitter.event().id(eventId).data(message));
         } catch (IOException e) {
-            emitterRepository.deleteById(eventId);
+            log.info("클라이언트와 연결 끊김, emitter 삭제 요청");
+            emitterRepository.deleteById(emitterId);
             throw new RuntimeException("연결 오류!");
         }
     }
-
 
 
 
@@ -141,6 +165,9 @@ public class NotificationService {
     }
 
     public Optional<Notification> findNotificationById(String notificationId) {
+
+        log.info("[알림 조회 요청] notificationId: {}", notificationId);
+
         Optional<Notification> notificationOpt = notificationRepository.findById(notificationId);
         if (notificationOpt.isEmpty()) {
             throw new NotificationNotFoundException("알림이 존재하지 않습니다. ID: " + notificationId);

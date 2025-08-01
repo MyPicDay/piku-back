@@ -19,12 +19,14 @@ public class FcmToken {
 
     private String userId; // 유저 ID
 
-    @Column(unique = true)
     private String token;
 
-    public FcmToken(String userId, String token) {
+    private String deviceId;
+
+    public FcmToken(String userId, String token, String deviceId) {
         this.userId = userId;
         this.token = token;
+        this.deviceId = deviceId;
     }
     public void updateToken(String newToken) {
         this.token = newToken;

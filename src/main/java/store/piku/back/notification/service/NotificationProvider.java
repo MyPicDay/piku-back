@@ -4,10 +4,10 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 
 public interface NotificationProvider {
 
-    public void sendMessage(String targetToken, String body) throws FirebaseMessagingException;
+     void sendMessage(String targetToken, String body) throws FirebaseMessagingException;
 
-    void saveToken(String userId, String token);
+     void saveToken(String userId, String token,String deviceId);
 
-    public String getTokenByUserId(String userId);
+     String getTokenByUserId(String userId);
 
 }
