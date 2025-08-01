@@ -71,26 +71,22 @@ public class CommentService {
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
-        String receiverId = null;
-        String message = null;
-        try{
+        String receiverId;
+        String message;
+        if (commentRequestDto.getParentId() == null){
+            message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
+            receiverId = diary.getUser().getId();
+        }else{
             Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
             receiverId = parentComment.getUser().getId();
             message = user.getNickname() + "님이 회원님의 댓글에 답글을 달았습니다.";
-        }catch (CommentException e){
-            message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
-            receiverId = diary.getUser().getId();
-
-        }finally {
-            if (receiverId != null && message != null) {
-                notificationService.sendNotification(
-                        receiverId,
-                        NotificationType.COMMENT,
-                        message,
-                        String.valueOf(diary.getId())
-                );
-            }
         }
+        notificationService.sendNotification(
+                receiverId,
+                NotificationType.COMMENT,
+                message,
+                String.valueOf(diary.getId())
+        );
 
         return new CommentResponseDto(
                 savedComment.getId(),
