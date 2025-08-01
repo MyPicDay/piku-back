@@ -1,6 +1,9 @@
 package store.piku.back.notification.entity;
 
 public enum NotificationType {
+    FRIEND_REQUEST,
+    FRIEND_ACCEPT,
     COMMENT,
-    FRIEND // 친구 요청 수락
+    REPLY,
+    FRIEND_DIARY
 }

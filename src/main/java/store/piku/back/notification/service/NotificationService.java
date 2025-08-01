@@ -5,8 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.dto.response.NotificationResponseDTO;
@@ -102,23 +104,19 @@ public class NotificationService {
     }
 
 
-
     @Transactional
-    public void sendNotification(String receiverId, NotificationType type, String message, String relatedId) {
+    public void sendNotification(String receiverId, NotificationType type, String senderId, Diary diary) {
 
-        log.info("알림 저장 요청 - receiverId: {}, type: {}, message: {}, relatedId: {}", receiverId, type, message, relatedId);
-        Notification notification = new Notification(
-                null,
-                receiverId,
-                type,
-                message,
-                false,
-                relatedId
-        );
+        log.info("알림 저장 요청 ");
+        User sender = userReader.getUserById(senderId);
+
+
+        Notification notification = new Notification(receiverId, sender, type, diary);
         notificationRepository.save(notification);
 
         try {
             String token = notificationProvider.getTokenByUserId(receiverId);
+            String message = generateMessage(type, sender.getNickname());
             if(token != null) {
                 notificationProvider.sendMessage(token, message);
             }
@@ -128,36 +126,49 @@ public class NotificationService {
     }
 
 
-    public List<NotificationResponseDTO> getNotifications(String userId, RequestMetaInfo requestMetaInfo) {
-        log.info("알림 조회 시작 - userId: {}", userId);
-        List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(userId);
+    public String generateMessage(NotificationType type ,String senderNickname) {
+
+        return switch (type) {
+            case FRIEND_REQUEST -> senderNickname + "님이 댓글을 달았습니다.";
+            case FRIEND_ACCEPT -> senderNickname + "님이 친구 요청을 보냈습니다.";
+            case COMMENT -> senderNickname + "님이 일기에 댓글을 달았습니다.";
+            case REPLY -> senderNickname + "님이 회원님의 댓글에 답글들 달았습니다.";
+            case FRIEND_DIARY -> senderNickname + "님이 새 일기를 작성하였습니다.";
+        };
+    }
+
+    public List<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo) {
+        log.info("알림 조회 시작 - 받는사람 | receiverId: {}", receiverId);
+        List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId);
 
         List<NotificationResponseDTO> dtos = new ArrayList<>();
 
         for (Notification n : notifications) {
-            String thumbnailUrl = null;
+            User sender = n.getSender();
+            String senderNickname = sender.getNickname();
+            String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
 
-            log.info("댓글 알림 조회 시작 - userId: {}", userId);
-            if (n.getType() == NotificationType.COMMENT && n.getRelatedId() != null) {
-                    Long diaryId = Long.parseLong(n.getRelatedId());
-                    Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diaryId);
-                    thumbnailUrl = representPhotoOpt
-                            .map(Photo::getUrl)
-                            .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
-                            .orElse(null);
-            }
-            else if (n.getType() == NotificationType.FRIEND && n.getRelatedId() != null) {
-                log.info("친구 알림 조회 시작 - userId: {}", userId);
-                User friend = userReader.getUserById(n.getRelatedId());
-                    thumbnailUrl = imagePathToUrlConverter.userAvatarImageUrl(friend.getAvatar(), requestMetaInfo);
+            String message = generateMessage(n.getType(), senderNickname);
+
+            Long relatedDiaryId = null;
+            String thumbnailUrl = null;
+            if (n.getRelatedDiary() != null) {
+                Diary diary = n.getRelatedDiary();
+                relatedDiaryId = diary.getId();
+
+                Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
+                thumbnailUrl = representPhotoOpt
+                        .map(Photo::getUrl)
+                        .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
+                        .orElse(null);
             }
 
             dtos.add(new NotificationResponseDTO(
                     n.getId(),
-                    n.getRelatedId(),
-                    n.getIsRead(),
-                    n.getReceiverId(),
-                    n.getMessage(),
+                    message,
+                    senderNickname,
+                    senderAvatarUrl,
+                    relatedDiaryId,
                     thumbnailUrl
             ));
         }
@@ -174,6 +185,8 @@ public class NotificationService {
         }
         return notificationOpt;
     }
+
+
 
     @Transactional
     public boolean markAsRead(Long notificationId, String userId) {

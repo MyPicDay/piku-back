@@ -4,6 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import store.piku.back.diary.entity.Diary;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.user.entity.User;
 
 @Data
 @AllArgsConstructor
@@ -13,18 +16,15 @@ public class NotificationResponseDTO {
     @Schema(description = "알림 ID")
     private Long id;
 
-    @Schema(description = "관련된 엔티티의 ID ( 예 : 댓글 ID , 친구 ID 등 ) ")
-    private String relatedId;
-
-    @Schema(description = "알림 읽음 여부")
-    private Boolean isRead;
-
-    @Schema(description = "알림 수신자 ID")
-    private String receiverId;
-
     @Schema(description = "알림 메세지")
     private String message;
 
-    @Schema(description = "대표사진 URL ( 예: 친구 프로필 사진 과 일기대표사진 에 사용됨 ) ")
+    private String nickname;
+
+    private String avatarUrl;
+
+    @Schema(description = "해당 알림 일기 ID")
+    private Long relatedDiaryId;
+
     private String thumbnailUrl;
 }

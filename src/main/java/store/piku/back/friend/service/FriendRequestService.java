@@ -72,13 +72,11 @@ public class FriendRequestService {
             log.info(toUserId +","+fromUserId +" 사용자 친구 테이블 저장 요청");
             friendRepository.save(new Friend(fromUserId, toUserId));
 
-            String message = fromUser.getNickname() + "님이 친구 수락했습니다";
             notificationService.sendNotification(
                     toUser.getId(),
-                    NotificationType.FRIEND,
-                    message,
-                    fromUserId
-
+                    NotificationType.FRIEND_ACCEPT,
+                    fromUser.getId(),
+                    null
             );
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
@@ -88,20 +86,13 @@ public class FriendRequestService {
              FriendRequest request = new FriendRequest(fromUserId, toUserId);
              friendRequestRepository.save(request);
 
-             String message = fromUser.getNickname() + "님이 친구 요청을 보냈습니다";
-             boolean alreadyNotified = notificationRepository.existsByRelatedIdAndReceiverIdAndType(
-                    fromUserId, toUserId, NotificationType.FRIEND
-            );
-
-
-            if (!alreadyNotified) {
-                notificationService.sendNotification(
+             notificationService.sendNotification(
                         toUser.getId(),
-                        NotificationType.FRIEND,
-                        message,
-                        fromUserId
+                        NotificationType.FRIEND_ACCEPT,
+                        fromUser.getId(),
+                        null
                 );
-            }
+
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
         }
     }

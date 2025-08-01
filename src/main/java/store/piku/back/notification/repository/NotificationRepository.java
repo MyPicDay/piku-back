@@ -11,7 +11,5 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, String> {
 
     List<Notification> findAllByReceiverIdAndDeletedAtIsNull(String receiverId);
-    boolean existsByRelatedIdAndReceiverIdAndType(String relatedId, String receiverId, NotificationType type);
-
     long countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(String userId);
 }

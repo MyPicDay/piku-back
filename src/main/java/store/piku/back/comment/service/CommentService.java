@@ -21,6 +21,7 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.entity.Notification;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
@@ -72,20 +73,20 @@ public class CommentService {
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
 
         String receiverId;
-        String message;
+        NotificationType type;
         if (commentRequestDto.getParentId() == null){
-            message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
             receiverId = diary.getUser().getId();
+            type = NotificationType.COMMENT;
         }else{
             Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
             receiverId = parentComment.getUser().getId();
-            message = user.getNickname() + "님이 회원님의 댓글에 답글을 달았습니다.";
+            type = NotificationType.REPLY;
         }
         notificationService.sendNotification(
                 receiverId,
-                NotificationType.COMMENT,
-                message,
-                String.valueOf(diary.getId())
+                type,
+                savedComment.getUser().getId(),
+                diary
         );
 
         return new CommentResponseDto(
