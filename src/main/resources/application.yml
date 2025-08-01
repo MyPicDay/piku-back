@@ -30,7 +30,7 @@ spring:
             enable: true
 
 firebase:
-  key-path: ${GOOGLE_APPLICATION_CREDENTIALS:firebase-json-key}
+  key-path: ${GOOGLE_APPLICATION_CREDENTIALS:firebase-json-key.json}
 
 gemini:
   api:
