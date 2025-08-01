@@ -1,5 +1,6 @@
 package store.piku.back.friend.controller;
 
+//import com.google.firebase.messaging.FirebaseMessagingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -76,10 +77,10 @@ public class FriendRequestController {
         try {
             FriendRequestResponseDto response = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId());
             return ResponseEntity.ok(response);
-        } catch (AlreadyFriendsException e) {
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(new FriendRequestResponseDto(false, e.getMessage()));
+//        } catch (AlreadyFriendsException | FirebaseMessagingException e) {
+//            return ResponseEntity
+//                    .status(HttpStatus.CONFLICT)
+//                    .body(new FriendRequestResponseDto(false, e.getMessage()));
         } catch (UserNotFoundException | FriendException e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)

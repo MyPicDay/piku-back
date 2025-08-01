@@ -21,6 +21,8 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.service.reader.UserReader;
 
@@ -33,6 +35,8 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final DiaryService diaryService;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationService notificationService;
+
 
 
     /**
@@ -43,7 +47,8 @@ public class CommentService {
      * @return ResponseCommentDto 댓글 등록 dto
     * */
     @Transactional
-    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException {
+    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException
+    {
 
         User user = userReader.getUserById(userId);
         Diary diary = diaryService.getDiaryById(commentRequestDto.getDiaryId());
@@ -65,6 +70,23 @@ public class CommentService {
 
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
+
+        String receiverId;
+        String message;
+        if (commentRequestDto.getParentId() == null){
+            message = user.getNickname() +"님이 회원님의 게시글에 댓글을 남겼습니다.";
+            receiverId = diary.getUser().getId();
+        }else{
+            Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
+            receiverId = parentComment.getUser().getId();
+            message = user.getNickname() + "님이 회원님의 댓글에 답글을 달았습니다.";
+        }
+        notificationService.sendNotification(
+                receiverId,
+                NotificationType.COMMENT,
+                message,
+                String.valueOf(diary.getId())
+        );
 
         return new CommentResponseDto(
                 savedComment.getId(),
