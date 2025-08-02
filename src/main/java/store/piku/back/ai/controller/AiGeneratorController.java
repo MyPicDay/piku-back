@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import store.piku.back.global.service.RedisService;
 import store.piku.back.ai.dto.AiDiaryResponseDTO;
 import store.piku.back.ai.service.ImageGenerationService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -24,6 +25,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class AiGeneratorController {
+    private final RedisService redisService;
+    private static final int MAX_AI_REQUESTS_PER_DAY = 10;
+    private static final String AI_GENERATE_ACTION = "ai_generate";
 
     private final ImageGenerationService imageGenerationService;
     private final RequestMetaMapper requestMetaMapper;
@@ -31,9 +35,17 @@ public class AiGeneratorController {
     @Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
     @SecurityRequirement(name = "JWT")
     @PostMapping("/diary/ai/generate")
-    public ResponseEntity<AiDiaryResponseDTO> generateDiaryImage(@RequestBody Map<String, String> body, HttpServletRequest request, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<Object> generateDiaryImage(@RequestBody Map<String, String> body, HttpServletRequest request, @AuthenticationPrincipal CustomUserDetails customUserDetails) {
         String content = body.get("content");
         String userId = customUserDetails.getId();
+
+        // RedisService를 통해 횟수 제한 확인
+        if (redisService.isRequestLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body("일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.");
+        }
+
+
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 
         try {

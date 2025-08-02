@@ -94,11 +94,20 @@ services:
       timeout: 20s
       retries: 3
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
 volumes:
   piku-data:
   dev-piku-data:
   minio-data:
-#  minio-data: # MinIO 데이터를 위한 새 볼륨
+  redis-data:
 
 networks:
   piku-network:
