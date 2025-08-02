@@ -35,6 +35,7 @@ import store.piku.back.diary.dto.DiaryDTO;
 import store.piku.back.diary.dto.ResponseDTO;
 import store.piku.back.diary.dto.ResponseDiaryDTO;
 import store.piku.back.diary.service.DiaryService;
+import store.piku.back.diary.service.FeedService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
@@ -53,6 +54,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class DiaryController {
 
+    private final FeedService feedService;
     private final DiaryService diaryservice;
     private final FileUtil fileUtil;
     private final RequestMetaMapper requestMetaMapper;
@@ -109,7 +111,7 @@ public class DiaryController {
             log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
             RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            ResponseDTO response = diaryservice.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails.getId());
+            ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails.getId());
             return ResponseEntity.ok(response);
 
     }
@@ -182,7 +184,7 @@ public class DiaryController {
 
         log.info("safePageable: {}", safePageable);
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<ResponseDTO> page = diaryservice.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
+        Page<ResponseDTO> page = feedService.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
         return ResponseEntity.ok(page);
     }
 }
