@@ -88,7 +88,7 @@ public class FriendRequestService {
 
              notificationService.sendNotification(
                         toUser.getId(),
-                        NotificationType.FRIEND_ACCEPT,
+                        NotificationType.FRIEND_REQUEST,
                         fromUser.getId(),
                         null
                 );

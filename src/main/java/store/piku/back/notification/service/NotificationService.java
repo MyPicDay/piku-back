@@ -137,6 +137,7 @@ public class NotificationService {
         };
     }
 
+    @Transactional
     public List<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo) {
         log.info("알림 조회 시작 - 받는사람 | receiverId: {}", receiverId);
         List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId);
