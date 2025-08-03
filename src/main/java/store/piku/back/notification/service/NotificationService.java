@@ -149,6 +149,7 @@ public class NotificationService {
             String senderNickname = sender.getNickname();
             String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
 
+            NotificationType type = n.getType();
             String message = generateMessage(n.getType(), senderNickname);
 
             Long relatedDiaryId = null;
@@ -169,6 +170,7 @@ public class NotificationService {
                     message,
                     senderNickname,
                     senderAvatarUrl,
+                    type,
                     relatedDiaryId,
                     thumbnailUrl
             ));

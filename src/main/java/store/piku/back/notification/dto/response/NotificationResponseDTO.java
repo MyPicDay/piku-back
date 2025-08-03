@@ -23,6 +23,8 @@ public class NotificationResponseDTO {
 
     private String avatarUrl;
 
+    private NotificationType type;
+
     @Schema(description = "해당 알림 일기 ID")
     private Long relatedDiaryId;
 
