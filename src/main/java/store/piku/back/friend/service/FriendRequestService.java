@@ -191,4 +191,8 @@ public class FriendRequestService {
 
         return friendRepository.countByUserId1OrUserId2(userId, userId);
     }
+
+    public List<String> getFriends(String userId) {
+        return friendRepository.findFriendIds(userId);
+    }
 }
