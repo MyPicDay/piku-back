@@ -29,4 +29,7 @@ public class NotificationResponseDTO {
     private Long relatedDiaryId;
 
     private String thumbnailUrl;
+
+    // 읽음 표시
+    private Boolean isRead;
 }

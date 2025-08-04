@@ -200,7 +200,8 @@ public class NotificationService {
                     senderAvatarUrl,
                     type,
                     relatedDiaryId,
-                    thumbnailUrl
+                    thumbnailUrl,
+                    n.getIsRead()
             ));
         }
         return dtos;

@@ -18,5 +18,6 @@ public class SseResponse {
     private String senderNickname;
     private String senderAvatarUrl;
     private String thumbnailUrl;
+
 }
 
