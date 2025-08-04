@@ -2,7 +2,6 @@ package store.piku.back.diary.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,7 +16,6 @@ import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
-import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
@@ -26,6 +24,8 @@ import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.file.FileUtil;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
@@ -52,7 +52,6 @@ public class DiaryService {
     private final PhotoRepository photoRepository;
     private final UserReader userReader;
     private final PhotoStorageService photoStorage;
-    private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
     private final FileUtil fileUtil;
     private final DiaryImageGenerationRepository diaryImageGenerationRepository;
@@ -346,7 +345,6 @@ public class DiaryService {
 
         return PageRequest.of(page, size, safeSort);
     }
-
 
     /**
      * 특정 사용자가 작성한 일기의 총 개수를 반환합니다.
