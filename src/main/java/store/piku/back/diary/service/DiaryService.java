@@ -75,7 +75,7 @@ public class DiaryService {
     }
 
     @Transactional
-    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId) throws UserNotFoundException, IOException {
+    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId, RequestMetaInfo requestMetaInfo) throws UserNotFoundException, IOException {
 
         validateDiaryDTO(diaryDTO, photos, userId);
 
@@ -111,7 +111,8 @@ public class DiaryService {
                         friendId,
                         NotificationType.FRIEND_DIARY,
                         user.getId(),
-                        diary
+                        diary,
+                        requestMetaInfo
                 );
             }
             log.info("친구에게 새 일기 공개 알림 전송 완료. 친구 수: {}", friends.size());

@@ -98,7 +98,7 @@ public class NotificationService {
 
 
     @Transactional
-    public void sendNotification(String receiverId, NotificationType type, String senderId, Diary diary) {
+    public void sendNotification(String receiverId, NotificationType type, String senderId, Diary diary, RequestMetaInfo requestMetaInfo ) {
 
         log.info("알림 저장 요청 ");
         User sender = userReader.getUserById(senderId);
@@ -109,12 +109,30 @@ public class NotificationService {
         Map<String, SseEmitter> emitters = emitterRepository.findAllEmitterStartWithByUserId(receiverId);
         String message = generateMessage(type);
 
+
+        String senderNickname = sender.getNickname();
+        String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
+
+
+        String thumbnailUrl = null;
+        if (diary != null) {
+            Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId());
+            thumbnailUrl = representPhotoOpt
+                    .map(Photo::getUrl)
+                    .map(photoStorageService::getPhotoUrl)
+                    .orElse(null);
+        }
+
         SseResponse notificationDTO = new SseResponse(
                 type,
                 message,
-                diary.getId(),
-                senderId
+                diary != null ? diary.getId() : null,
+                senderId,
+                senderNickname,
+                senderAvatarUrl,
+                thumbnailUrl
         );
+
 
         emitters.forEach((emitterId, emitter) -> {
             try {

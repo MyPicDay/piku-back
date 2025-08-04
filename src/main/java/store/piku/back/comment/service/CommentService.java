@@ -48,7 +48,7 @@ public class CommentService {
      * @return ResponseCommentDto 댓글 등록 dto
     * */
     @Transactional
-    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException
+    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId, RequestMetaInfo requestMetaInfo) throws DiaryNotFoundException
     {
 
         User user = userReader.getUserById(userId);
@@ -86,7 +86,8 @@ public class CommentService {
                 receiverId,
                 type,
                 savedComment.getUser().getId(),
-                diary
+                diary,
+                requestMetaInfo
         );
 
         return new CommentResponseDto(

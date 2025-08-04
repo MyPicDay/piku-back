@@ -68,7 +68,8 @@ public class DiaryController {
             @Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class))
             @RequestPart("diary") @Valid @Size(max = 500)  String diaryDtoString,
             @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            HttpServletRequest request) {
         log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
         try {
             DiaryDTO diaryDTO = objectMapper.readValue(diaryDtoString, DiaryDTO.class);
@@ -77,7 +78,8 @@ public class DiaryController {
                 throw new ConstraintViolationException(violations);
             }
 
-            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, photos, userDetails.getId());
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, photos, userDetails.getId(),requestMetaInfo);
             if (isSaved != null) {
                 return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
             }

@@ -48,7 +48,7 @@ public class FriendRequestService {
         return friendRepository.existsFriendship(userId1, userId2);
     }
 
-    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId)
+    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId, RequestMetaInfo requestMetaInfo)
     {
 
         log.info("사용자 조회 요청");
@@ -76,7 +76,8 @@ public class FriendRequestService {
                     toUser.getId(),
                     NotificationType.FRIEND_ACCEPT,
                     fromUser.getId(),
-                    null
+                    null,
+                    requestMetaInfo
             );
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
@@ -90,7 +91,8 @@ public class FriendRequestService {
                         toUser.getId(),
                         NotificationType.FRIEND_REQUEST,
                         fromUser.getId(),
-                        null
+                        null,
+                         requestMetaInfo
                 );
 
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
