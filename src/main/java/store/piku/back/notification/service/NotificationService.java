@@ -12,6 +12,7 @@ import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.dto.response.NotificationResponseDTO;
+import store.piku.back.notification.dto.response.SseResponse;
 import store.piku.back.notification.entity.Notification;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.exception.NotificationNotFoundException;
@@ -64,39 +65,30 @@ public class NotificationService {
         String eventId = userId + "_" + System.currentTimeMillis();
 
         log.info("[이벤트 캐시 저장 요청] emiiterId: {}, eventId :{}", emitterId, eventId);
-        emitterRepository.saveEventCache(eventId, String.valueOf(unreadCount));
 
         log.info("[클라이언트로 초기 데이터 전송 요청]");
-        sendToClient(emitter, eventId, emitterId, String.valueOf(unreadCount));
+        SseResponse initResponse = new SseResponse(null, "INIT", unreadCount , null);
+        sendToClient(emitter, eventId, emitterId, initResponse);
 
-        if (!lastEventId.isEmpty()) {
-            log.info("[이전 이벤트 ID 존재 ] lastEventId: {} → 유실 데이터 복구 시도", lastEventId);
-            sendLostData(lastEventId, userId, emitterId, emitter);
-        }
         return emitter;
     }
 
-    private void sendLostData(String lastEventId, String userId, String emitterId, SseEmitter emitter) {
-        log.info("[유실 이벤트 복구 시작] userId: {}, lastEventId: {}", userId, lastEventId);
 
-        Map<String, Object> eventCaches = emitterRepository.findAllEventCacheStartWithByUserId(String.valueOf(userId));
-        log.info("[이벤트 캐시 조회] 총 {}개 캐시 존재 - userId: {}", eventCaches.size(), userId);
-
-
-        eventCaches.entrySet().stream()
-                .filter(entry -> lastEventId.compareTo(entry.getKey()) < 0)
-                .forEach(entry -> {
-                    String unreadCount = (String) entry.getValue(); // 알림 개수 (문자열)
-
-                    log.info("[유실 이벤트 전송] eventId: {}" , unreadCount);
-                    sendToClient(emitter, entry.getKey(), emitterId , unreadCount);
-                });
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, String response) {
+        try {
+            emitter.send(SseEmitter.event().id(eventId).data(response));
+        } catch (IOException e) {
+            emitterRepository.deleteById(emitterId);
+            throw new RuntimeException("연결 오류!");
+        }
     }
 
-    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, String message) {
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId,SseResponse response) {
         try {
-            log.info("[이벤트 전송 시도] eventId: {}, message: {}", eventId, message);
-            emitter.send(SseEmitter.event().id(eventId).data(message));
+            log.info("[이벤트 전송 시도] eventId: {}, message: {}", eventId, response);
+            emitter.send(SseEmitter.event()
+                    .id(eventId)
+                    .data(response));
         } catch (IOException e) {
             log.info("클라이언트와 연결 끊김, emitter 삭제 요청");
             emitterRepository.deleteById(emitterId);
@@ -110,14 +102,32 @@ public class NotificationService {
 
         log.info("알림 저장 요청 ");
         User sender = userReader.getUserById(senderId);
-
-
         Notification notification = new Notification(receiverId, sender, type, diary);
         notificationRepository.save(notification);
 
+        String eventId = receiverId + "_" + System.currentTimeMillis();
+        Map<String, SseEmitter> emitters = emitterRepository.findAllEmitterStartWithByUserId(receiverId);
+
+        SseResponse notificationDTO = new SseResponse(
+                type,
+                "UP",
+                diary.getId(),
+                senderId
+        );
+
+        emitters.forEach((emitterId, emitter) -> {
+            try {
+                log.info("[SSE 알림 전송] receiverId: {}, emitterId: {}", receiverId, emitterId);
+                sendToClient(emitter, eventId, emitterId, notificationDTO);
+            } catch (Exception e) {
+                log.warn("SSE 알림 전송 실패: {}", e.getMessage());
+            }
+        });
+
+
         try {
             String token = notificationProvider.getTokenByUserId(receiverId);
-            String message = generateMessage(type, sender.getNickname());
+            String message = generateMessage(type);
             if(token != null) {
                 notificationProvider.sendMessage(token, message);
             }
@@ -127,14 +137,14 @@ public class NotificationService {
     }
 
 
-    public String generateMessage(NotificationType type ,String senderNickname) {
+    public String generateMessage(NotificationType type) {
 
         return switch (type) {
-            case FRIEND_REQUEST -> senderNickname + "님이 댓글을 달았습니다.";
-            case FRIEND_ACCEPT -> senderNickname + "님이 친구 요청을 보냈습니다.";
-            case COMMENT -> senderNickname + "님이 일기에 댓글을 달았습니다.";
-            case REPLY -> senderNickname + "님이 회원님의 댓글에 답글들 달았습니다.";
-            case FRIEND_DIARY -> senderNickname + "님이 새 일기를 작성하였습니다.";
+            case FRIEND_REQUEST -> "님이 댓글을 달았습니다.";
+            case FRIEND_ACCEPT -> "님이 친구 요청을 보냈습니다.";
+            case COMMENT -> "님이 일기에 댓글을 달았습니다.";
+            case REPLY -> "님이 회원님의 댓글에 답글들 달았습니다.";
+            case FRIEND_DIARY -> "님이 새 일기를 작성하였습니다.";
         };
     }
 
@@ -151,7 +161,7 @@ public class NotificationService {
             String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
 
             NotificationType type = n.getType();
-            String message = generateMessage(n.getType(), senderNickname);
+            String message = generateMessage(n.getType());
 
             Long relatedDiaryId = null;
             String thumbnailUrl = null;

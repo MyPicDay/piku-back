@@ -57,7 +57,7 @@ public class DiaryService {
     private final DiaryImageGenerationRepository diaryImageGenerationRepository;
     private final DiaryImageGenerationService diaryImageGenerationService;
     private final NotificationService notificationService;
-    private final CommentService commentService;
+
 
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
