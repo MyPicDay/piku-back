@@ -64,8 +64,6 @@ public class NotificationService {
 
         String eventId = userId + "_" + System.currentTimeMillis();
 
-        log.info("[이벤트 캐시 저장 요청] emiiterId: {}, eventId :{}", emitterId, eventId);
-
         log.info("[클라이언트로 초기 데이터 전송 요청]");
         SseResponse initResponse = new SseResponse(null, "INIT", unreadCount , null);
         sendToClient(emitter, eventId, emitterId, initResponse);
@@ -73,15 +71,6 @@ public class NotificationService {
         return emitter;
     }
 
-
-    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, String response) {
-        try {
-            emitter.send(SseEmitter.event().id(eventId).data(response));
-        } catch (IOException e) {
-            emitterRepository.deleteById(emitterId);
-            throw new RuntimeException("연결 오류!");
-        }
-    }
 
     public void sendToClient(SseEmitter emitter, String eventId, String emitterId,SseResponse response) {
         try {
