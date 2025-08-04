@@ -31,11 +31,11 @@ public class NotificationController {
 
     @Operation(summary = "SSE 구독 시작", description = "서버-전송 이벤트 연결")
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails, @RequestHeader(value = "Last-Event-ID", required = false, defaultValue = "") String lastEventId) {
+    public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
         String userId = userDetails.getId();
-        log.info("SSE 구독 요청 - userId: {}, lastEventId: {}", userId, lastEventId);
+        log.info("SSE 구독 요청 - userId: {}", userId);
 
-        SseEmitter emitter = notificationService.subscribe(userId, lastEventId);
+        SseEmitter emitter = notificationService.subscribe(userId);
 
         log.info("SSE Emitter 생성 완료 - userId: {}", userId);
         return emitter;

@@ -43,7 +43,7 @@ public class NotificationService {
     private final PhotoStorageService photoStorageService;
 
 
-    public SseEmitter subscribe(String userId, String lastEventId) {
+    public SseEmitter subscribe(String userId) {
 
         log.info("[Emitter 생성 요청]");
         String emitterId = userId + "_" + System.currentTimeMillis();
