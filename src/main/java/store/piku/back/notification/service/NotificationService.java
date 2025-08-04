@@ -65,8 +65,7 @@ public class NotificationService {
         String eventId = userId + "_" + System.currentTimeMillis();
 
         log.info("[클라이언트로 초기 데이터 전송 요청]");
-        SseResponse initResponse = new SseResponse(null, "INIT", unreadCount , null);
-        sendToClient(emitter, eventId, emitterId, initResponse);
+        sendToClient(emitter, eventId, emitterId, unreadCount);
 
         return emitter;
     }
@@ -84,6 +83,18 @@ public class NotificationService {
             throw new RuntimeException("연결 오류!");
         }
     }
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, Long count) {
+        try {
+            log.info("[이벤트 초기 전송 시도]");
+            emitter.send(SseEmitter.event()
+                    .id(eventId)
+                    .data(count));
+        } catch (IOException e) {
+            log.info("(초기) 클라이언트와 연결 끊김, emitter 삭제 요청");
+            emitterRepository.deleteById(emitterId);
+            throw new RuntimeException("연결 오류!");
+        }
+    }
 
 
     @Transactional
@@ -96,10 +107,11 @@ public class NotificationService {
 
         String eventId = receiverId + "_" + System.currentTimeMillis();
         Map<String, SseEmitter> emitters = emitterRepository.findAllEmitterStartWithByUserId(receiverId);
+        String message = generateMessage(type);
 
         SseResponse notificationDTO = new SseResponse(
                 type,
-                "UP",
+                message,
                 diary.getId(),
                 senderId
         );
@@ -113,10 +125,8 @@ public class NotificationService {
             }
         });
 
-
         try {
             String token = notificationProvider.getTokenByUserId(receiverId);
-            String message = generateMessage(type);
             if(token != null) {
                 notificationProvider.sendMessage(token, message);
             }
