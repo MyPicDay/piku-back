@@ -30,6 +30,5 @@ public class NotificationResponseDTO {
 
     private String thumbnailUrl;
 
-    // 읽음 표시
     private Boolean isRead;
 }

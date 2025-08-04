@@ -10,6 +10,7 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, String> {
 
-    List<Notification> findAllByReceiverIdAndDeletedAtIsNull(String receiverId);
     long countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(String userId);
+
+    List<Notification> findAllByReceiverIdAndDeletedAtIsNullOrderByCreatedAtDesc(String receiverId);
 }
