@@ -8,6 +8,8 @@ import store.piku.back.diary.entity.Diary;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.user.entity.User;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -36,4 +38,7 @@ public class NotificationResponseDTO {
 
     @Schema(description = "읽음 여부")
     private Boolean isRead;
+
+    @Schema(description = "시간")
+    private LocalDateTime createdAt;
 }

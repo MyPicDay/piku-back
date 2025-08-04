@@ -201,7 +201,8 @@ public class NotificationService {
                     type,
                     relatedDiaryId,
                     thumbnailUrl,
-                    n.getIsRead()
+                    n.getIsRead(),
+                    n.getCreatedAt()
             ));
         }
         return dtos;
