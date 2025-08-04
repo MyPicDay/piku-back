@@ -8,7 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.diary.service.DiaryService;
+import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.dto.response.NotificationResponseDTO;
@@ -39,6 +39,7 @@ public class NotificationService {
     private final PhotoRepository photoRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final NotificationProvider notificationProvider;
+    private final PhotoStorageService photoStorageService;
 
 
     public SseEmitter subscribe(String userId, String lastEventId) {
@@ -161,7 +162,7 @@ public class NotificationService {
                 Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
                 thumbnailUrl = representPhotoOpt
                         .map(Photo::getUrl)
-                        .map(url -> imagePathToUrlConverter.diaryImageUrl(url, requestMetaInfo))
+                        .map(photoStorageService::getPhotoUrl)
                         .orElse(null);
             }
 
