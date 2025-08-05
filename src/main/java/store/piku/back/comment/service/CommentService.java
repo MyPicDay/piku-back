@@ -82,13 +82,15 @@ public class CommentService {
             receiverId = parentComment.getUser().getId();
             type = NotificationType.REPLY;
         }
-        notificationService.sendNotification(
-                receiverId,
-                type,
-                savedComment.getUser().getId(),
-                diary,
-                requestMetaInfo
-        );
+        if (!receiverId.equals(savedComment.getUser().getId())) {
+            notificationService.sendNotification(
+                    receiverId,
+                    type,
+                    savedComment.getUser().getId(),
+                    diary,
+                    requestMetaInfo
+            );
+        }
 
         return new CommentResponseDto(
                 savedComment.getId(),
