@@ -4,10 +4,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import store.piku.back.diary.entity.Diary;
 import store.piku.back.notification.entity.NotificationType;
-import store.piku.back.user.entity.User;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -41,4 +40,10 @@ public class NotificationResponseDTO {
 
     @Schema(description = "시간")
     private LocalDateTime createdAt;
+
+    @Schema(description = "일기 날짜")
+    private LocalDate diaryDate;
+
+    @Schema(description = "일기 작성자 Id")
+    private String diaryUserId;
 }

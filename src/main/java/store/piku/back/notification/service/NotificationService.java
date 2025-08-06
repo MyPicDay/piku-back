@@ -22,6 +22,7 @@ import store.piku.back.user.entity.User;
 import store.piku.back.user.service.reader.UserReader;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -182,9 +183,13 @@ public class NotificationService {
 
             Long relatedDiaryId = null;
             String thumbnailUrl = null;
+            LocalDate diaryDate = null;
+            String diaryUserId = null;
             if (n.getRelatedDiary() != null) {
                 Diary diary = n.getRelatedDiary();
+                diaryDate = diary.getDate();
                 relatedDiaryId = diary.getId();
+                diaryUserId = diary.getUser().getId();
 
                 Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
                 thumbnailUrl = representPhotoOpt
@@ -202,7 +207,9 @@ public class NotificationService {
                     relatedDiaryId,
                     thumbnailUrl,
                     n.getIsRead(),
-                    n.getCreatedAt()
+                    n.getCreatedAt(),
+                    diaryDate,
+                    diaryUserId
             ));
         }
         return dtos;
