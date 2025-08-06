@@ -15,7 +15,7 @@ import store.piku.back.notification.repository.FcmTokenRepository;
 
 @Service
 @RequiredArgsConstructor
-@Profile("dev")
+@Profile("prod")
 @Slf4j
 public class FcmService implements NotificationProvider {
 
