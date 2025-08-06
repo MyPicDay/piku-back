@@ -1,5 +1,7 @@
 package store.piku.back.friend.service;
 
+//import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.FirebaseMessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,9 +19,12 @@ import store.piku.back.friend.repository.FriendRepository;
 import store.piku.back.friend.repository.FriendRequestRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.repository.NotificationRepository;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.notification.entity.NotificationType;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +38,8 @@ public class FriendRequestService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final FriendRepository friendRepository;
     private final UserReader userReader;
 
@@ -41,7 +48,8 @@ public class FriendRequestService {
         return friendRepository.existsFriendship(userId1, userId2);
     }
 
-    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId) {
+    public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId, RequestMetaInfo requestMetaInfo)
+    {
 
         log.info("사용자 조회 요청");
         User fromUser = userReader.getUserById(fromUserId);
@@ -63,6 +71,14 @@ public class FriendRequestService {
 
             log.info(toUserId +","+fromUserId +" 사용자 친구 테이블 저장 요청");
             friendRepository.save(new Friend(fromUserId, toUserId));
+
+            notificationService.sendNotification(
+                    toUser.getId(),
+                    NotificationType.FRIEND_ACCEPT,
+                    fromUser.getId(),
+                    null,
+                    requestMetaInfo
+            );
             return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
 
         } else {
@@ -70,6 +86,15 @@ public class FriendRequestService {
 
              FriendRequest request = new FriendRequest(fromUserId, toUserId);
              friendRequestRepository.save(request);
+
+             notificationService.sendNotification(
+                        toUser.getId(),
+                        NotificationType.FRIEND_REQUEST,
+                        fromUser.getId(),
+                        null,
+                         requestMetaInfo
+                );
+
              return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
         }
     }
@@ -77,12 +102,9 @@ public class FriendRequestService {
     public Page<FriendsDTO> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 
         log.info("사용자 친구 조회 요청");
-        // 1. Repository에서 Page<Friend>를 받습니다.
         Page<Friend> friendsPage = friendRepository.findFriendsByUserId(id, pageable);
 
-        // 2. Page<Friend>를 Page<FriendsDto>로 변환합니다.
         Page<FriendsDTO> ret = friendsPage.map(friendEntity -> {
-            // 현재 사용자가 아닌 상대방의 ID를 찾습니다.
             String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
 
             try {
@@ -170,5 +192,9 @@ public class FriendRequestService {
         log.info("사용자 ID: {} 의 친구 수 조회 요청", userId);
 
         return friendRepository.countByUserId1OrUserId2(userId, userId);
+    }
+
+    public List<String> getFriends(String userId) {
+        return friendRepository.findFriendIds(userId);
     }
 }

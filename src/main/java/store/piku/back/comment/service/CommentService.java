@@ -21,6 +21,8 @@ import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.service.reader.UserReader;
 
@@ -33,6 +35,8 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final DiaryService diaryService;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
+    private final NotificationService notificationService;
+
 
 
     /**
@@ -43,7 +47,8 @@ public class CommentService {
      * @return ResponseCommentDto 댓글 등록 dto
     * */
     @Transactional
-    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId) throws DiaryNotFoundException {
+    public CommentResponseDto createComment(CommentRequestDto commentRequestDto, String userId, RequestMetaInfo requestMetaInfo) throws DiaryNotFoundException
+    {
 
         User user = userReader.getUserById(userId);
         Diary diary = diaryService.getDiaryById(commentRequestDto.getDiaryId());
@@ -65,6 +70,27 @@ public class CommentService {
 
         Comment savedComment = saveCommentToDb(comment, userId, diary.getId());
         log.info("사용자 {}님이 {} 일기에 댓글 등록 완료, 댓글 내용: {}", savedComment.getUser().getNickname(), savedComment.getDiary().getId(), savedComment.getContent());
+
+        // 댓글 타입으로 초기화
+        String receiverId = diary.getUser().getId();
+        NotificationType type = NotificationType.COMMENT;
+
+        // 대댓글인 경우
+        if (commentRequestDto.getParentId() != null){
+            Comment parentComment = validateCommentExists(commentRequestDto.getParentId());
+            receiverId = parentComment.getUser().getId();
+            type = NotificationType.REPLY;
+        }
+        
+        if (!receiverId.equals(savedComment.getUser().getId())) {
+            notificationService.sendNotification(
+                    receiverId,
+                    type,
+                    savedComment.getUser().getId(),
+                    diary,
+                    requestMetaInfo
+            );
+        }
 
         return new CommentResponseDto(
                 savedComment.getId(),

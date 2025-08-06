@@ -11,16 +11,24 @@ import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.repository.DiaryImageGenerationRepository;
 import store.piku.back.ai.service.DiaryImageGenerationService;
+import store.piku.back.comment.service.CommentService;
 import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
+import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.file.FileUtil;
+import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
+import store.piku.back.global.util.ImagePathToUrlConverter;
+import store.piku.back.notification.entity.NotificationType;
+import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.reader.UserReader;
@@ -44,9 +52,12 @@ public class DiaryService {
     private final PhotoRepository photoRepository;
     private final UserReader userReader;
     private final PhotoStorageService photoStorage;
+    private final FriendRequestService friendRequestService;
     private final FileUtil fileUtil;
     private final DiaryImageGenerationRepository diaryImageGenerationRepository;
     private final DiaryImageGenerationService diaryImageGenerationService;
+    private final NotificationService notificationService;
+
 
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
@@ -64,7 +75,7 @@ public class DiaryService {
     }
 
     @Transactional
-    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId) throws UserNotFoundException, IOException {
+    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId, RequestMetaInfo requestMetaInfo) throws UserNotFoundException, IOException {
 
         validateDiaryDTO(diaryDTO, photos, userId);
 
@@ -89,6 +100,24 @@ public class DiaryService {
             }
         }
         log.debug("사용자 [{}] - 사진 저장 완료. 일기 ID: {}", userId, diary.getId());
+
+        if (diary.getStatus() == Status.FRIENDS) {
+            List<String> friends = friendRequestService.getFriends(userId);
+            for (String friendId : friends) {
+
+                if (friendId.equals(userId)) continue;
+
+                notificationService.sendNotification(
+                        friendId,
+                        NotificationType.FRIEND_DIARY,
+                        user.getId(),
+                        diary,
+                        requestMetaInfo
+                );
+            }
+            log.info("친구에게 새 일기 공개 알림 전송 완료. 친구 수: {}", friends.size());
+
+        }
         return new ResponseDiaryDTO(
                 diary.getId(),
                 diary.getContent()
@@ -263,7 +292,6 @@ public class DiaryService {
             throw new IllegalArgumentException("유효하지 않은 커버 사진 인덱스: " + coverPhotoIndex);
         }
     }
-
 
     public List<CalendarDiaryResponseDTO> findMonthlyDiaries(String userId, int year, int month, RequestMetaInfo requestMetaInfo) {
         YearMonth yearMonth = YearMonth.of(year, month);
