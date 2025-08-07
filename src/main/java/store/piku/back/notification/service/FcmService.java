@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import store.piku.back.notification.entity.FcmToken;
 import store.piku.back.notification.repository.FcmTokenRepository;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Profile("prod")
@@ -22,10 +25,13 @@ public class FcmService implements NotificationProvider {
     private final FcmTokenRepository fcmTokenRepository;
 
     @Override
-    public String getTokenByUserId(String userId) {
-        return fcmTokenRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("토큰이 존재하지 않습니다."))
-                .getToken();
+    public List<String> getTokenByUserId(String userId) {
+        List<FcmToken> fcmTokens = fcmTokenRepository.findAllByUserId(userId);
+        List<String> tokens = fcmTokens.stream()
+                .map(FcmToken::getToken)
+                .collect(Collectors.toList());
+
+        return tokens;
     }
 
 

@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @Profile("dev")
 @Slf4j
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Service;
 public class LocalFcmService implements NotificationProvider {
 
     @Override
-    public String getTokenByUserId(String userId) {
+    public List<String> getTokenByUserId(String userId) {
         log.info("토큰 조회(가정)");
         return null;
     }

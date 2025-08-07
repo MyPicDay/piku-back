@@ -145,8 +145,13 @@ public class NotificationService {
         });
 
         try {
-            String token = notificationProvider.getTokenByUserId(receiverId);
-            if(token != null) {
+            List<String> tokens = notificationProvider.getTokenByUserId(receiverId);
+            if (tokens.isEmpty()) {
+                log.warn("FCM 토큰이 없습니다. receiverId: {}", receiverId);
+                return;
+            }
+            for (String token : tokens) {
+                log.info("[FCM 알림 전송] receiverId: {}, token: {}", receiverId, token);
                 notificationProvider.sendMessage(token, message);
             }
         } catch (Exception e) {
