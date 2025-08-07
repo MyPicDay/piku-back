@@ -68,15 +68,39 @@ public class NotificationService {
         log.info("[클라이언트로 초기 데이터 전송 요청]");
         sendToClient(emitter, eventId, emitterId, unreadCount);
 
+
+        boolean hasFriendRequest = notificationRepository.existsFriendRequestByReceiverId(userId);
+        if (hasFriendRequest) {
+            String friendEventId = userId + "_" + System.currentTimeMillis();
+            try {
+                log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
+                emitter.send(SseEmitter.event()
+                        .id(friendEventId)
+                        .name("FriendRequest")
+                        .data("on"));
+            } catch (IOException e) {
+                log.warn("친구 요청 전송 실패 → emitter 제거");
+                emitterRepository.deleteById(emitterId);
+            }
+        }
+
+
         return emitter;
     }
 
 
-    public void sendToClient(SseEmitter emitter, String eventId, String emitterId,SseResponse response) {
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId,SseResponse response, String eventName) {
         try {
             log.info("[이벤트 전송 시도] eventId: {}, message: {}", eventId, response);
+            if (eventName == null) {
+                emitter.send(SseEmitter.event()
+                        .id(eventId)
+                        .data(response));
+                return;
+            }
             emitter.send(SseEmitter.event()
                     .id(eventId)
+                    .name(eventName)
                     .data(response));
         } catch (IOException e) {
             log.info("클라이언트와 연결 끊김, emitter 삭제 요청");
@@ -138,7 +162,11 @@ public class NotificationService {
         emitters.forEach((emitterId, emitter) -> {
             try {
                 log.info("[SSE 알림 전송] receiverId: {}, emitterId: {}", receiverId, emitterId);
-                sendToClient(emitter, eventId, emitterId, notificationDTO);
+                if (type == NotificationType.FRIEND_REQUEST){
+                        sendToClient(emitter, eventId, emitterId, notificationDTO, "FriendRequest");
+                        return;
+                }
+                sendToClient(emitter, eventId, emitterId, notificationDTO, null);
             } catch (Exception e) {
                 log.warn("SSE 알림 전송 실패: {}", e.getMessage());
             }
@@ -158,8 +186,8 @@ public class NotificationService {
     public String generateMessage(NotificationType type) {
 
         return switch (type) {
-            case FRIEND_REQUEST -> "님이 댓글을 달았습니다.";
-            case FRIEND_ACCEPT -> "님이 친구 요청을 보냈습니다.";
+            case FRIEND_REQUEST -> "님이 친구 요청을 보냈습니다";
+            case FRIEND_ACCEPT -> "님이 친구 수락했습니다.";
             case COMMENT -> "님이 일기에 댓글을 달았습니다.";
             case REPLY -> "님이 회원님의 댓글에 답글들 달았습니다.";
             case FRIEND_DIARY -> "님이 새 일기를 작성하였습니다.";
