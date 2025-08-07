@@ -23,10 +23,7 @@ import store.piku.back.user.service.reader.UserReader;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -145,14 +142,20 @@ public class NotificationService {
         });
 
         try {
-            List<String> tokens = notificationProvider.getTokenByUserId(receiverId);
+            Set<String> tokens = notificationProvider.getTokenByUserId(receiverId);
             if (tokens.isEmpty()) {
                 log.warn("FCM 토큰이 없습니다. receiverId: {}", receiverId);
                 return;
             }
             for (String token : tokens) {
-                log.info("[FCM 알림 전송] receiverId: {}, token: {}", receiverId, token);
-                notificationProvider.sendMessage(token, message);
+                try{
+                    log.info("[FCM 알림 전송] receiverId: {}, token: {}", receiverId, token);
+                    notificationProvider.sendMessage(token, senderNickname + message);
+                }catch (Exception e){
+                    log.debug("FCM 알림 전송 실패: {}, receiverId: {}, token: {}", e.getMessage(), receiverId, token);
+                    // FCM 전송 실패 시, 해당 토큰을 삭제
+                    notificationProvider.deleteToken(token);
+                }
             }
         } catch (Exception e) {
             log.warn("FCM 전송 실패: {}", e.getMessage());
