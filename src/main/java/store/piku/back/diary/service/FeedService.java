@@ -3,22 +3,29 @@ package store.piku.back.diary.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.piku.back.comment.service.CommentService;
 import store.piku.back.diary.dto.ResponseDTO;
 import store.piku.back.diary.entity.Diary;
+import store.piku.back.diary.entity.FeedClick;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.repository.FeedClickRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -32,6 +39,7 @@ public class FeedService {
     private final DiaryRepository diaryRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final FriendRequestService friendRequestService;
+    private final FeedClickRepository feedClickRepository;
 
 
     @Transactional(readOnly = true)
@@ -96,12 +104,45 @@ public class FeedService {
 
         List<String> allowed = List.of("createdAt");
         Pageable safePageable = diaryService.sanitizePageable(pageable,allowed);
+
         List<String> friendIds = friendRequestService.findFriendIdList(safePageable,user_id,requestMetaInfo);
+        List<Long> clickedFeedIds = feedClickRepository.findClickedDiaryIdsByUserId(user_id);
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
 
-        Page<Diary> page = diaryRepository.findFeedByFriendIdsOrPublic(friendIds, safePageable);
+        // 1. 클릭 안 한 && 친구공개
+        List<Diary> unreadFriendFeeds = diaryRepository.findUnreadFeedsByVisibilityAndUserIds(
+                Status.FRIENDS, friendIds, clickedFeedIds
+        );
+        // 2. 클릭 안 한 && 전체공개
+        List<Diary> unreadPublicFeeds = diaryRepository.findUnreadPublicFeeds(clickedFeedIds);
+
+        // 3. 클릭했지만 3일 이내 작성된 피드 (랜덤)
+        List<Diary> recentClickedFeeds = diaryRepository.findClickedFeedsAfter(clickedFeedIds, threeDaysAgo);
+        Collections.shuffle(recentClickedFeeds);
+
+        // 우선순위대로 합침
+        List<Diary> combined = new ArrayList<>();
+        combined.addAll(unreadFriendFeeds);
+        combined.addAll(unreadPublicFeeds);
+        combined.addAll(recentClickedFeeds);
 
 
-        return page.map(diary -> {
+        // 총 개수
+        int total = combined.size();
+
+        // 페이징 적용
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), total);
+        List<Diary> pagedDiaries;
+
+        if (start >= total) {
+            pagedDiaries = Collections.emptyList();
+        } else {
+            pagedDiaries = combined.subList(start, end);
+        }
+
+
+        List<ResponseDTO> responseList = pagedDiaries.stream().map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
             List<String> sortedPhotoUrls = diaryService.sortPhotos(photos,requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
@@ -120,9 +161,21 @@ public class FeedService {
                     friendshipStatus,
                     commentService.countAllCommentsByDiaryId(diary.getId())
             );
-        });
+        }) .collect(Collectors.toList());
+
+
+        return new PageImpl<>(responseList, pageable, total);
     }
 
 
+    public void logClick(String userId, Long diaryId) {
+
+        boolean alreadyClicked = feedClickRepository.existsByUserIdAndDiaryId(userId, diaryId);
+        if (alreadyClicked) {
+            return;
+        }
+        FeedClick click = new FeedClick(userId, diaryId);
+        feedClickRepository.save(click);
+    }
 
 }
