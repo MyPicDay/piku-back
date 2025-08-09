@@ -1,24 +1,27 @@
 package store.piku.back.global.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import store.piku.back.global.dto.ValidationErrorResponse;
 import store.piku.back.global.error.ErrorCode;
 import store.piku.back.global.error.ErrorResponse;
 import store.piku.back.global.notification.DiscordWebhookService;
 import store.piku.back.user.exception.UserNotFoundException;
-
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -94,6 +97,34 @@ public class GlobalExceptionHandler {
         );
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ValidationErrorResponse> handleMethodValidationException(HandlerMethodValidationException e) {
+        log.warn("Validation failed for method parameters: {}", e.getMessage());
+
+        Map<String, String> errors = new HashMap<>();
+        for (ParameterValidationResult result : e.getParameterValidationResults()) {
+            String parameterName = result.getMethodParameter().getParameterName();
+            String message = result.getResolvableErrors().stream()
+                .map(MessageSourceResolvable::getDefaultMessage)
+                .collect(Collectors.joining(", "));
+            errors.put(parameterName, message);
+        }
+
+        ValidationErrorResponse response = new ValidationErrorResponse(
+            HttpStatus.BAD_REQUEST.value(),
+            errors
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException e) {
+        log.warn("Resource not found at path: {}", e.getResourcePath());
+        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "요청한 리소스를 찾을 수 없습니다.");
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,7 +1,6 @@
 package store.piku.back.diary.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -10,11 +9,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Valid;
 import jakarta.validation.Validator;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -41,8 +39,6 @@ import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -58,7 +54,6 @@ public class DiaryController {
     private final DiaryService diaryservice;
     private final FileUtil fileUtil;
     private final RequestMetaMapper requestMetaMapper;
-    private final ObjectMapper objectMapper;
     private final Validator validator;
 
 
@@ -66,18 +61,20 @@ public class DiaryController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDiaryDTO> createDiary(
             @Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class))
-            @RequestPart("diary") @Valid @Size(max = 500)  String diaryDtoString,
+            @RequestPart("diary")
+            DiaryDTO diary,
             @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            HttpServletRequest request) {
         log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
         try {
-            DiaryDTO diaryDTO = objectMapper.readValue(diaryDtoString, DiaryDTO.class);
-            Set<ConstraintViolation<DiaryDTO>> violations = validator.validate(diaryDTO);
+            Set<ConstraintViolation<DiaryDTO>> violations = validator.validate(diary);
             if (!violations.isEmpty()) {
                 throw new ConstraintViolationException(violations);
             }
 
-            ResponseDiaryDTO isSaved = diaryservice.createDiary(diaryDTO, photos, userDetails.getId());
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            ResponseDiaryDTO isSaved = diaryservice.createDiary(diary, photos, userDetails.getId(),requestMetaInfo);
             if (isSaved != null) {
                 return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
             }
@@ -145,7 +142,6 @@ public class DiaryController {
     })
     @GetMapping("/user/{userId}/monthly")
     public ResponseEntity<List<CalendarDiaryResponseDTO>> getMonthlyDiaries(
-            @AuthenticationPrincipal CustomUserDetails user,
             @PathVariable String userId,
             @RequestParam int year,
             @RequestParam int month,
@@ -175,7 +171,7 @@ public class DiaryController {
     @GetMapping
     public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
             @ParameterObject
-            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 10) Pageable pageable,HttpServletRequest request,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,HttpServletRequest request,
             @AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
 
