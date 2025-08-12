@@ -109,6 +109,7 @@ public class DiaryController {
 
             RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
             ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails.getId());
+            feedService.logClick(customUserDetails.getId(), diaryId);
             return ResponseEntity.ok(response);
 
     }
@@ -183,4 +184,7 @@ public class DiaryController {
         Page<ResponseDTO> page = feedService.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
         return ResponseEntity.ok(page);
     }
+
+
+
 }
