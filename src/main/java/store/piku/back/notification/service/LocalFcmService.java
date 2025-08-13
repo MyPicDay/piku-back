@@ -5,17 +5,33 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import store.piku.back.notification.entity.FcmToken;
+import store.piku.back.notification.repository.FcmTokenRepository;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
-@Profile("prod")
+@Profile("dev")
 @Slf4j
 @RequiredArgsConstructor
 public class LocalFcmService implements NotificationProvider {
 
+    private final FcmTokenRepository fcmTokenRepository;
+
     @Override
-    public String getTokenByUserId(String userId) {
-        log.info("토큰 조회(가정)");
-        return null;
+    public Set<String> getTokenByUserId(String userId) {
+        Set<String> tokens = fcmTokenRepository.findAllByUserId(userId)
+                .stream()
+                .map(FcmToken::getToken)
+                .collect(Collectors.toSet());
+        return tokens;
+    }
+
+    @Override
+    public void deleteToken(String token) {
+        fcmTokenRepository.deleteByToken(token);
+        log.info("토큰 삭제: {}", token);
     }
 
     @Override
