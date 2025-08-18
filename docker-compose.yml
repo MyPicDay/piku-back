@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: dev-piku-mysql
     ports:
-      - "9915:3306" # MySQL 포트를 환경 변수로 관리
+      - "9915:3306"
     profiles:
       - "dev"
     environment:
@@ -14,62 +14,22 @@ services:
       - dev-piku-data:/var/lib/mysql
     networks:
       - dev-piku-network
-  web:
-    image: piku:latest
-    build:
-      context: .
-    container_name: piku-web
-    ports:
-      - "80:8080" # 웹 포트를 환경 변수로 관리
-    profiles:
-      - "prod"
-    environment:
-      PROFILE: prod
-      PROD_DB_URL: ${PROD_DB_URL:-jdbc:mysql://prod-db:3306/piku}
-      PROD_DB_USERNAME: ${PROD_DB_USERNAME:-root}
-      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD:-1234}
-      JWT_KEY: ${JWT_KEY}
-    depends_on:
-      - prod-db
-    networks:
-      - piku-network
-
-  dev-web:
-    image: piku:latest
-    build:
-      context: .
-    container_name: piku-web
-    ports:
-      - "8080:8080" # 웹 포트를 환경 변수로 관리
-    profiles:
-      - "dev-server"
-    environment:
-      PROFILE: prod
-      PROD_DB_URL: ${PROD_DB_URL:-jdbc:mysql://prod-db:3306/piku}
-      PROD_DB_USERNAME: ${PROD_DB_USERNAME:-root}
-      PROD_DB_PASSWORD: ${PROD_DB_PASSWORD:-1234}
-      JWT_KEY: ${JWT_KEY}
-    depends_on:
-      - prod-db
-    networks:
-      - piku-network
 
   prod-db:
     image: mysql:8.0
     container_name: piku-prod-mysql
     ports:
-      - "9914:3306" # MySQL 포트를 환경 변수로 관리
+      - "9914:3306"
     profiles:
       - "prod"
       - "dev-server"
     environment:
       MYSQL_ROOT_PASSWORD: ${PROD_DB_PASSWORD:-1234}
-      MYSQL_DATABASE: piku
+      MYSQL_DATABASE: piku_prod
     volumes:
       - piku-data:/var/lib/mysql
     networks:
       - piku-network
-
 
   minio:
     image: minio/minio:latest
@@ -83,7 +43,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}       # .env 파일 또는 기본값 minioadmin 사용
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin} # .env 파일 또는 기본값 minioadmin 사용
     volumes:
-      - minio-data:/data # MinIO 데이터 지속성을 위한 볼륨
+      - ./minio-data:/data # MinIO 데이터 지속성을 위한 볼륨
     networks:
       - dev-piku-network # dev 프로필 서비스 접근용
       - piku-network     # prod 프로필 서비스 접근용
@@ -106,7 +66,6 @@ services:
 volumes:
   piku-data:
   dev-piku-data:
-  minio-data:
   redis-data:
 
 networks:
