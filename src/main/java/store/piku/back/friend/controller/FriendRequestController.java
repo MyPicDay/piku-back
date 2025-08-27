@@ -1,5 +1,6 @@
 package store.piku.back.friend.controller;
 
+//import com.google.firebase.messaging.FirebaseMessagingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,7 +22,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.friend.dto.*;
-import store.piku.back.friend.exception.AlreadyFriendsException;
 import store.piku.back.friend.exception.FriendException;
 import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.service.FriendRequestService;
@@ -71,15 +71,17 @@ public class FriendRequestController {
     @PostMapping
     public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
             @AuthenticationPrincipal CustomUserDetails customUserDetails,
-            @RequestBody FriendRequestDto requestDto) {
+            @RequestBody FriendRequestDto requestDto,
+            HttpServletRequest request) {
         log.info("친구 요청(수락) 요청 " + customUserDetails.getId() + " 가 " + requestDto.getToUserId() + "에게");
         try {
-            FriendRequestResponseDto response = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId());
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            FriendRequestResponseDto response = friendRequestService.sendFriendRequest(customUserDetails.getId(), requestDto.getToUserId(), requestMetaInfo);
             return ResponseEntity.ok(response);
-        } catch (AlreadyFriendsException e) {
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body(new FriendRequestResponseDto(false, e.getMessage()));
+//        } catch (AlreadyFriendsException | FirebaseMessagingException e) {
+//            return ResponseEntity
+//                    .status(HttpStatus.CONFLICT)
+//                    .body(new FriendRequestResponseDto(false, e.getMessage()));
         } catch (UserNotFoundException | FriendException e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)

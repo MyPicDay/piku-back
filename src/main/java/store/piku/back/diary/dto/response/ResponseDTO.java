@@ -36,6 +36,6 @@ public class ResponseDTO {
 
     private FriendStatus friendStatus;
 
-
+    private Long commentCount;
 
 }

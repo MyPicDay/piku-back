@@ -17,5 +17,5 @@ public enum DiaryPhotoType {
             }
         }
         throw new IllegalArgumentException("Unknown DiaryPhotoType: " + type);
-    }
+    }// 차이
 }

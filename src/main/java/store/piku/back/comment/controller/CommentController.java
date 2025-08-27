@@ -1,5 +1,6 @@
 package store.piku.back.comment.controller;
 
+//import com.google.firebase.messaging.FirebaseMessagingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,9 +40,13 @@ public class CommentController {
     @Operation(summary = "댓글 작성", description = "댓글을 작성합니다.")
     @SecurityRequirement(name = "JWT")
     @PostMapping
-    public ResponseEntity<CommentResponseDto> createComment(@RequestBody CommentRequestDto commentRequestDto, @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<CommentResponseDto> createComment(@RequestBody CommentRequestDto commentRequestDto, @AuthenticationPrincipal CustomUserDetails userDetails, HttpServletRequest request)
+//            throws FirebaseMessagingException
+    {
+        RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+
         log.info("사용자 {}님이 {} 일기, {} 댓글에 댓글 등록 요청, 댓글 내용: {}", userDetails.getId(), commentRequestDto.getDiaryId(), commentRequestDto.getParentId(), commentRequestDto.getContent());
-        CommentResponseDto isSaved = commentService.createComment(commentRequestDto, userDetails.getId());
+        CommentResponseDto isSaved = commentService.createComment(commentRequestDto, userDetails.getId(),requestMetaInfo);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
     }
