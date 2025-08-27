@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import store.piku.back.comment.service.CommentService;
-import store.piku.back.diary.dto.ResponseDTO;
+import store.piku.back.diary.dto.response.ResponseDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.FeedClick;
 import store.piku.back.diary.entity.Photo;

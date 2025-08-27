@@ -11,8 +11,13 @@ import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.repository.DiaryImageGenerationRepository;
 import store.piku.back.ai.service.DiaryImageGenerationService;
-import store.piku.back.comment.service.CommentService;
 import store.piku.back.diary.dto.*;
+import store.piku.back.diary.dto.request.DiaryDTO;
+import store.piku.back.diary.dto.DiaryMonthCountDTO;
+import store.piku.back.diary.dto.request.UpdateDiaryRequestDTO;
+import store.piku.back.diary.dto.response.CalendarDiaryResponseDTO;
+import store.piku.back.diary.dto.response.DiaryImageInfo;
+import store.piku.back.diary.dto.response.ResponseDiaryDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
 import store.piku.back.diary.enums.DiaryPhotoType;
@@ -26,9 +31,6 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
-import store.piku.back.global.util.ImagePathToUrlConverter;
-import store.piku.back.notification.entity.NotificationType;
-import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.reader.UserReader;
@@ -36,10 +38,7 @@ import store.piku.back.user.service.reader.UserReader;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -142,71 +141,6 @@ public class DiaryService {
         }
     }
 
-    // @Transactional
-    // public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) throws UserNotFoundException {
-    //
-    //     validateDiaryDTO(diaryDTO);
-    //
-    //
-    //     log.info("사용자 조회");
-    //     User user = userReader.getUserById(userId);
-    //
-    //     Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user, diaryDTO.getDate());
-    //
-    //     if (existingDiary.isPresent()) {
-    //         log.info("일기 날짜 중복 요청");
-    //         throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryDTO.getDate());
-    //     }
-    //
-    //     Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(),diaryDTO.getDate(), user);
-    //     diary = diaryRepository.save(diary);
-    //     log.info("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
-    //
-    //
-    //
-    //     List<MultipartFile> photos = diaryDTO.getPhotos();
-    //     List<Long> aiPhotos = diaryDTO.getAiPhotos();
-    //
-    //     try {
-    //         int photoCoverIndex = -1;
-    //         int aiCoverIndex = -1;
-    //
-    //         if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
-    //             aiCoverIndex = diaryDTO.getCoverPhotoIndex();
-    //         } else {
-    //             photoCoverIndex = diaryDTO.getCoverPhotoIndex();
-    //         }
-    //
-    //         if (photos != null && !photos.isEmpty()) {
-    //             photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
-    //             log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
-    //         }
-    //
-    //         if (aiPhotos != null && !aiPhotos.isEmpty()) {
-    //             photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
-    //         }
-    //     } catch (IOException e) {
-    //         log.error("사진 저장 실패 : {}", e.getMessage(), e);
-    //         throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
-    //     }
-    //     return new ResponseDiaryDTO(
-    //             diary.getId(),
-    //             diary.getContent()
-    //     );
-    //
-    // }
-
-    // private void validateDiaryDTO(DiaryDTO diaryDTO) {
-    //     List list;
-    //     if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()){
-    //        list = diaryDTO.getAiPhotos();
-    //     } else {
-    //       list = diaryDTO.getPhotos();
-    //     }
-    //     validateCoverPhoto(list, diaryDTO.getCoverPhotoIndex());
-    //     validatePhotos(diaryDTO.getPhotos());
-    // }
-
     private void validateDiaryDate(DiaryDTO diaryDTO, String userId) {
         User user = userReader.getUserById(userId);
         Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user, diaryDTO.getDate());
@@ -251,6 +185,41 @@ public class DiaryService {
         if (userImageCount != (photos == null ? 0 : photos.size())) {
             throw new IllegalArgumentException("사용자 사진 개수와 이미지 정보 개수가 일치하지 않습니다.");
         }
+    }
+
+    /**
+     * 일기 수정 시 유효성 검사
+     */
+    private void validateDiaryDTO(UpdateDiaryRequestDTO diaryDTO, List<MultipartFile> photos, String userId) {
+
+        List<DiaryImageInfo> infos = diaryDTO.getImageInfo();
+        infos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
+        Set<Integer> uniqueOrders = infos.stream()
+                .map(DiaryImageInfo::getOrder)
+                .collect(Collectors.toSet());
+        if (uniqueOrders.size() != infos.size()) {
+            throw new IllegalArgumentException("이미지 순서가 중복되었습니다.");
+        }
+
+        int userImageCount = 0;
+        for (DiaryImageInfo info : infos) {
+            if (info.getType() == DiaryPhotoType.AI_IMAGE){
+                if (!diaryImageGenerationRepository.existsByIdAndUserId(info.getAiPhotoId(), userId)){
+                    throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.getAiPhotoId());
+                }
+            }
+            if (info.getType() == DiaryPhotoType.USER_IMAGE){
+                if (info.getPhotoIndex() == null){
+                    throw new IllegalArgumentException("유효하지 않은 사용자 사진 인덱스: null");
+                }
+                userImageCount++;
+            }
+        }
+
+        if (userImageCount != (photos == null ? 0 : photos.size())) {
+            throw new IllegalArgumentException("사용자 사진 개수와 이미지 정보 개수가 일치하지 않습니다.");
+        }
+
     }
 
     private void validatePhotos(List<MultipartFile> photos) {
@@ -373,5 +342,112 @@ public class DiaryService {
         List<DiaryMonthCountDTO> counts = diaryRepository.countDiariesPerMonth(profileId,monthsAgo);
 
         return counts;
+    }
+
+    /**
+     * 일기 수정
+     *
+     * @param
+     * @return 해당 사용자가 작성한 일기의 총 개수
+     */
+    @Transactional
+    public ResponseDiaryDTO updateDiary(UpdateDiaryRequestDTO updateDiaryDTO, List<MultipartFile> photos, String userId) throws IOException {
+
+        Diary diary = diaryRepository.findById(updateDiaryDTO.getDiaryId())
+                .orElseThrow(() -> new IllegalArgumentException("일기를 찾을 수 없습니다."));
+
+        if (!diary.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("수정 권한이 없습니다.");
+        }
+
+        updateContentAndVisibility(diary, updateDiaryDTO);
+
+        List<Photo> existingPhotos = photoRepository.findAllByDiaryId(updateDiaryDTO.getDiaryId());
+        Map<Long, Photo> existingPhotoMap = existingPhotos.stream().collect(Collectors.toMap(Photo::getId, p -> p));
+
+        List<Long> updatedPhotoIds = new ArrayList<>();
+        List<DiaryImageInfo> imageInfos  = updateDiaryDTO.getImageInfo();
+        imageInfos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
+
+
+        for (DiaryImageInfo info : imageInfos) {
+            if (info.getType() == DiaryPhotoType.AI_IMAGE) {
+                processAiImage(info, diary, userId, existingPhotoMap, updatedPhotoIds);
+            }
+            else{
+                processUploadedImage(info, photos, diary, userId, existingPhotoMap, updatedPhotoIds);
+            }
+        }
+
+        deleteRemovedPhotos(existingPhotos, updatedPhotoIds);
+        return new ResponseDiaryDTO(
+                diary.getId(),
+                diary.getContent()
+        );
+    }
+
+
+    /**
+     * 일기 내용 수정 및 일기 공개범위 수정
+     */
+    private void updateContentAndVisibility(Diary diary, UpdateDiaryRequestDTO dto) {
+        if (dto.getContent() != null) {
+            diary.updateContent(dto.getContent());
+        }
+        if (dto.getStatus() != null) {
+            diary.updateStatus(dto.getStatus());
+        }
+    }
+
+    /**
+     * 일기 수정 :  Ai 이미지
+     */
+    private void processAiImage(DiaryImageInfo info, Diary diary, String userId, Map<Long, Photo> existingPhotoMap, List<Long> updatedPhotoIds) {
+        Long aiPhotoId = info.getAiPhotoId();
+        if (aiPhotoId != null && existingPhotoMap.containsKey(aiPhotoId)) {
+            Photo photo = existingPhotoMap.get(aiPhotoId);
+            photo.updatePhotoOrder(info.getOrder());
+            photo.changeRepresent(info.getOrder() == 0);
+            updatedPhotoIds.add(photo.getId());
+        } else {
+            saveAiPhoto(diary, aiPhotoId, userId, info.getOrder());
+        }
+    }
+
+    /**
+     * 일기 수정 : 일반 이미지
+     */
+    private void processUploadedImage(DiaryImageInfo info,
+                                      List<MultipartFile> photos,
+                                      Diary diary,
+                                      String userId,
+                                      Map<Long, Photo> existingPhotoMap,
+                                      List<Long> updatedPhotoIds) throws IOException {
+        Integer photoIndex = info.getPhotoIndex();
+        if (photoIndex == null) return;
+
+        long photoIdKey = photoIndex.longValue();
+
+        if (existingPhotoMap.containsKey(photoIdKey)) {
+            Photo photo = existingPhotoMap.get(photoIdKey);
+            photo.updatePhotoOrder(info.getOrder());
+            photo.changeRepresent(info.getOrder() == 0);
+            updatedPhotoIds.add(photo.getId());
+        } else if (photos != null && photoIndex < photos.size()) {
+            MultipartFile file = photos.get(photoIndex);
+            photoStorage.savePhoto(diary, file, userId, info.getOrder());
+        }
+    }
+
+    /**
+     * 일기 수정 : 사진 사용 여부 변동
+     * 사진 삭제 처리
+     */
+    private void deleteRemovedPhotos(List<Photo> existingPhotos, List<Long> updatedPhotoIds) {
+        for (Photo photo : existingPhotos) {
+            if (!updatedPhotoIds.contains(photo.getId())) {
+                photo.inactive();
+            }
+        }
     }
 }

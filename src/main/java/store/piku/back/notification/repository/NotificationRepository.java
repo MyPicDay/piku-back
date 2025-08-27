@@ -5,7 +5,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import store.piku.back.notification.entity.Notification;
-import store.piku.back.notification.entity.NotificationType;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package store.piku.back.diary.dto;
+package store.piku.back.diary.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;

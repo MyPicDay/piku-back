@@ -1,7 +1,5 @@
 package store.piku.back.friend.service;
 
-//import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.FirebaseMessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

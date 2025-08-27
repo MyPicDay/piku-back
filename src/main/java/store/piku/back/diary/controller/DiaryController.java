@@ -28,10 +28,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.diary.dto.CalendarDiaryResponseDTO;
-import store.piku.back.diary.dto.DiaryDTO;
-import store.piku.back.diary.dto.ResponseDTO;
-import store.piku.back.diary.dto.ResponseDiaryDTO;
+import store.piku.back.diary.dto.request.DiaryDTO;
+import store.piku.back.diary.dto.request.UpdateDiaryRequestDTO;
+import store.piku.back.diary.dto.response.CalendarDiaryResponseDTO;
+import store.piku.back.diary.dto.response.ResponseDTO;
+import store.piku.back.diary.dto.response.ResponseDiaryDTO;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.diary.service.FeedService;
 import store.piku.back.file.FileUtil;
@@ -56,13 +57,10 @@ public class DiaryController {
     private final RequestMetaMapper requestMetaMapper;
     private final Validator validator;
 
-
     @Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDiaryDTO> createDiary(
-            @Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class))
-            @RequestPart("diary")
-            DiaryDTO diary,
+            @Parameter(description = "일기 데이터 (JSON 형식)") @RequestPart("diary") DiaryDTO diary,
             @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             HttpServletRequest request) {
@@ -154,11 +152,6 @@ public class DiaryController {
         return ResponseEntity.ok(diaries);
     }
 
-
-
-
-
-
     @ApiResponses(value ={@ApiResponse(responseCode = "200",description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class)))})
     @Operation(
             summary = "일기 전체 조회",
@@ -185,6 +178,30 @@ public class DiaryController {
         return ResponseEntity.ok(page);
     }
 
+    @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDiaryDTO> updateDiary(
+            @Parameter(description = "일기 데이터 (JSON 형식)")
+            @RequestPart("diary") UpdateDiaryRequestDTO updateDiaryDTO,
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        try {
+            Set<ConstraintViolation<UpdateDiaryRequestDTO>> violations = validator.validate(updateDiaryDTO);
+
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+            ResponseDiaryDTO isSaved = diaryservice.updateDiary(updateDiaryDTO, photos, userDetails.getId());
 
 
+            if (isSaved != null) {
+                return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+            }
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
+
+        } catch (IOException e) {
+            log.error("IOException 발생: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
 }
