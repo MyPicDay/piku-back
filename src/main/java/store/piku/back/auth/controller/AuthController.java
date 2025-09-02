@@ -26,9 +26,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import store.piku.back.global.util.CookieUtils;
+import store.piku.back.auth.jwt.JwtProvider;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Tag(name = "Auth", description = "인증/인가 관련 API")
 @Slf4j
@@ -41,6 +43,7 @@ public class AuthController {
     private final RefreshTokenRepository refreshTokenRepository;
     private final CookieUtils cookieUtils;
     private final EmailService emailService;
+    private final JwtProvider jwtProvider;
 
     /*
     * 회원가입
@@ -60,6 +63,33 @@ public class AuthController {
         } catch (RuntimeException e) {
             log.warn("[회원가입] 실패 : {}", e.getMessage());
             return ResponseEntity.badRequest().body("회원가입 실패: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "게스트 로그인", description = "비회원 사용자를 위한 게스트 토큰을 발급합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "게스트 로그인 성공"),
+    })
+    @PostMapping("/guest")
+    public ResponseEntity<?> guestLogin(HttpServletRequest request) {
+        String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
+        log.info("[게스트 로그인] 요청 수신");
+
+        try {
+            TokenDto tokens = authService.guestLogin(deviceId);
+            String guestId = jwtProvider.getClaims(tokens.getAccessToken()).get("guestId", String.class);
+            UserInfo guestInfo = authService.getGuestInfo(guestId);
+
+            ResponseCookie responseCookie = authService.newCookieRefreshToken(tokens.getRefreshToken());
+            LoginResponse loginResponse = new LoginResponse("게스트 로그인 성공", guestInfo);
+
+            return ResponseEntity.ok()
+                .header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + tokens.getAccessToken())
+                .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
+                .body(loginResponse);
+        } catch (RuntimeException e) {
+            log.warn("[게스트 로그인] 실패 : {}", e.getMessage());
+            return ResponseEntity.status(500).body("게스트 로그인 실패: " + e.getMessage());
         }
     }
 

@@ -12,4 +12,13 @@ public class UserInfo {
     private String email;
     private String nickname;
     private String avatar;
+    private boolean isGuest;
+
+    public UserInfo(String id, String email, String nickname, String avatar) {
+        this.id = id;
+        this.email = email;
+        this.nickname = nickname;
+        this.avatar = avatar;
+        this.isGuest = false;
+    }
 }

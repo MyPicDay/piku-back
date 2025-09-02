@@ -16,6 +16,7 @@ import store.piku.back.auth.dto.UserInfo;
 import store.piku.back.auth.entity.RefreshToken;
 import store.piku.back.auth.entity.Verification;
 import store.piku.back.auth.entity.VerifiedEmail;
+import store.piku.back.auth.enums.Role;
 import store.piku.back.auth.enums.VerificationType;
 import store.piku.back.auth.exception.AuthErrorCode;
 import store.piku.back.auth.exception.AuthException;
@@ -113,10 +114,18 @@ public class AuthService {
 
         log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
         String accessToken = getNewAccessToken(dto.getEmail());
-        String refreshToken = getNewRefreshToken(dto.getEmail(), deviceId, user.getId());
+        String refreshToken = getNewRefreshToken(dto.getEmail(), deviceId, user.getId(), Role.USER);
 
         log.info("[JWT Refresh Token 저장 완료] key={}, refreshToken={}", keyId, refreshToken);
 
+        return new TokenDto(accessToken, refreshToken);
+    }
+
+    public TokenDto guestLogin(String deviceId) {
+        log.info("[게스트 로그인] 서비스 호출");
+        String accessToken = jwtProvider.generateGuestAccessToken();
+        String guestId = jwtProvider.getClaims(accessToken).get("guestId", String.class);
+        String refreshToken = getNewRefreshToken(guestId, deviceId, guestId, Role.GUEST);
         return new TokenDto(accessToken, refreshToken);
     }
 
@@ -125,10 +134,10 @@ public class AuthService {
         return newAccessToken;
     }
 
-    private String getNewRefreshToken(String email, String deviceId, String userId) {
-        String keyId = email + "-" + deviceId;
+    private String getNewRefreshToken(String subject, String deviceId, String userId, Role role) {
+        String keyId = subject + "-" + deviceId;
         String newRefreshToken = jwtProvider.generateRefreshToken();
-        RefreshToken refreshTokenEntity = new RefreshToken(keyId, newRefreshToken, userId);
+        RefreshToken refreshTokenEntity = new RefreshToken(keyId, newRefreshToken, userId, role);
         refreshTokenRepository.save(refreshTokenEntity);
         log.info("[JWT Refresh Token 저장 완료] key={}, refresh Token={}", keyId, newRefreshToken);
         return newRefreshToken;
@@ -149,11 +158,13 @@ public class AuthService {
         RefreshToken tokenEntity = refreshTokenRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new RuntimeException("저장된 리프레시 토큰 없음"));
 
-        String email = tokenEntity.getKey().split("-")[0];
 
-        // 새 Access Token 발급
-        String newAccessToken = jwtProvider.generateAccessToken(email);
-        return newAccessToken;
+        if (tokenEntity.getRole() == Role.GUEST) {
+            return jwtProvider.generateGuestAccessToken();
+        } else {
+            String email = tokenEntity.getKey().split("-")[0];
+            return jwtProvider.generateAccessToken(email);
+        }
     }
 
     public ResponseCookie removeCookieRefreshToken() {
@@ -187,6 +198,16 @@ public class AuthService {
                 user.getEmail(),
                 user.getNickname(),
                 user.getAvatar()
+        );
+    }
+
+    public UserInfo getGuestInfo(String guestId) {
+        return new UserInfo(
+            guestId,
+            "anonymous",
+            "익명 사용자",
+            "characters/fixed/base_image_1.png",
+            true
         );
     }
 

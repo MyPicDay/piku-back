@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import store.piku.back.auth.constants.AuthConstants;
+import store.piku.back.auth.enums.Role;
 import store.piku.back.global.config.CustomUserDetailService;
 import store.piku.back.global.config.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 
 @Slf4j
@@ -41,7 +43,7 @@ public class JwtProvider {
         Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
-        claims.put("roles", List.of("ROLE_USER"));
+        claims.put("role", Role.USER.name());
 
         log.debug("[JWT Access Token 생성] 완료 : 만료시간={}", expiry);
 
@@ -51,6 +53,25 @@ public class JwtProvider {
                 .setExpiration(expiry)
                 .signWith(key)
                 .compact();
+    }
+
+    public String generateGuestAccessToken() {
+        log.info("[JWT 게스트 Access Token 생성]");
+        String guestId = UUID.randomUUID().toString();
+        Claims claims = Jwts.claims().setSubject(guestId);
+        claims.put("role", Role.GUEST.name());
+        claims.put("guestId", guestId);
+
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+
+        return Jwts.builder()
+            .setClaims(claims)
+            .setIssuedAt(now)
+            .setExpiration(expiry)
+            .signWith(key)
+            .compact();
     }
 
 
@@ -79,17 +100,17 @@ public class JwtProvider {
         token = cleanToken(token);
         log.debug("[JWT 파싱] 이메일 추출 시작");
 
+        return getClaims(token).getSubject();
+    }
+
+    public Claims getClaims(String token) {
+        token = cleanToken(token);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
-
-        String email = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
-
-        log.debug("[JWT 파싱 완료] 이메일: {}", email);
-        return email;
+        return Jwts.parserBuilder()
+            .setSigningKey(key)
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
     }
 
     /*

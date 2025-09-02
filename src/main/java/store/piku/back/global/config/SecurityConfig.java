@@ -5,6 +5,7 @@ import org.springframework.core.env.Environment;
 import store.piku.back.auth.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -16,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import store.piku.back.auth.enums.Role;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,9 +71,10 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(permittedPaths.toArray(new String[0]))
-                        .permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(permittedPaths.toArray(new String[0])).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/sse/**", "/api/relation/**").hasRole(Role.USER.name())
+                        .requestMatchers(HttpMethod.GET, "/**").hasAnyRole(Role.USER.name(), Role.GUEST.name())
+                        .anyRequest().hasRole(Role.USER.name())
                 )
                 .sessionManagement((sessionManagement) ->
                         sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
