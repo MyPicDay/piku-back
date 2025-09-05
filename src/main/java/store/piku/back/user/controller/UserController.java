@@ -19,11 +19,8 @@ import store.piku.back.user.dto.response.NicknameChangeResponseDTO;
 import store.piku.back.user.dto.response.NicknameResponseDTO;
 import store.piku.back.user.dto.response.ProfilePreviewDTO;
 import store.piku.back.user.dto.response.UserProfileResponseDTO;
-import store.piku.back.user.entity.User;
 import store.piku.back.user.service.UserProfileService;
 import store.piku.back.user.service.UserService;
-import store.piku.back.user.service.reader.UserReader;
-
 
 @Tag(name = "Users", description = "유저 관련 API")
 @RestController
@@ -35,7 +32,6 @@ public class UserController {
     private final UserProfileService userProfileServie;
     private final RequestMetaMapper requestMetaMapper;
     private final UserService userService;
-    private final UserReader userReader;
 
     @Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보 시 사용될 정보를 조회하여 반환합니다.")
     @GetMapping("/{userId}/profile-preview")
@@ -43,7 +39,8 @@ public class UserController {
         log.info("사용자 {}의 프로필 미리보기 조회 요청", userId);
 
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        ProfilePreviewDTO profilePreview = userProfileServie.getProfilePreviewByUserId(userId, userDetails.getId(), requestMetaInfo);
+        String loginUserId = userDetails != null ? userDetails.getId() : null;
+        ProfilePreviewDTO profilePreview = userProfileServie.getProfilePreviewByUserId(userId, loginUserId, requestMetaInfo);
         return ResponseEntity.status(HttpStatus.OK).body(profilePreview);
     }
     @Operation(summary = "사용자 프로필 조회")

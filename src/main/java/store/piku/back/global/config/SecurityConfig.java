@@ -2,6 +2,7 @@ package store.piku.back.global.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import store.piku.back.auth.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -69,6 +70,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/api/diary", "/api/diary/**", "/api/comments", "/api/users/{userId}/profile-preview").permitAll()
                         .requestMatchers(permittedPaths.toArray(new String[0]))
                         .permitAll()
                         .anyRequest().authenticated()
