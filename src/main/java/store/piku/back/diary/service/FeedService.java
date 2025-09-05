@@ -103,22 +103,27 @@ public class FeedService {
     public Page<ResponseDTO> getAllDiaries(Pageable pageable , RequestMetaInfo requestMetaInfo, String user_id) {
 
         List<String> allowed = List.of("createdAt");
-        Pageable safePageable = diaryService.sanitizePageable(pageable,allowed);
+        Pageable safePageable = diaryService.sanitizePageable(pageable, allowed);
 
-        List<String> friendIds = friendRequestService.findFriendIdList(safePageable,user_id,requestMetaInfo);
-        List<Long> clickedFeedIds = feedClickRepository.findClickedDiaryIdsByUserId(user_id);
-        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+        List<Diary> unreadFriendFeeds = Collections.emptyList();
+        List<Long> clickedFeedIds = Collections.emptyList();
+        List<Diary> recentClickedFeeds = Collections.emptyList();
 
-        // 1. 클릭 안 한 && 친구공개
-        List<Diary> unreadFriendFeeds = diaryRepository.findUnreadFeedsByVisibilityAndUserIds(
-                Status.FRIENDS, friendIds, clickedFeedIds
-        );
-        // 2. 클릭 안 한 && 전체공개
+        if (user_id != null) {
+            List<String> friendIds = friendRequestService.findFriendIdList(safePageable, user_id, requestMetaInfo);
+            clickedFeedIds = feedClickRepository.findClickedDiaryIdsByUserId(user_id);
+            LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+
+            unreadFriendFeeds = diaryRepository.findUnreadFeedsByVisibilityAndUserIds(
+                    Status.FRIENDS, friendIds, clickedFeedIds
+            );
+
+            recentClickedFeeds = diaryRepository.findClickedFeedsAfter(clickedFeedIds, threeDaysAgo);
+            Collections.shuffle(recentClickedFeeds);
+        }
+
+        // user_id 가 null이든 아니든 전체공개는 항상 가능
         List<Diary> unreadPublicFeeds = diaryRepository.findUnreadPublicFeeds(clickedFeedIds);
-
-        // 3. 클릭했지만 3일 이내 작성된 피드 (랜덤)
-        List<Diary> recentClickedFeeds = diaryRepository.findClickedFeedsAfter(clickedFeedIds, threeDaysAgo);
-        Collections.shuffle(recentClickedFeeds);
 
         // 우선순위대로 합침
         List<Diary> combined = new ArrayList<>();
@@ -126,27 +131,22 @@ public class FeedService {
         combined.addAll(unreadPublicFeeds);
         combined.addAll(recentClickedFeeds);
 
-
-        // 총 개수
         int total = combined.size();
 
-        // 페이징 적용
+        // 페이징
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), total);
-        List<Diary> pagedDiaries;
-
-        if (start >= total) {
-            pagedDiaries = Collections.emptyList();
-        } else {
-            pagedDiaries = combined.subList(start, end);
-        }
-
+        List<Diary> pagedDiaries = start >= total ? Collections.emptyList() : combined.subList(start, end);
 
         List<ResponseDTO> responseList = pagedDiaries.stream().map(diary -> {
             List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
-            List<String> sortedPhotoUrls = diaryService.sortPhotos(photos,requestMetaInfo);
+            List<String> sortedPhotoUrls = diaryService.sortPhotos(photos, requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
-            FriendStatus friendshipStatus = friendRequestService.getFriendshipStatus(user_id, diary.getUser().getId());
+
+            FriendStatus friendshipStatus = FriendStatus.NONE;
+            if (user_id != null) {
+                friendshipStatus = friendRequestService.getFriendshipStatus(user_id, diary.getUser().getId());
+            }
 
             return new ResponseDTO(
                     diary.getId(),
@@ -161,8 +161,7 @@ public class FeedService {
                     friendshipStatus,
                     commentService.countAllCommentsByDiaryId(diary.getId())
             );
-        }) .collect(Collectors.toList());
-
+        }).collect(Collectors.toList());
 
         return new PageImpl<>(responseList, pageable, total);
     }

@@ -108,8 +108,11 @@ public class DiaryController {
             log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
             RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-            ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, customUserDetails.getId());
-            feedService.logClick(customUserDetails.getId(), diaryId);
+            String userId = customUserDetails != null ? customUserDetails.getId() : null;
+            ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
+            if (userId != null){
+                feedService.logClick(userId, diaryId);
+            }
             return ResponseEntity.ok(response);
 
     }
@@ -181,7 +184,8 @@ public class DiaryController {
 
         log.info("safePageable: {}", safePageable);
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        Page<ResponseDTO> page = feedService.getAllDiaries(safePageable ,requestMetaInfo,customUserDetails.getId());
+        String userId = customUserDetails != null ? customUserDetails.getId() : null;
+        Page<ResponseDTO> page = feedService.getAllDiaries(safePageable ,requestMetaInfo, userId);
         return ResponseEntity.ok(page);
     }
 
