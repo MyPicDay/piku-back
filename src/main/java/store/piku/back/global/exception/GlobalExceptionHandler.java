@@ -22,6 +22,7 @@ import store.piku.back.global.dto.ValidationErrorResponse;
 import store.piku.back.global.error.ErrorCode;
 import store.piku.back.global.error.ErrorResponse;
 import store.piku.back.global.notification.DiscordWebhookService;
+import store.piku.back.global.util.RequestUtil;
 import store.piku.back.user.exception.UserNotFoundException;
 
 import java.io.IOException;
@@ -169,7 +170,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException e, HttpServletRequest request) {
         log.error("비동기 요청을 사용할 수 없습니다. IP: {}, User-Agent: {}, API: {} {}, 원인: {}",
-                request.getRemoteAddr(),
+                RequestUtil.getClientIp(request),
                 request.getHeader("User-Agent"),
                 request.getMethod(),
                 request.getRequestURI(),
