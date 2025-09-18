@@ -47,3 +47,5 @@ uploads
 minio-data
 
 report
+
+.DS_Store

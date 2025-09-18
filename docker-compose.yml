@@ -23,6 +23,7 @@ services:
     profiles:
       - "prod"
       - "dev-server"
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${PROD_DB_PASSWORD:-1234}
       MYSQL_DATABASE: piku_prod
@@ -39,6 +40,7 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001" # MinIO Console 포트 (환경 변수로 관리 또는 기본값 9001)
     profiles:
       - "dev"
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}       # .env 파일 또는 기본값 minioadmin 사용
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin} # .env 파일 또는 기본값 minioadmin 사용

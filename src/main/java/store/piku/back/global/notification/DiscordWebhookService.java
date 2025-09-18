@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import store.piku.back.global.notification.dto.DiscordEmbed;
 import store.piku.back.global.notification.dto.DiscordMessage;
 import store.piku.back.global.notification.dto.EmbedField;
+import store.piku.back.global.util.RequestUtil;
 
 import java.awt.*;
 import java.io.PrintWriter;
@@ -95,7 +96,7 @@ public class DiscordWebhookService {
         List<EmbedField> fields = new ArrayList<>(List.of(
                 new EmbedField("Request-URI", request.getRequestURI(), false),
                 new EmbedField("Request-Method", request.getMethod(), false),
-                new EmbedField("Client-IP", getClientIp(request), true),
+                new EmbedField("Client-IP", RequestUtil.getClientIp(request), true),
                 new EmbedField("User-Agent", userAgent, true),
                 new EmbedField("Error-Message", e.getMessage() != null ? e.getMessage() : "N/A", false)
         ));
@@ -112,28 +113,4 @@ public class DiscordWebhookService {
         return new DiscordMessage("Unhandled Exception", List.of(embed));
     }
 
-    private static String getClientIp(HttpServletRequest request) {
-        String[] headerCandidates = {
-                "X-Forwarded-For",
-                "Proxy-Client-IP",
-                "WL-Proxy-Client-IP",
-                "HTTP_X_FORWARDED_FOR",
-                "HTTP_X_FORWARDED",
-                "HTTP_X_CLUSTER_CLIENT_IP",
-                "HTTP_CLIENT_IP",
-                "HTTP_FORWARDED_FOR",
-                "HTTP_FORWARDED",
-                "HTTP_VIA",
-                "REMOTE_ADDR"
-        };
-
-        for (String header : headerCandidates) {
-            String ipList = request.getHeader(header);
-            if (ipList != null && ipList.length() != 0 && !"unknown".equalsIgnoreCase(ipList)) {
-                return ipList.split(",")[0];
-            }
-        }
-
-        return request.getRemoteAddr();
-    }
 } 

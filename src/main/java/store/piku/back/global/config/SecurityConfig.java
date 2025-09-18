@@ -33,8 +33,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001", "https://www.piku.store",
-                "https://dev.piku.store", "https://www.piku.store", "https://piku.store"
+        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001",
+                "https://dev.piku.store", "https://piku.store", "https://pikume.com", "https://www.pikume.com"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
