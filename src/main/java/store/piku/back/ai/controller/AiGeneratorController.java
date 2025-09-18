@@ -1,5 +1,6 @@
 package store.piku.back.ai.controller;
 
+import java.util.HashMap;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,7 +41,7 @@ public class AiGeneratorController {
         String userId = customUserDetails.getId();
 
         // RedisService를 통해 횟수 제한 확인
-        if (redisService.isRequestLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
+        if (redisService.isLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body("일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.");
         }
@@ -51,11 +52,27 @@ public class AiGeneratorController {
         try {
             AiDiaryResponseDTO dto = imageGenerationService.diaryImage(content, userId, requestMetaInfo);
             log.info("Generated image URL: {}", dto.getUrl());
+            redisService.incrementRequestCount(AI_GENERATE_ACTION, userId);
             return ResponseEntity.ok(dto);
         } catch (RuntimeException e) {
             log.error("AI 이미지 생성 실패", e);
             AiDiaryResponseDTO errorDto = new AiDiaryResponseDTO(null, null, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorDto);
         }
+    }
+
+    /**
+     * AI 생성 기능의 당일 남은 요청 횟수를 조회하는 API
+     */
+    @GetMapping("/diary/ai/generate")
+    public ResponseEntity<Map<String, Integer>> getRemainingRequests(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+
+        int remainingCount = redisService.getRemainingCount(AI_GENERATE_ACTION, customUserDetails.getId(), MAX_AI_REQUESTS_PER_DAY);
+
+        // 응답을 Map 이나 DTO에 담아 JSON 형태로 반환합니다.
+        Map<String, Integer> response = new HashMap<>();
+        response.put("remainingRequests", remainingCount);
+
+        return ResponseEntity.ok(response);
     }
 }
