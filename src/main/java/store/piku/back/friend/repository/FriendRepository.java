@@ -38,7 +38,6 @@ public interface FriendRepository extends JpaRepository<Friend, FriendID> {
     int countByUserId1OrUserId2(String userId1, String userId2);
 
     @Modifying
-    @Transactional
     @Query("DELETE FROM Friend f " +
             "WHERE (f.userId1 = :userId1 AND f.userId2 = :userId2) " +
             "   OR (f.userId1 = :userId2 AND f.userId2 = :userId1)")

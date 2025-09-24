@@ -2,6 +2,7 @@ package store.piku.back.friend.service;
 
 //import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.FirebaseMessagingException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -201,6 +202,16 @@ public class FriendRequestService {
     }
 
 
+    /**
+     * 특정 친구 관계를 삭제합니다.
+     * myId와 targetId 중 어느 쪽에 있어도 관계를 찾아 삭제합니다.
+     *
+     * @param myId       삭제 요청하는 사용자의 ID
+     * @param targetId   삭제할 친구의 ID
+     * @return 삭제 결과를 담은 DTO
+     * @throws FriendNotFoundException 친구 관계가 존재하지 않을 경우
+     */
+    @Transactional
     public FriendRemoveDTO removeFriend(String myId, String targetId) {
 
         boolean exists = friendRepository.existsFriendship(myId, targetId);

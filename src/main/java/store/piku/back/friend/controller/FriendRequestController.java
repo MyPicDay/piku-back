@@ -230,6 +230,28 @@ public class FriendRequestController {
         }
     }
 
+
+    @Operation(
+            summary = "친구 끊기",
+            description = "특정 사용자의 친구 관계를 삭제합니다.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "친구 관계 삭제 성공"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "친구 관계가 존재하지 않을 경우",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(
+                                            implementation = FriendRemoveDTO.class,
+                                            example = "{\"success\": false, \"message\": \"친구 관계가 존재하지 않습니다.\"}"
+                                    )
+                            )
+                    )
+            }
+    )
     @DeleteMapping("/{toUserId}")
     public ResponseEntity<FriendRemoveDTO> removeFriend(
             @AuthenticationPrincipal CustomUserDetails customUserDetails,
