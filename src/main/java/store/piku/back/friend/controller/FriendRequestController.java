@@ -23,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.friend.dto.*;
 import store.piku.back.friend.exception.FriendException;
+import store.piku.back.friend.exception.FriendNotFoundException;
 import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -226,6 +227,24 @@ public class FriendRequestController {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(new FriendRequestResponseDto(false, e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{toUserId}")
+    public ResponseEntity<FriendRemoveDTO> removeFriend(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable String toUserId) {
+
+        String fromUserId = customUserDetails.getId();
+        log.info("User {} is unfriending user {}", fromUserId, toUserId);
+
+        try {
+            FriendRemoveDTO response = friendRequestService.removeFriend(fromUserId, toUserId);
+            return ResponseEntity.ok(response);
+        } catch (FriendNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new FriendRemoveDTO(false, e.getMessage()));
         }
     }
 }

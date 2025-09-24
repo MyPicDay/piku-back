@@ -1,8 +1,10 @@
 package store.piku.back.friend.repository;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,6 +13,7 @@ import store.piku.back.friend.key.FriendID;
 import store.piku.back.user.entity.User;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @Repository
@@ -34,4 +37,11 @@ public interface FriendRepository extends JpaRepository<Friend, FriendID> {
 
     int countByUserId1OrUserId2(String userId1, String userId2);
 
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Friend f " +
+            "WHERE (f.userId1 = :userId1 AND f.userId2 = :userId2) " +
+            "   OR (f.userId1 = :userId2 AND f.userId2 = :userId1)")
+    void deleteByUserIds(@Param("userId1") String userId1,
+                         @Param("userId2") String userId2);
 }

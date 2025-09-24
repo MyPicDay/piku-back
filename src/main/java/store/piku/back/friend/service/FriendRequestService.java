@@ -7,12 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import store.piku.back.friend.dto.FriendRemoveDTO;
 import store.piku.back.friend.dto.FriendsDTO;
 import store.piku.back.diary.enums.FriendStatus;
 import store.piku.back.friend.dto.FriendRequestResponseDto;
 import store.piku.back.friend.entity.Friend;
 import store.piku.back.friend.entity.FriendRequest;
 import store.piku.back.friend.exception.FriendException;
+import store.piku.back.friend.exception.FriendNotFoundException;
 import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.key.FriendRequestID;
 import store.piku.back.friend.repository.FriendRepository;
@@ -196,5 +198,22 @@ public class FriendRequestService {
 
     public List<String> getFriends(String userId) {
         return friendRepository.findFriendIds(userId);
+    }
+
+
+    public FriendRemoveDTO removeFriend(String myId, String targetId) {
+
+        boolean exists = friendRepository.existsFriendship(myId, targetId);
+        if (!exists) {
+            throw new FriendNotFoundException("친구 관계가 존재하지 않습니다.");
+        }
+
+        // 실제 삭제 처리 (userId1-userId2 순서 상관없이)
+        friendRepository.deleteByUserIds(myId, targetId);
+
+        return new FriendRemoveDTO(
+                true,
+                "친구 관계가 해제되었습니다."
+        );
     }
 }
