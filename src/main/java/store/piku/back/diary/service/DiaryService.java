@@ -11,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.repository.DiaryImageGenerationRepository;
 import store.piku.back.ai.service.DiaryImageGenerationService;
-import store.piku.back.diary.dto.*;
 import store.piku.back.diary.dto.request.DiaryDTO;
 import store.piku.back.diary.dto.DiaryMonthCountDTO;
 import store.piku.back.diary.dto.request.UpdateDiaryRequestDTO;
@@ -251,7 +250,7 @@ public class DiaryService {
         }
     }
 
-    private void validateCoverPhoto(List list, int coverPhotoIndex){
+    private void validateCoverPhoto(List<?> list, int coverPhotoIndex){
         if (list == null || list.isEmpty()) {
             log.error("사진 리스트가 비어있습니다.");
             throw new IllegalArgumentException("사진 리스트가 비어있습니다.");
@@ -362,7 +361,7 @@ public class DiaryService {
 
         updateContentAndVisibility(diary, updateDiaryDTO);
 
-        List<Photo> existingPhotos = photoRepository.findAllByDiaryId(updateDiaryDTO.getDiaryId());
+        List<Photo> existingPhotos = photoRepository.findAllByDiaryIdAndDeletedAtIsNull(updateDiaryDTO.getDiaryId());
         Map<Long, Photo> existingPhotoMap = existingPhotos.stream().collect(Collectors.toMap(Photo::getId, p -> p));
 
         List<Long> updatedPhotoIds = new ArrayList<>();
@@ -449,5 +448,32 @@ public class DiaryService {
                 photo.inactive();
             }
         }
+    }
+
+    /**
+     * 일기 수정을 위한 조회 및 권한 체크
+     *
+     * @param diaryId 조회할 일기 ID
+     * @param userId  현재 로그인한 사용자 ID
+     * @throws DiaryNotFoundException   일기를 찾을 수 없는 경우
+     * @throws IllegalArgumentException 권한이 없는 경우
+     */
+    @Transactional(readOnly = true)
+    public void valideDiaryForEdit(Long diaryId, String userId) {
+        // 1. 일기 조회
+        Diary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> {
+                    log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
+                    return new DiaryNotFoundException();
+                });
+
+        // 2. 권한 체크 - 현재 로그인한 사용자가 일기 작성자인지 확인
+        if (!diary.getUser().getId().equals(userId)) {
+            log.warn("사용자 [{}]가 일기 ID [{}]에 대한 수정 권한이 없습니다. 실제 작성자: [{}]", 
+                     userId, diaryId, diary.getUser().getId());
+            throw new IllegalArgumentException("해당 일기에 대한 수정 권한이 없습니다.");
+        }
+
+        log.info("사용자 [{}]의 일기 ID [{}] 수정 조회 완료", userId, diaryId);
     }
 }

@@ -33,6 +33,7 @@ import store.piku.back.diary.dto.request.UpdateDiaryRequestDTO;
 import store.piku.back.diary.dto.response.CalendarDiaryResponseDTO;
 import store.piku.back.diary.dto.response.ResponseDTO;
 import store.piku.back.diary.dto.response.ResponseDiaryDTO;
+import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.service.DiaryService;
 import store.piku.back.diary.service.FeedService;
 import store.piku.back.file.FileUtil;
@@ -182,13 +183,13 @@ public class DiaryController {
         return ResponseEntity.ok(page);
     }
 
+    @Operation(summary = "일기 수정", description = "기존 일기를 수정합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
     @PatchMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDiaryDTO> updateDiary(
             @Parameter(description = "일기 데이터 (JSON 형식)")
             @RequestPart("diary") UpdateDiaryRequestDTO updateDiaryDTO,
             @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-
         try {
             Set<ConstraintViolation<UpdateDiaryRequestDTO>> violations = validator.validate(updateDiaryDTO);
 
@@ -206,6 +207,37 @@ public class DiaryController {
         } catch (IOException e) {
             log.error("IOException 발생: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    @Operation(summary = "일기 수정 권한 체크", description = "일기 수정 시 현재 사용자가 해당 일기의 작성자인지 권한을 체크합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "권한 확인 완료",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ResponseDTO.class))),
+            @ApiResponse(responseCode = "401", description = "인증 실패", content = @Content),
+            @ApiResponse(responseCode = "403", description = "수정 권한 없음", content = @Content),
+            @ApiResponse(responseCode = "404", description = "일기를 찾을 수 없음", content = @Content)
+    })
+    @GetMapping("/edit/{diaryId}")
+    public ResponseEntity<ResponseDTO> getDiaryForEdit(
+            @PathVariable Long diaryId,
+            HttpServletRequest request,
+            @AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        try {
+            log.info("일기 수정 권한 체크 요청 - diaryId: {}, userId: {}", diaryId, customUserDetails.getId());
+            RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+            String userId = customUserDetails.getId();
+            diaryservice.valideDiaryForEdit(diaryId, customUserDetails.getId());
+            ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
+
+            return ResponseEntity.ok(response);
+        } catch (DiaryNotFoundException e) {
+            log.error("일기를 찾을 수 없음 - diaryId: {}", diaryId);
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            log.error("수정 권한 없음 - diaryId: {}, userId: {}, error: {}", diaryId, customUserDetails.getId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
     }
 }

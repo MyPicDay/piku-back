@@ -47,7 +47,7 @@ public class FeedService {
         log.info("{} 일기 내용 조회 요청", diaryId);
         Diary diary = diaryService.getDiaryById(diaryId);
 
-        List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
+        List<Photo> photos = photoRepository.findAllByDiaryIdAndDeletedAtIsNull(diary.getId());
 //        if (photos == null || photos.isEmpty()) {
 //            log.warn("DiaryId {} 에 해당하는 사진이 없음!", diaryId);
 //            throw new DiaryNotFoundException();
@@ -139,7 +139,7 @@ public class FeedService {
         List<Diary> pagedDiaries = start >= total ? Collections.emptyList() : combined.subList(start, end);
 
         List<ResponseDTO> responseList = pagedDiaries.stream().map(diary -> {
-            List<Photo> photos = photoRepository.findByDiaryId(diary.getId());
+            List<Photo> photos = photoRepository.findAllByDiaryIdAndDeletedAtIsNull(diary.getId());
             List<String> sortedPhotoUrls = diaryService.sortPhotos(photos, requestMetaInfo);
             String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
 
