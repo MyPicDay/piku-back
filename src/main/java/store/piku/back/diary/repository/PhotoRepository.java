@@ -8,8 +8,6 @@ import java.util.Optional;
 
 public interface PhotoRepository extends JpaRepository<Photo, Integer> {
 
-    List<Photo> findByDiaryId(Long diaryId);
+    List<Photo> findAllByDiaryIdAndDeletedAtIsNull(Long diaryId);
     Optional<Photo> findFirstByDiaryIdAndRepresentIsTrue(Long diaryId);
-
-    List<Photo> findAllByDiaryId(Long diaryId);
 }
