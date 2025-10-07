@@ -60,12 +60,18 @@ public class PhotoStorageService {
 
                 ensureBucketExists(storageProperties.getBucket());
 
-                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                         .bucket(storageProperties.getBucket())
                         .key(objectName)
                         .contentType(photo.getContentType())
-                        .contentLength(photo.getSize())
-                        .build();
+                        .contentLength(photo.getSize());
+                
+                // public 파일인 경우 캐시 헤더 추가
+                if (isPublic) {
+                    requestBuilder.cacheControl("public, max-age=31536000, immutable");  // 1년간 캐싱
+                }
+                
+                PutObjectRequest putObjectRequest = requestBuilder.build();
 
                 s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(photo.getInputStream(), photo.getSize()));
 
@@ -275,12 +281,13 @@ public class PhotoStorageService {
                 throw new RuntimeException("소스 파일을 찾을 수 없습니다: " + sourceKey);
             }
             
-            // S3 객체 복사
+            // S3 객체 복사 (캐시 헤더 포함)
             CopyObjectRequest copyRequest = CopyObjectRequest.builder()
                     .sourceBucket(storageProperties.getBucket())
                     .sourceKey(sourceKey)
                     .destinationBucket(storageProperties.getBucket())
                     .destinationKey(targetKey)
+                    .cacheControl("public, max-age=31536000, immutable")  // 1년간 캐싱, 변경 불가
                     .build();
             
             s3Client.copyObject(copyRequest);

@@ -127,9 +127,14 @@ public class DiaryController {
             Resource resource = fileUtil.loadFileAsResource(userId + "/" + filename);
             String contentType = fileUtil.getContentType(filename);
 
+            // 이미지는 변경되지 않으므로 장기간 캐싱
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .cacheControl(org.springframework.http.CacheControl
+                            .maxAge(1, java.util.concurrent.TimeUnit.DAYS)  // 1일간 캐싱
+                            .cachePublic()  // 공개 캐시 허용
+                            .immutable())  // 변경되지 않는 리소스
                     .body(resource);
 
         } catch (Exception e) {
@@ -154,7 +159,14 @@ public class DiaryController {
         // TODO: userId가 현재 로그인한 사용자와 다를 경우 예외 처리 추가
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
         List<CalendarDiaryResponseDTO> diaries = diaryservice.findMonthlyDiaries(userId, year, month, requestMetaInfo);
-        return ResponseEntity.ok(diaries);
+        
+        // API는 캐싱하지 않음: 새 일기 작성 시 즉시 반영 필요
+        // 대신 이미지 자체는 MinIO에서 Cache-Control 헤더로 캐싱됨
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl
+                        .noCache()  // 캐시 사용 전 항상 서버 재검증
+                        .mustRevalidate())
+                .body(diaries);
     }
 
 
