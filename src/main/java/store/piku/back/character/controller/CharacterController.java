@@ -53,9 +53,14 @@ public class CharacterController {
                 else if (resourceFilename.endsWith(".gif")) contentType = MediaType.IMAGE_GIF_VALUE;
             }
 
+            // 고정 캐릭터 이미지는 변경되지 않으므로 장기간 캐싱
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(contentType))
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .cacheControl(org.springframework.http.CacheControl
+                            .maxAge(365, java.util.concurrent.TimeUnit.DAYS)  // 1년간 캐싱
+                            .cachePublic()  // CDN 캐싱 허용
+                            .immutable())  // 절대 변경되지 않음
                     .body(resource);
             
         } catch (RuntimeException e) {
