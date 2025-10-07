@@ -11,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.ai.repository.DiaryImageGenerationRepository;
 import store.piku.back.ai.service.DiaryImageGenerationService;
-import store.piku.back.comment.service.CommentService;
 import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
@@ -24,9 +23,6 @@ import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.file.FileUtil;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.notification.entity.NotificationType;
-import store.piku.back.notification.service.NotificationService;
-import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.user.entity.User;
@@ -130,13 +126,27 @@ public class DiaryService {
         if (aiPhoto != null) {
             DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.findById(aiPhoto);
             String filePath = diaryImageGeneration.getFilePath();
+            
+            // 대표 사진(order == 0)인 경우 실제 파일을 public/ 경로로 이동 (복사 후 원본 삭제)
+            boolean isRepresent = (order != null && order == 0);
+            if (isRepresent) {
+                String oldPath = filePath;
+                filePath = photoStorage.moveToPublic(filePath);
+                log.info("대표 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
+                
+                // DiaryImageGeneration의 filePath도 업데이트
+                diaryImageGeneration.updateFilePath(filePath);
+                log.info("DiaryImageGeneration filePath 업데이트 완료 (ID: {})", aiPhoto);
+            }
 
             Photo savePhoto = new Photo(diary, filePath, order);
-            if (order == 0) {
-                savePhoto.updateRepresent(true); // 첫 번째 AI 사진을 대표 사진으로 설정
+            if (isRepresent) {
+                savePhoto.updateRepresent(true);
             }
             photoRepository.save(savePhoto);
             diaryImageGenerationService.updateDiaryId(aiPhoto, diary.getId());
+            
+            log.info("AI 사진 저장 완료 - 경로: {}, 대표사진: {}", filePath, isRepresent);
         } else {
             log.warn("빈 AI 사진 ID 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
         }
