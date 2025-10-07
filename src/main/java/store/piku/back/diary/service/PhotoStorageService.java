@@ -123,12 +123,15 @@ public class PhotoStorageService {
     }
 
     // 개발 환경용
-    public String getMinIOStoragePhotoUrl(String objectName) throws Exception {
+    public String getMinIOStoragePhotoUrl(String objectName, boolean isPublic) throws Exception {
         // MinIO 클라이언트 생성
         MinioClient minioClient = MinioClient.builder()
                 .endpoint(storageProperties.getEndpoint()) // MinIO 주소
                 .credentials(storageProperties.getAccessKey(), storageProperties.getSecretKey()) // 접속 키
                 .build();
+        if (isPublic) {
+            return storageProperties.getEndpoint() + "/" + storageProperties.getBucket() + "/" + objectName;
+        }
 
         // Presigned URL 생성 (예: 30분 동안 유효)
         String url = minioClient.getPresignedObjectUrl(
@@ -148,12 +151,12 @@ public class PhotoStorageService {
      * @param objectName 스토리지 내 객체의 키 (파일 이름)
      * @return 생성된 미리 서명된 URL 문자열, 실패 시 null
      */
-    public String getPhotoUrl(String objectName) {
+    public String getPhotoUrl(String objectName, boolean isPublic) {
 
         boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         if (!isProd) {
             try{
-                return getMinIOStoragePhotoUrl(objectName);
+                return getMinIOStoragePhotoUrl(objectName, isPublic);
             }catch (Exception e){
                 log.error("MinIO에서 미리 서명된 URL 생성 실패: {}", e.getMessage(), e);
                 return null;

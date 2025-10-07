@@ -301,9 +301,10 @@ public class DiaryService {
         List<Diary> diaries = diaryRepository.findByUserIdAndDateBetween(userId, startOfMonth, endOfMonth);
 
         return diaries.stream().map(diary -> {
+            // 각 일기에 대해 대표 사진을 조회, 대표사진은 publicUrl로 변환
             String coverPhotoUrl = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId())
                     .map(Photo::getUrl)
-                    .map(photoStorage::getPhotoUrl)
+                    .map(url -> photoStorage.getPhotoUrl(url, true))
                     .orElse(null); // 대표 이미지가 없는 경우 null 처리, 혹은 기본 이미지 URL 설정
             return new CalendarDiaryResponseDTO(diary.getId(), coverPhotoUrl, diary.getDate());
         }).collect(Collectors.toList());
@@ -322,7 +323,7 @@ public class DiaryService {
         }
 
         return photos.stream()
-                .map(photo -> photoStorage.getPhotoUrl(photo.getUrl()))
+                .map(photo -> photoStorage.getPhotoUrl(photo.getUrl(), photo.getRepresent()))
                 .toList();
     }
 
