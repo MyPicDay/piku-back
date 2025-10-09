@@ -23,6 +23,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import store.piku.back.friend.dto.*;
 import store.piku.back.friend.exception.FriendException;
+import store.piku.back.friend.exception.FriendNotFoundException;
 import store.piku.back.friend.exception.FriendRequestNotFoundException;
 import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
@@ -226,6 +227,46 @@ public class FriendRequestController {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(new FriendRequestResponseDto(false, e.getMessage()));
+        }
+    }
+
+
+    @Operation(
+            summary = "친구 끊기",
+            description = "특정 사용자의 친구 관계를 삭제합니다.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "친구 관계 삭제 성공"
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "친구 관계가 존재하지 않을 경우",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(
+                                            implementation = FriendRemoveDTO.class,
+                                            example = "{\"success\": false, \"message\": \"친구 관계가 존재하지 않습니다.\"}"
+                                    )
+                            )
+                    )
+            }
+    )
+    @DeleteMapping("/{toUserId}")
+    public ResponseEntity<FriendRemoveDTO> removeFriend(
+            @AuthenticationPrincipal CustomUserDetails customUserDetails,
+            @PathVariable String toUserId) {
+
+        String fromUserId = customUserDetails.getId();
+        log.info("User {} is unfriending user {}", fromUserId, toUserId);
+
+        try {
+            FriendRemoveDTO response = friendRequestService.removeFriend(fromUserId, toUserId);
+            return ResponseEntity.ok(response);
+        } catch (FriendNotFoundException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(new FriendRemoveDTO(false, e.getMessage()));
         }
     }
 }

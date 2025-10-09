@@ -24,6 +24,8 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
+import static store.piku.back.diary.constants.PhotoConstants.PUBLIC_PREFIX;
+
 @Slf4j
 @Service
 public class PhotoStorageService {
@@ -53,21 +55,28 @@ public class PhotoStorageService {
             if (!photo.isEmpty()) {
                 String originalFilename = photo.getOriginalFilename();
                 String filename = photoUtil.generateFileName(diary.getDate(), originalFilename);
-                objectName = userId + "/" + filename;
+                boolean isPublic = (order != null && order == 0);
+                objectName = isPublic ? PUBLIC_PREFIX + userId + "/" + filename : userId + "/" + filename;
 
                 ensureBucketExists(storageProperties.getBucket());
 
-                PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
                         .bucket(storageProperties.getBucket())
                         .key(objectName)
                         .contentType(photo.getContentType())
-                        .contentLength(photo.getSize())
-                        .build();
+                        .contentLength(photo.getSize());
+                
+                // public 파일인 경우 캐시 헤더 추가
+                if (isPublic) {
+                    requestBuilder.cacheControl("public, max-age=31536000, immutable");  // 1년간 캐싱
+                }
+                
+                PutObjectRequest putObjectRequest = requestBuilder.build();
 
                 s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(photo.getInputStream(), photo.getSize()));
 
                 Photo savePhoto = new Photo(diary, objectName, order);
-                if (order == 0) {
+                if (isPublic) {
                     savePhoto.updateRepresent(true);
                 }
                 photoRepository.save(savePhoto);
@@ -123,12 +132,15 @@ public class PhotoStorageService {
     }
 
     // 개발 환경용
-    public String getMinIOStoragePhotoUrl(String objectName) throws Exception {
+    public String getMinIOStoragePhotoUrl(String objectName, boolean isPublic) throws Exception {
         // MinIO 클라이언트 생성
         MinioClient minioClient = MinioClient.builder()
                 .endpoint(storageProperties.getEndpoint()) // MinIO 주소
                 .credentials(storageProperties.getAccessKey(), storageProperties.getSecretKey()) // 접속 키
                 .build();
+        if (isPublic) {
+            return storageProperties.getEndpoint() + "/" + storageProperties.getBucket() + "/" + objectName;
+        }
 
         // Presigned URL 생성 (예: 30분 동안 유효)
         String url = minioClient.getPresignedObjectUrl(
@@ -148,12 +160,12 @@ public class PhotoStorageService {
      * @param objectName 스토리지 내 객체의 키 (파일 이름)
      * @return 생성된 미리 서명된 URL 문자열, 실패 시 null
      */
-    public String getPhotoUrl(String objectName) {
+    public String getPhotoUrl(String objectName, boolean isPublic) {
 
         boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
         if (!isProd) {
             try{
-                return getMinIOStoragePhotoUrl(objectName);
+                return getMinIOStoragePhotoUrl(objectName, isPublic);
             }catch (Exception e){
                 log.error("MinIO에서 미리 서명된 URL 생성 실패: {}", e.getMessage(), e);
                 return null;
@@ -237,6 +249,128 @@ public class PhotoStorageService {
         }
     }
 
-
+    /**
+     * MinIO/S3에서 파일을 public/ 경로로 이동합니다. (복사 후 원본 삭제)
+     * 대표 사진을 공개 URL로 제공하기 위해 사용됩니다.
+     *
+     * @param sourceKey 원본 파일 경로 (예: "user1/photo.png")
+     * @return 이동된 파일의 새 경로 (예: "public/user1/photo.png")
+     */
+    public String moveToPublic(String sourceKey) {
+        String targetKey = PUBLIC_PREFIX + sourceKey;
+        boolean fileCopied = false;
+        
+        try {
+            // 이미 public/으로 시작하면 이동하지 않음
+            if (sourceKey.startsWith(PUBLIC_PREFIX)) {
+                log.info("이미 public 경로입니다: {}", sourceKey);
+                return sourceKey;
+            }
+            
+            // 타겟이 이미 존재하는지 확인
+            if (objectExists(targetKey)) {
+                log.info("public 경로에 이미 파일이 존재합니다. 원본 삭제: {}", sourceKey);
+                // 타겟이 존재하면 원본만 삭제
+                deleteObject(sourceKey);
+                return targetKey;
+            }
+            
+            // 소스 파일 존재 확인
+            if (!objectExists(sourceKey)) {
+                log.error("소스 파일이 존재하지 않습니다: {}", sourceKey);
+                throw new RuntimeException("소스 파일을 찾을 수 없습니다: " + sourceKey);
+            }
+            
+            // S3 객체 복사 (캐시 헤더 포함)
+            CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+                    .sourceBucket(storageProperties.getBucket())
+                    .sourceKey(sourceKey)
+                    .destinationBucket(storageProperties.getBucket())
+                    .destinationKey(targetKey)
+                    .cacheControl("public, max-age=31536000, immutable")  // 1년간 캐싱, 변경 불가
+                    .build();
+            
+            s3Client.copyObject(copyRequest);
+            fileCopied = true;
+            
+            // 복사 확인
+            if (!objectExists(targetKey)) {
+                throw new RuntimeException("파일 복사 후 확인 실패: " + targetKey);
+            }
+            
+            // 원본 파일 삭제
+            deleteObject(sourceKey);
+            
+            log.info("파일 이동 완료: {} → {} (원본 삭제됨)", sourceKey, targetKey);
+            return targetKey;
+            
+        } catch (S3Exception e) {
+            log.error("S3 파일 이동 실패: {} → {}, 오류: {}", sourceKey, targetKey, e.getMessage(), e);
+            
+            // 복사는 성공했지만 원본 삭제 실패 시 복사본 삭제 (롤백)
+            if (fileCopied && objectExists(targetKey)) {
+                try {
+                    deleteObject(targetKey);
+                    log.info("롤백: 복사된 파일 삭제 완료: {}", targetKey);
+                } catch (Exception rollbackException) {
+                    log.error("롤백 실패: {}", rollbackException.getMessage());
+                }
+            }
+            
+            throw new RuntimeException("파일 이동 중 오류가 발생했습니다.", e);
+        } catch (Exception e) {
+            log.error("파일 이동 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
+            
+            // 복사는 성공했지만 예외 발생 시 복사본 삭제 (롤백)
+            if (fileCopied && objectExists(targetKey)) {
+                try {
+                    deleteObject(targetKey);
+                    log.info("롤백: 복사된 파일 삭제 완료: {}", targetKey);
+                } catch (Exception rollbackException) {
+                    log.error("롤백 실패: {}", rollbackException.getMessage());
+                }
+            }
+            
+            throw new RuntimeException("파일 이동 중 오류가 발생했습니다.", e);
+        }
+    }
+    
+    /**
+     * S3/MinIO 객체 존재 여부 확인
+     */
+    private boolean objectExists(String key) {
+        try {
+            HeadObjectRequest request = HeadObjectRequest.builder()
+                    .bucket(storageProperties.getBucket())
+                    .key(key)
+                    .build();
+            
+            s3Client.headObject(request);
+            return true;
+        } catch (NoSuchKeyException e) {
+            return false;
+        } catch (Exception e) {
+            log.warn("객체 존재 확인 중 오류: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * S3/MinIO 객체 삭제
+     */
+    private void deleteObject(String key) {
+        try {
+            DeleteObjectRequest request = DeleteObjectRequest.builder()
+                    .bucket(storageProperties.getBucket())
+                    .key(key)
+                    .build();
+            
+            s3Client.deleteObject(request);
+            log.info("파일 삭제 완료: {}", key);
+        } catch (S3Exception e) {
+            log.error("S3 파일 삭제 실패: {}, 오류: {}", key, e.getMessage(), e);
+            throw e;
+        }
+    }
 
 }

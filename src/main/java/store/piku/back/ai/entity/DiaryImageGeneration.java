@@ -33,4 +33,8 @@ public class DiaryImageGeneration extends BaseEntity {
     public void saveDiaryId(Long diaryId) {
         this.diaryId = diaryId;
     }
+    
+    public void updateFilePath(String newFilePath) {
+        this.filePath = newFilePath;
+    }
 }

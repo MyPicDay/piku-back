@@ -46,7 +46,8 @@ public class ImageGenerationService {
         }
 
         // CalendarController
-        String aiUrl = photoStorage.getPhotoUrl(generatedImageRelativePath);
+        // 생성된 이미지 URL는 비공개 이미지이므로, 만료 시간이 있는 서명된 URL로 제공
+        String aiUrl = photoStorage.getPhotoUrl(generatedImageRelativePath, false);
         DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.save(userId, prompt, generatedImageRelativePath);
         log.info("생성된 이미지 URL: {}", aiUrl);
         return new AiDiaryResponseDTO(

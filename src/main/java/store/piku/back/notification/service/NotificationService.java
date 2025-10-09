@@ -138,10 +138,11 @@ public class NotificationService {
 
         String thumbnailUrl = null;
         if (diary != null) {
+            // 일기 대표 사진은 public URL로 제공 -> 쿼리 변경 시 주의
             Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId());
             thumbnailUrl = representPhotoOpt
                     .map(Photo::getUrl)
-                    .map(photoStorageService::getPhotoUrl)
+                    .map(url -> photoStorageService.getPhotoUrl(url, true))
                     .orElse(null);
         }
 
@@ -227,10 +228,11 @@ public class NotificationService {
                 relatedDiaryId = diary.getId();
                 diaryUserId = diary.getUser().getId();
 
+                // 일기 대표 사진은 public URL로 제공 -> 쿼리 변경 시 주의
                 Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
                 thumbnailUrl = representPhotoOpt
                         .map(Photo::getUrl)
-                        .map(photoStorageService::getPhotoUrl)
+                        .map(url -> photoStorageService.getPhotoUrl(url, true))
                         .orElse(null);
             }
 
