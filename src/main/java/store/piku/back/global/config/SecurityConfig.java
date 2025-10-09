@@ -70,6 +70,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/diary/ai/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/diary", "/api/diary/**", "/api/comments", "/api/users/{userId}/profile-preview").permitAll()
                         .requestMatchers(permittedPaths.toArray(new String[0]))
                         .permitAll()
