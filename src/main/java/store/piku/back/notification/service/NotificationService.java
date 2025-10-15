@@ -302,4 +302,11 @@ public class NotificationService {
         return false;
     }
 
+    @Transactional
+    public void markAllAsRead(String userId) {
+        log.info("알림 모두 읽음 처리 시작 - userId: {}", userId);
+        int updatedCount = notificationRepository.markAllAsReadByReceiverId(userId);
+        log.info("알림 모두 읽음 처리 완료 - userId: {}, 업데이트된 알림 수: {}", userId, updatedCount);
+    }
+
 }

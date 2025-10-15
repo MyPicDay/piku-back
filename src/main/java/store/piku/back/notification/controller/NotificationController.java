@@ -73,6 +73,16 @@ public class NotificationController {
         }
     }
 
+    @Operation(summary = "알림 모두 읽음 처리", description = "사용자의 모든 알림을 읽음 상태로 표시합니다.")
+    @PatchMapping("/notifications")
+    public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("알림 모두 읽음 처리 요청 - userId: {}", userDetails.getId());
+
+        notificationService.markAllAsRead(userDetails.getId());
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
     @Operation(summary = "알림 삭제", description = "특정 알림을 삭제합니다.(SoftDelete)")
     @DeleteMapping("/{notificationId}")
     public ResponseEntity<Void> deleteNotification(@PathVariable Long notificationId, @AuthenticationPrincipal CustomUserDetails userDetails) {
