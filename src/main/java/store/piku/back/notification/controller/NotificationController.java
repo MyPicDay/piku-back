@@ -5,6 +5,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +21,6 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
 import store.piku.back.notification.dto.response.NotificationResponseDTO;
 import store.piku.back.notification.service.NotificationService;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -41,13 +44,18 @@ public class NotificationController {
         return emitter;
     }
 
-    @Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 알림 목록을 조회합니다.")
+    @Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 알림 목록을 조회합니다. (페이지네이션 적용, 최신순 정렬)")
     @GetMapping("/notifications")
-    public ResponseEntity<List<NotificationResponseDTO>> getNotifications(@AuthenticationPrincipal CustomUserDetails userDetails, HttpServletRequest request) {
-        log.info("알림 목록 조회 요청 - userId: {}", userDetails.getId());
+    public ResponseEntity<Page<NotificationResponseDTO>> getNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault Pageable pageable,
+            HttpServletRequest request) {
+        log.info("알림 목록 조회 요청 - userId: {}, page: {}, size: {}", userDetails.getId(), pageable.getPageNumber(), pageable.getPageSize());
 
+        // 정렬을 무조건 최신순(createdAt desc)으로 고정
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "createdAt"));
         RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-        List<NotificationResponseDTO> notifications = notificationService.getNotifications(userDetails.getId(),requestMetaInfo);
+        Page<NotificationResponseDTO> notifications = notificationService.getNotifications(userDetails.getId(), requestMetaInfo, sortedPageable);
         return ResponseEntity.ok(notifications);
     }
 
@@ -63,6 +71,16 @@ public class NotificationController {
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+    }
+
+    @Operation(summary = "알림 모두 읽음 처리", description = "사용자의 모든 알림을 읽음 상태로 표시합니다.")
+    @PatchMapping("/notifications")
+    public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        log.info("알림 모두 읽음 처리 요청 - userId: {}", userDetails.getId());
+
+        notificationService.markAllAsRead(userDetails.getId());
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @Operation(summary = "알림 삭제", description = "특정 알림을 삭제합니다.(SoftDelete)")

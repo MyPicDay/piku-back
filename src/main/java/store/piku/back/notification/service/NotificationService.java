@@ -2,6 +2,8 @@ package store.piku.back.notification.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -204,13 +206,11 @@ public class NotificationService {
     }
 
     @Transactional
-    public List<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo) {
-        log.info("알림 조회 시작 - 받는사람 | receiverId: {}", receiverId);
-        List<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNullOrderByCreatedAtDesc(receiverId);
+    public Page<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo, Pageable pageable) {
+        log.info("알림 조회 시작 - 받는사람 | receiverId: {}, page: {}, size: {}", receiverId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, pageable);
 
-        List<NotificationResponseDTO> dtos = new ArrayList<>();
-
-        for (Notification n : notifications) {
+        return notifications.map(n -> {
             User sender = n.getSender();
             String senderNickname = sender.getNickname();
             String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
@@ -236,7 +236,7 @@ public class NotificationService {
                         .orElse(null);
             }
 
-            dtos.add(new NotificationResponseDTO(
+            return new NotificationResponseDTO(
                     n.getId(),
                     message,
                     senderNickname,
@@ -248,12 +248,11 @@ public class NotificationService {
                     n.getCreatedAt(),
                     diaryDate,
                     diaryUserId
-            ));
-        }
-        return dtos;
+            );
+        });
     }
 
-    public Optional<Notification> findNotificationById(String notificationId) {
+    public Optional<Notification> findNotificationById(Long notificationId) {
 
         log.info("[알림 조회 요청] notificationId: {}", notificationId);
 
@@ -269,7 +268,7 @@ public class NotificationService {
     @Transactional
     public boolean markAsRead(Long notificationId, String userId) {
 
-        Optional<Notification> notificationOpt = findNotificationById(String.valueOf(notificationId));
+        Optional<Notification> notificationOpt = findNotificationById(notificationId);
 
         if (notificationOpt.isPresent()) {
             Notification notification = notificationOpt.get();
@@ -288,7 +287,7 @@ public class NotificationService {
 
     @Transactional
     public boolean deleteNotification(Long notificationId, String userId) {
-        Optional<Notification> notificationOpt = findNotificationById(String.valueOf(notificationId));
+        Optional<Notification> notificationOpt = findNotificationById(notificationId);
 
         if (notificationOpt.isPresent()) {
             Notification notification = notificationOpt.get();
@@ -301,6 +300,13 @@ public class NotificationService {
             return true;
         }
         return false;
+    }
+
+    @Transactional
+    public void markAllAsRead(String userId) {
+        log.info("알림 모두 읽음 처리 시작 - userId: {}", userId);
+        int updatedCount = notificationRepository.markAllAsReadByReceiverId(userId);
+        log.info("알림 모두 읽음 처리 완료 - userId: {}, 업데이트된 알림 수: {}", userId, updatedCount);
     }
 
 }
