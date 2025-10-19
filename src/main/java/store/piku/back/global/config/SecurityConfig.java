@@ -1,6 +1,5 @@
 package store.piku.back.global.config;
 
-import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
@@ -53,6 +52,7 @@ public class SecurityConfig {
                 "/api/auth/**",
                 "/api/diary/images/{userId}/{fileName:.+}",
                 "/api/characters/fixed/**",
+                "/api/notifications/subscribe",
                 "/actuator/health",
                 "/api/search"
         ));
@@ -70,14 +70,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ ERROR 디스패치는 보안 검증 우회 (비동기 요청에서 에러 발생 시)
-                        .dispatcherTypeMatchers(DispatcherType.ERROR)
-                        .permitAll()
-                        // ✅ /error 엔드포인트는 인증 불필요 (Spring Boot 기본 에러 페이지)
-                        .requestMatchers("/error")
-                        .permitAll()
                         .requestMatchers("/api/diary/ai/**").authenticated()
-                        .requestMatchers("/api/sse/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/diary", "/api/diary/**", "/api/comments", "/api/users/{userId}/profile-preview").permitAll()
                         .requestMatchers(permittedPaths.toArray(new String[0]))
                         .permitAll()

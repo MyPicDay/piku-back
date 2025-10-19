@@ -59,11 +59,6 @@ public class NotificationService {
             emitterRepository.deleteById(emitterId);
         });
 
-        emitter.onError((ex) -> {
-            log.error("[Emitter 종료 - Error] emitterId: {}, error: {}", emitterId, ex.getMessage());
-            emitterRepository.deleteById(emitterId);
-        });
-
         log.info("[안읽은 알림 개수 조회 요청] userId: {}", userId);
         long unreadCount = notificationRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(userId);
 
@@ -109,7 +104,7 @@ public class NotificationService {
         } catch (IOException e) {
             log.info("클라이언트와 연결 끊김, emitter 삭제 요청");
             emitterRepository.deleteById(emitterId);
-            // throw new RuntimeException("연결 오류!");
+            throw new RuntimeException("연결 오류!");
         }
     }
     public void sendToClient(SseEmitter emitter, String eventId, String emitterId, Long count) {
@@ -121,7 +116,7 @@ public class NotificationService {
         } catch (IOException e) {
             log.info("(초기) 클라이언트와 연결 끊김, emitter 삭제 요청");
             emitterRepository.deleteById(emitterId);
-            // throw new RuntimeException("연결 오류!");
+            throw new RuntimeException("연결 오류!");
         }
     }
 
