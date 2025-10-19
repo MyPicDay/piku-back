@@ -59,6 +59,11 @@ public class NotificationService {
             emitterRepository.deleteById(emitterId);
         });
 
+        emitter.onError((ex) -> {
+            log.error("[Emitter 종료 - Error] emitterId: {}, error: {}", emitterId, ex.getMessage());
+            emitterRepository.deleteById(emitterId);
+        });
+
         log.info("[안읽은 알림 개수 조회 요청] userId: {}", userId);
         long unreadCount = notificationRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(userId);
 
