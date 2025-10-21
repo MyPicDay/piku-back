@@ -4,7 +4,6 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -21,7 +20,6 @@ import store.piku.back.file.FileUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static store.piku.back.diary.constants.PhotoConstants.PUBLIC_PREFIX;
@@ -35,16 +33,14 @@ public class PhotoStorageService {
     private final PhotoRepository photoRepository;
     private final StorageProperties storageProperties;
     private final FileUtil fileUtil;
-    private final Environment environment;
 
     public PhotoStorageService(S3Client s3Client, PhotoUtil photoUtil, PhotoRepository photoRepository,
-                               StorageProperties storageProperties, FileUtil fileUtil, Environment environment) {
+                               StorageProperties storageProperties, FileUtil fileUtil) {
         this.s3Client = s3Client;
         this.photoUtil = photoUtil;
         this.photoRepository = photoRepository;
         this.storageProperties = storageProperties;
         this.fileUtil = fileUtil;
-        this.environment = environment;
     }
 
     public void savePhoto(Diary diary, MultipartFile photo, String userId, Integer order) throws IOException {
@@ -162,8 +158,8 @@ public class PhotoStorageService {
      */
     public String getPhotoUrl(String objectName, boolean isPublic) {
 
-        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
-        if (!isProd) {
+        String storageType = storageProperties.getType();
+        if ("minio".equalsIgnoreCase(storageType)) {
             try{
                 return getMinIOStoragePhotoUrl(objectName, isPublic);
             }catch (Exception e){
