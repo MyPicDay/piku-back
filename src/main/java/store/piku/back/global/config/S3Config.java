@@ -2,7 +2,6 @@ package store.piku.back.global.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -22,17 +21,30 @@ public class S3Config {
     }
 
     @Bean(name = "s3Client")
-    @Profile("prod")
-    public S3Client s3ClientProd() {
+    public S3Client s3Client() {
+        String storageType = storageProperties.getType();
+        
+        if ("s3".equalsIgnoreCase(storageType)) {
+            return createS3Client();
+        } else {
+            return createMinioClient();
+        }
+    }
+
+    /**
+     * AWS S3 클라이언트 생성
+     */
+    private S3Client createS3Client() {
         return S3Client.builder()
                 .region(Region.of(storageProperties.getRegion()))
                 // ec2에 역할 설정
                 .build();
     }
 
-    @Bean(name = "s3Client")
-    @Profile("dev")
-    public S3Client s3ClientDev() {
+    /**
+     * MinIO 클라이언트 생성
+     */
+    private S3Client createMinioClient() {
         return S3Client.builder()
                 .endpointOverride(URI.create(storageProperties.getEndpoint())) // MinIO 서버 주소
                 .region(Region.of(storageProperties.getRegion()))
