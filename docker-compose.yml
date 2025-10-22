@@ -64,6 +64,49 @@ services:
     restart: unless-stopped
     volumes:
       - redis-data:/data
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: piku-prometheus
+    ports:
+      - "9090:9090"
+    profiles:
+      - "dev"
+      - "dev-server"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - dev-piku-network
+      - piku-network
+
+  grafana:
+    image: grafana/grafana-oss:11.2.0
+    container_name: piku-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    profiles:
+      - "dev"
+      - "dev-server"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GRAFANA_ALERT_EMAIL: ${GRAFANA_ALERT_EMAIL:-ops@example.com}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+    networks:
+      - dev-piku-network
+      - piku-network
   # ---- MinIO 버킷/정책 자동 적용 (처음/필요 시 1회) ----
   minio-provision:
     image: minio/mc:latest
@@ -91,6 +134,8 @@ volumes:
   piku-data:
   dev-piku-data:
   redis-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   piku-network:

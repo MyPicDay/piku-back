@@ -48,7 +48,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+
+monitoring:
+  health-check:
+    interval: PT30S
+    timeout: PT5S
+    targets:
+      - name: self
+        url: ${MONITORING_SELF_HEALTH_URL:http://localhost:8080/actuator/health}
 
 storage:
   endpoint: ${STORAGE_URL:http://localhost:9000}
@@ -56,3 +64,4 @@ storage:
   access-key: ${STORAGE_ACCESS_KEY:minioadmin}
   secret-key: ${STORAGE_SECRET_KEY:minioadmin}
   bucket: ${STORAGE_BUCKET:piku}
+

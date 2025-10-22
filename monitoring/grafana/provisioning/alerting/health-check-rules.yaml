@@ -1,0 +1,38 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: health-check-alerts
+    folder: Health Check
+    interval: 1m
+    rules:
+      - uid: health-check-down
+        title: Health Check Down
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: min_over_time(health_check_status[2m])
+              format: time_series
+              instant: false
+              interval: ""
+              intervalMs: 15000
+              legendFormat: "{{target}}"
+              maxDataPoints: 43200
+              refId: A
+        for: 1m
+        annotations:
+          summary: '{{ $labels.target }} health check is failing'
+          description: 'health_check_status has been 0 for more than 1 minute'
+        labels:
+          severity: critical
+        noDataState: NoData
+        execErrState: Error
