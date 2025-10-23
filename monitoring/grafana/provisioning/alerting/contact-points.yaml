@@ -1,0 +1,12 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: default-health-contact
+    receivers:
+      - uid: default-health-contact
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: $__env{GRAFANA_ALERT_EMAIL}
+          singleEmail: true
