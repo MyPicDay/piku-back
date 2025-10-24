@@ -4,9 +4,19 @@ contactPoints:
   - orgId: 1
     name: default-health-contact
     receivers:
-      - uid: default-health-contact
-        type: email
+      - uid: discord-webhook
+        type: discord
         disableResolveMessage: false
         settings:
-          addresses: $__env{GRAFANA_ALERT_EMAIL}
-          singleEmail: true
+          url: $__env{DISCORD_WEBHOOK_URL}
+          message: |
+            **🚨 {{ .CommonLabels.alertname }}**
+
+            **Status:** {{ .Status }}
+            **Severity:** {{ .CommonLabels.severity }}
+
+            {{ range .Alerts }}
+            **Target:** {{ .Labels.target }}
+            **Summary:** {{ .Annotations.summary }}
+            **Description:** {{ .Annotations.description }}
+            {{ end }}
