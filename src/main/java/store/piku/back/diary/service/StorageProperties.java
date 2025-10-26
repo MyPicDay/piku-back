@@ -3,11 +3,9 @@ package store.piku.back.diary.service;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 @Getter
 @RequiredArgsConstructor
-@Component
 @ConfigurationProperties(prefix = "storage")
 public class StorageProperties {
     private final String type;

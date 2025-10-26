@@ -2,12 +2,15 @@ package store.piku.back;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import store.piku.back.diary.service.StorageProperties;
 
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableScheduling
+@EnableConfigurationProperties(StorageProperties.class)
 public class PikuBackApplication {
 
 	public static void main(String[] args) {

@@ -1,6 +1,7 @@
 package store.piku.back.global.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import store.piku.back.auth.jwt.JwtFilter;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -29,6 +31,9 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final Environment env;
+
+    @Value("${monitoring.allowed-ips:}")
+    private String allowedIps;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -53,7 +58,6 @@ public class SecurityConfig {
                 "/api/diary/images/{userId}/{fileName:.+}",
                 "/api/characters/fixed/**",
                 "/api/notifications/subscribe",
-                "/actuator/health",
                 "/api/search"
         ));
 
@@ -70,6 +74,29 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").access((authentication, context) -> {
+                            String remoteAddr = context.getRequest().getRemoteAddr();
+
+                            // 로컬호스트는 항상 허용
+                            if (remoteAddr.equals("127.0.0.1") ||
+                                remoteAddr.equals("0:0:0:0:0:0:0:1") ||
+                                remoteAddr.equals("localhost")) {
+                                return new org.springframework.security.authorization.AuthorizationDecision(true);
+                            }
+
+                            // 환경변수로 지정된 IP 허용
+                            if (allowedIps != null && !allowedIps.isEmpty()) {
+                                String[] ips = allowedIps.split(",");
+                                for (String ip : ips) {
+                                    IpAddressMatcher matcher = new IpAddressMatcher(ip.trim());
+                                    if (matcher.matches(context.getRequest())) {
+                                        return new org.springframework.security.authorization.AuthorizationDecision(true);
+                                    }
+                                }
+                            }
+
+                            return new org.springframework.security.authorization.AuthorizationDecision(false);
+                        })
                         .requestMatchers("/api/diary/ai/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/diary", "/api/diary/**", "/api/comments", "/api/users/{userId}/profile-preview").permitAll()
                         .requestMatchers(permittedPaths.toArray(new String[0]))
@@ -89,4 +116,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
-
