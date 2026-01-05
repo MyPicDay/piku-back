@@ -2,6 +2,7 @@ package store.piku.back.diary.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import store.piku.back.diary.enums.FriendStatus;
@@ -15,6 +16,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ResponseDTO {
     private Long diaryId;
 
@@ -23,7 +25,7 @@ public class ResponseDTO {
     private String content;
 
     @Schema(description = "일기 사진 ( AI + 일반 사진 ) ")
-    private List<String> imgUrls;  // 업로드용
+    private List<String> imgUrls; // 업로드용
     private LocalDate date;
     private String nickname; // 작성자 닉네임 추가
 
@@ -38,4 +40,9 @@ public class ResponseDTO {
 
     private Long commentCount;
 
+    @Schema(description = "좋아요 수")
+    private Long likeCount;
+
+    @Schema(description = "현재 사용자의 좋아요 여부")
+    private Boolean isLiked;
 }
