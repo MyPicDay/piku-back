@@ -5,5 +5,6 @@ public enum NotificationType {
     FRIEND_ACCEPT,
     COMMENT,
     REPLY,
-    FRIEND_DIARY
+    FRIEND_DIARY,
+    LIKE
 }

@@ -24,6 +24,7 @@ import store.piku.back.global.error.ErrorResponse;
 import store.piku.back.global.notification.DiscordWebhookService;
 import store.piku.back.global.util.RequestUtil;
 import store.piku.back.user.exception.UserNotFoundException;
+import store.piku.back.like.exception.LikeException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -46,6 +47,12 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.valueOf(errorCode.getStatus()));
     }
 
+    @ExceptionHandler(LikeException.class)
+    public ResponseEntity<ErrorResponse> handleLikeException(LikeException e) {
+        log.warn("LikeException occurred: {}", e.getMessage());
+        ErrorResponse response = new ErrorResponse(e.getErrorCode().getStatus().value(), e.getMessage());
+        return new ResponseEntity<>(response, e.getErrorCode().getStatus());
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorResponse> handleValidationException(MethodArgumentNotValidException e) {
@@ -59,14 +66,12 @@ public class GlobalExceptionHandler {
                         FieldError::getField,
                         error -> error.getDefaultMessage() != null
                                 ? error.getDefaultMessage()
-                                : "메시지가 null입니다."
-                ));
+                                : "메시지가 null입니다."));
         log.info("프론트에서 보내지는 에러: {}", errors);
 
         ValidationErrorResponse response = new ValidationErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                errors
-        );
+                errors);
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
@@ -90,13 +95,11 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = e.getConstraintViolations().stream()
                 .collect(Collectors.toMap(
                         violation -> violation.getPropertyPath().toString(),
-                        ConstraintViolation::getMessage
-                ));
+                        ConstraintViolation::getMessage));
 
         ValidationErrorResponse response = new ValidationErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                errors
-        );
+                errors);
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
@@ -109,15 +112,14 @@ public class GlobalExceptionHandler {
         for (ParameterValidationResult result : e.getParameterValidationResults()) {
             String parameterName = result.getMethodParameter().getParameterName();
             String message = result.getResolvableErrors().stream()
-                .map(MessageSourceResolvable::getDefaultMessage)
-                .collect(Collectors.joining(", "));
+                    .map(MessageSourceResolvable::getDefaultMessage)
+                    .collect(Collectors.joining(", "));
             errors.put(parameterName, message);
         }
 
         ValidationErrorResponse response = new ValidationErrorResponse(
-            HttpStatus.BAD_REQUEST.value(),
-            errors
-        );
+                HttpStatus.BAD_REQUEST.value(),
+                errors);
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
@@ -156,8 +158,7 @@ public class GlobalExceptionHandler {
         log.error("IOException occurred: {}", message, ex);
         return new ResponseEntity<>(
                 new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "파일 처리 중 오류가 발생했습니다."),
-                HttpStatus.INTERNAL_SERVER_ERROR
-        );
+                HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
@@ -183,7 +184,5 @@ public class GlobalExceptionHandler {
                 || message.contains("Broken pipe")
                 || message.contains("An existing connection was forcibly closed");
     }
-
-
 
 }

@@ -32,7 +32,7 @@ import java.util.*;
 @Slf4j
 public class NotificationService {
 
-    private static final Long DEFAULT_TIMEOUT = 60L*1000*60;
+    private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
 
     private final EmitterRepository emitterRepository;
     private final NotificationRepository notificationRepository;
@@ -41,7 +41,6 @@ public class NotificationService {
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final NotificationProvider notificationProvider;
     private final PhotoStorageService photoStorageService;
-
 
     public SseEmitter subscribe(String userId) {
 
@@ -67,7 +66,6 @@ public class NotificationService {
         log.info("[클라이언트로 초기 데이터 전송 요청]");
         sendToClient(emitter, eventId, emitterId, unreadCount);
 
-
         boolean hasFriendRequest = notificationRepository.existsFriendRequestByReceiverId(userId);
         if (hasFriendRequest) {
             String friendEventId = userId + "_" + System.currentTimeMillis();
@@ -83,12 +81,11 @@ public class NotificationService {
             }
         }
 
-
         return emitter;
     }
 
-
-    public void sendToClient(SseEmitter emitter, String eventId, String emitterId,SseResponse response, String eventName) {
+    public void sendToClient(SseEmitter emitter, String eventId, String emitterId, SseResponse response,
+            String eventName) {
         try {
             log.info("[이벤트 전송 시도] eventId: {}, message: {}", eventId, response);
             if (eventName == null) {
@@ -107,6 +104,7 @@ public class NotificationService {
             throw new RuntimeException("연결 오류!");
         }
     }
+
     public void sendToClient(SseEmitter emitter, String eventId, String emitterId, Long count) {
         try {
             log.info("[이벤트 초기 전송 시도]");
@@ -120,9 +118,9 @@ public class NotificationService {
         }
     }
 
-
     @Transactional
-    public void sendNotification(String receiverId, NotificationType type, String senderId, Diary diary, RequestMetaInfo requestMetaInfo ) {
+    public void sendNotification(String receiverId, NotificationType type, String senderId, Diary diary,
+            RequestMetaInfo requestMetaInfo) {
 
         log.info("알림 저장 요청 ");
         User sender = userReader.getUserById(senderId);
@@ -133,10 +131,8 @@ public class NotificationService {
         Map<String, SseEmitter> emitters = emitterRepository.findAllEmitterStartWithByUserId(receiverId);
         String message = generateMessage(type);
 
-
         String senderNickname = sender.getNickname();
         String senderAvatarUrl = imagePathToUrlConverter.userAvatarImageUrl(sender.getAvatar(), requestMetaInfo);
-
 
         String thumbnailUrl = null;
         if (diary != null) {
@@ -155,16 +151,14 @@ public class NotificationService {
                 senderId,
                 senderNickname,
                 senderAvatarUrl,
-                thumbnailUrl
-        );
-
+                thumbnailUrl);
 
         emitters.forEach((emitterId, emitter) -> {
             try {
                 log.info("[SSE 알림 전송] receiverId: {}, emitterId: {}", receiverId, emitterId);
-                if (type == NotificationType.FRIEND_REQUEST){
-                        sendToClient(emitter, eventId, emitterId, notificationDTO, "FriendRequest");
-                        return;
+                if (type == NotificationType.FRIEND_REQUEST) {
+                    sendToClient(emitter, eventId, emitterId, notificationDTO, "FriendRequest");
+                    return;
                 }
                 sendToClient(emitter, eventId, emitterId, notificationDTO, null);
             } catch (Exception e) {
@@ -179,10 +173,10 @@ public class NotificationService {
                 return;
             }
             for (String token : tokens) {
-                try{
+                try {
                     log.info("[FCM 알림 전송] receiverId: {}, token: {}", receiverId, token);
                     notificationProvider.sendMessage(token, senderNickname + message);
-                }catch (Exception e){
+                } catch (Exception e) {
                     log.debug("FCM 알림 전송 실패: {}, receiverId: {}, token: {}", e.getMessage(), receiverId, token);
                     // FCM 전송 실패 시, 해당 토큰을 삭제
                     notificationProvider.deleteToken(token);
@@ -193,7 +187,6 @@ public class NotificationService {
         }
     }
 
-
     public String generateMessage(NotificationType type) {
 
         return switch (type) {
@@ -202,13 +195,17 @@ public class NotificationService {
             case COMMENT -> "님이 일기에 댓글을 달았습니다.";
             case REPLY -> "님이 회원님의 댓글에 답글들 달았습니다.";
             case FRIEND_DIARY -> "님이 새 일기를 작성하였습니다.";
+            case LIKE -> "님이 회원님의 일기를 좋아합니다.";
         };
     }
 
     @Transactional
-    public Page<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo, Pageable pageable) {
-        log.info("알림 조회 시작 - 받는사람 | receiverId: {}, page: {}, size: {}", receiverId, pageable.getPageNumber(), pageable.getPageSize());
-        Page<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, pageable);
+    public Page<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo,
+            Pageable pageable) {
+        log.info("알림 조회 시작 - 받는사람 | receiverId: {}, page: {}, size: {}", receiverId, pageable.getPageNumber(),
+                pageable.getPageSize());
+        Page<Notification> notifications = notificationRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId,
+                pageable);
 
         return notifications.map(n -> {
             User sender = n.getSender();
@@ -229,7 +226,8 @@ public class NotificationService {
                 diaryUserId = diary.getUser().getId();
 
                 // 일기 대표 사진은 public URL로 제공 -> 쿼리 변경 시 주의
-                Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
+                Optional<Photo> representPhotoOpt = photoRepository
+                        .findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
                 thumbnailUrl = representPhotoOpt
                         .map(Photo::getUrl)
                         .map(url -> photoStorageService.getPhotoUrl(url, true))
@@ -247,8 +245,7 @@ public class NotificationService {
                     n.getIsRead(),
                     n.getCreatedAt(),
                     diaryDate,
-                    diaryUserId
-            );
+                    diaryUserId);
         });
     }
 
@@ -262,8 +259,6 @@ public class NotificationService {
         }
         return notificationOpt;
     }
-
-
 
     @Transactional
     public boolean markAsRead(Long notificationId, String userId) {
