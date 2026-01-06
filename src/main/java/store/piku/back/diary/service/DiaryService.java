@@ -25,6 +25,7 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
+import store.piku.back.recommendation.service.DiaryMetadataService;
 import store.piku.back.user.entity.User;
 import store.piku.back.user.exception.UserNotFoundException;
 import store.piku.back.user.service.reader.UserReader;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 
 @Service
 @Slf4j
@@ -53,7 +53,7 @@ public class DiaryService {
     private final DiaryImageGenerationRepository diaryImageGenerationRepository;
     private final DiaryImageGenerationService diaryImageGenerationService;
     private final NotificationService notificationService;
-
+    private final DiaryMetadataService diaryMetadataService;
 
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
@@ -71,13 +71,14 @@ public class DiaryService {
     }
 
     @Transactional
-    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId, RequestMetaInfo requestMetaInfo) throws UserNotFoundException, IOException {
+    public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId,
+            RequestMetaInfo requestMetaInfo) throws UserNotFoundException, IOException {
 
         validateDiaryDTO(diaryDTO, photos, userId);
 
         User user = userReader.getUserById(userId);
 
-        Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(),diaryDTO.getDate(), user);
+        Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(), diaryDTO.getDate(), user);
 
         diary = diaryRepository.save(diary);
         log.debug("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
@@ -86,7 +87,7 @@ public class DiaryService {
         infos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
 
         // imageInfos를 순회하면서 하나씩 저장
-        for(DiaryImageInfo info : infos) {
+        for (DiaryImageInfo info : infos) {
             if (info.getType() == DiaryPhotoType.AI_IMAGE) {
                 saveAiPhoto(diary, info.getAiPhotoId(), userId, info.getOrder());
             } else {
@@ -101,23 +102,31 @@ public class DiaryService {
             List<String> friends = friendRequestService.getFriends(userId);
             for (String friendId : friends) {
 
-                if (friendId.equals(userId)) continue;
+                if (friendId.equals(userId))
+                    continue;
 
                 notificationService.sendNotification(
                         friendId,
                         NotificationType.FRIEND_DIARY,
                         user.getId(),
                         diary,
-                        requestMetaInfo
-                );
+                        requestMetaInfo);
             }
             log.info("친구에게 새 일기 공개 알림 전송 완료. 친구 수: {}", friends.size());
 
         }
+
+        // 일기 내용 분석 트리거
+        try {
+            diaryMetadataService.analyzeAndSave(diary.getId(), diary.getContent());
+            log.debug("일기 메타데이터 분석 완료 - diaryId: {}", diary.getId());
+        } catch (Exception e) {
+            log.warn("일기 메타데이터 분석 실패 - diaryId: {}, error: {}", diary.getId(), e.getMessage());
+        }
+
         return new ResponseDiaryDTO(
                 diary.getId(),
-                diary.getContent()
-        );
+                diary.getContent());
     }
 
     public void saveAiPhoto(Diary diary, Long aiPhoto, String userId, Integer order) {
@@ -126,14 +135,14 @@ public class DiaryService {
         if (aiPhoto != null) {
             DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.findById(aiPhoto);
             String filePath = diaryImageGeneration.getFilePath();
-            
+
             // 대표 사진(order == 0)인 경우 실제 파일을 public/ 경로로 이동 (복사 후 원본 삭제)
             boolean isRepresent = (order != null && order == 0);
             if (isRepresent) {
                 String oldPath = filePath;
                 filePath = photoStorage.moveToPublic(filePath);
                 log.info("대표 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
-                
+
                 // DiaryImageGeneration의 filePath도 업데이트
                 diaryImageGeneration.updateFilePath(filePath);
                 log.info("DiaryImageGeneration filePath 업데이트 완료 (ID: {})", aiPhoto);
@@ -145,7 +154,7 @@ public class DiaryService {
             }
             photoRepository.save(savePhoto);
             diaryImageGenerationService.updateDiaryId(aiPhoto, diary.getId());
-            
+
             log.info("AI 사진 저장 완료 - 경로: {}, 대표사진: {}", filePath, isRepresent);
         } else {
             log.warn("빈 AI 사진 ID 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
@@ -153,68 +162,72 @@ public class DiaryService {
     }
 
     // @Transactional
-    // public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) throws UserNotFoundException {
+    // public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, String userId) throws
+    // UserNotFoundException {
     //
-    //     validateDiaryDTO(diaryDTO);
-    //
-    //
-    //     log.info("사용자 조회");
-    //     User user = userReader.getUserById(userId);
-    //
-    //     Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user, diaryDTO.getDate());
-    //
-    //     if (existingDiary.isPresent()) {
-    //         log.info("일기 날짜 중복 요청");
-    //         throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryDTO.getDate());
-    //     }
-    //
-    //     Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(),diaryDTO.getDate(), user);
-    //     diary = diaryRepository.save(diary);
-    //     log.info("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
+    // validateDiaryDTO(diaryDTO);
     //
     //
+    // log.info("사용자 조회");
+    // User user = userReader.getUserById(userId);
     //
-    //     List<MultipartFile> photos = diaryDTO.getPhotos();
-    //     List<Long> aiPhotos = diaryDTO.getAiPhotos();
+    // Optional<Diary> existingDiary = diaryRepository.findByUserAndDate(user,
+    // diaryDTO.getDate());
     //
-    //     try {
-    //         int photoCoverIndex = -1;
-    //         int aiCoverIndex = -1;
+    // if (existingDiary.isPresent()) {
+    // log.info("일기 날짜 중복 요청");
+    // throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " +
+    // diaryDTO.getDate());
+    // }
     //
-    //         if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
-    //             aiCoverIndex = diaryDTO.getCoverPhotoIndex();
-    //         } else {
-    //             photoCoverIndex = diaryDTO.getCoverPhotoIndex();
-    //         }
+    // Diary diary = new Diary(diaryDTO.getContent(),
+    // diaryDTO.getStatus(),diaryDTO.getDate(), user);
+    // diary = diaryRepository.save(diary);
+    // log.info("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
     //
-    //         if (photos != null && !photos.isEmpty()) {
-    //             photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
-    //             log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
-    //         }
     //
-    //         if (aiPhotos != null && !aiPhotos.isEmpty()) {
-    //             photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
-    //         }
-    //     } catch (IOException e) {
-    //         log.error("사진 저장 실패 : {}", e.getMessage(), e);
-    //         throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
-    //     }
-    //     return new ResponseDiaryDTO(
-    //             diary.getId(),
-    //             diary.getContent()
-    //     );
+    //
+    // List<MultipartFile> photos = diaryDTO.getPhotos();
+    // List<Long> aiPhotos = diaryDTO.getAiPhotos();
+    //
+    // try {
+    // int photoCoverIndex = -1;
+    // int aiCoverIndex = -1;
+    //
+    // if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()) {
+    // aiCoverIndex = diaryDTO.getCoverPhotoIndex();
+    // } else {
+    // photoCoverIndex = diaryDTO.getCoverPhotoIndex();
+    // }
+    //
+    // if (photos != null && !photos.isEmpty()) {
+    // photoStorage.savePhoto(diary, photos, userId, photoCoverIndex);
+    // log.info("사용자 [{}] - 사진 저장 완료. 사진 개수: {}", userId, photos.size());
+    // }
+    //
+    // if (aiPhotos != null && !aiPhotos.isEmpty()) {
+    // photoStorage.saveAiPhoto(diary, aiPhotos, userId, aiCoverIndex);
+    // }
+    // } catch (IOException e) {
+    // log.error("사진 저장 실패 : {}", e.getMessage(), e);
+    // throw new RuntimeException("사진 저장 실패", e); // 트랜잭션 롤백
+    // }
+    // return new ResponseDiaryDTO(
+    // diary.getId(),
+    // diary.getContent()
+    // );
     //
     // }
 
     // private void validateDiaryDTO(DiaryDTO diaryDTO) {
-    //     List list;
-    //     if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()){
-    //        list = diaryDTO.getAiPhotos();
-    //     } else {
-    //       list = diaryDTO.getPhotos();
-    //     }
-    //     validateCoverPhoto(list, diaryDTO.getCoverPhotoIndex());
-    //     validatePhotos(diaryDTO.getPhotos());
+    // List list;
+    // if (DiaryPhotoType.AI_IMAGE == diaryDTO.getCoverPhotoType()){
+    // list = diaryDTO.getAiPhotos();
+    // } else {
+    // list = diaryDTO.getPhotos();
+    // }
+    // validateCoverPhoto(list, diaryDTO.getCoverPhotoIndex());
+    // validatePhotos(diaryDTO.getPhotos());
     // }
 
     private void validateDiaryDate(DiaryDTO diaryDTO, String userId) {
@@ -235,7 +248,6 @@ public class DiaryService {
         validatePhotos(photos);
         validateDiaryDate(diaryDTO, userId);
 
-
         List<DiaryImageInfo> infos = diaryDTO.getImageInfos();
         infos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
         Set<Integer> uniqueOrders = infos.stream()
@@ -246,13 +258,13 @@ public class DiaryService {
         }
         int userImageCount = 0;
         for (DiaryImageInfo info : infos) {
-            if (info.getType() == DiaryPhotoType.AI_IMAGE){
-                if (!diaryImageGenerationRepository.existsByIdAndUserId(info.getAiPhotoId(), userId)){
+            if (info.getType() == DiaryPhotoType.AI_IMAGE) {
+                if (!diaryImageGenerationRepository.existsByIdAndUserId(info.getAiPhotoId(), userId)) {
                     throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.getAiPhotoId());
                 }
             }
-            if (info.getType() == DiaryPhotoType.USER_IMAGE){
-                if (info.getPhotoIndex() == null){
+            if (info.getType() == DiaryPhotoType.USER_IMAGE) {
+                if (info.getPhotoIndex() == null) {
                     throw new IllegalArgumentException("유효하지 않은 사용자 사진 인덱스: null");
                 }
                 userImageCount++;
@@ -283,8 +295,7 @@ public class DiaryService {
                     "image/gif",
                     "image/webp",
                     "image/bmp",
-                    "image/svg+xml"
-            );
+                    "image/svg+xml");
 
             if (!allowedImageTypes.contains(contentType)) {
                 throw new IllegalArgumentException("허용되지 않는 이미지 확장자입니다: " + originalFilename);
@@ -292,7 +303,7 @@ public class DiaryService {
         }
     }
 
-    private void validateCoverPhoto(List list, int coverPhotoIndex){
+    private void validateCoverPhoto(List list, int coverPhotoIndex) {
         if (list == null || list.isEmpty()) {
             log.error("사진 리스트가 비어있습니다.");
             throw new IllegalArgumentException("사진 리스트가 비어있습니다.");
@@ -303,7 +314,8 @@ public class DiaryService {
         }
     }
 
-    public List<CalendarDiaryResponseDTO> findMonthlyDiaries(String userId, int year, int month, RequestMetaInfo requestMetaInfo) {
+    public List<CalendarDiaryResponseDTO> findMonthlyDiaries(String userId, int year, int month,
+            RequestMetaInfo requestMetaInfo) {
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startOfMonth = yearMonth.atDay(1);
         LocalDate endOfMonth = yearMonth.atEndOfMonth();
@@ -319,7 +331,6 @@ public class DiaryService {
             return new CalendarDiaryResponseDTO(diary.getId(), coverPhotoUrl, diary.getDate());
         }).collect(Collectors.toList());
     }
-
 
     List<String> sortPhotos(List<Photo> photos, RequestMetaInfo requestMetaInfo) {
         for (int i = 0; i < photos.size(); i++) {
@@ -371,17 +382,16 @@ public class DiaryService {
         return diaryRepository.countByUserId(userId);
     }
 
-
     /**
      * 해당 프로필 사용자의 월별 일기 수를 반환합니다.
      *
      * @param profileId
      * @return "2025-06": 4,
-     *     "2025-07": 13
+     *         "2025-07": 13
      */
     public List<DiaryMonthCountDTO> getMonthlyDiaryCount(String profileId) {
         LocalDate monthsAgo = LocalDate.now().minusMonths(6).withDayOfMonth(1);
-        List<DiaryMonthCountDTO> counts = diaryRepository.countDiariesPerMonth(profileId,monthsAgo);
+        List<DiaryMonthCountDTO> counts = diaryRepository.countDiariesPerMonth(profileId, monthsAgo);
 
         return counts;
     }
