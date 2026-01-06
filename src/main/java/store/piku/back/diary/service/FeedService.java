@@ -21,6 +21,10 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.like.service.LikeService;
+import store.piku.back.recommendation.service.FeedCompositionService;
+import store.piku.back.recommendation.service.RecommendationCacheService;
+import store.piku.back.recommendation.service.UserPreferenceService;
+import store.piku.back.recommendation.service.DiaryMetadataService;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -41,6 +45,10 @@ public class FeedService {
     private final FriendRequestService friendRequestService;
     private final FeedClickRepository feedClickRepository;
     private final LikeService likeService;
+    private final FeedCompositionService feedCompositionService;
+    private final RecommendationCacheService recommendationCacheService;
+    private final UserPreferenceService userPreferenceService;
+    private final DiaryMetadataService diaryMetadataService;
 
     @Transactional(readOnly = true)
     public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, String userId) {
@@ -61,8 +69,36 @@ public class FeedService {
     public Page<ResponseDTO> getAllDiaries(Pageable pageable, RequestMetaInfo requestMetaInfo, String userId) {
         Pageable safePageable = diaryService.sanitizePageable(pageable, List.of("createdAt"));
 
-        List<Diary> feedCandidates = collectFeedCandidates(safePageable, userId, requestMetaInfo);
-        List<Diary> pagedDiaries = applyPaging(feedCandidates, pageable);
+        // 1. 캐시 확인
+        List<Long> cachedDiaryIds = userId != null
+                ? recommendationCacheService.getCachedFeed(userId)
+                : Collections.emptyList();
+
+        List<Diary> pagedDiaries;
+        int totalSize;
+
+        if (!cachedDiaryIds.isEmpty()) {
+            // 캐시 히트: 캐시된 ID로 직접 조회
+            log.debug("피드 캐시 히트 - userId: {}", userId);
+            List<Diary> cachedDiaries = diaryRepository.findAllById(cachedDiaryIds);
+            pagedDiaries = applyPaging(cachedDiaries, pageable);
+            totalSize = cachedDiaries.size();
+        } else {
+            // 캐시 미스: 추천 시스템 사용
+            log.debug("피드 캐시 미스 - userId: {}", userId);
+            List<Diary> feedCandidates = collectFeedCandidates(safePageable, userId, requestMetaInfo);
+
+            // 추천 스코어링 적용
+            List<Diary> scoredDiaries = applyRecommendationScoring(feedCandidates, userId, requestMetaInfo);
+            pagedDiaries = applyPaging(scoredDiaries, pageable);
+            totalSize = feedCandidates.size();
+
+            // 캐시 저장
+            if (userId != null && !scoredDiaries.isEmpty()) {
+                List<Long> diaryIds = scoredDiaries.stream().map(Diary::getId).collect(Collectors.toList());
+                recommendationCacheService.cacheFeed(userId, diaryIds);
+            }
+        }
 
         Map<Long, Long> likeCountMap = getLikeCountsForDiaries(pagedDiaries);
         Set<Long> likedDiaryIds = getLikedDiaryIds(pagedDiaries, userId);
@@ -71,7 +107,7 @@ public class FeedService {
                 .map(diary -> buildResponseDTOForFeed(diary, requestMetaInfo, userId, likeCountMap, likedDiaryIds))
                 .collect(Collectors.toList());
 
-        return new PageImpl<>(responseList, pageable, feedCandidates.size());
+        return new PageImpl<>(responseList, pageable, totalSize);
     }
 
     @Transactional
@@ -80,6 +116,57 @@ public class FeedService {
             return;
         }
         feedClickRepository.save(new FeedClick(userId, diaryId));
+
+        // 클릭한 일기의 토픽으로 사용자 선호도 업데이트
+        updateUserPreferenceOnClick(userId, diaryId);
+    }
+
+    private void updateUserPreferenceOnClick(String userId, Long diaryId) {
+        try {
+            // DiaryMetadata에서 토픽 조회
+            String topic = diaryMetadataService.getMetadata(diaryId)
+                    .map(meta -> meta.getPrimaryTopic())
+                    .orElse("daily");
+
+            userPreferenceService.recordInteraction(userId, topic, "CLICK");
+            log.debug("클릭 기반 선호도 업데이트 - userId: {}, topic: {}", userId, topic);
+        } catch (Exception e) {
+            log.warn("선호도 업데이트 실패 - userId: {}, diaryId: {}", userId, diaryId);
+        }
+    }
+
+    private List<Diary> applyRecommendationScoring(List<Diary> candidates, String userId,
+            RequestMetaInfo requestMetaInfo) {
+        if (userId == null || candidates.isEmpty()) {
+            return candidates;
+        }
+
+        List<String> friendIds = friendRequestService.findFriendIdList(Pageable.unpaged(), userId, requestMetaInfo);
+        Set<String> friendIdSet = new HashSet<>(friendIds);
+
+        // 친구 일기와 공개 일기 분리
+        List<Long> friendDiaryIds = candidates.stream()
+                .filter(d -> friendIdSet.contains(d.getUser().getId()))
+                .map(Diary::getId)
+                .collect(Collectors.toList());
+
+        List<Long> publicDiaryIds = candidates.stream()
+                .filter(d -> !friendIdSet.contains(d.getUser().getId()))
+                .map(Diary::getId)
+                .collect(Collectors.toList());
+
+        // 추천 서비스로 정렬
+        List<Long> scoredIds = feedCompositionService.composeFeed(
+                userId, friendDiaryIds, publicDiaryIds, candidates.size());
+
+        // ID 순서대로 Diary 재정렬
+        Map<Long, Diary> diaryMap = candidates.stream()
+                .collect(Collectors.toMap(Diary::getId, d -> d));
+
+        return scoredIds.stream()
+                .map(diaryMap::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     private List<Diary> collectFeedCandidates(Pageable pageable, String userId, RequestMetaInfo requestMetaInfo) {
