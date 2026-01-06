@@ -35,8 +35,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeedService {
 
-    private static final int RECENT_CLICK_DAYS = 3;
-
     private final DiaryService diaryService;
     private final CommentService commentService;
     private final PhotoRepository photoRepository;
@@ -79,13 +77,13 @@ public class FeedService {
 
         if (!cachedDiaryIds.isEmpty()) {
             // 캐시 히트: 캐시된 ID로 직접 조회
-            log.debug("피드 캐시 히트 - userId: {}", userId);
+            log.info("피드 캐시 히트 - userId: {}", userId);
             List<Diary> cachedDiaries = diaryRepository.findAllById(cachedDiaryIds);
             pagedDiaries = applyPaging(cachedDiaries, pageable);
             totalSize = cachedDiaries.size();
         } else {
             // 캐시 미스: 추천 시스템 사용
-            log.debug("피드 캐시 미스 - userId: {}", userId);
+            log.info("피드 캐시 미스 - userId: {}", userId);
             List<Diary> feedCandidates = collectFeedCandidates(safePageable, userId, requestMetaInfo);
 
             // 추천 스코어링 적용
@@ -172,17 +170,13 @@ public class FeedService {
     private List<Diary> collectFeedCandidates(Pageable pageable, String userId, RequestMetaInfo requestMetaInfo) {
         List<Long> clickedFeedIds = Collections.emptyList();
         List<Diary> unreadFriendFeeds = Collections.emptyList();
-        List<Diary> recentClickedFeeds = Collections.emptyList();
 
         if (userId != null) {
             List<String> friendIds = friendRequestService.findFriendIdList(pageable, userId, requestMetaInfo);
             clickedFeedIds = feedClickRepository.findClickedDiaryIdsByUserId(userId);
-            LocalDateTime cutoffDate = LocalDateTime.now().minusDays(RECENT_CLICK_DAYS);
 
             unreadFriendFeeds = diaryRepository.findUnreadFeedsByVisibilityAndUserIds(
                     Status.FRIENDS, friendIds, clickedFeedIds);
-            recentClickedFeeds = new ArrayList<>(diaryRepository.findClickedFeedsAfter(clickedFeedIds, cutoffDate));
-            Collections.shuffle(recentClickedFeeds);
         }
 
         List<Diary> unreadPublicFeeds = diaryRepository.findUnreadPublicFeeds(clickedFeedIds);
@@ -190,7 +184,21 @@ public class FeedService {
         List<Diary> combined = new ArrayList<>();
         combined.addAll(unreadFriendFeeds);
         combined.addAll(unreadPublicFeeds);
-        combined.addAll(recentClickedFeeds);
+
+        // 미읽음 피드가 부족하면 읽은 피드도 포함 (폴백)
+        int minFeedCount = pageable.getPageSize() * 2;
+        if (combined.size() < minFeedCount) {
+            log.info("미읽음 피드 부족 ({}/{}), 읽은 피드 포함", combined.size(), minFeedCount);
+            List<Diary> allPublicFeeds = diaryRepository.findByStatusOrderByCreatedAtDesc(Status.PUBLIC);
+
+            Set<Long> existingIds = combined.stream().map(Diary::getId).collect(Collectors.toSet());
+            List<Diary> additionalFeeds = allPublicFeeds.stream()
+                    .filter(d -> !existingIds.contains(d.getId()))
+                    .limit(minFeedCount - combined.size())
+                    .collect(Collectors.toList());
+
+            combined.addAll(additionalFeeds);
+        }
 
         return combined;
     }
