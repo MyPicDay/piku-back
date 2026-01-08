@@ -67,10 +67,33 @@ public class RecommendationService {
 		}
 
 		List<DiaryMetadata> metadataList = diaryMetadataRepository.findByDiaryIds(candidateDiaryIds);
+		Map<Long, DiaryMetadata> metadataMap = metadataList.stream()
+				.collect(Collectors.toMap(DiaryMetadata::getDiaryId, m -> m));
 
 		Map<String, Double> userAffinities = getUserAffinities(userId);
+		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
 
-		return scoreAndSort(metadataList, userAffinities, friendDiaryIds);
+		// 모든 후보에 대해 스코어 계산 (메타데이터 없으면 기본 점수)
+		List<ScoredDiary> results = candidateDiaryIds.stream()
+				.map(diaryId -> {
+					DiaryMetadata metadata = metadataMap.get(diaryId);
+					boolean isFriend = friendSet.contains(diaryId);
+					double score;
+
+					if (metadata != null) {
+						score = calculateScore(metadata, userAffinities, isFriend);
+					} else {
+						// 메타데이터 없는 경우 기본 점수 (친구이면 보너스 추가)
+						score = 0.3 + (isFriend ? FRIEND_BONUS : 0);
+					}
+
+					return new ScoredDiary(diaryId, score);
+				})
+				.sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
+				.collect(Collectors.toList());
+
+		log.debug("추천 스코어링 완료 - 후보: {}, 메타데이터 있음: {}", candidateDiaryIds.size(), metadataMap.size());
+		return results;
 	}
 
 	private Map<String, Double> getUserAffinities(String userId) {
