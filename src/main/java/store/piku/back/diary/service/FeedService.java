@@ -77,9 +77,7 @@ public class FeedService {
 
     @Transactional(readOnly = true)
     public Page<ResponseDTO> getAllDiaries(Pageable pageable, RequestMetaInfo requestMetaInfo, String userId) {
-        Pageable safePageable = diaryService.sanitizePageable(pageable, List.of("createdAt"));
-
-        List<Diary> diaries = getRecommendedDiaries(userId, safePageable, requestMetaInfo);
+        List<Diary> diaries = getRecommendedDiaries(userId, pageable, requestMetaInfo);
         List<Diary> pagedDiaries = applyPaging(diaries, pageable);
 
         List<ResponseDTO> responseList = convertToResponseDTOs(pagedDiaries, requestMetaInfo, userId);
