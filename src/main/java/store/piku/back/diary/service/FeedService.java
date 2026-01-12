@@ -92,6 +92,10 @@ public class FeedService {
         }
         feedClickRepository.save(new FeedClick(userId, diaryId));
         updateUserPreferenceOnClick(userId, diaryId);
+
+        // 클릭 시 캐시 무효화 → 다음 요청 시 새 순서 반영
+        recommendationCacheService.invalidateCache(userId);
+        log.debug("피드 캐시 무효화 - userId: {}", userId);
     }
 
     // ==================== Private Methods ====================
