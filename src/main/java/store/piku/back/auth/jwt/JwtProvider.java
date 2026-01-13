@@ -4,18 +4,17 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
-import store.piku.back.auth.constants.AuthConstants;
-import store.piku.back.global.config.CustomUserDetailService;
-import store.piku.back.global.config.CustomUserDetails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import store.piku.back.auth.constants.AuthConstants;
+import store.piku.back.global.config.CustomUserDetailService;
+import store.piku.back.global.config.CustomUserDetails;
 
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
-
 
 @Slf4j
 @Component
@@ -31,12 +30,12 @@ public class JwtProvider {
     }
 
     /*
-    * JWT Access Token 생성
-    * */
+     * JWT Access Token 생성
+     */
     public String generateAccessToken(String email) {
         log.info("[JWT Access Token 생성] 이메일 : {}", email);
 
-      Claims claims = Jwts.claims().setSubject(email);
+        Claims claims = Jwts.claims().setSubject(email);
         Date now = new Date();
         Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
@@ -53,10 +52,9 @@ public class JwtProvider {
                 .compact();
     }
 
-
     /*
      * JWT Refresh Token 생성
-     * */
+     */
     public String generateRefreshToken() {
         log.info("[JWT Refresh Token 생성] 생성 시작");
 
@@ -73,8 +71,8 @@ public class JwtProvider {
     }
 
     /*
-    * JWT에서 이메일 추출
-    * */
+     * JWT에서 이메일 추출
+     */
     public String getEmailFromToken(String token) {
         token = cleanToken(token);
         log.debug("[JWT 파싱] 이메일 추출 시작");
@@ -93,8 +91,8 @@ public class JwtProvider {
     }
 
     /*
-    * 토큰 유효성 검사
-    * */
+     * 토큰 유효성 검사
+     */
     public boolean validateToken(String token) {
         try {
             token = cleanToken(token);
@@ -114,8 +112,8 @@ public class JwtProvider {
     }
 
     public String cleanToken(String token) {
-        if (token != null && token.startsWith("Bearer ")) {
-            return token.substring(7);
+        if (token != null && token.startsWith(AuthConstants.BEARER_PREFIX)) {
+            return token.substring(AuthConstants.BEARER_PREFIX.length());
         }
         return token;
     }
@@ -129,6 +127,4 @@ public class JwtProvider {
         return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
     }
 
-
 }
-
