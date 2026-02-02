@@ -71,6 +71,7 @@ public class SecurityConfig {
         }
 
         http
+                .securityContext(context -> context.requireExplicitSave(false))
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
