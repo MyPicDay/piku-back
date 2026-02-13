@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=
+
+storage:
+  endpoint: http://localhost:9000
+  region: ap-northeast-2
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: piku
+  type: minio
+
+firebase:
+  key-path: firebase-json-key.json
+
+gemini:
+  api:
+    key: test-key
+    base-url: https://generativelanguage.googleapis.com/v1beta
+    models:
+      image-generation: gemini-2.0-flash-preview-image-generation
+      chat: gemini-2.0-flash
+    timeout: 30s
