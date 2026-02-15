@@ -2,7 +2,7 @@ package store.piku.back.user.adapter.out.character;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import store.piku.back.character.service.CharacterService;
+import store.piku.back.character.application.port.in.GetCharacterUseCase;
 import store.piku.back.user.application.port.out.LoadCharacterPort;
 
 /**
@@ -13,15 +13,15 @@ import store.piku.back.user.application.port.out.LoadCharacterPort;
 @RequiredArgsConstructor
 public class CharacterAdapterForUser implements LoadCharacterPort {
 
-	private final CharacterService characterService;
+	private final GetCharacterUseCase getCharacterUseCase;
 
 	@Override
 	public String getFixedCharacterImageUrl(Long characterId) {
-		return characterService.getFixedCharacterImageUrl(characterId);
+		return getCharacterUseCase.getFixedCharacterImageUrl(characterId);
 	}
 
 	@Override
 	public boolean existsById(Long characterId) {
-		return characterService.isCharacterFixedImageExists(characterId);
+		return getCharacterUseCase.isCharacterFixedImageExists(characterId);
 	}
 }

@@ -47,7 +47,6 @@ class UserSearchServiceTest {
 		@Test
 		@DisplayName("키워드로 검색 시 결과가 정상 반환된다")
 		void returnsSearchResults() {
-			// given
 			String keyword = "피쿠";
 			Pageable pageable = PageRequest.of(0, 10);
 			User user = new User("user-1", "piku@test.com", "password", "피쿠유저", "characters/fixed/base_image_1.png");
@@ -57,10 +56,8 @@ class UserSearchServiceTest {
 			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.png", requestMetaInfo))
 					.willReturn("http://localhost:8080/api/characters/fixed/base_image_1.png");
 
-			// when
 			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
 
-			// then
 			assertThat(result.getContent()).hasSize(1);
 			UserSearchResult searchResult = result.getContent().get(0);
 			assertThat(searchResult.id()).isEqualTo("user-1");
@@ -71,17 +68,14 @@ class UserSearchServiceTest {
 		@Test
 		@DisplayName("검색 결과가 없으면 빈 페이지를 반환한다")
 		void returnsEmptyPageWhenNoResults() {
-			// given
 			String keyword = "존재하지않는유저";
 			Pageable pageable = PageRequest.of(0, 10);
 			Page<User> emptyPage = new PageImpl<>(Collections.emptyList());
 
 			given(userQueryPort.searchByName("%" + keyword + "%", pageable)).willReturn(emptyPage);
 
-			// when
 			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
 
-			// then
 			assertThat(result.getContent()).isEmpty();
 			assertThat(result.getTotalElements()).isZero();
 		}
@@ -89,24 +83,20 @@ class UserSearchServiceTest {
 		@Test
 		@DisplayName("키워드에 와일드카드가 올바르게 추가된다")
 		void addsWildcardToKeyword() {
-			// given
 			String keyword = "테스트";
 			Pageable pageable = PageRequest.of(0, 10);
 			Page<User> emptyPage = new PageImpl<>(Collections.emptyList());
 
 			given(userQueryPort.searchByName(anyString(), eq(pageable))).willReturn(emptyPage);
 
-			// when
 			userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
 
-			// then
 			then(userQueryPort).should().searchByName("%테스트%", pageable);
 		}
 
 		@Test
 		@DisplayName("아바타 URL 변환이 각 결과에 올바르게 적용된다")
 		void convertsAvatarUrlForEachResult() {
-			// given
 			String keyword = "유저";
 			Pageable pageable = PageRequest.of(0, 10);
 			User user1 = new User("user-1", "a@test.com", "pw", "유저A", "path/avatar1.png");
@@ -119,10 +109,8 @@ class UserSearchServiceTest {
 			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar2.png", requestMetaInfo))
 					.willReturn("http://localhost:8080/api/path/avatar2.png");
 
-			// when
 			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
 
-			// then
 			assertThat(result.getContent()).hasSize(2);
 			assertThat(result.getContent().get(0).avatar()).isEqualTo("http://localhost:8080/api/path/avatar1.png");
 			assertThat(result.getContent().get(1).avatar()).isEqualTo("http://localhost:8080/api/path/avatar2.png");

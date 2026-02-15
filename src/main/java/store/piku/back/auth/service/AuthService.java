@@ -23,7 +23,7 @@ import store.piku.back.auth.repository.VerificationRepository;
 import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.auth.repository.RefreshTokenRepository;
 import store.piku.back.auth.repository.VerifiedEmailRepository;
-import store.piku.back.character.service.CharacterService;
+import store.piku.back.character.application.port.in.GetCharacterUseCase;
 import store.piku.back.user.domain.User;
 import store.piku.back.user.adapter.out.persistence.UserJpaRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -44,7 +44,7 @@ public class AuthService {
     private final VerificationRepository verificationRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
-    private final CharacterService characterService;
+    private final GetCharacterUseCase getCharacterUseCase;
     private final EmailService emailService;
     private final UserReader userReader;
     private final VerifiedEmailRepository verifiedEmailRepository;
@@ -79,7 +79,7 @@ public class AuthService {
                 dto.getEmail(),
                 passwordEncoder.encode(dto.getPassword()),
                 dto.getNickname());
-        String avatarUrl = characterService.getFixedCharacterImageUrl(dto.getFixedCharacterId());
+        String avatarUrl = getCharacterUseCase.getFixedCharacterImageUrl(dto.getFixedCharacterId());
         user.changeAvatar(avatarUrl);
         userRepository.save(user);
         log.info("[회원 가입] 완료 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
