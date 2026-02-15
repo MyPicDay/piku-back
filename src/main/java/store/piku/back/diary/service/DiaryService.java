@@ -8,9 +8,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.ai.entity.DiaryImageGeneration;
-import store.piku.back.ai.repository.DiaryImageGenerationRepository;
-import store.piku.back.ai.service.DiaryImageGenerationService;
+import store.piku.back.creative.application.port.in.ManageGenerationUseCase;
+import store.piku.back.creative.domain.DiaryImageGeneration;
 import store.piku.back.diary.dto.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
@@ -50,8 +49,7 @@ public class DiaryService {
     private final PhotoStorageService photoStorage;
     private final FriendRequestService friendRequestService;
     private final FileUtil fileUtil;
-    private final DiaryImageGenerationRepository diaryImageGenerationRepository;
-    private final DiaryImageGenerationService diaryImageGenerationService;
+    private final ManageGenerationUseCase manageGenerationUseCase;
     private final NotificationService notificationService;
     private final DiaryMetadataService diaryMetadataService;
 
@@ -133,7 +131,7 @@ public class DiaryService {
         log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
 
         if (aiPhoto != null) {
-            DiaryImageGeneration diaryImageGeneration = diaryImageGenerationService.findById(aiPhoto);
+            DiaryImageGeneration diaryImageGeneration = manageGenerationUseCase.findById(aiPhoto);
             String filePath = diaryImageGeneration.getFilePath();
 
             // 대표 사진(order == 0)인 경우 실제 파일을 public/ 경로로 이동 (복사 후 원본 삭제)
@@ -153,7 +151,7 @@ public class DiaryService {
                 savePhoto.updateRepresent(true);
             }
             photoRepository.save(savePhoto);
-            diaryImageGenerationService.updateDiaryId(aiPhoto, diary.getId());
+            manageGenerationUseCase.updateDiaryId(aiPhoto, diary.getId());
 
             log.info("AI 사진 저장 완료 - 경로: {}, 대표사진: {}", filePath, isRepresent);
         } else {
@@ -259,7 +257,7 @@ public class DiaryService {
         int userImageCount = 0;
         for (DiaryImageInfo info : infos) {
             if (info.getType() == DiaryPhotoType.AI_IMAGE) {
-                if (!diaryImageGenerationRepository.existsByIdAndUserId(info.getAiPhotoId(), userId)) {
+                if (!manageGenerationUseCase.existsByIdAndUserId(info.getAiPhotoId(), userId)) {
                     throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.getAiPhotoId());
                 }
             }
