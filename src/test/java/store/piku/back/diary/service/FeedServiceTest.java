@@ -20,7 +20,11 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.like.service.LikeService;
-import store.piku.back.recommendation.service.RecommendationCacheService;
+import store.piku.back.recommendation._legacy.FeedCandidateCollector;
+import store.piku.back.recommendation._legacy.FeedCompositionService;
+import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
+import store.piku.back.recommendation.application.port.in.CacheFeedUseCase;
+import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
 import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
@@ -55,7 +59,15 @@ class FeedServiceTest {
 	@Mock
 	private LikeService likeService;
 	@Mock
-	private RecommendationCacheService recommendationCacheService;
+	private FeedCandidateCollector feedCandidateCollector;
+	@Mock
+	private FeedCompositionService feedCompositionService;
+	@Mock
+	private CacheFeedUseCase cacheFeedUseCase;
+	@Mock
+	private ManageUserPreferenceUseCase manageUserPreferenceUseCase;
+	@Mock
+	private AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
 
 	private User owner;
 	private Diary publicDiary;

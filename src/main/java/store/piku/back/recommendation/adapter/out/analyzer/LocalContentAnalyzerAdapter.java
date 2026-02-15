@@ -1,13 +1,17 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation.adapter.out.analyzer;
 
-import org.springframework.stereotype.Service;
-import store.piku.back.recommendation.entity.DiaryMetadata;
+import org.springframework.stereotype.Component;
+import store.piku.back.recommendation.application.port.out.ContentAnalyzerPort;
+import store.piku.back.recommendation.domain.DiaryMetadata;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service
-public class LocalContentAnalyzer {
+/**
+ * 로컬 키워드 기반 콘텐츠 분석기
+ */
+@Component
+public class LocalContentAnalyzerAdapter implements ContentAnalyzerPort {
 
 	private static final Map<String, List<String>> TOPIC_KEYWORDS = new LinkedHashMap<>();
 	private static final String DEFAULT_TOPIC = "daily";
@@ -24,6 +28,7 @@ public class LocalContentAnalyzer {
 		TOPIC_KEYWORDS.put("reflection", Arrays.asList("생각", "느낌", "감사", "행복", "힘들", "슬픔", "기쁨", "반성", "다짐"));
 	}
 
+	@Override
 	public DiaryMetadata analyze(Long diaryId, String content) {
 		if (content == null || content.isBlank()) {
 			return createMetadata(diaryId, DEFAULT_TOPIC, "{\"daily\":1.0}", calculateQualityScore(content));

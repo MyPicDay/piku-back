@@ -1,4 +1,4 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation.application.service;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -7,14 +7,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import store.piku.back.recommendation.application.port.out.RecommendationCachePort;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -25,10 +23,7 @@ class RecommendationCacheServiceTest {
 	private RecommendationCacheService cacheService;
 
 	@Mock
-	private RedisTemplate<String, Object> redisTemplate;
-
-	@Mock
-	private ValueOperations<String, Object> valueOperations;
+	private RecommendationCachePort recommendationCachePort;
 
 	private final String userId = "test-user-id";
 
@@ -37,15 +32,13 @@ class RecommendationCacheServiceTest {
 	class CacheFeed {
 
 		@Test
-		@DisplayName("피드 목록을 Redis에 캐시한다")
-		void cacheFeedToRedis() {
+		@DisplayName("피드 목록을 캐시 포트에 저장한다")
+		void cacheFeedToPort() {
 			List<Long> diaryIds = List.of(1L, 2L, 3L);
-
-			given(redisTemplate.opsForValue()).willReturn(valueOperations);
 
 			cacheService.cacheFeed(userId, diaryIds);
 
-			verify(valueOperations).set(eq("feed:" + userId), eq(diaryIds), anyLong(), eq(TimeUnit.MINUTES));
+			verify(recommendationCachePort).cacheFeed(userId, diaryIds);
 		}
 	}
 
@@ -58,8 +51,7 @@ class RecommendationCacheServiceTest {
 		void returnCachedFeed() {
 			List<Long> cachedIds = List.of(1L, 2L, 3L);
 
-			given(redisTemplate.opsForValue()).willReturn(valueOperations);
-			given(valueOperations.get("feed:" + userId)).willReturn(cachedIds);
+			given(recommendationCachePort.getCachedFeed(userId)).willReturn(cachedIds);
 
 			List<Long> result = cacheService.getCachedFeed(userId);
 
@@ -69,8 +61,7 @@ class RecommendationCacheServiceTest {
 		@Test
 		@DisplayName("캐시가 없으면 빈 리스트를 반환한다")
 		void returnEmptyWhenNoCache() {
-			given(redisTemplate.opsForValue()).willReturn(valueOperations);
-			given(valueOperations.get("feed:" + userId)).willReturn(null);
+			given(recommendationCachePort.getCachedFeed(userId)).willReturn(Collections.emptyList());
 
 			List<Long> result = cacheService.getCachedFeed(userId);
 
@@ -87,7 +78,7 @@ class RecommendationCacheServiceTest {
 		void deleteFeedCache() {
 			cacheService.invalidateCache(userId);
 
-			verify(redisTemplate).delete("feed:" + userId);
+			verify(recommendationCachePort).invalidateCache(userId);
 		}
 	}
 }

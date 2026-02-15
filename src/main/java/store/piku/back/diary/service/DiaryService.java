@@ -24,7 +24,7 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
-import store.piku.back.recommendation.service.DiaryMetadataService;
+import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import store.piku.back.user.domain.User;
 import store.piku.back.user.domain.exception.UserNotFoundException;
 import store.piku.back.user._legacy.UserReader;
@@ -51,7 +51,7 @@ public class DiaryService {
     private final FileUtil fileUtil;
     private final ManageGenerationUseCase manageGenerationUseCase;
     private final NotificationService notificationService;
-    private final DiaryMetadataService diaryMetadataService;
+    private final AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
 
     /**
      * ID로 일기를 조회하여 다른 서비스에서 사용할 수 있도록 반환합니다.
@@ -116,7 +116,7 @@ public class DiaryService {
 
         // 일기 내용 분석 트리거
         try {
-            diaryMetadataService.analyzeAndSave(diary.getId(), diary.getContent());
+            analyzeDiaryContentUseCase.analyzeAndSave(diary.getId(), diary.getContent());
             log.debug("일기 메타데이터 분석 완료 - diaryId: {}", diary.getId());
         } catch (Exception e) {
             log.warn("일기 메타데이터 분석 실패 - diaryId: {}, error: {}", diary.getId(), e.getMessage());

@@ -1,4 +1,4 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -7,8 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import store.piku.back.recommendation.entity.UserPreference;
-import store.piku.back.recommendation.repository.UserPreferenceRepository;
+import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
+import store.piku.back.recommendation.application.port.out.LoadUserPreferencePort;
+import store.piku.back.recommendation.application.port.out.SaveUserPreferencePort;
+import store.piku.back.recommendation.domain.UserPreference;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,26 +19,27 @@ import java.util.Optional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class UserPreferenceService {
+public class UserPreferenceService implements ManageUserPreferenceUseCase {
 
-	private final UserPreferenceRepository userPreferenceRepository;
+	private final LoadUserPreferencePort loadUserPreferencePort;
+	private final SaveUserPreferencePort saveUserPreferencePort;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private static final double LIKE_WEIGHT = 0.3;
 	private static final double VIEW_WEIGHT = 0.1;
 	private static final double CLICK_WEIGHT = 0.15;
 	private static final double MAX_AFFINITY = 1.0;
-	private static final double DECAY_FACTOR = 0.95;
 
+	@Override
 	@Transactional
 	public UserPreference updatePreference(String userId, String topic, double weight) {
-		UserPreference preference = userPreferenceRepository.findByUserId(userId)
+		UserPreference preference = loadUserPreferencePort.findByUserId(userId)
 				.orElseGet(() -> {
 					UserPreference newPref = UserPreference.builder()
 							.userId(userId)
 							.topicAffinities("{}")
 							.build();
-					return userPreferenceRepository.save(newPref);
+					return saveUserPreferencePort.save(newPref);
 				});
 
 		Map<String, Double> affinities = parseAffinities(preference.getTopicAffinities());
@@ -50,11 +53,13 @@ public class UserPreferenceService {
 		return preference;
 	}
 
+	@Override
 	@Transactional(readOnly = true)
 	public Optional<UserPreference> getPreference(String userId) {
-		return userPreferenceRepository.findByUserId(userId);
+		return loadUserPreferencePort.findByUserId(userId);
 	}
 
+	@Override
 	@Transactional
 	public void recordInteraction(String userId, String topic, String interactionType) {
 		double weight = switch (interactionType.toUpperCase()) {
@@ -69,6 +74,7 @@ public class UserPreferenceService {
 				userId, topic, interactionType, weight);
 	}
 
+	@Override
 	public Map<String, Double> parseAffinities(String json) {
 		if (json == null || json.isBlank() || json.equals("{}")) {
 			return new HashMap<>();

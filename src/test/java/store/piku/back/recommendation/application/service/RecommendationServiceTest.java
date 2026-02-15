@@ -1,6 +1,5 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation.application.service;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -8,22 +7,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.enums.Status;
-import store.piku.back.diary.repository.DiaryRepository;
-import store.piku.back.recommendation.dto.ScoredDiary;
-import store.piku.back.recommendation.entity.DiaryMetadata;
-import store.piku.back.recommendation.entity.UserPreference;
-import store.piku.back.recommendation.repository.DiaryMetadataRepository;
-import store.piku.back.user.domain.User;
+import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
+import store.piku.back.recommendation.application.port.out.LoadDiaryMetadataPort;
+import store.piku.back.recommendation.domain.DiaryMetadata;
+import store.piku.back.recommendation.domain.ScoredDiary;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,21 +26,10 @@ class RecommendationServiceTest {
 	private RecommendationService recommendationService;
 
 	@Mock
-	private DiaryRepository diaryRepository;
+	private LoadDiaryMetadataPort loadDiaryMetadataPort;
 
 	@Mock
-	private DiaryMetadataRepository diaryMetadataRepository;
-
-	@Mock
-	private UserPreferenceService userPreferenceService;
-
-	private User owner;
-	private final String userId = "test-user-id";
-
-	@BeforeEach
-	void setUp() {
-		owner = new User("owner-id", "owner@test.com", "password", "owner", null);
-	}
+	private ManageUserPreferenceUseCase userPreferenceUseCase;
 
 	@Nested
 	@DisplayName("calculateScore - 일기 스코어 계산")
@@ -135,6 +117,40 @@ class RecommendationServiceTest {
 
 			assertThat(result).hasSize(2);
 			assertThat(result.get(0).getDiaryId()).isEqualTo(1L);
+		}
+	}
+
+	@Nested
+	@DisplayName("getRecommendedDiaries - 추천 일기 목록 조회")
+	class GetRecommendedDiaries {
+
+		@Test
+		@DisplayName("후보가 비어있으면 빈 리스트를 반환한다")
+		void returnsEmptyForNoCandidates() {
+			List<ScoredDiary> result = recommendationService.getRecommendedDiaries(
+					"user-1", List.of(), List.of());
+
+			assertThat(result).isEmpty();
+		}
+
+		@Test
+		@DisplayName("메타데이터가 있는 후보에 대해 스코어를 계산한다")
+		void scoresWithMetadata() {
+			DiaryMetadata meta = DiaryMetadata.builder()
+					.diaryId(1L)
+					.primaryTopic("travel")
+					.qualityScore(0.8)
+					.build();
+
+			given(loadDiaryMetadataPort.findByDiaryIds(List.of(1L))).willReturn(List.of(meta));
+			given(userPreferenceUseCase.getPreference("user-1")).willReturn(Optional.empty());
+
+			List<ScoredDiary> result = recommendationService.getRecommendedDiaries(
+					"user-1", List.of(1L), List.of());
+
+			assertThat(result).hasSize(1);
+			assertThat(result.get(0).getDiaryId()).isEqualTo(1L);
+			assertThat(result.get(0).getScore()).isGreaterThan(0);
 		}
 	}
 }

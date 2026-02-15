@@ -1,13 +1,14 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import store.piku.back.recommendation.dto.ScoredDiary;
-import store.piku.back.recommendation.entity.DiaryMetadata;
-import store.piku.back.recommendation.entity.UserPreference;
-import store.piku.back.recommendation.repository.DiaryMetadataRepository;
+import store.piku.back.recommendation.application.port.in.GetRecommendationUseCase;
+import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
+import store.piku.back.recommendation.application.port.out.LoadDiaryMetadataPort;
+import store.piku.back.recommendation.domain.DiaryMetadata;
+import store.piku.back.recommendation.domain.ScoredDiary;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -15,16 +16,17 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class RecommendationService {
+public class RecommendationService implements GetRecommendationUseCase {
 
-	private final DiaryMetadataRepository diaryMetadataRepository;
-	private final UserPreferenceService userPreferenceService;
+	private final LoadDiaryMetadataPort loadDiaryMetadataPort;
+	private final ManageUserPreferenceUseCase userPreferenceUseCase;
 
 	private static final double TOPIC_WEIGHT = 0.4;
 	private static final double QUALITY_WEIGHT = 0.3;
 	private static final double RECENCY_WEIGHT = 0.2;
 	private static final double FRIEND_BONUS = 0.15;
 
+	@Override
 	public double calculateScore(DiaryMetadata metadata, Map<String, Double> userAffinities, boolean isFriend) {
 		double topicScore = 0.0;
 		double qualityScore = metadata.getQualityScore() != null ? metadata.getQualityScore() : 0.5;
@@ -44,6 +46,7 @@ public class RecommendationService {
 		return Math.min(1.0, baseScore);
 	}
 
+	@Override
 	public List<ScoredDiary> scoreAndSort(List<DiaryMetadata> metadataList,
 			Map<String, Double> userAffinities,
 			List<Long> friendDiaryIds) {
@@ -59,6 +62,7 @@ public class RecommendationService {
 				.collect(Collectors.toList());
 	}
 
+	@Override
 	@Transactional(readOnly = true)
 	public List<ScoredDiary> getRecommendedDiaries(String userId, List<Long> candidateDiaryIds,
 			List<Long> friendDiaryIds) {
@@ -66,14 +70,13 @@ public class RecommendationService {
 			return Collections.emptyList();
 		}
 
-		List<DiaryMetadata> metadataList = diaryMetadataRepository.findByDiaryIds(candidateDiaryIds);
+		List<DiaryMetadata> metadataList = loadDiaryMetadataPort.findByDiaryIds(candidateDiaryIds);
 		Map<Long, DiaryMetadata> metadataMap = metadataList.stream()
 				.collect(Collectors.toMap(DiaryMetadata::getDiaryId, m -> m));
 
 		Map<String, Double> userAffinities = getUserAffinities(userId);
 		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
 
-		// 모든 후보에 대해 스코어 계산 (메타데이터 없으면 기본 점수)
 		List<ScoredDiary> results = candidateDiaryIds.stream()
 				.map(diaryId -> {
 					DiaryMetadata metadata = metadataMap.get(diaryId);
@@ -83,7 +86,6 @@ public class RecommendationService {
 					if (metadata != null) {
 						score = calculateScore(metadata, userAffinities, isFriend);
 					} else {
-						// 메타데이터 없는 경우 기본 점수 (친구이면 보너스 추가)
 						score = 0.3 + (isFriend ? FRIEND_BONUS : 0);
 					}
 
@@ -101,8 +103,8 @@ public class RecommendationService {
 			return Collections.emptyMap();
 		}
 
-		return userPreferenceService.getPreference(userId)
-				.map(pref -> userPreferenceService.parseAffinities(pref.getTopicAffinities()))
+		return userPreferenceUseCase.getPreference(userId)
+				.map(pref -> userPreferenceUseCase.parseAffinities(pref.getTopicAffinities()))
 				.orElse(Collections.emptyMap());
 	}
 }

@@ -1,4 +1,4 @@
-package store.piku.back.recommendation.dto;
+package store.piku.back.recommendation.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

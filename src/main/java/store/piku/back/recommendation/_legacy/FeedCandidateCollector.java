@@ -1,4 +1,4 @@
-package store.piku.back.recommendation.service;
+package store.piku.back.recommendation._legacy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,11 +12,12 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 피드 후보 수집을 담당하는 서비스
  * 책임: 친구/공개 피드 조회, 읽음 상태 기반 우선순위 정렬, 본인 일기 제외
+ *
+ * Phase 9에서 Feed Context로 이동 예정
  */
 @Service
 @Slf4j
@@ -29,7 +30,7 @@ public class FeedCandidateCollector {
 
 	/**
 	 * 피드 후보를 우선순위에 따라 수집
-	 * 
+	 *
 	 * 우선순위:
 	 * 1. 미읽음 친구 피드
 	 * 2. 미읽음 공개 피드

@@ -21,11 +21,11 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.like.service.LikeService;
-import store.piku.back.recommendation.service.FeedCandidateCollector;
-import store.piku.back.recommendation.service.FeedCompositionService;
-import store.piku.back.recommendation.service.RecommendationCacheService;
-import store.piku.back.recommendation.service.UserPreferenceService;
-import store.piku.back.recommendation.service.DiaryMetadataService;
+import store.piku.back.recommendation._legacy.FeedCandidateCollector;
+import store.piku.back.recommendation._legacy.FeedCompositionService;
+import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
+import store.piku.back.recommendation.application.port.in.CacheFeedUseCase;
+import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -56,9 +56,9 @@ public class FeedService {
     // 추천 서비스
     private final FeedCandidateCollector feedCandidateCollector;
     private final FeedCompositionService feedCompositionService;
-    private final RecommendationCacheService recommendationCacheService;
-    private final UserPreferenceService userPreferenceService;
-    private final DiaryMetadataService diaryMetadataService;
+    private final CacheFeedUseCase cacheFeedUseCase;
+    private final ManageUserPreferenceUseCase manageUserPreferenceUseCase;
+    private final AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
 
     @Transactional(readOnly = true)
     public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, String userId) {
@@ -94,7 +94,7 @@ public class FeedService {
         updateUserPreferenceOnClick(userId, diaryId);
 
         // 클릭 시 캐시 무효화 → 다음 요청 시 새 순서 반영
-        recommendationCacheService.invalidateCache(userId);
+        cacheFeedUseCase.invalidateCache(userId);
         log.debug("피드 캐시 무효화 - userId: {}", userId);
     }
 
@@ -121,7 +121,7 @@ public class FeedService {
         if (userId == null) {
             return Collections.emptyList();
         }
-        return recommendationCacheService.getCachedFeed(userId);
+        return cacheFeedUseCase.getCachedFeed(userId);
     }
 
     private List<Diary> getDiariesByIds(List<Long> diaryIds, String userId) {
@@ -173,15 +173,15 @@ public class FeedService {
             return;
         }
         List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
-        recommendationCacheService.cacheFeed(userId, diaryIds);
+        cacheFeedUseCase.cacheFeed(userId, diaryIds);
     }
 
     private void updateUserPreferenceOnClick(String userId, Long diaryId) {
         try {
-            String topic = diaryMetadataService.getMetadata(diaryId)
+            String topic = analyzeDiaryContentUseCase.getMetadata(diaryId)
                     .map(meta -> meta.getPrimaryTopic())
                     .orElse("daily");
-            userPreferenceService.recordInteraction(userId, topic, "CLICK");
+            manageUserPreferenceUseCase.recordInteraction(userId, topic, "CLICK");
             log.debug("클릭 기반 선호도 업데이트 - userId: {}, topic: {}", userId, topic);
         } catch (Exception e) {
             log.warn("선호도 업데이트 실패 - userId: {}, diaryId: {}", userId, diaryId);

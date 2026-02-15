@@ -1,4 +1,4 @@
-package store.piku.back.recommendation.entity;
+package store.piku.back.recommendation.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
