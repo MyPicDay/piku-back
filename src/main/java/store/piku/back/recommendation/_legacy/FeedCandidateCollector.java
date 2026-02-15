@@ -8,8 +8,8 @@ import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.FeedClickRepository;
-import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.social.application.port.in.FriendUseCase;
 
 import java.util.*;
 
@@ -26,7 +26,7 @@ public class FeedCandidateCollector {
 
 	private final DiaryRepository diaryRepository;
 	private final FeedClickRepository feedClickRepository;
-	private final FriendRequestService friendRequestService;
+	private final FriendUseCase friendUseCase;
 
 	/**
 	 * 피드 후보를 우선순위에 따라 수집
@@ -56,7 +56,7 @@ public class FeedCandidateCollector {
 		if (userId == null) {
 			return Collections.emptyList();
 		}
-		List<String> friendIds = friendRequestService.findFriendIdList(pageable, userId, requestMetaInfo);
+		List<String> friendIds = friendUseCase.findFriendIdList(pageable, userId, requestMetaInfo);
 		return diaryRepository.findByStatusAndUserIdIn(Status.FRIENDS, friendIds);
 	}
 

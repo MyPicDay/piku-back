@@ -7,20 +7,20 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import store.piku.back.comment.service.CommentService;
+import store.piku.back.social.application.port.in.CommentUseCase;
 import store.piku.back.diary.dto.ResponseDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.FeedClick;
 import store.piku.back.diary.entity.Photo;
-import store.piku.back.diary.enums.FriendStatus;
+import store.piku.back.social.domain.friend.vo.FriendStatus;
 import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.FeedClickRepository;
 import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.friend.service.FriendRequestService;
+import store.piku.back.social.application.port.in.FriendUseCase;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
-import store.piku.back.like.service.LikeService;
+import store.piku.back.social.application.port.in.LikeUseCase;
 import store.piku.back.recommendation._legacy.FeedCandidateCollector;
 import store.piku.back.recommendation._legacy.FeedCompositionService;
 import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
@@ -45,13 +45,13 @@ import java.util.stream.Collectors;
 public class FeedService {
 
     private final DiaryService diaryService;
-    private final CommentService commentService;
+    private final CommentUseCase commentUseCase;
     private final PhotoRepository photoRepository;
     private final DiaryRepository diaryRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
-    private final FriendRequestService friendRequestService;
+    private final FriendUseCase friendUseCase;
     private final FeedClickRepository feedClickRepository;
-    private final LikeService likeService;
+    private final LikeUseCase likeUseCase;
 
     // 추천 서비스
     private final FeedCandidateCollector feedCandidateCollector;
@@ -68,7 +68,7 @@ public class FeedService {
         List<String> photoUrls = getPhotosForDiary(diary, requestMetaInfo);
 
         boolean isOwner = diary.getUser().getId().equals(userId);
-        boolean isFriend = friendRequestService.areFriends(diary.getUser().getId(), userId);
+        boolean isFriend = friendUseCase.areFriends(diary.getUser().getId(), userId);
         boolean hasAccess = isOwner || (diary.getStatus() == Status.PUBLIC)
                 || (diary.getStatus() == Status.FRIENDS && isFriend);
 
@@ -143,7 +143,7 @@ public class FeedService {
             return candidates;
         }
 
-        List<String> friendIds = friendRequestService.findFriendIdList(Pageable.unpaged(), userId, requestMetaInfo);
+        List<String> friendIds = friendUseCase.findFriendIdList(Pageable.unpaged(), userId, requestMetaInfo);
         Set<String> friendIdSet = new HashSet<>(friendIds);
 
         List<Long> friendDiaryIds = candidates.stream()
@@ -214,8 +214,8 @@ public class FeedService {
     private ResponseDTO buildResponseDTO(Diary diary, List<String> photoUrls, RequestMetaInfo requestMetaInfo,
             String userId, FriendStatus friendStatus, boolean hasFullAccess) {
         String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
-        long likeCount = likeService.getLikeCount(diary.getId());
-        boolean isLiked = likeService.isLikedByUser(userId, diary.getId());
+        long likeCount = likeUseCase.getLikeCount(diary.getId());
+        boolean isLiked = likeUseCase.isLikedByUser(userId, diary.getId());
 
         List<String> displayPhotos = hasFullAccess ? photoUrls : List.of(photoUrls.get(0));
         String displayContent = hasFullAccess ? diary.getContent() : null;
@@ -231,7 +231,7 @@ public class FeedService {
                 .userId(diary.getUser().getId())
                 .createdAt(diary.getCreatedAt())
                 .friendStatus(friendStatus)
-                .commentCount(commentService.countAllCommentsByDiaryId(diary.getId()))
+                .commentCount(commentUseCase.countAllCommentsByDiaryId(diary.getId()))
                 .likeCount(likeCount)
                 .isLiked(isLiked)
                 .build();
@@ -243,7 +243,7 @@ public class FeedService {
         String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(diary.getUser().getAvatar(), requestMetaInfo);
 
         FriendStatus friendStatus = userId != null
-                ? friendRequestService.getFriendshipStatus(userId, diary.getUser().getId())
+                ? friendUseCase.getFriendshipStatus(userId, diary.getUser().getId())
                 : FriendStatus.NONE;
 
         return ResponseDTO.builder()
@@ -257,7 +257,7 @@ public class FeedService {
                 .userId(diary.getUser().getId())
                 .createdAt(diary.getCreatedAt())
                 .friendStatus(friendStatus)
-                .commentCount(commentService.countAllCommentsByDiaryId(diary.getId()))
+                .commentCount(commentUseCase.countAllCommentsByDiaryId(diary.getId()))
                 .likeCount(likeCountMap.getOrDefault(diary.getId(), 0L))
                 .isLiked(likedDiaryIds.contains(diary.getId()))
                 .build();
@@ -265,11 +265,11 @@ public class FeedService {
 
     private Map<Long, Long> getLikeCountsForDiaries(List<Diary> diaries) {
         List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
-        return likeService.getLikeCountsForDiaries(diaryIds);
+        return likeUseCase.getLikeCountsForDiaries(diaryIds);
     }
 
     private Set<Long> getLikedDiaryIds(List<Diary> diaries, String userId) {
         List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
-        return likeService.getLikedDiaryIds(userId, diaryIds);
+        return likeUseCase.getLikedDiaryIds(userId, diaryIds);
     }
 }

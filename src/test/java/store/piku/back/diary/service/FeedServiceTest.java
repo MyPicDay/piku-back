@@ -8,7 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import store.piku.back.comment.service.CommentService;
+import store.piku.back.social.application.port.in.CommentUseCase;
 import store.piku.back.diary.dto.ResponseDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.entity.Photo;
@@ -16,10 +16,10 @@ import store.piku.back.diary.enums.Status;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.FeedClickRepository;
 import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.friend.service.FriendRequestService;
+import store.piku.back.social.application.port.in.FriendUseCase;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
-import store.piku.back.like.service.LikeService;
+import store.piku.back.social.application.port.in.LikeUseCase;
 import store.piku.back.recommendation._legacy.FeedCandidateCollector;
 import store.piku.back.recommendation._legacy.FeedCompositionService;
 import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
@@ -45,7 +45,7 @@ class FeedServiceTest {
 	@Mock
 	private DiaryService diaryService;
 	@Mock
-	private CommentService commentService;
+	private CommentUseCase commentUseCase;
 	@Mock
 	private PhotoRepository photoRepository;
 	@Mock
@@ -53,11 +53,11 @@ class FeedServiceTest {
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 	@Mock
-	private FriendRequestService friendRequestService;
+	private FriendUseCase friendUseCase;
 	@Mock
 	private FeedClickRepository feedClickRepository;
 	@Mock
-	private LikeService likeService;
+	private LikeUseCase likeUseCase;
 	@Mock
 	private FeedCandidateCollector feedCandidateCollector;
 	@Mock
@@ -99,11 +99,11 @@ class FeedServiceTest {
 			given(diaryService.getDiaryById(1L)).willReturn(publicDiary);
 			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
 			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(friendRequestService.areFriends(anyString(), anyString())).willReturn(false);
+			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
-			given(likeService.getLikeCount(any())).willReturn(10L);
-			given(likeService.isLikedByUser(anyString(), any())).willReturn(false);
-			given(commentService.countAllCommentsByDiaryId(any())).willReturn(5L);
+			given(likeUseCase.getLikeCount(any())).willReturn(10L);
+			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
+			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(5L);
 
 			ResponseDTO result = feedService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
 
@@ -118,11 +118,11 @@ class FeedServiceTest {
 			given(diaryService.getDiaryById(1L)).willReturn(privateDiary);
 			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
 			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg"));
-			given(friendRequestService.areFriends(anyString(), anyString())).willReturn(false);
+			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
-			given(likeService.getLikeCount(any())).willReturn(0L);
-			given(likeService.isLikedByUser(anyString(), any())).willReturn(false);
-			given(commentService.countAllCommentsByDiaryId(any())).willReturn(0L);
+			given(likeUseCase.getLikeCount(any())).willReturn(0L);
+			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
+			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(0L);
 
 			ResponseDTO result = feedService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
 
@@ -135,11 +135,11 @@ class FeedServiceTest {
 			given(diaryService.getDiaryById(1L)).willReturn(privateDiary);
 			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
 			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(friendRequestService.areFriends(anyString(), anyString())).willReturn(false);
+			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
-			given(likeService.getLikeCount(any())).willReturn(0L);
-			given(likeService.isLikedByUser(anyString(), any())).willReturn(false);
-			given(commentService.countAllCommentsByDiaryId(any())).willReturn(0L);
+			given(likeUseCase.getLikeCount(any())).willReturn(0L);
+			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
+			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(0L);
 
 			ResponseDTO result = feedService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
 
@@ -153,11 +153,11 @@ class FeedServiceTest {
 			given(diaryService.getDiaryById(1L)).willReturn(friendsDiary);
 			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
 			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(friendRequestService.areFriends("owner-id", "friend-id")).willReturn(true);
+			given(friendUseCase.areFriends("owner-id", "friend-id")).willReturn(true);
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
-			given(likeService.getLikeCount(any())).willReturn(5L);
-			given(likeService.isLikedByUser(anyString(), any())).willReturn(true);
-			given(commentService.countAllCommentsByDiaryId(any())).willReturn(3L);
+			given(likeUseCase.getLikeCount(any())).willReturn(5L);
+			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(true);
+			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(3L);
 
 			ResponseDTO result = feedService.getDiaryWithPhotos(1L, requestMetaInfo, "friend-id");
 

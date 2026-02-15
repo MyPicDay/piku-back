@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import store.piku.back.diary.enums.FriendStatus;
+import store.piku.back.social.domain.friend.vo.FriendStatus;
 import store.piku.back.diary.enums.Status;
 
 import java.time.LocalDate;

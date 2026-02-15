@@ -24,7 +24,7 @@ import store.piku.back.global.error.ErrorResponse;
 import store.piku.back.global.notification.DiscordWebhookService;
 import store.piku.back.global.util.RequestUtil;
 import store.piku.back.user.domain.exception.UserNotFoundException;
-import store.piku.back.like.exception.LikeException;
+import store.piku.back.social.domain.like.exception.LikeException;
 
 import java.io.IOException;
 import java.util.HashMap;

@@ -20,7 +20,7 @@ import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.diary.repository.DiaryRepository;
 import store.piku.back.diary.repository.PhotoRepository;
 import store.piku.back.file.FileUtil;
-import store.piku.back.friend.service.FriendRequestService;
+import store.piku.back.social.application.port.in.FriendUseCase;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
@@ -47,7 +47,7 @@ public class DiaryService {
     private final PhotoRepository photoRepository;
     private final UserReader userReader;
     private final PhotoStorageService photoStorage;
-    private final FriendRequestService friendRequestService;
+    private final FriendUseCase friendUseCase;
     private final FileUtil fileUtil;
     private final ManageGenerationUseCase manageGenerationUseCase;
     private final NotificationService notificationService;
@@ -97,7 +97,7 @@ public class DiaryService {
         log.debug("사용자 [{}] - 사진 저장 완료. 일기 ID: {}", userId, diary.getId());
 
         if (diary.getStatus() == Status.FRIENDS) {
-            List<String> friends = friendRequestService.getFriends(userId);
+            List<String> friends = friendUseCase.getFriends(userId);
             for (String friendId : friends) {
 
                 if (friendId.equals(userId))

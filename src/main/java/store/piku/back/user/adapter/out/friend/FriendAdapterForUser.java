@@ -2,7 +2,7 @@ package store.piku.back.user.adapter.out.friend;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import store.piku.back.friend.service.FriendRequestService;
+import store.piku.back.social.application.port.in.FriendUseCase;
 import store.piku.back.user.application.port.out.UserFriendPort;
 
 /**
@@ -13,15 +13,15 @@ import store.piku.back.user.application.port.out.UserFriendPort;
 @RequiredArgsConstructor
 public class FriendAdapterForUser implements UserFriendPort {
 
-	private final FriendRequestService friendRequestService;
+	private final FriendUseCase friendUseCase;
 
 	@Override
 	public int countFriends(String userId) {
-		return friendRequestService.countFriends(userId);
+		return friendUseCase.countFriends(userId);
 	}
 
 	@Override
 	public String getFriendshipStatus(String userId, String targetUserId) {
-		return friendRequestService.getFriendshipStatus(userId, targetUserId).name();
+		return friendUseCase.getFriendshipStatus(userId, targetUserId).name();
 	}
 }
