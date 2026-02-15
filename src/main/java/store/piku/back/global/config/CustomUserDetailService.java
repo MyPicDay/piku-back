@@ -1,7 +1,7 @@
 package store.piku.back.global.config;
 
-import store.piku.back.user.entity.User;
-import store.piku.back.user.repository.UserRepository;
+import store.piku.back.user.domain.User;
+import store.piku.back.user.adapter.out.persistence.UserJpaRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -9,9 +9,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CustomUserDetailService implements UserDetailsService {
-    private final UserRepository userRepository;
+    private final UserJpaRepository userRepository;
 
-    public CustomUserDetailService(UserRepository userRepository) {
+    public CustomUserDetailService(UserJpaRepository userRepository) {
         this.userRepository = userRepository;
     }
 
@@ -23,7 +23,6 @@ public class CustomUserDetailService implements UserDetailsService {
         return new CustomUserDetails(
                 user.getId(),
                 user.getEmail(),
-                user.getNickname()
-        );
+                user.getNickname());
     }
 }

@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import store.piku.back.character.enums.CharacterCreationType;
 import store.piku.back.global.entity.BaseEntity;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 @Getter
 @Entity

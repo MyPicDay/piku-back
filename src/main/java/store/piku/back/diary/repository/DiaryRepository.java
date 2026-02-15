@@ -6,7 +6,7 @@ import org.springframework.data.repository.query.Param;
 import store.piku.back.diary.dto.DiaryMonthCountDTO;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.diary.enums.Status;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

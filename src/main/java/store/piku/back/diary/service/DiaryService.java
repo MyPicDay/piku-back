@@ -26,9 +26,9 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.recommendation.service.DiaryMetadataService;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.exception.UserNotFoundException;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user.domain.User;
+import store.piku.back.user.domain.exception.UserNotFoundException;
+import store.piku.back.user._legacy.UserReader;
 
 import java.io.IOException;
 import java.time.LocalDate;

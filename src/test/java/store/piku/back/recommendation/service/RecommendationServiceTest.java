@@ -15,7 +15,7 @@ import store.piku.back.recommendation.dto.ScoredDiary;
 import store.piku.back.recommendation.entity.DiaryMetadata;
 import store.piku.back.recommendation.entity.UserPreference;
 import store.piku.back.recommendation.repository.DiaryMetadataRepository;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
 import java.util.List;

@@ -20,8 +20,8 @@ import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.exception.NotificationNotFoundException;
 import store.piku.back.notification.repository.EmitterRepository;
 import store.piku.back.notification.repository.NotificationRepository;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user.domain.User;
+import store.piku.back.user._legacy.UserReader;
 
 import java.io.IOException;
 import java.time.LocalDate;

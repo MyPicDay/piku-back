@@ -10,8 +10,8 @@ import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.diary.service.PhotoUtil;
 import store.piku.back.inquiry.entity.Inquiry;
 import store.piku.back.inquiry.repository.InquiryRepository;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user.domain.User;
+import store.piku.back.user._legacy.UserReader;
 
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDate;

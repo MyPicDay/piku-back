@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import store.piku.back.diary.entity.Diary;
 import store.piku.back.global.entity.BaseEntity;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 import java.util.ArrayList;
 import java.util.List;

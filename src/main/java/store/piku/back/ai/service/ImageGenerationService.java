@@ -7,9 +7,9 @@ import store.piku.back.ai.entity.DiaryImageGeneration;
 import store.piku.back.diary.service.PhotoStorageService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 import org.springframework.stereotype.Service;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user._legacy.UserReader;
 
 @Service
 @Slf4j

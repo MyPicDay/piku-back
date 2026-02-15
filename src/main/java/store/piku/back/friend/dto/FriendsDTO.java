@@ -3,7 +3,7 @@ package store.piku.back.friend.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 @AllArgsConstructor
 @Data

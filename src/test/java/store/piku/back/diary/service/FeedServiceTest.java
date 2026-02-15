@@ -21,7 +21,7 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.like.service.LikeService;
 import store.piku.back.recommendation.service.RecommendationCacheService;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
 import java.util.List;

@@ -19,7 +19,7 @@ import store.piku.back.like.exception.LikeException;
 import store.piku.back.like.repository.LikeRepository;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
 import java.util.List;

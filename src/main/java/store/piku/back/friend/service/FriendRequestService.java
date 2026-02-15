@@ -24,9 +24,9 @@ import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.repository.NotificationRepository;
 import store.piku.back.notification.service.NotificationService;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.exception.UserNotFoundException;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user.domain.User;
+import store.piku.back.user.domain.exception.UserNotFoundException;
+import store.piku.back.user._legacy.UserReader;
 import store.piku.back.notification.entity.NotificationType;
 
 import java.util.List;

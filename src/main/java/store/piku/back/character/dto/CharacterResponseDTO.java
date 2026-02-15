@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import store.piku.back.character.entity.Character;
 import store.piku.back.character.enums.CharacterCreationType;
 import store.piku.back.file.FileConstants;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Slf4j

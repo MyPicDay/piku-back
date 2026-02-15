@@ -29,7 +29,7 @@ import store.piku.back.friend.service.FriendRequestService;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;
-import store.piku.back.user.exception.UserNotFoundException;
+import store.piku.back.user.domain.exception.UserNotFoundException;
 
 
 @Tag(name = "Friend" ,description = "친구 관련 API")

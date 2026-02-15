@@ -6,7 +6,7 @@ import store.piku.back.character.entity.Character;
 import store.piku.back.character.enums.CharacterCreationType;
 import store.piku.back.character.repository.CharacterRepository;
 import store.piku.back.file.FileUtil;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

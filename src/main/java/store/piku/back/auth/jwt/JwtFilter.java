@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import store.piku.back.auth.constants.AuthConstants;
 import store.piku.back.global.config.CustomUserDetails;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.repository.UserRepository;
+import store.piku.back.user.domain.User;
+import store.piku.back.user.adapter.out.persistence.UserJpaRepository;
 
 import java.io.IOException;
 
@@ -25,7 +25,7 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
-    private final UserRepository userRepository;
+    private final UserJpaRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

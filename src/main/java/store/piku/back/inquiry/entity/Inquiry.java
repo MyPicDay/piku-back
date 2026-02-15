@@ -5,7 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import store.piku.back.global.entity.BaseEntity;
-import store.piku.back.user.entity.User;
+import store.piku.back.user.domain.User;
 
 @Entity
 @Getter

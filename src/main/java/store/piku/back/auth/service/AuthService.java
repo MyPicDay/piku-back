@@ -24,11 +24,11 @@ import store.piku.back.auth.jwt.JwtProvider;
 import store.piku.back.auth.repository.RefreshTokenRepository;
 import store.piku.back.auth.repository.VerifiedEmailRepository;
 import store.piku.back.character.service.CharacterService;
-import store.piku.back.user.entity.User;
-import store.piku.back.user.repository.UserRepository;
+import store.piku.back.user.domain.User;
+import store.piku.back.user.adapter.out.persistence.UserJpaRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import store.piku.back.user.service.reader.UserReader;
+import store.piku.back.user._legacy.UserReader;
 
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
@@ -39,7 +39,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
+    private final UserJpaRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final VerificationRepository verificationRepository;
     private final PasswordEncoder passwordEncoder;
@@ -78,14 +78,12 @@ public class AuthService {
         User user = new User(
                 dto.getEmail(),
                 passwordEncoder.encode(dto.getPassword()),
-                dto.getNickname()
-        );
+                dto.getNickname());
         String avatarUrl = characterService.getFixedCharacterImageUrl(dto.getFixedCharacterId());
         user.changeAvatar(avatarUrl);
         userRepository.save(user);
         log.info("[회원 가입] 완료 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
     }
-
 
     public void validateLoginPassword(String requestPassword, String storedPassword, String email) {
         if (!passwordEncoder.matches(requestPassword, storedPassword)) {
@@ -95,11 +93,10 @@ public class AuthService {
         log.info("[비밀번호 검증 성공] 비밀번호가 일치합니다.");
     }
 
-
     /**
      * 로그인 요청을 처리하고, 액세스 토큰 및 리프레시 토큰을 발급하는 메서드
      *
-     * @param dto 로그인 요청 정보 (이메일, 비밀번호 등)
+     * @param dto      로그인 요청 정보 (이메일, 비밀번호 등)
      * @param deviceId 로그인 요청을 보낸 디바이스 식별자
      * @return 발급된 JWT 액세스 토큰과 리프레시 토큰
      */
@@ -176,8 +173,6 @@ public class AuthService {
                 .build();
     }
 
-
-
     public UserInfo getUserInfoByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
@@ -186,11 +181,8 @@ public class AuthService {
                 String.valueOf(user.getId()),
                 user.getEmail(),
                 user.getNickname(),
-                user.getAvatar()
-        );
+                user.getAvatar());
     }
-
-
 
     /**
      * 회원가입을 위한 인증 이메일을 발송합니다.
@@ -237,7 +229,7 @@ public class AuthService {
         try {
             code = emailService.sendVerificationEmail(email);
             log.info("비밀번호 재설정을 위한 인증 이메일을 발송합니다. email= {}", email);
-        }  catch (MessagingException | UnsupportedEncodingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
         }
         saveVerificationCode(email, code, VerificationType.PASSWORD_RESET);
@@ -273,7 +265,7 @@ public class AuthService {
      * 요청된 이메일, 코드, 목적(type)에 해당하는 인증 정보가 유효한지 확인합니다.
      * 성공 시 해당 인증 정보는 DB에서 삭제되며, 실패 시 각 상황에 맞는 예외를 발생시킵니다.
      *
-     * @param dto  사용자가 입력한 이메일과 인증 코드를 담은 DTO
+     * @param dto 사용자가 입력한 이메일과 인증 코드를 담은 DTO
      * @throws AuthException 인증 요청이 존재하지 않거나, 코드가 만료되거나, 코드가 일치하지 않을 경우 발생
      */
     @Transactional
@@ -330,12 +322,11 @@ public class AuthService {
 
     }
 
-
     /**
      * 유효한 이메일 인증 정보를 조회하고 검증하는 메서드
      *
      * @param email 사용자 이메일
-     * @param type 인증 종류 (예: 회원가입, 비밀번호 찾기 등)
+     * @param type  인증 종류 (예: 회원가입, 비밀번호 찾기 등)
      * @return 유효성이 검증된 VerifiedEmail 객체
      * @throws AuthException 인증 기록이 없거나, 만료되었거나, 이미 사용된 경우 발생
      */
