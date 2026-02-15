@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
-@Profile("dev")
+@Profile("!prod")
 @Slf4j
 @RequiredArgsConstructor
 public class LocalFcmService implements NotificationProvider {
