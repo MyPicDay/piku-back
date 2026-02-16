@@ -9,7 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import store.piku.back.auth.constants.AuthConstants;
-import store.piku.back.global.config.CustomUserDetailService;
+import store.piku.back.security.config.CustomUserDetailService;
 import store.piku.back.global.config.CustomUserDetails;
 
 import java.security.Key;
