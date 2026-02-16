@@ -1,9 +1,9 @@
 package store.piku.back.security.application.port.in;
 
 import org.springframework.http.ResponseCookie;
-import store.piku.back.auth.dto.TokenDto;
-import store.piku.back.auth.dto.UserInfo;
-import store.piku.back.auth.dto.request.LoginRequest;
+import store.piku.back.security.dto.TokenDto;
+import store.piku.back.security.dto.UserInfo;
+import store.piku.back.security.dto.request.LoginRequest;
 
 public interface LoginUseCase {
 
