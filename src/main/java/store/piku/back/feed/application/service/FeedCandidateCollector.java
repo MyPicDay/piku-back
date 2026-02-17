@@ -1,4 +1,4 @@
-package store.piku.back.recommendation._legacy;
+package store.piku.back.feed.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -6,27 +6,26 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.diary.domain.vo.DiaryVisibility;
-import store.piku.back.diary.adapter.out.persistence.DiaryJpaRepository;
-import store.piku.back.diary.repository.FeedClickRepository;
+import store.piku.back.feed.application.port.out.LoadDiaryForFeedPort;
+import store.piku.back.feed.application.port.out.LoadFeedClickPort;
+import store.piku.back.feed.application.port.out.LoadSocialForFeedPort;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.social.application.port.in.FriendUseCase;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 피드 후보 수집을 담당하는 서비스
  * 책임: 친구/공개 피드 조회, 읽음 상태 기반 우선순위 정렬, 본인 일기 제외
- *
- * Phase 9에서 Feed Context로 이동 예정
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class FeedCandidateCollector {
 
-	private final DiaryJpaRepository diaryJpaRepository;
-	private final FeedClickRepository feedClickRepository;
-	private final FriendUseCase friendUseCase;
+	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
+	private final LoadFeedClickPort loadFeedClickPort;
+	private final LoadSocialForFeedPort loadSocialForFeedPort;
 
 	/**
 	 * 피드 후보를 우선순위에 따라 수집
@@ -49,19 +48,19 @@ public class FeedCandidateCollector {
 		if (userId == null) {
 			return Collections.emptySet();
 		}
-		return new HashSet<>(feedClickRepository.findClickedDiaryIdsByUserId(userId));
+		return new HashSet<>(loadFeedClickPort.findClickedDiaryIdsByUserId(userId));
 	}
 
 	private List<Diary> getFriendFeeds(String userId, Pageable pageable, RequestMetaInfo requestMetaInfo) {
 		if (userId == null) {
 			return Collections.emptyList();
 		}
-		List<String> friendIds = friendUseCase.findFriendIdList(pageable, userId, requestMetaInfo);
-		return diaryJpaRepository.findByStatusAndUserIdIn(DiaryVisibility.FRIENDS, friendIds);
+		List<String> friendIds = loadSocialForFeedPort.getFriendIds(pageable, userId, requestMetaInfo);
+		return loadDiaryForFeedPort.findByStatusAndUserIdIn(DiaryVisibility.FRIENDS, friendIds);
 	}
 
 	private List<Diary> getPublicFeeds() {
-		return diaryJpaRepository.findByStatusOrderByCreatedAtDesc(DiaryVisibility.PUBLIC);
+		return loadDiaryForFeedPort.findByStatusOrderByCreatedAtDesc(DiaryVisibility.PUBLIC);
 	}
 
 	private List<Diary> combineFeedsByPriority(String userId, List<Diary> friendFeeds,
@@ -85,10 +84,6 @@ public class FeedCandidateCollector {
 		return combined;
 	}
 
-	/**
-	 * 피드를 필터링하여 추가하는 헬퍼 메서드
-	 * 중복 코드 제거를 위해 추출됨
-	 */
 	private void addFilteredFeeds(List<Diary> target, Set<Long> addedIds, List<Diary> source,
 			String userId, Set<Long> clickedFeedIds, boolean includeClicked) {
 		source.stream()

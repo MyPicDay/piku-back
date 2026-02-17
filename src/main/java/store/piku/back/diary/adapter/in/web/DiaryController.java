@@ -15,12 +15,7 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.core.io.Resource;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -30,12 +25,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import store.piku.back.diary.adapter.in.web.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.adapter.in.web.dto.DiaryDTO;
-import store.piku.back.diary.adapter.in.web.dto.ResponseDTO;
 import store.piku.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
 import store.piku.back.diary.application.port.in.CreateDiaryUseCase;
 import store.piku.back.diary.application.port.in.GetCalendarUseCase;
-import store.piku.back.diary.application.service.DiaryQueryService;
-import store.piku.back.diary.service.FeedService;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
@@ -52,10 +44,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class DiaryController {
 
-	private final FeedService feedService;
 	private final CreateDiaryUseCase createDiaryUseCase;
 	private final GetCalendarUseCase getCalendarUseCase;
-	private final DiaryQueryService diaryQueryService;
 	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
 	private final Validator validator;
@@ -90,27 +80,6 @@ public class DiaryController {
 			log.error("IOException 발생: {}", e.getMessage());
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
 		}
-	}
-
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "일기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ResponseDTO.class))),
-			@ApiResponse(responseCode = "401", description = "인증 실패", content = @Content),
-			@ApiResponse(responseCode = "404", description = "대표 사진을 찾을 수 없음", content = @Content),
-			@ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
-	})
-	@Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
-	@GetMapping("/{diaryId}")
-	public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId, HttpServletRequest request,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-		log.info("Diary 조회 요청 - diaryId: {}", diaryId);
-
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		ResponseDTO response = feedService.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
-		if (userId != null) {
-			feedService.logClick(userId, diaryId);
-		}
-		return ResponseEntity.ok(response);
 	}
 
 	@Operation(summary = "일기 이미지 조회", description = "일기에 첨부된 이미지를 조회합니다.")
@@ -158,29 +127,5 @@ public class DiaryController {
 						.noCache()
 						.mustRevalidate())
 				.body(diaries);
-	}
-
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class))) })
-	@Operation(summary = "일기 전체 조회", description = """
-			    프론트에서 페이지수, 정렬방법, 페이지 크기 보내줄 수 있습니다.
-			    - page: 0 이상 정수
-			    - size: 1~100 사이 정수
-			    - sort: "createdAt", "userId", "date" 중 하나
-			""")
-	@GetMapping
-	public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
-			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-			HttpServletRequest request,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-
-		List<String> allowed = List.of("createdAt", "userId", "date");
-		Pageable safePageable = diaryQueryService.sanitizePageable(pageable, allowed);
-
-		log.info("safePageable: {}", safePageable);
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		Page<ResponseDTO> page = feedService.getAllDiaries(safePageable, requestMetaInfo, userId);
-		return ResponseEntity.ok(page);
 	}
 }

@@ -1,9 +1,9 @@
-package store.piku.back.recommendation._legacy;
+package store.piku.back.feed.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import store.piku.back.recommendation.application.port.in.GetRecommendationUseCase;
+import store.piku.back.feed.application.port.out.LoadRecommendationForFeedPort;
 import store.piku.back.recommendation.domain.ScoredDiary;
 
 import java.util.*;
@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeedCompositionService {
 
-	private final GetRecommendationUseCase getRecommendationUseCase;
+	private final LoadRecommendationForFeedPort loadRecommendationForFeedPort;
 
 	private static final double FIXED_SLOT_RATIO = 0.3;
 
@@ -28,7 +28,7 @@ public class FeedCompositionService {
 			return Collections.emptyList();
 		}
 
-		List<ScoredDiary> scoredDiaries = getRecommendationUseCase.getRecommendedDiaries(
+		List<ScoredDiary> scoredDiaries = loadRecommendationForFeedPort.getRecommendedDiaries(
 				userId, allCandidates, friendDiaryIds);
 
 		int fixedSlotCount = (int) Math.ceil(friendDiaryIds.size() * FIXED_SLOT_RATIO);
