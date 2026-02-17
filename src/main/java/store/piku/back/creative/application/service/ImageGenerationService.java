@@ -9,7 +9,7 @@ import store.piku.back.creative.application.port.out.AiImageGeneratorPort;
 import store.piku.back.creative.application.port.out.SaveGenerationPort;
 import store.piku.back.creative.domain.DiaryImageGeneration;
 import store.piku.back.creative.domain.exception.ImageGenerationException;
-import store.piku.back.diary.service.PhotoStorageService;
+import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.user.domain.User;
@@ -28,7 +28,7 @@ public class ImageGenerationService implements GenerateImageUseCase {
 	private final SaveGenerationPort saveGenerationPort;
 	private final FileUtil fileUtil;
 	private final UserReader userReader;
-	private final PhotoStorageService photoStorage;
+	private final MinioPhotoStorageAdapter photoStorage;
 
 	@Override
 	@Transactional

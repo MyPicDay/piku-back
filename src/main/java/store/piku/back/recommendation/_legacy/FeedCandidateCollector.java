@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.enums.Status;
-import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.domain.Diary;
+import store.piku.back.diary.domain.vo.DiaryVisibility;
+import store.piku.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import store.piku.back.diary.repository.FeedClickRepository;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.social.application.port.in.FriendUseCase;
@@ -24,7 +24,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class FeedCandidateCollector {
 
-	private final DiaryRepository diaryRepository;
+	private final DiaryJpaRepository diaryJpaRepository;
 	private final FeedClickRepository feedClickRepository;
 	private final FriendUseCase friendUseCase;
 
@@ -57,11 +57,11 @@ public class FeedCandidateCollector {
 			return Collections.emptyList();
 		}
 		List<String> friendIds = friendUseCase.findFriendIdList(pageable, userId, requestMetaInfo);
-		return diaryRepository.findByStatusAndUserIdIn(Status.FRIENDS, friendIds);
+		return diaryJpaRepository.findByStatusAndUserIdIn(DiaryVisibility.FRIENDS, friendIds);
 	}
 
 	private List<Diary> getPublicFeeds() {
-		return diaryRepository.findByStatusOrderByCreatedAtDesc(Status.PUBLIC);
+		return diaryJpaRepository.findByStatusOrderByCreatedAtDesc(DiaryVisibility.PUBLIC);
 	}
 
 	private List<Diary> combineFeedsByPriority(String userId, List<Diary> friendFeeds,
@@ -102,6 +102,6 @@ public class FeedCandidateCollector {
 	}
 
 	private boolean isOwnDiary(Diary diary, String userId) {
-		return userId != null && diary.getUser().getId().equals(userId);
+		return userId != null && diary.getUserId().equals(userId);
 	}
 }

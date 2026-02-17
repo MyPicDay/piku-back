@@ -9,13 +9,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import store.piku.back.social.application.port.in.CommentUseCase;
-import store.piku.back.diary.dto.ResponseDTO;
-import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.entity.Photo;
-import store.piku.back.diary.enums.Status;
-import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.adapter.in.web.dto.ResponseDTO;
+import store.piku.back.diary.domain.Diary;
+import store.piku.back.diary.domain.Photo;
+import store.piku.back.diary.domain.vo.DiaryVisibility;
+import store.piku.back.diary.application.port.out.LoadUserForDiaryPort;
+import store.piku.back.diary.application.service.DiaryQueryService;
+import store.piku.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import store.piku.back.diary.repository.FeedClickRepository;
-import store.piku.back.diary.repository.PhotoRepository;
+import store.piku.back.diary.adapter.out.persistence.PhotoJpaRepository;
 import store.piku.back.social.application.port.in.FriendUseCase;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
@@ -25,7 +27,6 @@ import store.piku.back.recommendation._legacy.FeedCompositionService;
 import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import store.piku.back.recommendation.application.port.in.CacheFeedUseCase;
 import store.piku.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
-import store.piku.back.user.domain.User;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -43,13 +44,13 @@ class FeedServiceTest {
 	private FeedService feedService;
 
 	@Mock
-	private DiaryService diaryService;
+	private DiaryQueryService diaryQueryService;
 	@Mock
 	private CommentUseCase commentUseCase;
 	@Mock
-	private PhotoRepository photoRepository;
+	private PhotoJpaRepository photoJpaRepository;
 	@Mock
-	private DiaryRepository diaryRepository;
+	private DiaryJpaRepository diaryJpaRepository;
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 	@Mock
@@ -68,8 +69,9 @@ class FeedServiceTest {
 	private ManageUserPreferenceUseCase manageUserPreferenceUseCase;
 	@Mock
 	private AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
+	@Mock
+	private LoadUserForDiaryPort loadUserForDiaryPort;
 
-	private User owner;
 	private Diary publicDiary;
 	private Diary friendsDiary;
 	private Diary privateDiary;
@@ -78,11 +80,9 @@ class FeedServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		owner = new User("owner-id", "owner@test.com", "password", "owner", "avatar.jpg");
-
-		publicDiary = new Diary("공개 일기 내용", Status.PUBLIC, LocalDate.now(), owner);
-		friendsDiary = new Diary("친구 공개 일기", Status.FRIENDS, LocalDate.now(), owner);
-		privateDiary = new Diary("비공개 일기", Status.PRIVATE, LocalDate.now(), owner);
+		publicDiary = new Diary("공개 일기 내용", DiaryVisibility.PUBLIC, LocalDate.now(), "owner-id");
+		friendsDiary = new Diary("친구 공개 일기", DiaryVisibility.FRIENDS, LocalDate.now(), "owner-id");
+		privateDiary = new Diary("비공개 일기", DiaryVisibility.PRIVATE, LocalDate.now(), "owner-id");
 
 		photo = new Photo();
 		requestMetaInfo = new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
@@ -96,11 +96,13 @@ class FeedServiceTest {
 		@Test
 		@DisplayName("공개 일기는 누구나 전체 내용을 조회할 수 있다")
 		void publicDiaryAccessibleByAnyone() {
-			given(diaryService.getDiaryById(1L)).willReturn(publicDiary);
-			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
-			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
+			given(diaryQueryService.getDiaryById(1L)).willReturn(publicDiary);
+			given(photoJpaRepository.findByDiaryId(any())).willReturn(List.of(photo));
+			given(diaryQueryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
 			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
+			given(loadUserForDiaryPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForDiaryPort.getUserNickname(anyString())).willReturn("owner");
 			given(likeUseCase.getLikeCount(any())).willReturn(10L);
 			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
 			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(5L);
@@ -115,11 +117,13 @@ class FeedServiceTest {
 		@Test
 		@DisplayName("비공개 일기는 본인만 전체 내용을 조회할 수 있다")
 		void privateDiaryAccessibleByOwner() {
-			given(diaryService.getDiaryById(1L)).willReturn(privateDiary);
-			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
-			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg"));
+			given(diaryQueryService.getDiaryById(1L)).willReturn(privateDiary);
+			given(photoJpaRepository.findByDiaryId(any())).willReturn(List.of(photo));
+			given(diaryQueryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg"));
 			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
+			given(loadUserForDiaryPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForDiaryPort.getUserNickname(anyString())).willReturn("owner");
 			given(likeUseCase.getLikeCount(any())).willReturn(0L);
 			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
 			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(0L);
@@ -132,11 +136,13 @@ class FeedServiceTest {
 		@Test
 		@DisplayName("비공개 일기는 타인에게 대표 사진만 보인다")
 		void privateDiaryShowsOnlyThumbnailToOthers() {
-			given(diaryService.getDiaryById(1L)).willReturn(privateDiary);
-			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
-			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
+			given(diaryQueryService.getDiaryById(1L)).willReturn(privateDiary);
+			given(photoJpaRepository.findByDiaryId(any())).willReturn(List.of(photo));
+			given(diaryQueryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
 			given(friendUseCase.areFriends(anyString(), anyString())).willReturn(false);
+			given(loadUserForDiaryPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForDiaryPort.getUserNickname(anyString())).willReturn("owner");
 			given(likeUseCase.getLikeCount(any())).willReturn(0L);
 			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(false);
 			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(0L);
@@ -150,11 +156,13 @@ class FeedServiceTest {
 		@Test
 		@DisplayName("친구 공개 일기는 친구에게 전체 내용이 보인다")
 		void friendsDiaryAccessibleByFriend() {
-			given(diaryService.getDiaryById(1L)).willReturn(friendsDiary);
-			given(photoRepository.findByDiaryId(any())).willReturn(List.of(photo));
-			given(diaryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
+			given(diaryQueryService.getDiaryById(1L)).willReturn(friendsDiary);
+			given(photoJpaRepository.findByDiaryId(any())).willReturn(List.of(photo));
+			given(diaryQueryService.sortPhotos(anyList(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
 			given(friendUseCase.areFriends("owner-id", "friend-id")).willReturn(true);
+			given(loadUserForDiaryPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForDiaryPort.getUserNickname(anyString())).willReturn("owner");
 			given(likeUseCase.getLikeCount(any())).willReturn(5L);
 			given(likeUseCase.isLikedByUser(anyString(), any())).willReturn(true);
 			given(commentUseCase.countAllCommentsByDiaryId(any())).willReturn(3L);

@@ -7,10 +7,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.entity.Photo;
-import store.piku.back.diary.repository.PhotoRepository;
-import store.piku.back.diary.service.PhotoStorageService;
+import store.piku.back.diary.domain.Diary;
+import store.piku.back.diary.domain.Photo;
+import store.piku.back.diary.adapter.out.persistence.PhotoJpaRepository;
+import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.ImagePathToUrlConverter;
 import store.piku.back.notification.dto.response.NotificationResponseDTO;
@@ -37,10 +37,10 @@ public class NotificationService {
     private final EmitterRepository emitterRepository;
     private final NotificationRepository notificationRepository;
     private final UserReader userReader;
-    private final PhotoRepository photoRepository;
+    private final PhotoJpaRepository photoJpaRepository;
     private final ImagePathToUrlConverter imagePathToUrlConverter;
     private final NotificationProvider notificationProvider;
-    private final PhotoStorageService photoStorageService;
+    private final MinioPhotoStorageAdapter minioPhotoStorageAdapter;
 
     public SseEmitter subscribe(String userId) {
 
@@ -137,10 +137,10 @@ public class NotificationService {
         String thumbnailUrl = null;
         if (diary != null) {
             // 일기 대표 사진은 public URL로 제공 -> 쿼리 변경 시 주의
-            Optional<Photo> representPhotoOpt = photoRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId());
+            Optional<Photo> representPhotoOpt = photoJpaRepository.findFirstByDiaryIdAndRepresentIsTrue(diary.getId());
             thumbnailUrl = representPhotoOpt
                     .map(Photo::getUrl)
-                    .map(url -> photoStorageService.getPhotoUrl(url, true))
+                    .map(url -> minioPhotoStorageAdapter.getPhotoUrl(url, true))
                     .orElse(null);
         }
 
@@ -223,14 +223,14 @@ public class NotificationService {
                 Diary diary = n.getRelatedDiary();
                 diaryDate = diary.getDate();
                 relatedDiaryId = diary.getId();
-                diaryUserId = diary.getUser().getId();
+                diaryUserId = diary.getUserId();
 
                 // 일기 대표 사진은 public URL로 제공 -> 쿼리 변경 시 주의
-                Optional<Photo> representPhotoOpt = photoRepository
+                Optional<Photo> representPhotoOpt = photoJpaRepository
                         .findFirstByDiaryIdAndRepresentIsTrue(relatedDiaryId);
                 thumbnailUrl = representPhotoOpt
                         .map(Photo::getUrl)
-                        .map(url -> photoStorageService.getPhotoUrl(url, true))
+                        .map(url -> minioPhotoStorageAdapter.getPhotoUrl(url, true))
                         .orElse(null);
             }
 

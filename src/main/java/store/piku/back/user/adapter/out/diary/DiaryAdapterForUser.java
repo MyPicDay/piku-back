@@ -2,8 +2,8 @@ package store.piku.back.user.adapter.out.diary;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import store.piku.back.diary.dto.DiaryMonthCountDTO;
-import store.piku.back.diary.service.DiaryService;
+import store.piku.back.diary.application.dto.DiaryMonthCountDTO;
+import store.piku.back.diary.application.service.DiaryQueryService;
 import store.piku.back.user.application.port.out.UserDiaryPort;
 
 import java.util.List;
@@ -16,16 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DiaryAdapterForUser implements UserDiaryPort {
 
-	private final DiaryService diaryService;
+	private final DiaryQueryService diaryQueryService;
 
 	@Override
 	public long countDiariesByUserId(String userId) {
-		return diaryService.countDiariesByUserId(userId);
+		return diaryQueryService.countDiariesByUserId(userId);
 	}
 
 	@Override
 	public List<MonthlyDiaryCount> getMonthlyDiaryCount(String userId) {
-		List<DiaryMonthCountDTO> dtoList = diaryService.getMonthlyDiaryCount(userId);
+		List<DiaryMonthCountDTO> dtoList = diaryQueryService.getMonthlyDiaryCount(userId);
 		return dtoList.stream()
 				.map(dto -> new MonthlyDiaryCount(dto.getYear(), dto.getMonth(), dto.getCount()))
 				.toList();

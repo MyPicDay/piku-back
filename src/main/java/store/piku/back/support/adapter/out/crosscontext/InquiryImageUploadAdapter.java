@@ -3,8 +3,8 @@ package store.piku.back.support.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.diary.service.PhotoStorageService;
-import store.piku.back.diary.service.PhotoUtil;
+import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
+import store.piku.back.diary.adapter.out.storage.PhotoUtil;
 import store.piku.back.support.application.port.out.UploadInquiryImagePort;
 
 import java.time.LocalDate;
@@ -14,7 +14,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class InquiryImageUploadAdapter implements UploadInquiryImagePort {
 
-	private final PhotoStorageService photoStorageService;
+	private final MinioPhotoStorageAdapter minioPhotoStorageAdapter;
 	private final PhotoUtil photoUtil;
 
 	@Override
@@ -24,6 +24,6 @@ public class InquiryImageUploadAdapter implements UploadInquiryImagePort {
 		String uuid = userId.substring(0, 8);
 		String objectKey = "inquiry/" + LocalDate.now() + "/" + uuid + "_" + filename;
 
-		return photoStorageService.uploadToStorage(image, userId, objectKey);
+		return minioPhotoStorageAdapter.uploadToStorage(image, userId, objectKey);
 	}
 }

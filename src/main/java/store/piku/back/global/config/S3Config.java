@@ -7,7 +7,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import store.piku.back.diary.service.StorageProperties;
+import store.piku.back.diary.adapter.out.storage.StorageProperties;
 
 import java.net.URI;
 
@@ -23,7 +23,7 @@ public class S3Config {
     @Bean(name = "s3Client")
     public S3Client s3Client() {
         String storageType = storageProperties.getType();
-        
+
         if ("s3".equalsIgnoreCase(storageType)) {
             return createS3Client();
         } else {
@@ -52,15 +52,11 @@ public class S3Config {
                         StaticCredentialsProvider.create(
                                 AwsBasicCredentials.create(
                                         storageProperties.getAccessKey(),
-                                        storageProperties.getSecretKey()
-                                )
-                        )
-                )
+                                        storageProperties.getSecretKey())))
                 .serviceConfiguration(
                         S3Configuration.builder()
                                 .pathStyleAccessEnabled(true) // 주소 기반 접근 설정
-                                .build()
-                )
+                                .build())
                 .build();
     }
 }

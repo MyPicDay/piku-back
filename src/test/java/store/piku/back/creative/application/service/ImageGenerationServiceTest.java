@@ -12,7 +12,7 @@ import store.piku.back.creative.application.port.out.AiImageGeneratorPort;
 import store.piku.back.creative.application.port.out.SaveGenerationPort;
 import store.piku.back.creative.domain.DiaryImageGeneration;
 import store.piku.back.creative.domain.exception.ImageGenerationException;
-import store.piku.back.diary.service.PhotoStorageService;
+import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.user.domain.User;
@@ -42,7 +42,7 @@ class ImageGenerationServiceTest {
 	private UserReader userReader;
 
 	@Mock
-	private PhotoStorageService photoStorage;
+	private MinioPhotoStorageAdapter photoStorage;
 
 	@Nested
 	@DisplayName("generateDiaryImage")

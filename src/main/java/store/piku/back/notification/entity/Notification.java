@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import store.piku.back.diary.entity.Diary;
+import store.piku.back.diary.domain.Diary;
 import store.piku.back.global.entity.BaseEntity;
 import store.piku.back.user.domain.User;
 

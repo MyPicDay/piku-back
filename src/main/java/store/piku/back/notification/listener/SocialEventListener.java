@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import store.piku.back.diary.entity.Diary;
-import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.domain.Diary;
+import store.piku.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import store.piku.back.notification.entity.NotificationType;
 import store.piku.back.notification.service.NotificationService;
 import store.piku.back.social.domain.event.SocialEvent;
@@ -23,14 +23,14 @@ import store.piku.back.social.domain.event.SocialEvent;
 public class SocialEventListener {
 
 	private final NotificationService notificationService;
-	private final DiaryRepository diaryRepository;
+	private final DiaryJpaRepository diaryJpaRepository;
 
 	@EventListener
 	public void handleCommentCreated(SocialEvent.CommentCreatedEvent event) {
 		log.info("[SocialEventListener] 댓글 생성 이벤트 수신 - receiverId: {}, senderId: {}, diaryId: {}",
 				event.getReceiverId(), event.getSenderId(), event.getDiaryId());
 
-		Diary diary = diaryRepository.findById(event.getDiaryId()).orElse(null);
+		Diary diary = diaryJpaRepository.findById(event.getDiaryId()).orElse(null);
 		NotificationType type = event.isReply() ? NotificationType.REPLY : NotificationType.COMMENT;
 
 		notificationService.sendNotification(
@@ -46,7 +46,7 @@ public class SocialEventListener {
 		log.info("[SocialEventListener] 좋아요 이벤트 수신 - receiverId: {}, senderId: {}, diaryId: {}",
 				event.getReceiverId(), event.getSenderId(), event.getDiaryId());
 
-		Diary diary = diaryRepository.findById(event.getDiaryId()).orElse(null);
+		Diary diary = diaryJpaRepository.findById(event.getDiaryId()).orElse(null);
 
 		notificationService.sendNotification(
 				event.getReceiverId(),

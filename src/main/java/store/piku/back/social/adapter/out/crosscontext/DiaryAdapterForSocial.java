@@ -2,7 +2,7 @@ package store.piku.back.social.adapter.out.crosscontext;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import store.piku.back.diary.repository.DiaryRepository;
+import store.piku.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import store.piku.back.social.application.port.out.LoadDiaryInfoPort;
 
 import java.util.Optional;
@@ -15,16 +15,16 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DiaryAdapterForSocial implements LoadDiaryInfoPort {
 
-	private final DiaryRepository diaryRepository;
+	private final DiaryJpaRepository diaryJpaRepository;
 
 	@Override
 	public boolean existsById(Long diaryId) {
-		return diaryRepository.existsById(diaryId);
+		return diaryJpaRepository.existsById(diaryId);
 	}
 
 	@Override
 	public Optional<String> findOwnerUserIdByDiaryId(Long diaryId) {
-		return diaryRepository.findById(diaryId)
-				.map(diary -> diary.getUser().getId());
+		return diaryJpaRepository.findById(diaryId)
+				.map(diary -> diary.getUserId());
 	}
 }
