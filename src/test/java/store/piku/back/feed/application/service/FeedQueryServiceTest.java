@@ -14,7 +14,6 @@ import store.piku.back.diary.domain.vo.DiaryVisibility;
 import store.piku.back.feed.application.port.out.*;
 import store.piku.back.feed.domain.FeedClick;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.social.domain.friend.vo.FriendStatus;
 
 import java.time.LocalDate;
 import java.util.List;

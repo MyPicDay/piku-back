@@ -8,7 +8,6 @@ import store.piku.back.diary.application.service.DiaryQueryService;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.diary.domain.Photo;
 import store.piku.back.diary.domain.vo.DiaryVisibility;
-import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.feed.application.port.out.LoadDiaryForFeedPort;
 import store.piku.back.global.dto.RequestMetaInfo;
 

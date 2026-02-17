@@ -12,7 +12,6 @@ import store.piku.back.feed.application.port.out.LoadSocialForFeedPort;
 import store.piku.back.global.dto.RequestMetaInfo;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 피드 후보 수집을 담당하는 서비스
