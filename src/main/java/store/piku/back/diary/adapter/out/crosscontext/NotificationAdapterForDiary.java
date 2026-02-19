@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 import store.piku.back.diary.application.port.out.SendDiaryNotificationPort;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.global.dto.RequestMetaInfo;
-import store.piku.back.notification.entity.NotificationType;
-import store.piku.back.notification.service.NotificationService;
+import store.piku.back.notification.application.port.in.NotificationUseCase;
+import store.piku.back.notification.domain.vo.NotificationType;
 
 import java.util.List;
 
@@ -14,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationAdapterForDiary implements SendDiaryNotificationPort {
 
-	private final NotificationService notificationService;
+	private final NotificationUseCase notificationUseCase;
 
 	@Override
 	public void notifyFriendsOfNewDiary(List<String> friendIds, String authorUserId,
@@ -23,11 +23,11 @@ public class NotificationAdapterForDiary implements SendDiaryNotificationPort {
 			if (friendId.equals(authorUserId))
 				continue;
 
-			notificationService.sendNotification(
+			notificationUseCase.sendNotification(
 					friendId,
 					NotificationType.FRIEND_DIARY,
 					authorUserId,
-					diary,
+					diary.getId(),
 					requestMetaInfo);
 		}
 	}
