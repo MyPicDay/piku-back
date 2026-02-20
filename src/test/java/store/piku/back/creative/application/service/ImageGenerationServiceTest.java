@@ -15,8 +15,9 @@ import store.piku.back.creative.domain.exception.ImageGenerationException;
 import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.user.application.port.out.LoadUserPort;
 import store.piku.back.user.domain.User;
-import store.piku.back.user._legacy.UserReader;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -39,7 +40,7 @@ class ImageGenerationServiceTest {
 	private FileUtil fileUtil;
 
 	@Mock
-	private UserReader userReader;
+	private LoadUserPort loadUserPort;
 
 	@Mock
 	private MinioPhotoStorageAdapter photoStorage;
@@ -57,7 +58,7 @@ class ImageGenerationServiceTest {
 
 			User user = mock(User.class);
 			given(user.getAvatar()).willReturn("avatar_path");
-			given(userReader.getUserById(userId)).willReturn(user);
+			given(loadUserPort.findById(userId)).willReturn(Optional.of(user));
 
 			given(fileUtil.getImageAsBase64("avatar_path")).willReturn("base64_avatar");
 
@@ -85,7 +86,7 @@ class ImageGenerationServiceTest {
 			String userId = "user-1";
 			User user = mock(User.class);
 			given(user.getAvatar()).willReturn("invalid_path");
-			given(userReader.getUserById(userId)).willReturn(user);
+			given(loadUserPort.findById(userId)).willReturn(Optional.of(user));
 			given(fileUtil.getImageAsBase64("invalid_path")).willReturn(null);
 
 			assertThatThrownBy(

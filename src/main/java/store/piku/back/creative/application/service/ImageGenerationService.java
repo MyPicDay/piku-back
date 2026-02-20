@@ -12,8 +12,10 @@ import store.piku.back.creative.domain.exception.ImageGenerationException;
 import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
+import store.piku.back.user.application.port.out.LoadUserPort;
 import store.piku.back.user.domain.User;
-import store.piku.back.user._legacy.UserReader;
+import store.piku.back.global.exception.BusinessException;
+import store.piku.back.global.error.ErrorCode;
 
 /**
  * AI 이미지 생성 Application Service
@@ -27,7 +29,7 @@ public class ImageGenerationService implements GenerateImageUseCase {
 	private final AiImageGeneratorPort aiImageGeneratorPort;
 	private final SaveGenerationPort saveGenerationPort;
 	private final FileUtil fileUtil;
-	private final UserReader userReader;
+	private final LoadUserPort loadUserPort;
 	private final MinioPhotoStorageAdapter photoStorage;
 
 	@Override
@@ -35,7 +37,8 @@ public class ImageGenerationService implements GenerateImageUseCase {
 	public DiaryImageGeneration generateDiaryImage(String content, String userId, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자 ID '{}' 일기 이미지 생성 요청", userId);
 
-		User user = userReader.getUserById(userId);
+		User user = loadUserPort.findById(userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 		String avatarPath = user.getAvatar();
 
 		String characterImageBase64 = fileUtil.getImageAsBase64(avatarPath);
