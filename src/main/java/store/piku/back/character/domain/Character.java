@@ -22,7 +22,7 @@ public class Character extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", length = 36)
 	private String userId;
 
 	private String imageUrl;

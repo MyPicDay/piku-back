@@ -21,7 +21,7 @@ public class Notification extends BaseEntity {
 	@Column(nullable = false)
 	private String receiverId;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", length = 36)
 	private String senderId;
 
 	@Enumerated(EnumType.STRING)

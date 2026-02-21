@@ -26,7 +26,7 @@ public class Diary extends BaseEntity {
 
 	private LocalDate date;
 
-	@Column(name = "user_id")
+	@Column(name = "user_id", length = 36)
 	private String userId;
 
 	public Diary(String content, DiaryVisibility status, LocalDate date, String userId) {

@@ -1,236 +1,253 @@
 -- =====================================================
 -- V1: Baseline Schema
--- 현재 prod DB 스키마의 기준점 (Flyway baseline)
 -- Flyway baseline-on-migrate: true 설정으로
--- 기존 prod DB에는 실행되지 않고, 새 DB에서만 실행됩니다.
+-- 기존 DB에는 실행되지 않고, 새 DB에서만 실행됩니다.
+-- =====================================================
+
+-- =====================================================
+-- 1. 독립 테이블 (FK 의존성 없음)
 -- =====================================================
 
 -- Users
-CREATE TABLE IF NOT EXISTS users (
-  id VARCHAR(36) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  nickname VARCHAR(20) NOT NULL,
-  avatar VARCHAR(255),
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Verified Email
-CREATE TABLE IF NOT EXISTS verified_email (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  verified BOOLEAN NOT NULL DEFAULT FALSE,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Verification
-CREATE TABLE IF NOT EXISTS verification (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  email VARCHAR(255) NOT NULL,
-  code VARCHAR(255) NOT NULL,
-  type VARCHAR(20) NOT NULL,
-  expires_at DATETIME(6) NOT NULL,
-  verified BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE users (
+  id varchar(36) NOT NULL,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  avatar varchar(255) DEFAULT NULL,
+  email varchar(255) NOT NULL,
+  nickname varchar(255) NOT NULL,
+  password varchar(255) DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY UK6dotkott2kjsp8vw4d0m25fb7 (email),
+  UNIQUE KEY UK2ty1xmrrgtn89xt7kyxx6ta7h (nickname)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Allowed Email
-CREATE TABLE IF NOT EXISTS allowed_email (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  email VARCHAR(255) NOT NULL UNIQUE,
+CREATE TABLE allowed_email (
+  id bigint NOT NULL AUTO_INCREMENT,
+  domain varchar(255) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY UKntr751a2j1hauaw2vqndmcw1m (domain)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Verified Email
+CREATE TABLE verified_email (
+  id bigint NOT NULL AUTO_INCREMENT,
+  email varchar(255) NOT NULL,
+  type enum('PASSWORD_RESET','SIGN_UP') NOT NULL,
+  used bit(1) NOT NULL,
+  verified_at datetime(6) NOT NULL,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Verification
+CREATE TABLE verification (
+  id bigint NOT NULL AUTO_INCREMENT,
+  code varchar(255) NOT NULL,
+  email varchar(255) NOT NULL,
+  expires_at datetime(6) NOT NULL,
+  type enum('PASSWORD_RESET','SIGN_UP') NOT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Refresh Tokens
-CREATE TABLE IF NOT EXISTS refresh_tokens (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  token VARCHAR(512) NOT NULL,
-  expires_at DATETIME(6) NOT NULL,
-  revoked BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Characters
-CREATE TABLE IF NOT EXISTS characters (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  name VARCHAR(255),
-  description TEXT,
-  image_url VARCHAR(255),
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Diary
-CREATE TABLE IF NOT EXISTS diary (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  content TEXT,
-  status VARCHAR(20) NOT NULL,
-  date DATE NOT NULL,
-  ai_photo_url VARCHAR(255),
-  character_id BIGINT,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Photos
-CREATE TABLE IF NOT EXISTS photos (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  diary_id BIGINT,
-  url VARCHAR(255),
-  represent BOOLEAN,
-  photo_order INT,
-  PRIMARY KEY (id),
-  CONSTRAINT fk_photos_diary FOREIGN KEY (diary_id) REFERENCES diary(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE refresh_tokens (
+  refresh_key varchar(255) NOT NULL,
+  refresh_token varchar(255) DEFAULT NULL,
+  user_id varchar(255) DEFAULT NULL,
+  PRIMARY KEY (refresh_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Diary Image Generation
-CREATE TABLE IF NOT EXISTS diary_image_generation (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  diary_id BIGINT NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  prompt_text TEXT,
-  generated_image_url VARCHAR(255),
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
+CREATE TABLE diary_image_generation (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  diary_id bigint DEFAULT NULL,
+  file_path varchar(255) DEFAULT NULL,
+  prompt text NOT NULL,
+  user_id varchar(255) DEFAULT NULL,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Feed Click
-CREATE TABLE IF NOT EXISTS feed_click (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  diary_id BIGINT NOT NULL,
-  clicked_at DATETIME(6) NOT NULL,
-  view_duration_seconds INT,
+CREATE TABLE feed_click (
+  id bigint NOT NULL AUTO_INCREMENT,
+  diary_id bigint DEFAULT NULL,
+  user_id varchar(36) NOT NULL,
+  view_duration_seconds int DEFAULT NULL,
+  clicked_at datetime(6) DEFAULT NULL,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Comments
-CREATE TABLE IF NOT EXISTS comments (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  content TEXT,
-  user_id VARCHAR(36) NOT NULL,
-  diary_id BIGINT NOT NULL,
-  parent_id BIGINT,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id),
-  CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Likes
-CREATE TABLE IF NOT EXISTS likes (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  diary_id BIGINT NOT NULL,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_likes_user_diary (user_id, diary_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Friend
-CREATE TABLE IF NOT EXISTS friend (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  friend_id VARCHAR(36) NOT NULL,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE friend (
+  user_id_1 varchar(255) NOT NULL,
+  user_id_2 varchar(255) NOT NULL,
+  created_at varchar(255) DEFAULT NULL,
+  PRIMARY KEY (user_id_1,user_id_2)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Friend Request
-CREATE TABLE IF NOT EXISTS friend_request (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  sender_id VARCHAR(36) NOT NULL,
-  receiver_id VARCHAR(36) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE friend_request (
+  from_user_id varchar(255) NOT NULL,
+  to_user_id varchar(255) NOT NULL,
+  PRIMARY KEY (from_user_id,to_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Notification
-CREATE TABLE IF NOT EXISTS notification (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  receiver_id VARCHAR(255),
-  user_id VARCHAR(36),
-  type VARCHAR(30),
-  diary_id BIGINT,
-  is_read BOOLEAN DEFAULT FALSE,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Likes
+CREATE TABLE likes (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  diary_id bigint NOT NULL,
+  user_id varchar(36) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_user_diary (user_id,diary_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- FCM Token
-CREATE TABLE IF NOT EXISTS fcm (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  token VARCHAR(255) NOT NULL,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
+-- FCM
+CREATE TABLE fcm (
+  id bigint NOT NULL AUTO_INCREMENT,
+  device_id varchar(255) DEFAULT NULL,
+  token varchar(255) DEFAULT NULL,
+  user_id varchar(255) DEFAULT NULL,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Diary Metadata
+CREATE TABLE diary_metadata (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  analyzed_at datetime(6) DEFAULT NULL,
+  diary_id bigint NOT NULL,
+  primary_topic varchar(50) DEFAULT NULL,
+  quality_score double DEFAULT NULL,
+  topics text,
+  PRIMARY KEY (id),
+  UNIQUE KEY UKs2hfjq3khj3n0hs41fb92qw90 (diary_id),
+  KEY idx_diary_metadata_diary (diary_id),
+  KEY idx_diary_metadata_topic (primary_topic)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- User Preference
+CREATE TABLE user_preference (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  last_updated_at datetime(6) DEFAULT NULL,
+  topic_affinities text,
+  user_id varchar(36) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY UKs5oeayykfc7bpkpdwyrffwcqx (user_id),
+  KEY idx_user_preference_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =====================================================
+-- 2. Users 참조 테이블
+-- =====================================================
+
+-- Diary
+CREATE TABLE diary (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  content varchar(500) DEFAULT NULL,
+  date date DEFAULT NULL,
+  status enum('FRIENDS','PRIVATE','PUBLIC') DEFAULT NULL,
+  user_id varchar(36) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY FK74rd0bn5raxejw2ukenelbdmt (user_id),
+  CONSTRAINT FK74rd0bn5raxejw2ukenelbdmt FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Characters
+CREATE TABLE characters (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  image_url varchar(255) DEFAULT NULL,
+  type enum('AI_GENERATED','FIXED') DEFAULT NULL,
+  user_id varchar(36) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY FK27yx743bsnnsqplnjhk5yf224 (user_id),
+  CONSTRAINT FK27yx743bsnnsqplnjhk5yf224 FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Inquiry
-CREATE TABLE IF NOT EXISTS inquiry (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  content TEXT NOT NULL,
-  type VARCHAR(30) NOT NULL,
-  status VARCHAR(20) NOT NULL,
-  created_at DATETIME(6),
-  updated_at DATETIME(6),
-  deleted_at DATETIME(6),
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Diary Metadata (Recommendation)
-CREATE TABLE IF NOT EXISTS diary_metadata (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  diary_id BIGINT NOT NULL UNIQUE,
-  primary_topic VARCHAR(50),
-  mood VARCHAR(30),
-  keywords VARCHAR(500),
-  analyzed_at DATETIME(6),
+CREATE TABLE inquiry (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  content varchar(1000) NOT NULL,
+  image_url varchar(255) DEFAULT NULL,
+  user_id varchar(36) DEFAULT NULL,
   PRIMARY KEY (id),
-  INDEX idx_diary_metadata_diary_id (diary_id),
-  INDEX idx_diary_metadata_topic (primary_topic)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  KEY FKray80kmwpjpjb91ime7ogijjr (user_id),
+  CONSTRAINT FKray80kmwpjpjb91ime7ogijjr FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- User Preference (Recommendation)
-CREATE TABLE IF NOT EXISTS user_preference (
-  id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id VARCHAR(36) NOT NULL,
-  topic VARCHAR(50) NOT NULL,
-  score DOUBLE NOT NULL DEFAULT 0.0,
-  interaction_count INT NOT NULL DEFAULT 0,
-  last_interaction_at DATETIME(6),
+-- =====================================================
+-- 3. Diary + Users 참조 테이블
+-- =====================================================
+
+-- Photos (diary FK 유지: Photo 엔티티가 @ManyToOne 사용)
+CREATE TABLE photos (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  photo_order int DEFAULT NULL,
+  represent bit(1) DEFAULT NULL,
+  url varchar(255) DEFAULT NULL,
+  diary_id bigint DEFAULT NULL,
   PRIMARY KEY (id),
-  INDEX idx_user_preference_user_id (user_id),
-  UNIQUE KEY uk_user_preference (user_id, topic)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  KEY FKfubwq82xm313a946bcxee24ip (diary_id),
+  CONSTRAINT FKfubwq82xm313a946bcxee24ip FOREIGN KEY (diary_id) REFERENCES diary (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Notification
+CREATE TABLE notification (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  is_read bit(1) DEFAULT NULL,
+  receiver_id varchar(255) DEFAULT NULL,
+  type enum('COMMENT','FRIEND_ACCEPT','FRIEND_DIARY','FRIEND_REQUEST','REPLY') DEFAULT NULL,
+  diary_id bigint DEFAULT NULL,
+  user_id varchar(36) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY FKey4f6r0yoeuhly3v5hxh1tajd (diary_id),
+  KEY FKnk4ftb5am9ubmkv1661h15ds9 (user_id),
+  CONSTRAINT FKey4f6r0yoeuhly3v5hxh1tajd FOREIGN KEY (diary_id) REFERENCES diary (id),
+  CONSTRAINT FKnk4ftb5am9ubmkv1661h15ds9 FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Comments (parent_id 자기참조 FK 유지: Comment 엔티티가 @ManyToOne 사용)
+CREATE TABLE comments (
+  id bigint NOT NULL AUTO_INCREMENT,
+  created_at datetime(6) DEFAULT NULL,
+  deleted_at datetime(6) DEFAULT NULL,
+  updated_at datetime(6) DEFAULT NULL,
+  content varchar(255) DEFAULT NULL,
+  diary_id bigint DEFAULT NULL,
+  parent_id bigint DEFAULT NULL,
+  user_id varchar(36) DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY FKjrqn5w090e67v7yrlqjjadxb7 (diary_id),
+  KEY FKlri30okf66phtcgbe5pok7cc0 (parent_id),
+  KEY FK8omq0tc18jd43bu5tjh6jvraq (user_id),
+  CONSTRAINT FK8omq0tc18jd43bu5tjh6jvraq FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT FKjrqn5w090e67v7yrlqjjadxb7 FOREIGN KEY (diary_id) REFERENCES diary (id),
+  CONSTRAINT FKlri30okf66phtcgbe5pok7cc0 FOREIGN KEY (parent_id) REFERENCES comments (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
