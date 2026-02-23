@@ -24,6 +24,7 @@ import store.piku.back.diary.adapter.in.web.dto.CalendarDiaryResponseDTO;
 import store.piku.back.diary.adapter.in.web.dto.DiaryDTO;
 import store.piku.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
 import store.piku.back.diary.application.port.in.CreateDiaryUseCase;
+import store.piku.back.diary.application.port.in.DeleteDiaryUseCase;
 import store.piku.back.diary.application.port.in.GetCalendarUseCase;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
@@ -42,6 +43,7 @@ import java.util.Set;
 public class DiaryController {
 
 	private final CreateDiaryUseCase createDiaryUseCase;
+	private final DeleteDiaryUseCase deleteDiaryUseCase;
 	private final GetCalendarUseCase getCalendarUseCase;
 	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
@@ -101,6 +103,16 @@ public class DiaryController {
 			log.error("이미지 파일 로드 실패 - userId: {}, filename: {}, error: {}", userId, filename, e.getMessage(), e);
 			return ResponseEntity.notFound().build();
 		}
+	}
+
+	@Operation(summary = "일기 삭제", description = "일기를 soft delete 방식으로 삭제합니다. 본인의 일기만 삭제할 수 있습니다.")
+	@DeleteMapping("/{diaryId}")
+	public ResponseEntity<Void> deleteDiary(
+			@Parameter(description = "일기 ID") @PathVariable Long diaryId,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("{}님 일기 ID [{}] 삭제 요청", userDetails.getId(), diaryId);
+		deleteDiaryUseCase.deleteDiary(diaryId, userDetails.getId());
+		return ResponseEntity.noContent().build();
 	}
 
 	@Operation(summary = "월별 일기 목록 조회", description = "특정 사용자의 월별 일기 목록을 조회합니다. (캘린더용)")

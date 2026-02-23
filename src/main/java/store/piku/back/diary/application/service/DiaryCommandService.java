@@ -10,11 +10,14 @@ import store.piku.back.diary.adapter.in.web.dto.DiaryDTO;
 import store.piku.back.diary.adapter.in.web.dto.DiaryImageInfo;
 import store.piku.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
 import store.piku.back.diary.application.port.in.CreateDiaryUseCase;
+import store.piku.back.diary.application.port.in.DeleteDiaryUseCase;
 import store.piku.back.diary.application.port.out.*;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.diary.domain.Photo;
 import store.piku.back.diary.domain.vo.DiaryPhotoType;
 import store.piku.back.diary.domain.vo.DiaryVisibility;
+import store.piku.back.diary.exception.DiaryAccessDeniedException;
+import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
@@ -32,7 +35,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class DiaryCommandService implements CreateDiaryUseCase {
+public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCase {
 
 	private final LoadDiaryPort loadDiaryPort;
 	private final SaveDiaryPort saveDiaryPort;
@@ -43,6 +46,25 @@ public class DiaryCommandService implements CreateDiaryUseCase {
 	private final FriendUseCase friendUseCase;
 	private final AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
 	private final FileUtil fileUtil;
+
+	@Override
+	@Transactional
+	public void deleteDiary(Long diaryId, String userId) {
+		Diary diary = loadDiaryPort.findById(diaryId)
+				.orElseThrow(() -> {
+					log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
+					return new DiaryNotFoundException();
+				});
+
+		if (!diary.isOwner(userId)) {
+			log.error("사용자 [{}]는 일기 ID [{}]의 소유자가 아닙니다.", userId, diaryId);
+			throw new DiaryAccessDeniedException();
+		}
+
+		diary.delete();
+		saveDiaryPort.save(diary);
+		log.info("사용자 [{}] - 일기 ID [{}] 삭제 완료", userId, diaryId);
+	}
 
 	@Override
 	@Transactional

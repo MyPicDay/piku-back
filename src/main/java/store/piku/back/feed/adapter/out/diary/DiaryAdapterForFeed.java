@@ -28,17 +28,17 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
 
 	@Override
 	public List<Diary> findAllById(List<Long> ids) {
-		return diaryJpaRepository.findAllById(ids);
+		return diaryJpaRepository.findByIdInAndDeletedAtIsNull(ids);
 	}
 
 	@Override
 	public List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds) {
-		return diaryJpaRepository.findByStatusAndUserIdIn(status, userIds);
+		return diaryJpaRepository.findByStatusAndUserIdInAndDeletedAtIsNull(status, userIds);
 	}
 
 	@Override
 	public List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status) {
-		return diaryJpaRepository.findByStatusOrderByCreatedAtDesc(status);
+		return diaryJpaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
 	}
 
 	@Override

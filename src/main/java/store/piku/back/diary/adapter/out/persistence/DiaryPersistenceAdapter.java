@@ -23,22 +23,22 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 
 	@Override
 	public Optional<Diary> findById(Long diaryId) {
-		return diaryJpaRepository.findById(diaryId);
+		return diaryJpaRepository.findByIdAndDeletedAtIsNull(diaryId);
 	}
 
 	@Override
 	public List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end) {
-		return diaryJpaRepository.findByUserIdAndDateBetween(userId, start, end);
+		return diaryJpaRepository.findByUserIdAndDeletedAtIsNullAndDateBetween(userId, start, end);
 	}
 
 	@Override
 	public Optional<Diary> findByUserIdAndDate(String userId, LocalDate date) {
-		return diaryJpaRepository.findByUserIdAndDate(userId, date);
+		return diaryJpaRepository.findByUserIdAndDateAndDeletedAtIsNull(userId, date);
 	}
 
 	@Override
 	public long countByUserId(String userId) {
-		return diaryJpaRepository.countByUserId(userId);
+		return diaryJpaRepository.countByUserIdAndDeletedAtIsNull(userId);
 	}
 
 	@Override
@@ -48,7 +48,7 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 
 	@Override
 	public boolean existsById(Long diaryId) {
-		return diaryJpaRepository.existsById(diaryId);
+		return diaryJpaRepository.existsByIdAndDeletedAtIsNull(diaryId);
 	}
 
 	@Override
@@ -75,12 +75,12 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 
 	@Override
 	public List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status) {
-		return diaryJpaRepository.findByStatusOrderByCreatedAtDesc(status);
+		return diaryJpaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
 	}
 
 	@Override
 	public List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds) {
-		return diaryJpaRepository.findByStatusAndUserIdIn(status, userIds);
+		return diaryJpaRepository.findByStatusAndUserIdInAndDeletedAtIsNull(status, userIds);
 	}
 
 	@Override

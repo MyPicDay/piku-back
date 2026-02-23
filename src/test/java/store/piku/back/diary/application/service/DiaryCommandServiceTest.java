@@ -18,6 +18,8 @@ import store.piku.back.diary.application.port.out.*;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.diary.domain.vo.DiaryPhotoType;
 import store.piku.back.diary.domain.vo.DiaryVisibility;
+import store.piku.back.diary.exception.DiaryAccessDeniedException;
+import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
 import store.piku.back.file.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
@@ -241,6 +243,42 @@ class DiaryCommandServiceTest {
 			ResponseDiaryDTO result = diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo);
 
 			assertThat(result).isNotNull();
+		}
+	}
+
+	@Nested
+	@DisplayName("deleteDiary")
+	class DeleteDiary {
+
+		@Test
+		@DisplayName("본인의 일기를 정상 삭제한다")
+		void deletesOwnDiary() {
+			Diary diary = new Diary("삭제할 일기", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+
+			diaryCommandService.deleteDiary(1L, USER_ID);
+
+			assertThat(diary.getDeletedAt()).isNotNull();
+			then(saveDiaryPort).should().save(diary);
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 일기 삭제 시 예외를 던진다")
+		void throwsWhenDiaryNotFound() {
+			given(loadDiaryPort.findById(999L)).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> diaryCommandService.deleteDiary(999L, USER_ID))
+					.isInstanceOf(DiaryNotFoundException.class);
+		}
+
+		@Test
+		@DisplayName("타인의 일기 삭제 시 예외를 던진다")
+		void throwsWhenNotOwner() {
+			Diary diary = new Diary("남의 일기", DiaryVisibility.PUBLIC, LocalDate.now(), "other-user");
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+
+			assertThatThrownBy(() -> diaryCommandService.deleteDiary(1L, USER_ID))
+					.isInstanceOf(DiaryAccessDeniedException.class);
 		}
 	}
 

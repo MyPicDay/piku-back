@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ErrorCode {
     DIARY_NOT_FOUND(404, "해당 일기 목록이 존재하지 않습니다."),
+    DIARY_ACCESS_DENIED(403, "해당 일기에 대한 권한이 없습니다."),
 
     USER_NOT_FOUND(400, "존재하지 않는 사용자입니다."),
 

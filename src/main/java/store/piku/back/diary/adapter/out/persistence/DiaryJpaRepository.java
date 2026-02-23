@@ -14,16 +14,23 @@ import java.util.Optional;
 
 public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 
-	List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end);
+	Optional<Diary> findByIdAndDeletedAtIsNull(Long id);
 
-	Optional<Diary> findByUserIdAndDate(String userId, LocalDate date);
+	boolean existsByIdAndDeletedAtIsNull(Long id);
 
-	long countByUserId(String userId);
+	List<Diary> findByIdInAndDeletedAtIsNull(List<Long> ids);
+
+	List<Diary> findByUserIdAndDeletedAtIsNullAndDateBetween(String userId, LocalDate start, LocalDate end);
+
+	Optional<Diary> findByUserIdAndDateAndDeletedAtIsNull(String userId, LocalDate date);
+
+	long countByUserIdAndDeletedAtIsNull(String userId);
 
 	@Query(value = "SELECT new store.piku.back.diary.application.dto.DiaryMonthCountDTO(YEAR(d.date), MONTH(d.date), COUNT(d.id)) "
 			+
 			"FROM Diary d " +
 			"WHERE d.userId = :userId " +
+			"AND d.deletedAt IS NULL " +
 			"AND d.date >= :monthsAgo " +
 			"GROUP BY YEAR(d.date), MONTH(d.date) " +
 			"ORDER BY YEAR(d.date) DESC, MONTH(d.date) DESC")
@@ -36,24 +43,26 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"WHERE d.status = :status " +
 			"AND d.userId IN :friendIds " +
 			"AND d.id NOT IN :excludeIds " +
+			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
 	List<Diary> findUnreadFeedsByVisibilityAndUserIds(
 			@Param("status") DiaryVisibility status,
 			@Param("friendIds") List<String> friendIds,
 			@Param("excludeIds") List<Long> excludeIds);
 
-	@Query("SELECT d FROM Diary d WHERE d.status = 'PUBLIC' AND d.id NOT IN :clickedFeedIds ORDER BY d.createdAt DESC")
+	@Query("SELECT d FROM Diary d WHERE d.status = 'PUBLIC' AND d.id NOT IN :clickedFeedIds AND d.deletedAt IS NULL ORDER BY d.createdAt DESC")
 	List<Diary> findUnreadPublicFeeds(@Param("clickedFeedIds") List<Long> clickedFeedIds);
 
-	@Query("SELECT d FROM Diary d WHERE d.id IN :clickedFeedIds AND d.createdAt > :threeDaysAgo")
+	@Query("SELECT d FROM Diary d WHERE d.id IN :clickedFeedIds AND d.createdAt > :threeDaysAgo AND d.deletedAt IS NULL")
 	List<Diary> findClickedFeedsAfter(@Param("clickedFeedIds") List<Long> clickedFeedIds,
 			@Param("threeDaysAgo") LocalDateTime threeDaysAgo);
 
-	List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status);
+	List<Diary> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(DiaryVisibility status);
 
 	@Query("SELECT d FROM Diary d " +
 			"WHERE d.status = :status " +
 			"AND d.userId IN :userIds " +
+			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
-	List<Diary> findByStatusAndUserIdIn(@Param("status") DiaryVisibility status, @Param("userIds") List<String> userIds);
+	List<Diary> findByStatusAndUserIdInAndDeletedAtIsNull(@Param("status") DiaryVisibility status, @Param("userIds") List<String> userIds);
 }

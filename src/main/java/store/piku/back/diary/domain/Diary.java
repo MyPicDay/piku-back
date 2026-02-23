@@ -35,4 +35,12 @@ public class Diary extends BaseEntity {
 		this.date = date;
 		this.userId = userId;
 	}
+
+	public void delete() {
+		this.inactive();
+	}
+
+	public boolean isOwner(String userId) {
+		return this.userId.equals(userId);
+	}
 }
