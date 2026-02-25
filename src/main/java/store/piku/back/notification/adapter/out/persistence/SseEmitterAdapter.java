@@ -30,6 +30,10 @@ public class SseEmitterAdapter implements SseEmitterPort {
 
 	@Override
 	public void deleteById(String emitterId) {
+		SseEmitter emitter = emitters.get(emitterId);
+		if (emitter != null) {
+			emitter.complete();
+		}
 		emitters.remove(emitterId);
 	}
 }
