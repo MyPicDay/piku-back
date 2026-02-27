@@ -1,0 +1,19 @@
+package com.pikume.back.user.auth.exception;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice(basePackages = "com.pikume.back.user.auth")
+public class AuthExceptionHandler {
+
+	public record ErrorResponse(String errorCode, String message) {
+	}
+
+	@ExceptionHandler(AuthException.class)
+	public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex) {
+		AuthErrorCode errorCode = ex.getErrorCode();
+		ErrorResponse response = new ErrorResponse(errorCode.getErrorCode(), ex.getMessage());
+		return new ResponseEntity<>(response, errorCode.getStatus());
+	}
+}
