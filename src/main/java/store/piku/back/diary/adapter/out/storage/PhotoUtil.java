@@ -3,7 +3,7 @@ package store.piku.back.diary.adapter.out.storage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import store.piku.back.file.FileConstants;
+import store.piku.back.global.util.FileConstants;
 
 import java.io.File;
 import java.io.IOException;

@@ -15,7 +15,8 @@ import java.io.IOException;
 @Slf4j
 public class SseSubscriptionService implements SseUseCase {
 
-	private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
+	// private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
+	private static final Long DEFAULT_TIMEOUT = 60L * 1000;
 
 	private final SseEmitterPort sseEmitterPort;
 	private final LoadNotificationPort loadNotificationPort;
@@ -33,7 +34,7 @@ public class SseSubscriptionService implements SseUseCase {
 
 		emitter.onTimeout(() -> {
 			log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
-			sseEmitterPort.deleteById(emitterId);
+			emitter.complete(); // DeferredResult에 정상 결과 설정 → onCompletion에서 정리
 		});
 
 		long unreadCount = loadNotificationPort.countUnreadByReceiverId(userId);

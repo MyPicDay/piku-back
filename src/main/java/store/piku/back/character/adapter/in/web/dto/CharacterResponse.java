@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import store.piku.back.character.domain.Character;
 import store.piku.back.character.domain.vo.CharacterCreationType;
-import store.piku.back.file.FileConstants;
+import store.piku.back.global.util.FileConstants;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**

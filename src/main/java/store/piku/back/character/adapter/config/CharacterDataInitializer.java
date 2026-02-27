@@ -6,7 +6,7 @@ import store.piku.back.character.application.port.in.GetCharacterUseCase;
 import store.piku.back.character.application.port.in.ManageCharacterUseCase;
 import store.piku.back.character.domain.Character;
 import store.piku.back.character.domain.vo.CharacterCreationType;
-import store.piku.back.file.FileConstants;
+import store.piku.back.global.util.FileConstants;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 

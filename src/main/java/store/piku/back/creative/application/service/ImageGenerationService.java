@@ -10,7 +10,7 @@ import store.piku.back.creative.application.port.out.SaveGenerationPort;
 import store.piku.back.creative.domain.DiaryImageGeneration;
 import store.piku.back.creative.domain.exception.ImageGenerationException;
 import store.piku.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
-import store.piku.back.file.FileUtil;
+import store.piku.back.global.util.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.user.application.port.out.LoadUserPort;
 import store.piku.back.user.domain.User;

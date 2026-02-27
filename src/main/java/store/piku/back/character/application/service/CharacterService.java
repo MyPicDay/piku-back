@@ -13,13 +13,13 @@ import store.piku.back.character.application.port.out.SaveCharacterPort;
 import store.piku.back.character.domain.Character;
 import store.piku.back.character.domain.exception.CharacterNotFoundException;
 import store.piku.back.character.domain.vo.CharacterCreationType;
-import store.piku.back.file.FileUtil;
+import store.piku.back.global.util.FileUtil;
 
 import java.util.List;
 import java.util.Optional;
 
-import static store.piku.back.file.FileConstants.CHARACTERS_BASE_DIR_NAME;
-import static store.piku.back.file.FileConstants.FIXED_CHARACTER_SUB_DIR_NAME;
+import static store.piku.back.global.util.FileConstants.CHARACTERS_BASE_DIR_NAME;
+import static store.piku.back.global.util.FileConstants.FIXED_CHARACTER_SUB_DIR_NAME;
 
 /**
  * Character Application Service

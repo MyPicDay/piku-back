@@ -26,7 +26,7 @@ import store.piku.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
 import store.piku.back.diary.application.port.in.CreateDiaryUseCase;
 import store.piku.back.diary.application.port.in.DeleteDiaryUseCase;
 import store.piku.back.diary.application.port.in.GetCalendarUseCase;
-import store.piku.back.file.FileUtil;
+import store.piku.back.global.util.FileUtil;
 import store.piku.back.global.config.CustomUserDetails;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.global.util.RequestMetaMapper;

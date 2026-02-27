@@ -16,7 +16,7 @@ import store.piku.back.diary.application.port.out.PhotoStoragePort;
 import store.piku.back.diary.application.port.out.SaveDiaryPort;
 import store.piku.back.diary.domain.Diary;
 import store.piku.back.diary.domain.Photo;
-import store.piku.back.file.FileUtil;
+import store.piku.back.global.util.FileUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

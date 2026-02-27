@@ -19,7 +19,7 @@ import store.piku.back.diary.domain.vo.DiaryVisibility;
 import store.piku.back.diary.exception.DiaryAccessDeniedException;
 import store.piku.back.diary.exception.DiaryNotFoundException;
 import store.piku.back.diary.exception.DuplicateDiaryException;
-import store.piku.back.file.FileUtil;
+import store.piku.back.global.util.FileUtil;
 import store.piku.back.global.dto.RequestMetaInfo;
 import store.piku.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import store.piku.back.social.application.port.in.FriendUseCase;
