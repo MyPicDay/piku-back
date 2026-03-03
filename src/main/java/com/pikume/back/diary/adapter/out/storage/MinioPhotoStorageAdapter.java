@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-import static com.pikume.back.diary.constants.PhotoConstants.PUBLIC_PREFIX;
+import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PREFIX;
 
 @Slf4j
 @Component

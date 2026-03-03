@@ -1,4 +1,4 @@
-package com.pikume.back.diary.exception;
+package com.pikume.back.diary.domain.exception;
 
 import com.pikume.back.global.error.ErrorCode;
 import com.pikume.back.global.exception.BusinessException;
