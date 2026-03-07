@@ -1,8 +1,6 @@
 package com.pikume.back.social.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import com.pikume.back.social.application.port.out.LoadFriendPort;
 import com.pikume.back.social.application.port.out.LoadFriendRequestPort;
@@ -28,11 +26,6 @@ public class FriendPersistenceAdapter implements LoadFriendPort, SaveFriendPort,
 	@Override
 	public boolean existsFriendship(String userId1, String userId2) {
 		return friendJpaRepository.existsFriendship(userId1, userId2);
-	}
-
-	@Override
-	public Page<Friend> findFriendsByUserId(String userId, Pageable pageable) {
-		return friendJpaRepository.findFriendsByUserId(userId, pageable);
 	}
 
 	@Override
@@ -67,11 +60,6 @@ public class FriendPersistenceAdapter implements LoadFriendPort, SaveFriendPort,
 	@Override
 	public boolean existsById(FriendRequestID id) {
 		return friendRequestJpaRepository.existsById(id);
-	}
-
-	@Override
-	public Page<FriendRequest> findByToUserId(String toUserId, Pageable pageable) {
-		return friendRequestJpaRepository.findByToUserId(toUserId, pageable);
 	}
 
 	@Override

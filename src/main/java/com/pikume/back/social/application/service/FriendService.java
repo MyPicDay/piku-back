@@ -13,6 +13,7 @@ import com.pikume.back.social.adapter.in.web.dto.FriendRequestResponseDto;
 import com.pikume.back.social.adapter.in.web.dto.FriendsDTO;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 import com.pikume.back.social.application.port.out.*;
+import com.pikume.back.social.application.readmodel.FriendSummaryView;
 import com.pikume.back.social.domain.event.SocialEvent;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
@@ -36,6 +37,7 @@ public class FriendService implements FriendUseCase {
 	private final LoadFriendRequestPort loadFriendRequestPort;
 	private final SaveFriendRequestPort saveFriendRequestPort;
 	private final LoadUserInfoPort loadUserInfoPort;
+	private final LoadFriendListViewPort loadFriendListViewPort;
 	private final PublishEventPort publishEventPort;
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
@@ -89,20 +91,8 @@ public class FriendService implements FriendUseCase {
 	@Override
 	public Page<FriendsDTO> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자 친구 조회 요청");
-		Page<Friend> friendsPage = loadFriendPort.findFriendsByUserId(id, pageable);
-
-		return friendsPage.map(friendEntity -> {
-			String friendId = friendEntity.getUserId1().equals(id) ? friendEntity.getUserId2() : friendEntity.getUserId1();
-
-			LoadUserInfoPort.UserInfo userInfo = loadUserInfoPort.findUserInfoById(friendId).orElse(null);
-			if (userInfo != null) {
-				String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatar(), requestMetaInfo);
-				return new FriendsDTO(userInfo.userId(), userInfo.nickname(), avatarUrl);
-			} else {
-				log.warn("친구 정보 없음: {}", friendId);
-				return new FriendsDTO(friendId, "탈퇴한 사용자", null);
-			}
-		});
+		Page<FriendSummaryView> friendsPage = loadFriendListViewPort.loadFriendList(id, pageable);
+		return friendsPage.map(friend -> toFriendsDto(friend, requestMetaInfo));
 	}
 
 	@Override
@@ -116,14 +106,8 @@ public class FriendService implements FriendUseCase {
 	@Override
 	public Page<FriendsDTO> findFriendRequests(Pageable pageable, String toUserId, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
-		Page<FriendRequest> requests = loadFriendRequestPort.findByToUserId(toUserId, pageable);
-
-		return requests.map(request -> {
-			LoadUserInfoPort.UserInfo userInfo = loadUserInfoPort.findUserInfoById(request.getFromUserId())
-					.orElse(new LoadUserInfoPort.UserInfo(request.getFromUserId(), "알 수 없음", null));
-			String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatar(), requestMetaInfo);
-			return new FriendsDTO(userInfo.userId(), userInfo.nickname(), avatarUrl);
-		});
+		Page<FriendSummaryView> requests = loadFriendListViewPort.loadFriendRequests(toUserId, pageable);
+		return requests.map(friend -> toFriendsDto(friend, requestMetaInfo));
 	}
 
 	@Override
@@ -185,5 +169,12 @@ public class FriendService implements FriendUseCase {
 		saveFriendPort.deleteByUserIds(myId, targetId);
 
 		return new FriendRemoveDTO(true, "친구 관계가 해제되었습니다.");
+	}
+
+	private FriendsDTO toFriendsDto(FriendSummaryView friend, RequestMetaInfo requestMetaInfo) {
+		String avatarUrl = friend.avatarPath() != null
+				? imagePathToUrlConverter.userAvatarImageUrl(friend.avatarPath(), requestMetaInfo)
+				: null;
+		return new FriendsDTO(friend.userId(), friend.nickname(), avatarUrl);
 	}
 }

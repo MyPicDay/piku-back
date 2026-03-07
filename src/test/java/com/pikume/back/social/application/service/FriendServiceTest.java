@@ -4,6 +4,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -11,7 +14,9 @@ import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.social.adapter.in.web.dto.FriendRemoveDTO;
 import com.pikume.back.social.adapter.in.web.dto.FriendRequestResponseDto;
+import com.pikume.back.social.adapter.in.web.dto.FriendsDTO;
 import com.pikume.back.social.application.port.out.*;
+import com.pikume.back.social.application.readmodel.FriendSummaryView;
 import com.pikume.back.social.domain.event.SocialEvent;
 import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.exception.FriendException;
@@ -49,6 +54,9 @@ class FriendServiceTest {
 
 	@Mock
 	private LoadUserInfoPort loadUserInfoPort;
+
+	@Mock
+	private LoadFriendListViewPort loadFriendListViewPort;
 
 	@Mock
 	private PublishEventPort publishEventPort;
@@ -218,6 +226,52 @@ class FriendServiceTest {
 
 			assertThatThrownBy(() -> friendService.cancelFriendRequest("from-user", "to-user"))
 					.isInstanceOf(FriendRequestNotFoundException.class);
+		}
+	}
+
+	@Nested
+	@DisplayName("friend list query - 친구 조회")
+	class FriendListQuery {
+
+		@Test
+		@DisplayName("친구 목록은 전용 조회 포트에서 읽고 응답으로 변환한다")
+		void loadFriendListFromDedicatedQueryPort() {
+			PageRequest pageable = PageRequest.of(0, 3);
+			Page<FriendSummaryView> page = new PageImpl<>(
+					List.of(new FriendSummaryView("friend-1", "친구1", "avatars/friend1.png")),
+					pageable,
+					1);
+
+			given(loadFriendListViewPort.loadFriendList("me", pageable)).willReturn(page);
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/friend1.png", requestMetaInfo))
+					.willReturn("https://localhost:8080/api/avatars/friend1.png");
+
+			Page<FriendsDTO> response = friendService.findFriendList(pageable, "me", requestMetaInfo);
+
+			assertThat(response.getContent()).hasSize(1);
+			assertThat(response.getContent().get(0).getNickname()).isEqualTo("친구1");
+			then(loadFriendListViewPort).should().loadFriendList("me", pageable);
+			then(loadUserInfoPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("친구 요청 목록도 전용 조회 포트에서 읽고 avatar가 없으면 null로 유지한다")
+		void loadFriendRequestsFromDedicatedQueryPort() {
+			PageRequest pageable = PageRequest.of(0, 2);
+			Page<FriendSummaryView> page = new PageImpl<>(
+					List.of(new FriendSummaryView("requester-1", "요청자", null)),
+					pageable,
+					1);
+
+			given(loadFriendListViewPort.loadFriendRequests("me", pageable)).willReturn(page);
+
+			Page<FriendsDTO> response = friendService.findFriendRequests(pageable, "me", requestMetaInfo);
+
+			assertThat(response.getContent()).hasSize(1);
+			assertThat(response.getContent().get(0).getNickname()).isEqualTo("요청자");
+			assertThat(response.getContent().get(0).getAvatar()).isNull();
+			then(loadFriendListViewPort).should().loadFriendRequests("me", pageable);
+			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 	}
 
