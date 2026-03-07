@@ -4,19 +4,25 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.social.adapter.in.web.dto.CommentDeleteResponseDto;
+import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
 import com.pikume.back.social.adapter.in.web.dto.CommentResponseDto;
 import com.pikume.back.social.application.port.out.*;
+import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
 import com.pikume.back.social.domain.event.SocialEvent;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +49,9 @@ class CommentServiceTest {
 
 	@Mock
 	private LoadUserInfoPort loadUserInfoPort;
+
+	@Mock
+	private LoadCommentListViewPort loadCommentListViewPort;
 
 	@Mock
 	private PublishEventPort publishEventPort;
@@ -243,6 +252,75 @@ class CommentServiceTest {
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.DELETED_COMMENT));
+		}
+	}
+
+	@Nested
+	@DisplayName("comment list query - 댓글 조회")
+	class CommentListQuery {
+
+		@Test
+		@DisplayName("루트 댓글 목록은 전용 조회 포트에서 읽고 응답으로 변환한다")
+		void loadRootCommentsFromDedicatedQueryPort() {
+			PageRequest pageable = PageRequest.of(0, 3);
+			CommentListView comment = new CommentListView(
+					1L,
+					10L,
+					"user-id",
+					"닉네임",
+					"avatars/user.png",
+					"댓글 내용",
+					null,
+					2,
+					LocalDateTime.of(2026, 3, 8, 10, 0),
+					LocalDateTime.of(2026, 3, 8, 10, 30),
+					false);
+			Page<CommentListView> page = new PageImpl<>(java.util.List.of(comment), pageable, 1);
+
+			given(loadDiaryInfoPort.existsById(10L)).willReturn(true);
+			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageable)).willReturn(page);
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png", requestMetaInfo))
+					.willReturn("https://localhost:8080/api/avatars/user.png");
+
+			Page<CommentListResponseDto> response = commentService.getRootCommentsByDiaryId(10L, pageable, requestMetaInfo);
+
+			assertThat(response.getContent()).hasSize(1);
+			assertThat(response.getContent().get(0).getNickname()).isEqualTo("닉네임");
+			assertThat(response.getContent().get(0).getReplyCount()).isEqualTo(2);
+			then(loadCommentListViewPort).should().loadRootCommentsByDiaryId(10L, pageable);
+			then(loadUserInfoPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("대댓글 목록도 전용 조회 포트에서 읽고 사용자 미존재 시 기본 닉네임을 사용한다")
+		void loadRepliesFromDedicatedQueryPort() {
+			PageRequest pageable = PageRequest.of(0, 2);
+			Comment parentComment = new Comment("부모", "owner-id", 11L);
+			CommentListView reply = new CommentListView(
+					2L,
+					11L,
+					"reply-user",
+					null,
+					null,
+					"대댓글",
+					1L,
+					0,
+					LocalDateTime.of(2026, 3, 8, 11, 0),
+					LocalDateTime.of(2026, 3, 8, 11, 5),
+					false);
+			Page<CommentListView> page = new PageImpl<>(java.util.List.of(reply), pageable, 1);
+
+			given(loadCommentPort.findById(1L)).willReturn(Optional.of(parentComment));
+			given(loadDiaryInfoPort.existsById(11L)).willReturn(true);
+			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageable)).willReturn(page);
+
+			Page<CommentListResponseDto> response = commentService.getRepliesByParentCommentId(1L, pageable, requestMetaInfo);
+
+			assertThat(response.getContent()).hasSize(1);
+			assertThat(response.getContent().get(0).getNickname()).isEqualTo("me");
+			assertThat(response.getContent().get(0).getParentId()).isEqualTo(1L);
+			then(loadCommentListViewPort).should().loadRepliesByParentCommentId(1L, pageable);
+			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 	}
 

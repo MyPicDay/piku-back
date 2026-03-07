@@ -9,9 +9,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
+        generate_statistics: true
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
   mail:

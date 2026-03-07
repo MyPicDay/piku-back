@@ -14,6 +14,7 @@ import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
 import com.pikume.back.social.adapter.in.web.dto.CommentResponseDto;
 import com.pikume.back.social.application.port.in.CommentUseCase;
 import com.pikume.back.social.application.port.out.*;
+import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
@@ -28,6 +29,7 @@ public class CommentService implements CommentUseCase {
 	private final SaveCommentPort saveCommentPort;
 	private final LoadDiaryInfoPort loadDiaryInfoPort;
 	private final LoadUserInfoPort loadUserInfoPort;
+	private final LoadCommentListViewPort loadCommentListViewPort;
 	private final PublishEventPort publishEventPort;
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
@@ -119,22 +121,10 @@ public class CommentService implements CommentUseCase {
 		if (!loadDiaryInfoPort.existsById(diaryId)) {
 			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
 		}
-		Page<Comment> rootCommentsPage = loadCommentPort.findVisibleRootCommentsByDiaryId(diaryId, pageable);
+		Page<CommentListView> rootCommentsPage = loadCommentListViewPort.loadRootCommentsByDiaryId(diaryId, pageable);
 		log.info("일기 ID {}에 대한 루트 댓글 {}개 조회 완료.", diaryId, rootCommentsPage.getTotalElements());
 
-		return rootCommentsPage.map(rootComment -> {
-			String nickname = "me";
-			String avatarUrl = null;
-			if (!rootComment.isDeleted()) {
-				LoadUserInfoPort.UserInfo userInfo = loadUserInfoPort.findUserInfoById(rootComment.getUserId()).orElse(null);
-				if (userInfo != null) {
-					nickname = userInfo.nickname();
-					avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatar(), requestMetaInfo);
-				}
-			}
-			int replyCount = loadCommentPort.countByParentIdAndDeletedAtIsNull(rootComment.getId());
-			return CommentListResponseDto.fromEntity(rootComment, nickname, avatarUrl, replyCount);
-		});
+		return rootCommentsPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
 	}
 
 	@Override
@@ -145,19 +135,10 @@ public class CommentService implements CommentUseCase {
 		if (!loadDiaryInfoPort.existsById(parentComment.getDiaryId())) {
 			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
 		}
-		Page<Comment> repliesPage = loadCommentPort.findByParentIdAndDeletedAtIsNull(parentCommentId, pageable);
+		Page<CommentListView> repliesPage = loadCommentListViewPort.loadRepliesByParentCommentId(parentCommentId, pageable);
 		log.info("부모 댓글 ID {}에 대한 대댓글 {}개 조회 완료.", parentCommentId, repliesPage.getTotalElements());
 
-		return repliesPage.map(replyComment -> {
-			String nickname = "me";
-			String avatarUrl = null;
-			LoadUserInfoPort.UserInfo userInfo = loadUserInfoPort.findUserInfoById(replyComment.getUserId()).orElse(null);
-			if (userInfo != null) {
-				nickname = userInfo.nickname();
-				avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatar(), requestMetaInfo);
-			}
-			return CommentListResponseDto.fromEntity(replyComment, nickname, avatarUrl, 0);
-		});
+		return repliesPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
 	}
 
 	@Override
@@ -193,6 +174,39 @@ public class CommentService implements CommentUseCase {
 			log.warn("이미 삭제된 댓글입니다. commentId={}", comment.getId());
 			throw new CommentException(CommentErrorCode.DELETED_COMMENT);
 		}
+	}
+
+	private CommentListResponseDto toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo) {
+		if (comment.deleted()) {
+			return new CommentListResponseDto(
+					comment.commentId(),
+					comment.diaryId(),
+					null,
+					null,
+					null,
+					"삭제된 댓글입니다.",
+					comment.parentId(),
+					comment.createdAt(),
+					comment.updatedAt(),
+					comment.replyCount());
+		}
+
+		String nickname = comment.nickname() != null ? comment.nickname() : "me";
+		String avatarUrl = comment.avatarPath() != null
+				? imagePathToUrlConverter.userAvatarImageUrl(comment.avatarPath(), requestMetaInfo)
+				: null;
+
+		return new CommentListResponseDto(
+				comment.commentId(),
+				comment.diaryId(),
+				comment.userId(),
+				nickname,
+				avatarUrl,
+				comment.content(),
+				comment.parentId(),
+				comment.createdAt(),
+				comment.updatedAt(),
+				comment.replyCount());
 	}
 
 	private Comment validateCommentForEditOrDelete(Long commentId, String userId) {
