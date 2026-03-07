@@ -15,8 +15,7 @@ import java.io.IOException;
 @Slf4j
 public class SseSubscriptionService implements SseUseCase {
 
-	// private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
-	private static final Long DEFAULT_TIMEOUT = 60L * 1000;
+	private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
 
 	private final SseEmitterPort sseEmitterPort;
 	private final LoadNotificationPort loadNotificationPort;
