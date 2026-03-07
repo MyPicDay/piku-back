@@ -1,8 +1,6 @@
 package com.pikume.back.notification.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
 import com.pikume.back.notification.application.port.out.SaveNotificationPort;
@@ -23,11 +21,6 @@ public class NotificationPersistenceAdapter implements LoadNotificationPort, Sav
 	@Override
 	public boolean existsFriendRequestByReceiverId(String receiverId) {
 		return notificationJpaRepository.existsFriendRequestByReceiverId(receiverId);
-	}
-
-	@Override
-	public Page<Notification> findAllByReceiverIdAndDeletedAtIsNull(String receiverId, Pageable pageable) {
-		return notificationJpaRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, pageable);
 	}
 
 	@Override

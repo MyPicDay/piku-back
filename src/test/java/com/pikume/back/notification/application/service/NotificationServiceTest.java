@@ -14,12 +14,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
 import com.pikume.back.notification.application.port.out.*;
+import com.pikume.back.notification.application.readmodel.NotificationListView;
 import com.pikume.back.notification.domain.Notification;
 import com.pikume.back.notification.domain.exception.NotificationNotFoundException;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -48,9 +51,13 @@ class NotificationServiceTest {
 	@Mock
 	private LoadDiaryForNotificationPort loadDiaryForNotificationPort;
 	@Mock
+	private LoadNotificationListViewPort loadNotificationListViewPort;
+	@Mock
 	private PushNotificationPort pushNotificationPort;
 	@Mock
 	private SseEmitterPort sseEmitterPort;
+	@Mock
+	private ImagePathToUrlConverter imagePathToUrlConverter;
 
 	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
 			"https", "localhost", 8080, "localhost:8080",
@@ -158,16 +165,22 @@ class NotificationServiceTest {
 		@DisplayName("사용자의 알림 목록을 페이징으로 조회한다")
 		void returnsPagedNotifications() {
 			Pageable pageable = PageRequest.of(0, 10);
-			Notification notification = new Notification("receiver-id", "sender-id",
-					NotificationType.COMMENT, 1L);
-			Page<Notification> page = new PageImpl<>(List.of(notification), pageable, 1);
+			NotificationListView notification = new NotificationListView(
+					1L,
+					"보낸이",
+					"avatar.jpg",
+					NotificationType.COMMENT,
+					1L,
+					"thumb.jpg",
+					false,
+					LocalDateTime.of(2026, 3, 8, 12, 0),
+					null,
+					null);
+			Page<NotificationListView> page = new PageImpl<>(List.of(notification), pageable, 1);
 
-			given(loadNotificationPort.findAllByReceiverIdAndDeletedAtIsNull("receiver-id", pageable))
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
 					.willReturn(page);
-			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
-			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", requestMetaInfo)).willReturn("avatar-url");
-			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("avatar-url");
 
 			Page<NotificationResponseDTO> result = notificationService.getNotifications(
 					"receiver-id", requestMetaInfo, pageable);
@@ -184,7 +197,7 @@ class NotificationServiceTest {
 		@DisplayName("알림이 없으면 빈 페이지를 반환한다")
 		void returnsEmptyPage() {
 			Pageable pageable = PageRequest.of(0, 10);
-			given(loadNotificationPort.findAllByReceiverIdAndDeletedAtIsNull("receiver-id", pageable))
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
 					.willReturn(Page.empty(pageable));
 
 			Page<NotificationResponseDTO> result = notificationService.getNotifications(
@@ -197,21 +210,31 @@ class NotificationServiceTest {
 		@DisplayName("diaryId가 null인 알림은 썸네일 없이 반환한다")
 		void returnsNullThumbnailWhenNoDiary() {
 			Pageable pageable = PageRequest.of(0, 10);
-			Notification notification = new Notification("receiver-id", "sender-id",
-					NotificationType.FRIEND_ACCEPT, null);
-			Page<Notification> page = new PageImpl<>(List.of(notification), pageable, 1);
+			NotificationListView notification = new NotificationListView(
+					1L,
+					"보낸이",
+					"avatar.jpg",
+					NotificationType.FRIEND_ACCEPT,
+					null,
+					null,
+					false,
+					LocalDateTime.of(2026, 3, 8, 12, 10),
+					null,
+					null);
+			Page<NotificationListView> page = new PageImpl<>(List.of(notification), pageable, 1);
 
-			given(loadNotificationPort.findAllByReceiverIdAndDeletedAtIsNull("receiver-id", pageable))
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
 					.willReturn(page);
-			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
-			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", requestMetaInfo)).willReturn("url");
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("url");
 
 			Page<NotificationResponseDTO> result = notificationService.getNotifications(
 					"receiver-id", requestMetaInfo, pageable);
 
 			assertThat(result.getContent().get(0).getThumbnailUrl()).isNull();
-			then(loadDiaryForNotificationPort).should(never()).getDiaryThumbnailUrl(any());
+			then(loadNotificationListViewPort).should().loadNotifications("receiver-id", pageable);
+			then(loadNotificationPort).shouldHaveNoInteractions();
+			then(loadUserForNotificationPort).shouldHaveNoInteractions();
+			then(loadDiaryForNotificationPort).shouldHaveNoInteractions();
 		}
 	}
 

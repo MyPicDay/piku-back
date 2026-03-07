@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
 import com.pikume.back.notification.adapter.in.web.dto.SseResponse;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.application.port.out.*;
+import com.pikume.back.notification.application.readmodel.NotificationListView;
 import com.pikume.back.notification.domain.Notification;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
@@ -28,8 +30,10 @@ public class NotificationService implements NotificationUseCase {
 	private final SaveNotificationPort saveNotificationPort;
 	private final LoadUserForNotificationPort loadUserForNotificationPort;
 	private final LoadDiaryForNotificationPort loadDiaryForNotificationPort;
+	private final LoadNotificationListViewPort loadNotificationListViewPort;
 	private final PushNotificationPort pushNotificationPort;
 	private final SseEmitterPort sseEmitterPort;
+	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Override
 	@Transactional
@@ -74,24 +78,8 @@ public class NotificationService implements NotificationUseCase {
 	public Page<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo,
 			Pageable pageable) {
 		log.info("알림 조회 시작 - receiverId: {}", receiverId);
-		Page<Notification> notifications = loadNotificationPort.findAllByReceiverIdAndDeletedAtIsNull(receiverId, pageable);
-
-		return notifications.map(n -> {
-			String senderNickname = loadUserForNotificationPort.getUserNickname(n.getSenderId());
-			String senderAvatar = loadUserForNotificationPort.getUserAvatar(n.getSenderId());
-			String senderAvatarUrl = loadUserForNotificationPort.getUserAvatarUrl(senderAvatar, requestMetaInfo);
-			String message = generateMessage(n.getType());
-
-			String thumbnailUrl = null;
-			if (n.getDiaryId() != null) {
-				thumbnailUrl = loadDiaryForNotificationPort.getDiaryThumbnailUrl(n.getDiaryId());
-			}
-
-			return new NotificationResponseDTO(
-					n.getId(), message, senderNickname, senderAvatarUrl,
-					n.getType(), n.getDiaryId(), thumbnailUrl,
-					n.getIsRead(), n.getCreatedAt(), null, null);
-		});
+		Page<NotificationListView> notifications = loadNotificationListViewPort.loadNotifications(receiverId, pageable);
+		return notifications.map(notification -> toNotificationResponse(notification, requestMetaInfo));
 	}
 
 	@Override
@@ -176,5 +164,24 @@ public class NotificationService implements NotificationUseCase {
 		} catch (Exception e) {
 			log.warn("FCM 전송 실패: {}", e.getMessage());
 		}
+	}
+
+	private NotificationResponseDTO toNotificationResponse(NotificationListView notification, RequestMetaInfo requestMetaInfo) {
+		String senderAvatarUrl = notification.senderAvatarPath() != null
+				? imagePathToUrlConverter.userAvatarImageUrl(notification.senderAvatarPath(), requestMetaInfo)
+				: null;
+
+		return new NotificationResponseDTO(
+				notification.notificationId(),
+				generateMessage(notification.type()),
+				notification.senderNickname(),
+				senderAvatarUrl,
+				notification.type(),
+				notification.diaryId(),
+				notification.thumbnailUrl(),
+				notification.isRead(),
+				notification.createdAt(),
+				notification.diaryDate(),
+				notification.diaryUserId());
 	}
 }
