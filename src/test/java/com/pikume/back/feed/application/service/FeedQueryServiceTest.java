@@ -5,17 +5,28 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.feed.application.port.out.*;
+import com.pikume.back.feed.application.dto.FeedBucket;
+import com.pikume.back.feed.application.dto.FeedCursor;
+import com.pikume.back.feed.application.dto.FeedCursorCandidate;
+import com.pikume.back.feed.application.dto.FeedCursorPage;
+import com.pikume.back.feed.application.dto.FeedCursorRequest;
+import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
+import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
+import com.pikume.back.feed.application.port.out.LoadFeedCursorCandidatesPort;
+import com.pikume.back.feed.application.port.out.LoadFeedListViewPort;
+import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
+import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
+import com.pikume.back.feed.application.port.out.LoadUserForFeedPort;
+import com.pikume.back.feed.application.port.out.SaveFeedClickPort;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
+import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
@@ -24,7 +35,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,6 +55,8 @@ class FeedQueryServiceTest {
 	@Mock
 	private LoadFeedListViewPort loadFeedListViewPort;
 	@Mock
+	private LoadFeedCursorCandidatesPort loadFeedCursorCandidatesPort;
+	@Mock
 	private LoadSocialForFeedPort loadSocialForFeedPort;
 	@Mock
 	private LoadUserForFeedPort loadUserForFeedPort;
@@ -51,9 +67,7 @@ class FeedQueryServiceTest {
 	@Mock
 	private SaveFeedClickPort saveFeedClickPort;
 	@Mock
-	private FeedCandidateCollector feedCandidateCollector;
-	@Mock
-	private FeedCompositionService feedCompositionService;
+	private FeedCursorTokenCodec feedCursorTokenCodec;
 
 	private Diary publicDiary;
 	private Diary friendsDiary;
@@ -153,85 +167,85 @@ class FeedQueryServiceTest {
 	}
 
 	@Nested
-	@DisplayName("getAllDiaries - 피드 목록 조회")
+	@DisplayName("getAllDiaries - cursor 기반 피드 목록 조회")
 	class GetAllDiaries {
 
 		@Test
-		@DisplayName("캐시 히트 시 전용 조회 포트로 현재 페이지 항목만 materialize 한다")
-		void cachedFeedUsesDedicatedReadPort() {
-			given(loadRecommendationForFeedPort.getCachedFeed("viewer-id")).willReturn(List.of(30L, 10L, 20L));
-			given(loadSocialForFeedPort.getFriendIds("viewer-id")).willReturn(List.of("writer-30"));
-			given(loadDiaryForFeedPort.findRestorableFeedIds(List.of(30L, 10L, 20L), "viewer-id", List.of("writer-30")))
-					.willReturn(List.of(30L, 10L, 20L));
+		@DisplayName("첫 페이지 조회 시 현재 bucket에서 limit만큼 읽고 nextCursor를 반환한다")
+		void firstPageUsesCurrentBucketAndReturnsNextCursor() {
+			FeedCursorCandidate first = candidate(FeedBucket.NOT_CONSUMED_FRIEND, 30L, 5L, 2L);
+			FeedCursorCandidate second = candidate(FeedBucket.NOT_CONSUMED_FRIEND, 20L, 4L, 1L);
+
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_FRIEND, null, 2))
+					.willReturn(List.of(first, second));
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_FRIEND, second.toCursor(), 1))
+					.willReturn(List.of(candidate(FeedBucket.NOT_CONSUMED_FRIEND, 10L, 3L, 1L)));
+			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 20L), "viewer-id")).willReturn(List.of(
+					feedItem(30L, "writer-30", FriendStatus.FRIENDS),
+					feedItem(20L, "writer-20", FriendStatus.FRIENDS)));
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+					.willAnswer(invocation -> invocation.getArgument(0));
+			given(feedCursorTokenCodec.encode(second.toCursor())).willReturn("next-token");
+
+			FeedCursorPage<ResponseDTO> result = feedQueryService.getAllDiaries(
+					new FeedCursorRequest(null, 2),
+					requestMetaInfo,
+					"viewer-id");
+
+			assertThat(result.items()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 20L);
+			assertThat(result.hasNext()).isTrue();
+			assertThat(result.nextCursor()).isEqualTo("next-token");
+		}
+
+		@Test
+		@DisplayName("현재 bucket이 부족하면 다음 bucket으로 넘어가서 채운다")
+		void movesToNextBucketWhenCurrentBucketIsExhausted() {
+			FeedCursorCandidate friendDiary = candidate(FeedBucket.NOT_CONSUMED_FRIEND, 30L, 5L, 0L);
+			FeedCursorCandidate publicDiary = candidate(FeedBucket.NOT_CONSUMED_PUBLIC, 10L, 2L, 3L);
+
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_FRIEND, null, 2))
+					.willReturn(List.of(friendDiary));
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_PUBLIC, null, 1))
+					.willReturn(List.of(publicDiary));
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_PUBLIC, publicDiary.toCursor(), 1))
+					.willReturn(List.of(candidate(FeedBucket.NOT_CONSUMED_PUBLIC, 9L, 1L, 1L)));
 			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 10L), "viewer-id")).willReturn(List.of(
-					feedItem(30L, "writer-30", FriendStatus.FRIENDS),
-					feedItem(10L, "writer-10", FriendStatus.NONE)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo))).willAnswer(invocation -> invocation.getArgument(0));
+					feedItem(30L, "friend-writer", FriendStatus.FRIENDS),
+					feedItem(10L, "public-writer", FriendStatus.NONE)));
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+					.willAnswer(invocation -> invocation.getArgument(0));
+			given(feedCursorTokenCodec.encode(publicDiary.toCursor())).willReturn("next-public-token");
 
-			Page<ResponseDTO> result = feedQueryService.getAllDiaries(PageRequest.of(0, 2), requestMetaInfo, "viewer-id");
+			FeedCursorPage<ResponseDTO> result = feedQueryService.getAllDiaries(
+					new FeedCursorRequest(null, 2),
+					requestMetaInfo,
+					"viewer-id");
 
-			assertThat(result.getTotalElements()).isEqualTo(3);
-			assertThat(result.getContent()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 10L);
-			verify(loadFeedListViewPort).loadFeedListItems(List.of(30L, 10L), "viewer-id");
-			verify(feedCandidateCollector, never()).collect(anyString());
+			assertThat(result.items()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 10L);
+			assertThat(result.hasNext()).isTrue();
+			assertThat(result.nextCursor()).isEqualTo("next-public-token");
 		}
 
 		@Test
-		@DisplayName("캐시 히트 시에도 자기 글은 제외한다")
-		void cachedFeedStillExcludesOwnDiary() {
-			given(loadRecommendationForFeedPort.getCachedFeed("viewer-id")).willReturn(List.of(30L, 10L, 20L));
-			given(loadSocialForFeedPort.getFriendIds("viewer-id")).willReturn(List.of("writer-30"));
-			given(loadDiaryForFeedPort.findRestorableFeedIds(List.of(30L, 10L, 20L), "viewer-id", List.of("writer-30")))
-					.willReturn(List.of(30L, 20L));
-			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 20L), "viewer-id")).willReturn(List.of(
-					feedItem(30L, "writer-30", FriendStatus.FRIENDS),
-					feedItem(20L, "writer-20", FriendStatus.NONE)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo))).willAnswer(invocation -> invocation.getArgument(0));
+		@DisplayName("유효하지 않은 cursor bucket은 예외를 던진다")
+		void invalidCursorBucketThrowsException() {
+			FeedCursor invalidCursor = new FeedCursor(
+					FeedBucket.CONSUMED_PUBLIC,
+					1L,
+					0L,
+					LocalDateTime.now(),
+					99L);
+			given(feedCursorTokenCodec.decode("invalid-token")).willReturn(invalidCursor);
 
-			Page<ResponseDTO> result = feedQueryService.getAllDiaries(PageRequest.of(0, 10), requestMetaInfo, "viewer-id");
-
-			assertThat(result.getContent()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 20L);
+			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+					new FeedCursorRequest("invalid-token", 20),
+					requestMetaInfo,
+					null))
+					.isInstanceOf(InvalidFeedCursorException.class);
 		}
 
-		@Test
-		@DisplayName("캐시 히트 시 PRIVATE 일기는 복원 대상에서 제외한다")
-		void cachedFeedExcludesPrivateDiaries() {
-			given(loadRecommendationForFeedPort.getCachedFeed("viewer-id")).willReturn(List.of(30L, 10L, 20L));
-			given(loadSocialForFeedPort.getFriendIds("viewer-id")).willReturn(List.of("writer-30"));
-			given(loadDiaryForFeedPort.findRestorableFeedIds(List.of(30L, 10L, 20L), "viewer-id", List.of("writer-30")))
-					.willReturn(List.of(30L, 20L));
-			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 20L), "viewer-id")).willReturn(List.of(
-					feedItem(30L, "writer-30", FriendStatus.FRIENDS),
-					feedItem(20L, "writer-20", FriendStatus.NONE)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo))).willAnswer(invocation -> invocation.getArgument(0));
-
-			Page<ResponseDTO> result = feedQueryService.getAllDiaries(PageRequest.of(0, 10), requestMetaInfo, "viewer-id");
-
-			assertThat(result.getContent()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 20L);
-		}
-
-		@Test
-		@DisplayName("캐시 미스 시 후보를 점수화하고 캐시한 뒤 전용 조회 포트로 변환한다")
-		void cacheMissCollectsScoresAndCachesIds() {
-			FeedCandidateCollector.FeedCandidates candidates = new FeedCandidateCollector.FeedCandidates(
-					List.of(10L, 20L, 30L),
-					List.of(10L),
-					List.of(20L, 30L));
-
-			given(loadRecommendationForFeedPort.getCachedFeed("viewer-id")).willReturn(List.of());
-			given(feedCandidateCollector.collect("viewer-id")).willReturn(candidates);
-			given(feedCompositionService.composeFeed("viewer-id", List.of(10L), List.of(20L, 30L), 3))
-					.willReturn(List.of(20L, 10L, 30L));
-			given(loadFeedListViewPort.loadFeedListItems(List.of(20L, 10L), "viewer-id")).willReturn(List.of(
-					feedItem(20L, "writer-20", FriendStatus.REQUESTED),
-					feedItem(10L, "writer-10", FriendStatus.FRIENDS)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo))).willAnswer(invocation -> invocation.getArgument(0));
-
-			Page<ResponseDTO> result = feedQueryService.getAllDiaries(PageRequest.of(0, 2), requestMetaInfo, "viewer-id");
-
-			assertThat(result.getContent()).extracting(ResponseDTO::getDiaryId).containsExactly(20L, 10L);
-			verify(loadRecommendationForFeedPort).cacheFeed("viewer-id", List.of(20L, 10L, 30L));
-			verify(loadFeedListViewPort).loadFeedListItems(List.of(20L, 10L), "viewer-id");
+		private FeedCursorCandidate candidate(FeedBucket bucket, Long diaryId, long likeCount, long commentCount) {
+			return new FeedCursorCandidate(bucket, diaryId, likeCount, commentCount, LocalDateTime.now().minusDays(diaryId));
 		}
 
 		private FeedListItemView feedItem(Long diaryId, String writerId, FriendStatus friendStatus) {

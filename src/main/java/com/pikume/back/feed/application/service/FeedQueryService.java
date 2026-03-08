@@ -2,19 +2,22 @@ package com.pikume.back.feed.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedBucket;
+import com.pikume.back.feed.application.dto.FeedCursor;
+import com.pikume.back.feed.application.dto.FeedCursorCandidate;
+import com.pikume.back.feed.application.dto.FeedCursorPage;
+import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.feed.application.port.out.*;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
 import java.util.*;
@@ -23,9 +26,9 @@ import java.util.*;
  * 피드 조회 서비스
  *
  * 책임:
- * - 피드 조회 API 처리
- * - 캐시 관리 (조회/저장)
- * - 클릭 로깅
+ * - 피드 상세 조회 처리
+ * - cursor 기반 피드 목록 조회 orchestration
+ * - 클릭 로깅 및 선호도 이벤트 반영
  * - ResponseDTO 변환
  */
 @Service
@@ -35,14 +38,13 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
 	private final LoadFeedListViewPort loadFeedListViewPort;
+	private final LoadFeedCursorCandidatesPort loadFeedCursorCandidatesPort;
 	private final LoadSocialForFeedPort loadSocialForFeedPort;
 	private final LoadUserForFeedPort loadUserForFeedPort;
 	private final LoadRecommendationForFeedPort loadRecommendationForFeedPort;
 	private final LoadFeedClickPort loadFeedClickPort;
 	private final SaveFeedClickPort saveFeedClickPort;
-
-	private final FeedCandidateCollector feedCandidateCollector;
-	private final FeedCompositionService feedCompositionService;
+	private final FeedCursorTokenCodec feedCursorTokenCodec;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -62,15 +64,22 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public Page<ResponseDTO> getAllDiaries(Pageable pageable, RequestMetaInfo requestMetaInfo, String userId) {
-		List<Long> recommendedDiaryIds = getRecommendedDiaryIds(userId);
-		List<Long> pagedDiaryIds = applyPaging(recommendedDiaryIds, pageable);
-		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(pagedDiaryIds, userId);
+	public FeedCursorPage<ResponseDTO> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
+		FeedCursor cursor = decodeCursor(request.cursor(), userId);
+		List<FeedCursorCandidate> candidates = loadCursorPageCandidates(userId, cursor, request.limit());
+		List<Long> diaryIds = candidates.stream()
+				.map(FeedCursorCandidate::diaryId)
+				.toList();
+		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
 		List<ResponseDTO> responseList = feedItems.stream()
 				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
 				.toList();
+		boolean hasNext = hasNext(userId, candidates, request.limit());
+		String nextCursor = hasNext && !candidates.isEmpty()
+				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
+				: null;
 
-		return new PageImpl<>(responseList, pageable, recommendedDiaryIds.size());
+		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
 	}
 
 	@Override
@@ -81,53 +90,71 @@ public class FeedQueryService implements GetFeedUseCase {
 		}
 		saveFeedClickPort.save(new FeedClick(userId, diaryId));
 		updateUserPreferenceOnClick(userId, diaryId);
-
-		loadRecommendationForFeedPort.invalidateCache(userId);
-		log.debug("피드 캐시 무효화 - userId: {}", userId);
 	}
 
 	// ==================== Private Methods ====================
 
-	private List<Long> getRecommendedDiaryIds(String userId) {
-		List<Long> cachedIds = getCachedFeedIds(userId);
-		if (!cachedIds.isEmpty()) {
-			log.info("피드 캐시 히트 - userId: {}", userId);
-			List<String> friendIds = userId != null ? loadSocialForFeedPort.getFriendIds(userId) : List.of();
-			return loadDiaryForFeedPort.findRestorableFeedIds(cachedIds, userId, friendIds);
+	private FeedCursor decodeCursor(String cursorToken, String userId) {
+		FeedCursor cursor = feedCursorTokenCodec.decode(cursorToken);
+		if (cursor == null) {
+			return null;
 		}
-
-		log.info("피드 캐시 미스 - userId: {}", userId);
-		FeedCandidateCollector.FeedCandidates candidates = feedCandidateCollector.collect(userId);
-		List<Long> scoredDiaryIds = applyScoring(candidates, userId);
-		cacheFeed(userId, scoredDiaryIds);
-
-		return scoredDiaryIds;
+		if (!FeedBucket.orderedBuckets(userId).contains(cursor.bucket())) {
+			throw new InvalidFeedCursorException();
+		}
+		return cursor;
 	}
 
-	private List<Long> getCachedFeedIds(String userId) {
-		if (userId == null) {
-			return Collections.emptyList();
+	private List<FeedCursorCandidate> loadCursorPageCandidates(String userId, FeedCursor cursor, int limit) {
+		List<FeedCursorCandidate> collected = new ArrayList<>();
+		FeedBucket bucket = cursor != null ? cursor.bucket() : FeedBucket.firstBucket(userId);
+		FeedCursor bucketCursor = cursor;
+		int remaining = limit;
+
+		while (bucket != null && remaining > 0) {
+			List<FeedCursorCandidate> candidates = loadFeedCursorCandidatesPort.loadCandidates(
+					userId,
+					bucket,
+					bucketCursor,
+					remaining);
+			collected.addAll(candidates);
+			remaining -= candidates.size();
+			bucket = bucket.next(userId);
+			bucketCursor = null;
 		}
-		return loadRecommendationForFeedPort.getCachedFeed(userId);
+
+		return collected;
 	}
 
-	private List<Long> applyScoring(FeedCandidateCollector.FeedCandidates candidates, String userId) {
-		if (userId == null || candidates.orderedDiaryIds().isEmpty()) {
-			return candidates.orderedDiaryIds();
+	private boolean hasNext(String userId, List<FeedCursorCandidate> candidates, int limit) {
+		if (candidates.size() < limit || candidates.isEmpty()) {
+			return false;
 		}
 
-		return feedCompositionService.composeFeed(
+		FeedCursorCandidate lastCandidate = candidates.get(candidates.size() - 1);
+		List<FeedCursorCandidate> sameBucketRemainder = loadFeedCursorCandidatesPort.loadCandidates(
 				userId,
-				candidates.friendDiaryIds(),
-				candidates.publicDiaryIds(),
-				candidates.orderedDiaryIds().size());
-	}
-
-	private void cacheFeed(String userId, List<Long> diaryIds) {
-		if (userId == null || diaryIds.isEmpty()) {
-			return;
+				lastCandidate.bucket(),
+				lastCandidate.toCursor(),
+				1);
+		if (!sameBucketRemainder.isEmpty()) {
+			return true;
 		}
-		loadRecommendationForFeedPort.cacheFeed(userId, diaryIds);
+
+		FeedBucket nextBucket = lastCandidate.bucket().next(userId);
+		while (nextBucket != null) {
+			List<FeedCursorCandidate> nextBucketItems = loadFeedCursorCandidatesPort.loadCandidates(
+					userId,
+					nextBucket,
+					null,
+					1);
+			if (!nextBucketItems.isEmpty()) {
+				return true;
+			}
+			nextBucket = nextBucket.next(userId);
+		}
+
+		return false;
 	}
 
 	private void updateUserPreferenceOnClick(String userId, Long diaryId) {
@@ -139,12 +166,6 @@ public class FeedQueryService implements GetFeedUseCase {
 		} catch (Exception e) {
 			log.warn("선호도 업데이트 실패 - userId: {}, diaryId: {}", userId, diaryId);
 		}
-	}
-
-	private List<Long> applyPaging(List<Long> diaryIds, Pageable pageable) {
-		int start = (int) pageable.getOffset();
-		int end = Math.min(start + pageable.getPageSize(), diaryIds.size());
-		return start >= diaryIds.size() ? Collections.emptyList() : diaryIds.subList(start, end);
 	}
 
 	// ==================== DTO Builders ====================

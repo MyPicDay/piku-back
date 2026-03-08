@@ -2,6 +2,7 @@ package com.pikume.back.diary.adapter.out.persistence;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.domain.Diary;
@@ -91,13 +92,14 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
 	List<Long> findFeedIdsByStatusAndUserIdIn(@Param("status") DiaryVisibility status,
-			@Param("userIds") Collection<String> userIds);
+			@Param("userIds") Collection<String> userIds,
+			Pageable pageable);
 
 	@Query("SELECT d.id FROM Diary d " +
 			"WHERE d.status = :status " +
 			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
-	List<Long> findFeedIdsByStatus(@Param("status") DiaryVisibility status);
+	List<Long> findFeedIdsByStatus(@Param("status") DiaryVisibility status, Pageable pageable);
 
 	@Query("SELECT d.id FROM Diary d " +
 			"WHERE d.status = :status " +
@@ -105,5 +107,6 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
 	List<Long> findFeedIdsByStatusAndUserIdNot(@Param("status") DiaryVisibility status,
-			@Param("excludedUserId") String excludedUserId);
+			@Param("excludedUserId") String excludedUserId,
+			Pageable pageable);
 }

@@ -19,6 +19,9 @@ import java.util.*;
 @RequiredArgsConstructor
 public class FeedCandidateCollector {
 
+	private static final int SOURCE_QUERY_MULTIPLIER = 2;
+	private static final int MAX_SOURCE_QUERY_LIMIT = 400;
+
 	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
 	private final LoadFeedClickPort loadFeedClickPort;
 	private final LoadSocialForFeedPort loadSocialForFeedPort;
@@ -32,13 +35,18 @@ public class FeedCandidateCollector {
 	 * 3. 읽은 친구 피드
 	 * 4. 읽은 공개 피드
 	 */
-	public FeedCandidates collect(String userId) {
+	public FeedCandidates collect(String userId, int candidateLimit) {
 		Set<Long> clickedFeedIds = getClickedFeedIds(userId);
 		List<String> friendIds = getFriendIds(userId);
-		List<Long> friendFeedIds = getFriendFeedIds(friendIds);
-		List<Long> friendPublicFeedIds = getFriendPublicFeedIds(friendIds);
-		List<Long> publicFeedIds = getPublicFeedIds(userId);
-		List<Long> orderedDiaryIds = combineFeedIdsByPriority(friendFeedIds, publicFeedIds, clickedFeedIds);
+		int sourceQueryLimit = getSourceQueryLimit(candidateLimit);
+		List<Long> friendFeedIds = getFriendFeedIds(friendIds, sourceQueryLimit);
+		List<Long> friendPublicFeedIds = getFriendPublicFeedIds(friendIds, sourceQueryLimit);
+		List<Long> publicFeedIds = getPublicFeedIds(userId, sourceQueryLimit);
+		List<Long> orderedDiaryIds = combineFeedIdsByPriority(
+				friendFeedIds,
+				publicFeedIds,
+				clickedFeedIds,
+				candidateLimit);
 		List<Long> friendAuthoredDiaryIds = collectFriendAuthoredDiaryIdsInOrder(
 				orderedDiaryIds, friendFeedIds, friendPublicFeedIds);
 		List<Long> nonFriendPublicDiaryIds = collectNonFriendDiaryIdsInOrder(orderedDiaryIds, friendAuthoredDiaryIds);
@@ -61,42 +69,47 @@ public class FeedCandidateCollector {
 		return loadSocialForFeedPort.getFriendIds(userId);
 	}
 
-	private List<Long> getFriendFeedIds(List<String> friendIds) {
+	private int getSourceQueryLimit(int candidateLimit) {
+		return Math.min(candidateLimit * SOURCE_QUERY_MULTIPLIER, MAX_SOURCE_QUERY_LIMIT);
+	}
+
+	private List<Long> getFriendFeedIds(List<String> friendIds, int limit) {
 		if (friendIds.isEmpty()) {
 			return List.of();
 		}
 
-		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds);
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, limit);
 	}
 
-	private List<Long> getFriendPublicFeedIds(List<String> friendIds) {
+	private List<Long> getFriendPublicFeedIds(List<String> friendIds, int limit) {
 		if (friendIds.isEmpty()) {
 			return List.of();
 		}
 
-		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds);
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, limit);
 	}
 
-	private List<Long> getPublicFeedIds(String userId) {
-		return loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, userId);
+	private List<Long> getPublicFeedIds(String userId, int limit) {
+		return loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, userId, limit);
 	}
 
 	private List<Long> combineFeedIdsByPriority(List<Long> friendFeedIds, List<Long> publicFeedIds,
-			Set<Long> clickedFeedIds) {
+			Set<Long> clickedFeedIds,
+			int candidateLimit) {
 		Set<Long> addedIds = new HashSet<>();
 		List<Long> combined = new ArrayList<>();
 
 		// 1순위: 미읽음 친구 피드
-		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, false);
+		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, false, candidateLimit);
 
 		// 2순위: 미읽음 공개 피드
-		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, false);
+		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, false, candidateLimit);
 
 		// 3순위: 읽은 친구 피드
-		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, true);
+		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, true, candidateLimit);
 
 		// 4순위: 읽은 공개 피드
-		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, true);
+		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, true, candidateLimit);
 
 		log.debug("피드 후보 수집 완료 - 총: {}", combined.size());
 		return combined;
@@ -124,14 +137,18 @@ public class FeedCandidateCollector {
 	}
 
 	private void addFilteredFeedIds(List<Long> target, Set<Long> addedIds, List<Long> source,
-			Set<Long> clickedFeedIds, boolean includeClicked) {
-		source.stream()
-				.filter(diaryId -> includeClicked == clickedFeedIds.contains(diaryId))
-				.forEach(diaryId -> {
-					if (addedIds.add(diaryId)) {
-						target.add(diaryId);
-					}
-				});
+			Set<Long> clickedFeedIds, boolean includeClicked, int candidateLimit) {
+		for (Long diaryId : source) {
+			if (target.size() >= candidateLimit) {
+				return;
+			}
+			if (includeClicked != clickedFeedIds.contains(diaryId)) {
+				continue;
+			}
+			if (addedIds.add(diaryId)) {
+				target.add(diaryId);
+			}
+		}
 	}
 
 	public record FeedCandidates(

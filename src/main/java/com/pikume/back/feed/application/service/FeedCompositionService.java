@@ -31,7 +31,7 @@ public class FeedCompositionService {
 		List<ScoredDiary> scoredDiaries = loadRecommendationForFeedPort.getRecommendedDiaries(
 				userId, allCandidates, friendDiaryIds);
 
-		int fixedSlotCount = (int) Math.ceil(friendDiaryIds.size() * FIXED_SLOT_RATIO);
+		int fixedSlotCount = (int) Math.ceil(requestedSize * FIXED_SLOT_RATIO);
 		fixedSlotCount = Math.min(fixedSlotCount, friendDiaryIds.size());
 
 		Set<Long> friendSet = new HashSet<>(friendDiaryIds);

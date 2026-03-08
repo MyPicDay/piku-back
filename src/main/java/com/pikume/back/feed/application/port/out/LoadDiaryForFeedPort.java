@@ -12,9 +12,9 @@ public interface LoadDiaryForFeedPort {
 
 	List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds);
 
-	List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds);
+	List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds, int limit);
 
-	List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId);
+	List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId, int limit);
 
 	List<String> getPhotosForDiary(Diary diary, RequestMetaInfo requestMetaInfo);
 }

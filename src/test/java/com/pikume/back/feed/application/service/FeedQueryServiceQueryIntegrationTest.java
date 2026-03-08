@@ -4,8 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import jakarta.persistence.EntityManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
@@ -14,25 +13,26 @@ import com.pikume.back.diary.adapter.out.storage.PhotoConstants;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.adapter.out.persistence.FeedClickJpaRepository;
+import com.pikume.back.feed.application.dto.FeedCursorPage;
+import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
+import com.pikume.back.feed.domain.FeedClick;
+import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendRequestJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.LikeJpaRepository;
-import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.friend.Friend;
-import com.pikume.back.social.domain.friend.FriendRequest;
-import com.pikume.back.social.domain.friend.vo.FriendStatus;
 import com.pikume.back.social.domain.like.Like;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
 
 class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 
@@ -60,96 +60,139 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	@Autowired
 	private CommentJpaRepository commentJpaRepository;
 
+	@Autowired
+	private FeedClickJpaRepository feedClickJpaRepository;
+
+	@Autowired
+	private EntityManager entityManager;
+
 	@MockitoBean
 	private LoadRecommendationForFeedPort loadRecommendationForFeedPort;
 
 	private User viewer;
 	private Diary ownDiary;
 	private Diary privateDiary;
-	private Diary diary1;
-	private Diary diary2;
-	private Diary diary3;
+	private Diary friendHigh;
+	private Diary friendMid;
+	private Diary friendLow;
+	private Diary friendExtra;
+	private Diary friendConsumed;
+	private Diary publicHigh;
+	private Diary publicLow;
 
 	@BeforeEach
 	void setUp() {
-		viewer = saveUser("viewer");
-		User friendAuthor = saveUser("friend-author");
-		User requestedAuthor = saveUser("requested-author");
-		User receivedAuthor = saveUser("received-author");
-		User liker = saveUser("liker");
-		User privateAuthor = saveUser("private-author");
+		LocalDateTime baseTime = LocalDateTime.of(2026, 3, 8, 12, 0);
 
-		ownDiary = saveDiary(viewer.getId(), "my-feed");
-		privateDiary = saveDiary(privateAuthor.getId(), "private-feed", DiaryVisibility.PRIVATE);
-		diary1 = saveDiary(friendAuthor.getId(), "feed-1");
-		diary2 = saveDiary(requestedAuthor.getId(), "feed-2");
-		diary3 = saveDiary(receivedAuthor.getId(), "feed-3");
+		viewer = saveUser("viewer");
+		User friendA = saveUser("friend-a");
+		User friendB = saveUser("friend-b");
+		User friendC = saveUser("friend-c");
+		User friendD = saveUser("friend-d");
+		User friendE = saveUser("friend-e");
+		User publicAuthor1 = saveUser("public-1");
+		User publicAuthor2 = saveUser("public-2");
+		User privateAuthor = saveUser("private");
+		User liker1 = saveUser("liker-1");
+		User liker2 = saveUser("liker-2");
+		User commenter = saveUser("commenter");
+
+		friendJpaRepository.save(new Friend(viewer.getId(), friendA.getId()));
+		friendJpaRepository.save(new Friend(viewer.getId(), friendB.getId()));
+		friendJpaRepository.save(new Friend(viewer.getId(), friendC.getId()));
+		friendJpaRepository.save(new Friend(viewer.getId(), friendD.getId()));
+		friendJpaRepository.save(new Friend(viewer.getId(), friendE.getId()));
+
+		ownDiary = saveDiary(viewer.getId(), "my-feed", DiaryVisibility.PUBLIC, baseTime.minusMinutes(1));
+		privateDiary = saveDiary(privateAuthor.getId(), "private-feed", DiaryVisibility.PRIVATE, baseTime.minusMinutes(2));
+		friendHigh = saveDiary(friendA.getId(), "friend-high", DiaryVisibility.PUBLIC, baseTime.minusHours(4));
+		friendMid = saveDiary(friendB.getId(), "friend-mid", DiaryVisibility.FRIENDS, baseTime.minusHours(3));
+		friendLow = saveDiary(friendC.getId(), "friend-low", DiaryVisibility.PUBLIC, baseTime.minusHours(2));
+		friendExtra = saveDiary(friendD.getId(), "friend-extra", DiaryVisibility.FRIENDS, baseTime.minusHours(1));
+		friendConsumed = saveDiary(friendE.getId(), "friend-consumed", DiaryVisibility.PUBLIC, baseTime.minusHours(5));
+		publicHigh = saveDiary(publicAuthor1.getId(), "public-high", DiaryVisibility.PUBLIC, baseTime.minusMinutes(20));
+		publicLow = saveDiary(publicAuthor2.getId(), "public-low", DiaryVisibility.PUBLIC, baseTime.minusMinutes(10));
 
 		saveRepresentPhoto(ownDiary, "my-feed.jpg");
 		saveRepresentPhoto(privateDiary, "private-feed.jpg");
-		saveRepresentPhoto(diary1, "feed-1.jpg");
-		saveRepresentPhoto(diary2, "feed-2.jpg");
-		saveRepresentPhoto(diary3, "feed-3.jpg");
+		saveRepresentPhoto(friendHigh, "friend-high.jpg");
+		saveRepresentPhoto(friendMid, "friend-mid.jpg");
+		saveRepresentPhoto(friendLow, "friend-low.jpg");
+		saveRepresentPhoto(friendExtra, "friend-extra.jpg");
+		saveRepresentPhoto(friendConsumed, "friend-consumed.jpg");
+		saveRepresentPhoto(publicHigh, "public-high.jpg");
+		saveRepresentPhoto(publicLow, "public-low.jpg");
 
-		friendJpaRepository.save(new Friend(viewer.getId(), friendAuthor.getId()));
-		friendRequestJpaRepository.save(new FriendRequest(viewer.getId(), requestedAuthor.getId()));
-		friendRequestJpaRepository.save(new FriendRequest(receivedAuthor.getId(), viewer.getId()));
+		addLike(friendHigh.getId(), liker1.getId());
+		addLike(friendHigh.getId(), liker2.getId());
+		addLike(friendHigh.getId(), commenter.getId());
+		addComment(friendHigh.getId(), commenter.getId(), "fh-comment-1");
+		addComment(friendHigh.getId(), liker1.getId(), "fh-comment-2");
 
-		saveComment(diary1.getId(), friendAuthor.getId(), "comment-1");
-		saveComment(diary2.getId(), requestedAuthor.getId(), "comment-2");
-		saveComment(diary3.getId(), receivedAuthor.getId(), "comment-3");
+		addLike(friendMid.getId(), liker1.getId());
+		addLike(friendMid.getId(), liker2.getId());
+		addComment(friendMid.getId(), commenter.getId(), "fm-comment-1");
 
-		likeJpaRepository.save(Like.builder().userId(viewer.getId()).diaryId(diary2.getId()).build());
-		likeJpaRepository.save(Like.builder().userId(liker.getId()).diaryId(diary1.getId()).build());
-		likeJpaRepository.save(Like.builder().userId(liker.getId()).diaryId(diary3.getId()).build());
+		addLike(friendLow.getId(), liker1.getId());
+		addLike(friendConsumed.getId(), liker1.getId());
+		addLike(friendConsumed.getId(), liker2.getId());
+		addComment(friendConsumed.getId(), commenter.getId(), "fc-comment-1");
 
-		given(loadRecommendationForFeedPort.getCachedFeed(viewer.getId()))
-				.willReturn(List.of(diary3.getId(), privateDiary.getId(), ownDiary.getId(), diary1.getId(), diary2.getId()));
+		addLike(publicHigh.getId(), liker1.getId());
+		addLike(publicHigh.getId(), liker2.getId());
+		addLike(publicHigh.getId(), commenter.getId());
+		addComment(publicHigh.getId(), commenter.getId(), "ph-comment-1");
+
+		feedClickJpaRepository.save(new FeedClick(viewer.getId(), friendConsumed.getId()));
+		flushAndClear();
 	}
 
 	@Test
-	@DisplayName("피드 목록 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
-	void feedQueryCountStaysBounded() {
+	@DisplayName("피드 cursor 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
+	void feedCursorQueryCountStaysBounded() {
 		long oneItemQueries = measurePreparedStatements(() ->
-				feedQueryService.getAllDiaries(PageRequest.of(0, 1), REQUEST_META_INFO, viewer.getId()));
+				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 1), REQUEST_META_INFO, viewer.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				feedQueryService.getAllDiaries(PageRequest.of(0, 3), REQUEST_META_INFO, viewer.getId()));
+				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 3), REQUEST_META_INFO, viewer.getId()));
 
 		assertThat(threeItemQueries)
-				.as("피드 row 수가 늘어도 사진/유저/좋아요/댓글/친구 상태 조회는 배치로 제한해야 한다")
+				.as("cursor limit이 커져도 materialize 단계의 사진/유저/좋아요/댓글/친구 상태 조회는 배치로 제한해야 한다")
 				.isEqualTo(oneItemQueries);
 	}
 
 	@Test
-	@DisplayName("캐시된 피드 ID 순서를 유지한 채 목록을 materialize 한다")
-	void feedOrderFollowsCachedIds() {
-		Page<ResponseDTO> page = feedQueryService.getAllDiaries(PageRequest.of(0, 3), REQUEST_META_INFO, viewer.getId());
+	@DisplayName("첫 페이지는 not consumed friend bucket을 최신성 우선으로 반환하며 self/private는 제외한다")
+	void firstPagePrioritizesNotConsumedFriendBucket() {
+		FeedCursorPage<ResponseDTO> page = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 4),
+				REQUEST_META_INFO,
+				viewer.getId());
 
-		assertThat(page.getContent()).extracting(ResponseDTO::getDiaryId)
-				.containsExactly(diary3.getId(), diary1.getId(), diary2.getId());
-		assertThat(page.getContent()).extracting(ResponseDTO::getFriendStatus)
-				.containsExactly(
-						FriendStatus.RECEIVED,
-						FriendStatus.FRIENDS,
-						FriendStatus.REQUESTED);
+		assertThat(page.items()).extracting(ResponseDTO::getDiaryId)
+				.containsExactly(friendExtra.getId(), friendLow.getId(), friendMid.getId(), friendHigh.getId());
+		assertThat(page.items()).extracting(ResponseDTO::getDiaryId)
+				.doesNotContain(ownDiary.getId(), privateDiary.getId(), friendConsumed.getId(), publicHigh.getId());
+		assertThat(page.nextCursor()).isNotBlank();
+		assertThat(page.hasNext()).isTrue();
 	}
 
 	@Test
-	@DisplayName("캐시 hit 경로에서도 본인 일기는 목록에서 제외된다")
-	void feedExcludesOwnDiaryOnCacheHit() {
-		Page<ResponseDTO> page = feedQueryService.getAllDiaries(PageRequest.of(0, 10), REQUEST_META_INFO, viewer.getId());
+	@DisplayName("nextCursor로 다음 페이지를 요청하면 다음 bucket으로 이어진다")
+	void nextCursorContinuesIntoNextBucket() {
+		FeedCursorPage<ResponseDTO> firstPage = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 4),
+				REQUEST_META_INFO,
+				viewer.getId());
 
-		assertThat(page.getContent()).extracting(ResponseDTO::getDiaryId)
-				.doesNotContain(ownDiary.getId());
-	}
+		FeedCursorPage<ResponseDTO> secondPage = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(firstPage.nextCursor(), 3),
+				REQUEST_META_INFO,
+				viewer.getId());
 
-	@Test
-	@DisplayName("캐시 hit 경로에서도 PRIVATE 일기는 피드에서 제외된다")
-	void feedExcludesPrivateDiaryOnCacheHit() {
-		Page<ResponseDTO> page = feedQueryService.getAllDiaries(PageRequest.of(0, 10), REQUEST_META_INFO, viewer.getId());
-
-		assertThat(page.getContent()).extracting(ResponseDTO::getDiaryId)
-				.doesNotContain(privateDiary.getId());
+		assertThat(secondPage.items()).extracting(ResponseDTO::getDiaryId)
+				.containsExactly(publicLow.getId(), publicHigh.getId(), friendConsumed.getId());
+		assertThat(secondPage.items()).extracting(ResponseDTO::getDiaryId)
+				.doesNotContain(friendHigh.getId(), friendMid.getId(), friendLow.getId(), friendExtra.getId());
 	}
 
 	private User saveUser(String suffix) {
@@ -160,12 +203,13 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 				"avatars/" + suffix + ".png"));
 	}
 
-	private Diary saveDiary(String userId, String content) {
-		return diaryJpaRepository.save(new Diary(content, DiaryVisibility.PUBLIC, LocalDate.now(), userId));
-	}
-
-	private Diary saveDiary(String userId, String content, DiaryVisibility visibility) {
-		return diaryJpaRepository.save(new Diary(content, visibility, LocalDate.now(), userId));
+	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDateTime createdAt) {
+		Diary diary = diaryJpaRepository.save(new Diary(content, visibility, LocalDate.now(), userId));
+		entityManager.createNativeQuery("UPDATE diary SET created_at = :createdAt WHERE id = :diaryId")
+				.setParameter("createdAt", createdAt)
+				.setParameter("diaryId", diary.getId())
+				.executeUpdate();
+		return diary;
 	}
 
 	private void saveRepresentPhoto(Diary diary, String fileName) {
@@ -174,7 +218,11 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		photoJpaRepository.save(photo);
 	}
 
-	private void saveComment(Long diaryId, String userId, String content) {
+	private void addLike(Long diaryId, String userId) {
+		likeJpaRepository.save(Like.builder().userId(userId).diaryId(diaryId).build());
+	}
+
+	private void addComment(Long diaryId, String userId, String content) {
 		commentJpaRepository.save(new Comment(content, userId, diaryId));
 	}
 }

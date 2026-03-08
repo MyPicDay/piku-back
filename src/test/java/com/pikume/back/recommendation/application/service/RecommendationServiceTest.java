@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -12,6 +13,7 @@ import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort
 import com.pikume.back.recommendation.domain.DiaryMetadata;
 import com.pikume.back.recommendation.domain.ScoredDiary;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,20 +54,16 @@ class RecommendationServiceTest {
 		}
 
 		@Test
-		@DisplayName("친구 콘텐츠는 추가 점수 보너스를 받는다")
-		void friendContentBonus() {
-			DiaryMetadata metadata = DiaryMetadata.builder()
-					.diaryId(1L)
-					.primaryTopic("daily")
-					.qualityScore(0.5)
-					.build();
+		@DisplayName("친구 여부는 score bonus가 아니라 feed composition 단계에서만 반영한다")
+		void friendStatusDoesNotChangeScore() {
+			DiaryMetadata metadata = metadataWithAnalyzedAt(1L, "daily", 0.5, LocalDateTime.now().minusHours(6));
 
 			Map<String, Double> userAffinities = Map.of("daily", 0.5);
 
 			double nonFriendScore = recommendationService.calculateScore(metadata, userAffinities, false);
 			double friendScore = recommendationService.calculateScore(metadata, userAffinities, true);
 
-			assertThat(friendScore).isGreaterThan(nonFriendScore);
+			assertThat(friendScore).isEqualTo(nonFriendScore);
 		}
 
 		@Test
@@ -89,6 +87,20 @@ class RecommendationServiceTest {
 			double highScore = recommendationService.calculateScore(highQuality, userAffinities, false);
 
 			assertThat(highScore).isGreaterThan(lowScore);
+		}
+
+		@Test
+		@DisplayName("최신성이 높은 일기가 더 높은 점수를 받는다")
+		void recentDiaryHighScore() {
+			DiaryMetadata recent = metadataWithAnalyzedAt(1L, "travel", 0.5, LocalDateTime.now().minusHours(2));
+			DiaryMetadata stale = metadataWithAnalyzedAt(2L, "travel", 0.5, LocalDateTime.now().minusDays(7));
+
+			Map<String, Double> userAffinities = Map.of("travel", 0.5);
+
+			double recentScore = recommendationService.calculateScore(recent, userAffinities, false);
+			double staleScore = recommendationService.calculateScore(stale, userAffinities, false);
+
+			assertThat(recentScore).isGreaterThan(staleScore);
 		}
 	}
 
@@ -152,5 +164,16 @@ class RecommendationServiceTest {
 			assertThat(result.get(0).getDiaryId()).isEqualTo(1L);
 			assertThat(result.get(0).getScore()).isGreaterThan(0);
 		}
+	}
+
+	private DiaryMetadata metadataWithAnalyzedAt(Long diaryId, String topic, double qualityScore,
+			LocalDateTime analyzedAt) {
+		DiaryMetadata metadata = DiaryMetadata.builder()
+				.diaryId(diaryId)
+				.primaryTopic(topic)
+				.qualityScore(qualityScore)
+				.build();
+		ReflectionTestUtils.setField(metadata, "analyzedAt", analyzedAt);
+		return metadata;
 	}
 }

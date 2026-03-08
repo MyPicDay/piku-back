@@ -1,6 +1,7 @@
 package com.pikume.back.feed.adapter.out.diary;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
@@ -43,19 +44,19 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
 	}
 
 	@Override
-	public List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds) {
+	public List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds, int limit) {
 		if (userIds.isEmpty()) {
 			return List.of();
 		}
-		return diaryJpaRepository.findFeedIdsByStatusAndUserIdIn(status, userIds);
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdIn(status, userIds, PageRequest.of(0, limit));
 	}
 
 	@Override
-	public List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId) {
+	public List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId, int limit) {
 		if (excludedUserId == null || excludedUserId.isBlank()) {
-			return diaryJpaRepository.findFeedIdsByStatus(status);
+			return diaryJpaRepository.findFeedIdsByStatus(status, PageRequest.of(0, limit));
 		}
-		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(status, excludedUserId);
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(status, excludedUserId, PageRequest.of(0, limit));
 	}
 
 	@Override

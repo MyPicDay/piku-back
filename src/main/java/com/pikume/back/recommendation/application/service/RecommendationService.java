@@ -10,6 +10,8 @@ import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort
 import com.pikume.back.recommendation.domain.DiaryMetadata;
 import com.pikume.back.recommendation.domain.ScoredDiary;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,24 +26,23 @@ public class RecommendationService implements GetRecommendationUseCase {
 	private static final double TOPIC_WEIGHT = 0.4;
 	private static final double QUALITY_WEIGHT = 0.3;
 	private static final double RECENCY_WEIGHT = 0.2;
-	private static final double FRIEND_BONUS = 0.15;
+	private static final double DEFAULT_TOPIC_SCORE = 0.1;
+	private static final double DEFAULT_QUALITY_SCORE = 0.5;
+	private static final double DEFAULT_METADATA_SCORE = 0.3;
+	private static final double RECENCY_HALF_LIFE_HOURS = 72.0;
 
 	@Override
 	public double calculateScore(DiaryMetadata metadata, Map<String, Double> userAffinities, boolean isFriend) {
 		double topicScore = 0.0;
-		double qualityScore = metadata.getQualityScore() != null ? metadata.getQualityScore() : 0.5;
+		double qualityScore = metadata.getQualityScore() != null ? metadata.getQualityScore() : DEFAULT_QUALITY_SCORE;
 
 		if (metadata.getPrimaryTopic() != null) {
-			topicScore = userAffinities.getOrDefault(metadata.getPrimaryTopic(), 0.1);
+			topicScore = userAffinities.getOrDefault(metadata.getPrimaryTopic(), DEFAULT_TOPIC_SCORE);
 		}
 
 		double baseScore = (TOPIC_WEIGHT * topicScore)
 				+ (QUALITY_WEIGHT * qualityScore)
-				+ (RECENCY_WEIGHT * 0.5);
-
-		if (isFriend) {
-			baseScore += FRIEND_BONUS;
-		}
+				+ (RECENCY_WEIGHT * calculateRecencyScore(metadata));
 
 		return Math.min(1.0, baseScore);
 	}
@@ -80,13 +81,12 @@ public class RecommendationService implements GetRecommendationUseCase {
 		List<ScoredDiary> results = candidateDiaryIds.stream()
 				.map(diaryId -> {
 					DiaryMetadata metadata = metadataMap.get(diaryId);
-					boolean isFriend = friendSet.contains(diaryId);
 					double score;
 
 					if (metadata != null) {
-						score = calculateScore(metadata, userAffinities, isFriend);
+						score = calculateScore(metadata, userAffinities, friendSet.contains(diaryId));
 					} else {
-						score = 0.3 + (isFriend ? FRIEND_BONUS : 0);
+						score = DEFAULT_METADATA_SCORE;
 					}
 
 					return new ScoredDiary(diaryId, score);
@@ -96,6 +96,17 @@ public class RecommendationService implements GetRecommendationUseCase {
 
 		log.debug("추천 스코어링 완료 - 후보: {}, 메타데이터 있음: {}", candidateDiaryIds.size(), metadataMap.size());
 		return results;
+	}
+
+	private double calculateRecencyScore(DiaryMetadata metadata) {
+		LocalDateTime referenceTime = metadata.getAnalyzedAt() != null ? metadata.getAnalyzedAt() : metadata.getCreatedAt();
+		if (referenceTime == null) {
+			return 0.5;
+		}
+
+		long ageHours = Math.max(0L, Duration.between(referenceTime, LocalDateTime.now()).toHours());
+		double decayFactor = ageHours / RECENCY_HALF_LIFE_HOURS;
+		return 1.0 / (1.0 + decayFactor);
 	}
 
 	private Map<String, Double> getUserAffinities(String userId) {

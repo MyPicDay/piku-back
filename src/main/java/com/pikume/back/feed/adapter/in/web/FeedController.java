@@ -7,34 +7,31 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
-import com.pikume.back.diary.application.service.DiaryQueryService;
+import com.pikume.back.feed.application.dto.FeedCursorPage;
+import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.RequestMetaMapper;
 
-import java.util.List;
-
 @Tag(name = "Feed", description = "피드 관련 API")
 @RestController
+@Validated
 @Slf4j
 @RequestMapping("/api/diary")
 @RequiredArgsConstructor
 public class FeedController {
 
 	private final GetFeedUseCase getFeedUseCase;
-	private final DiaryQueryService diaryQueryService;
 	private final RequestMetaMapper requestMetaMapper;
 
 	@ApiResponses(value = {
@@ -59,26 +56,24 @@ public class FeedController {
 	}
 
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = ResponseDTO.class))) })
-	@Operation(summary = "일기 전체 조회", description = """
-			    프론트에서 페이지수, 정렬방법, 페이지 크기 보내줄 수 있습니다.
-			    - page: 0 이상 정수
-			    - size: 1~100 사이 정수
-			    - sort: "createdAt", "userId", "date" 중 하나
+			@ApiResponse(responseCode = "200", description = "일기 조회 성공 ", content = @Content(schema = @Schema(implementation = FeedCursorPage.class))) })
+	@Operation(summary = "일기 피드 조회", description = """
+			    cursor 기반으로 피드 목록을 조회합니다.
+			    - cursor: 다음 페이지 조회용 opaque token
+			    - limit: 1~100 사이 정수
 			""")
 	@GetMapping
-	public ResponseEntity<Page<ResponseDTO>> getAllDiaries(
-			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+	public ResponseEntity<FeedCursorPage<ResponseDTO>> getAllDiaries(
+			@RequestParam(required = false) String cursor,
+			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
 			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-
-		List<String> allowed = List.of("createdAt", "userId", "date");
-		Pageable safePageable = diaryQueryService.sanitizePageable(pageable, allowed);
-
-		log.info("safePageable: {}", safePageable);
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		Page<ResponseDTO> page = getFeedUseCase.getAllDiaries(safePageable, requestMetaInfo, userId);
+		FeedCursorPage<ResponseDTO> page = getFeedUseCase.getAllDiaries(
+				new FeedCursorRequest(cursor, limit),
+				requestMetaInfo,
+				userId);
 		return ResponseEntity.ok(page);
 	}
 }

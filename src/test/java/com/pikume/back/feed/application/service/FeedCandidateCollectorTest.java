@@ -39,17 +39,38 @@ class FeedCandidateCollectorTest {
 
 		given(loadFeedClickPort.findClickedDiaryIdsByUserId("viewer")).willReturn(List.of(2L));
 		given(loadSocialForFeedPort.getFriendIds("viewer")).willReturn(friendIds);
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, 10))
 				.willReturn(List.of(1L, 2L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, 10))
 				.willReturn(List.of(3L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, "viewer"))
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, "viewer", 10))
 				.willReturn(List.of(3L, 4L, 5L));
 
-		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer");
+		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 5);
 
 		assertThat(result.orderedDiaryIds()).containsExactly(1L, 3L, 4L, 5L, 2L);
 		assertThat(result.friendDiaryIds()).containsExactly(1L, 3L, 2L);
 		assertThat(result.publicDiaryIds()).containsExactly(4L, 5L);
+	}
+
+	@Test
+	@DisplayName("candidate limit 만큼만 우선순위 순서대로 후보를 수집한다")
+	void collectCapsCandidatesToRequestedLimit() {
+		List<String> friendIds = List.of("friend-a");
+
+		given(loadFeedClickPort.findClickedDiaryIdsByUserId("viewer")).willReturn(List.of());
+		given(loadSocialForFeedPort.getFriendIds("viewer")).willReturn(friendIds);
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, 6))
+				.willReturn(List.of(1L, 2L, 3L));
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, 6))
+				.willReturn(List.of(4L, 5L));
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, "viewer", 6))
+				.willReturn(List.of(4L, 5L, 6L, 7L));
+
+		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 3);
+
+		assertThat(result.orderedDiaryIds()).containsExactly(1L, 2L, 3L);
+		assertThat(result.friendDiaryIds()).containsExactly(1L, 2L, 3L);
+		assertThat(result.publicDiaryIds()).isEmpty();
 	}
 }
