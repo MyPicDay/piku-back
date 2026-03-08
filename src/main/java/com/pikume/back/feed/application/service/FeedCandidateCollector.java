@@ -2,14 +2,11 @@ package com.pikume.back.feed.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
-import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.util.*;
 
@@ -35,12 +32,18 @@ public class FeedCandidateCollector {
 	 * 3. 읽은 친구 피드
 	 * 4. 읽은 공개 피드
 	 */
-	public List<Diary> collect(String userId, Pageable pageable, RequestMetaInfo requestMetaInfo) {
+	public FeedCandidates collect(String userId) {
 		Set<Long> clickedFeedIds = getClickedFeedIds(userId);
-		List<Diary> friendFeeds = getFriendFeeds(userId, pageable, requestMetaInfo);
-		List<Diary> publicFeeds = getPublicFeeds();
+		List<String> friendIds = getFriendIds(userId);
+		List<Long> friendFeedIds = getFriendFeedIds(friendIds);
+		List<Long> friendPublicFeedIds = getFriendPublicFeedIds(friendIds);
+		List<Long> publicFeedIds = getPublicFeedIds(userId);
+		List<Long> orderedDiaryIds = combineFeedIdsByPriority(friendFeedIds, publicFeedIds, clickedFeedIds);
+		List<Long> friendAuthoredDiaryIds = collectFriendAuthoredDiaryIdsInOrder(
+				orderedDiaryIds, friendFeedIds, friendPublicFeedIds);
+		List<Long> nonFriendPublicDiaryIds = collectNonFriendDiaryIdsInOrder(orderedDiaryIds, friendAuthoredDiaryIds);
 
-		return combineFeedsByPriority(userId, friendFeeds, publicFeeds, clickedFeedIds);
+		return new FeedCandidates(orderedDiaryIds, friendAuthoredDiaryIds, nonFriendPublicDiaryIds);
 	}
 
 	private Set<Long> getClickedFeedIds(String userId) {
@@ -50,52 +53,91 @@ public class FeedCandidateCollector {
 		return new HashSet<>(loadFeedClickPort.findClickedDiaryIdsByUserId(userId));
 	}
 
-	private List<Diary> getFriendFeeds(String userId, Pageable pageable, RequestMetaInfo requestMetaInfo) {
+	private List<String> getFriendIds(String userId) {
 		if (userId == null) {
-			return Collections.emptyList();
+			return List.of();
 		}
-		List<String> friendIds = loadSocialForFeedPort.getFriendIds(pageable, userId, requestMetaInfo);
-		return loadDiaryForFeedPort.findByStatusAndUserIdIn(DiaryVisibility.FRIENDS, friendIds);
+
+		return loadSocialForFeedPort.getFriendIds(userId);
 	}
 
-	private List<Diary> getPublicFeeds() {
-		return loadDiaryForFeedPort.findByStatusOrderByCreatedAtDesc(DiaryVisibility.PUBLIC);
+	private List<Long> getFriendFeedIds(List<String> friendIds) {
+		if (friendIds.isEmpty()) {
+			return List.of();
+		}
+
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds);
 	}
 
-	private List<Diary> combineFeedsByPriority(String userId, List<Diary> friendFeeds,
-			List<Diary> publicFeeds, Set<Long> clickedFeedIds) {
+	private List<Long> getFriendPublicFeedIds(List<String> friendIds) {
+		if (friendIds.isEmpty()) {
+			return List.of();
+		}
+
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds);
+	}
+
+	private List<Long> getPublicFeedIds(String userId) {
+		return loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, userId);
+	}
+
+	private List<Long> combineFeedIdsByPriority(List<Long> friendFeedIds, List<Long> publicFeedIds,
+			Set<Long> clickedFeedIds) {
 		Set<Long> addedIds = new HashSet<>();
-		List<Diary> combined = new ArrayList<>();
+		List<Long> combined = new ArrayList<>();
 
 		// 1순위: 미읽음 친구 피드
-		addFilteredFeeds(combined, addedIds, friendFeeds, userId, clickedFeedIds, false);
+		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, false);
 
 		// 2순위: 미읽음 공개 피드
-		addFilteredFeeds(combined, addedIds, publicFeeds, userId, clickedFeedIds, false);
+		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, false);
 
 		// 3순위: 읽은 친구 피드
-		addFilteredFeeds(combined, addedIds, friendFeeds, userId, clickedFeedIds, true);
+		addFilteredFeedIds(combined, addedIds, friendFeedIds, clickedFeedIds, true);
 
 		// 4순위: 읽은 공개 피드
-		addFilteredFeeds(combined, addedIds, publicFeeds, userId, clickedFeedIds, true);
+		addFilteredFeedIds(combined, addedIds, publicFeedIds, clickedFeedIds, true);
 
 		log.debug("피드 후보 수집 완료 - 총: {}", combined.size());
 		return combined;
 	}
 
-	private void addFilteredFeeds(List<Diary> target, Set<Long> addedIds, List<Diary> source,
-			String userId, Set<Long> clickedFeedIds, boolean includeClicked) {
+	private List<Long> collectFriendAuthoredDiaryIdsInOrder(List<Long> orderedDiaryIds, List<Long> friendFeedIds,
+			List<Long> friendPublicFeedIds) {
+		Set<Long> friendDiaryIdSet = new HashSet<>(friendFeedIds);
+		friendDiaryIdSet.addAll(friendPublicFeedIds);
+
+		return orderedDiaryIds.stream()
+				.filter(friendDiaryIdSet::contains)
+				.toList();
+	}
+
+	private List<Long> collectNonFriendDiaryIdsInOrder(List<Long> orderedDiaryIds, List<Long> friendAuthoredDiaryIds) {
+		if (friendAuthoredDiaryIds.isEmpty()) {
+			return orderedDiaryIds;
+		}
+
+		Set<Long> friendDiaryIdSet = new HashSet<>(friendAuthoredDiaryIds);
+		return orderedDiaryIds.stream()
+				.filter(diaryId -> !friendDiaryIdSet.contains(diaryId))
+				.toList();
+	}
+
+	private void addFilteredFeedIds(List<Long> target, Set<Long> addedIds, List<Long> source,
+			Set<Long> clickedFeedIds, boolean includeClicked) {
 		source.stream()
-				.filter(d -> !isOwnDiary(d, userId))
-				.filter(d -> includeClicked == clickedFeedIds.contains(d.getId()))
-				.forEach(d -> {
-					if (addedIds.add(d.getId())) {
-						target.add(d);
+				.filter(diaryId -> includeClicked == clickedFeedIds.contains(diaryId))
+				.forEach(diaryId -> {
+					if (addedIds.add(diaryId)) {
+						target.add(diaryId);
 					}
 				});
 	}
 
-	private boolean isOwnDiary(Diary diary, String userId) {
-		return userId != null && diary.getUserId().equals(userId);
+	public record FeedCandidates(
+			List<Long> orderedDiaryIds,
+			List<Long> friendDiaryIds,
+			List<Long> publicDiaryIds
+	) {
 	}
 }

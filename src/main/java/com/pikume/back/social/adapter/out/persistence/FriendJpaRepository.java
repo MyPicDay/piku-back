@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.vo.FriendID;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface FriendJpaRepository extends JpaRepository<Friend, FriendID> {
@@ -27,6 +28,15 @@ public interface FriendJpaRepository extends JpaRepository<Friend, FriendID> {
 	@Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM Friend f " +
 			"WHERE ((f.userId1 = :userId1 AND f.userId2 = :userId2) OR (f.userId1 = :userId2 AND f.userId2 = :userId1)) ")
 	boolean existsFriendship(String userId1, String userId2);
+
+	@Query("SELECT CASE " +
+			"WHEN f.userId1 = :userId THEN f.userId2 " +
+			"ELSE f.userId1 END " +
+			"FROM Friend f " +
+			"WHERE ((f.userId1 = :userId AND f.userId2 IN :targetUserIds) " +
+			"   OR (f.userId2 = :userId AND f.userId1 IN :targetUserIds))")
+	List<String> findFriendIdsWithinTargets(@Param("userId") String userId,
+			@Param("targetUserIds") Collection<String> targetUserIds);
 
 	int countByUserId1OrUserId2(String userId1, String userId2);
 

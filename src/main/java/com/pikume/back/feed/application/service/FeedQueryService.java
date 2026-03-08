@@ -12,12 +12,12 @@ import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.feed.application.port.out.*;
+import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 피드 조회 서비스
@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 public class FeedQueryService implements GetFeedUseCase {
 
 	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
+	private final LoadFeedListViewPort loadFeedListViewPort;
 	private final LoadSocialForFeedPort loadSocialForFeedPort;
 	private final LoadUserForFeedPort loadUserForFeedPort;
 	private final LoadRecommendationForFeedPort loadRecommendationForFeedPort;
@@ -62,12 +63,14 @@ public class FeedQueryService implements GetFeedUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public Page<ResponseDTO> getAllDiaries(Pageable pageable, RequestMetaInfo requestMetaInfo, String userId) {
-		List<Diary> diaries = getRecommendedDiaries(userId, pageable, requestMetaInfo);
-		List<Diary> pagedDiaries = applyPaging(diaries, pageable);
+		List<Long> recommendedDiaryIds = getRecommendedDiaryIds(userId);
+		List<Long> pagedDiaryIds = applyPaging(recommendedDiaryIds, pageable);
+		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(pagedDiaryIds, userId);
+		List<ResponseDTO> responseList = feedItems.stream()
+				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
+				.toList();
 
-		List<ResponseDTO> responseList = convertToResponseDTOs(pagedDiaries, requestMetaInfo, userId);
-
-		return new PageImpl<>(responseList, pageable, diaries.size());
+		return new PageImpl<>(responseList, pageable, recommendedDiaryIds.size());
 	}
 
 	@Override
@@ -85,19 +88,20 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	// ==================== Private Methods ====================
 
-	private List<Diary> getRecommendedDiaries(String userId, Pageable pageable, RequestMetaInfo requestMetaInfo) {
+	private List<Long> getRecommendedDiaryIds(String userId) {
 		List<Long> cachedIds = getCachedFeedIds(userId);
 		if (!cachedIds.isEmpty()) {
 			log.info("피드 캐시 히트 - userId: {}", userId);
-			return getDiariesByIds(cachedIds, userId);
+			List<String> friendIds = userId != null ? loadSocialForFeedPort.getFriendIds(userId) : List.of();
+			return loadDiaryForFeedPort.findRestorableFeedIds(cachedIds, userId, friendIds);
 		}
 
 		log.info("피드 캐시 미스 - userId: {}", userId);
-		List<Diary> candidates = feedCandidateCollector.collect(userId, pageable, requestMetaInfo);
-		List<Diary> scoredDiaries = applyScoring(candidates, userId, requestMetaInfo);
-		cacheFeed(userId, scoredDiaries);
+		FeedCandidateCollector.FeedCandidates candidates = feedCandidateCollector.collect(userId);
+		List<Long> scoredDiaryIds = applyScoring(candidates, userId);
+		cacheFeed(userId, scoredDiaryIds);
 
-		return scoredDiaries;
+		return scoredDiaryIds;
 	}
 
 	private List<Long> getCachedFeedIds(String userId) {
@@ -107,55 +111,22 @@ public class FeedQueryService implements GetFeedUseCase {
 		return loadRecommendationForFeedPort.getCachedFeed(userId);
 	}
 
-	private List<Diary> getDiariesByIds(List<Long> diaryIds, String userId) {
-		List<Diary> diaries = loadDiaryForFeedPort.findAllById(diaryIds);
-		return filterOwnDiaries(diaries, userId);
-	}
-
-	private List<Diary> filterOwnDiaries(List<Diary> diaries, String userId) {
-		if (userId == null) {
-			return diaries;
-		}
-		return diaries.stream()
-				.filter(d -> !d.getUserId().equals(userId))
-				.collect(Collectors.toList());
-	}
-
-	private List<Diary> applyScoring(List<Diary> candidates, String userId, RequestMetaInfo requestMetaInfo) {
-		if (userId == null || candidates.isEmpty()) {
-			return candidates;
+	private List<Long> applyScoring(FeedCandidateCollector.FeedCandidates candidates, String userId) {
+		if (userId == null || candidates.orderedDiaryIds().isEmpty()) {
+			return candidates.orderedDiaryIds();
 		}
 
-		List<String> friendIds = loadSocialForFeedPort.getFriendIds(Pageable.unpaged(), userId, requestMetaInfo);
-		Set<String> friendIdSet = new HashSet<>(friendIds);
-
-		List<Long> friendDiaryIds = candidates.stream()
-				.filter(d -> friendIdSet.contains(d.getUserId()))
-				.map(Diary::getId)
-				.collect(Collectors.toList());
-
-		List<Long> publicDiaryIds = candidates.stream()
-				.filter(d -> !friendIdSet.contains(d.getUserId()))
-				.map(Diary::getId)
-				.collect(Collectors.toList());
-
-		List<Long> scoredIds = feedCompositionService.composeFeed(
-				userId, friendDiaryIds, publicDiaryIds, candidates.size());
-
-		Map<Long, Diary> diaryMap = candidates.stream()
-				.collect(Collectors.toMap(Diary::getId, d -> d));
-
-		return scoredIds.stream()
-				.map(diaryMap::get)
-				.filter(Objects::nonNull)
-				.collect(Collectors.toList());
+		return feedCompositionService.composeFeed(
+				userId,
+				candidates.friendDiaryIds(),
+				candidates.publicDiaryIds(),
+				candidates.orderedDiaryIds().size());
 	}
 
-	private void cacheFeed(String userId, List<Diary> diaries) {
-		if (userId == null || diaries.isEmpty()) {
+	private void cacheFeed(String userId, List<Long> diaryIds) {
+		if (userId == null || diaryIds.isEmpty()) {
 			return;
 		}
-		List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
 		loadRecommendationForFeedPort.cacheFeed(userId, diaryIds);
 	}
 
@@ -170,20 +141,10 @@ public class FeedQueryService implements GetFeedUseCase {
 		}
 	}
 
-	private List<Diary> applyPaging(List<Diary> diaries, Pageable pageable) {
+	private List<Long> applyPaging(List<Long> diaryIds, Pageable pageable) {
 		int start = (int) pageable.getOffset();
-		int end = Math.min(start + pageable.getPageSize(), diaries.size());
-		return start >= diaries.size() ? Collections.emptyList() : diaries.subList(start, end);
-	}
-
-	private List<ResponseDTO> convertToResponseDTOs(List<Diary> diaries, RequestMetaInfo requestMetaInfo,
-			String userId) {
-		Map<Long, Long> likeCountMap = getLikeCountsForDiaries(diaries);
-		Set<Long> likedDiaryIds = getLikedDiaryIds(diaries, userId);
-
-		return diaries.stream()
-				.map(diary -> buildResponseDTOForFeed(diary, requestMetaInfo, userId, likeCountMap, likedDiaryIds))
-				.collect(Collectors.toList());
+		int end = Math.min(start + pageable.getPageSize(), diaryIds.size());
+		return start >= diaryIds.size() ? Collections.emptyList() : diaryIds.subList(start, end);
 	}
 
 	// ==================== DTO Builders ====================
@@ -215,40 +176,25 @@ public class FeedQueryService implements GetFeedUseCase {
 				.build();
 	}
 
-	private ResponseDTO buildResponseDTOForFeed(Diary diary, RequestMetaInfo requestMetaInfo, String userId,
-			Map<Long, Long> likeCountMap, Set<Long> likedDiaryIds) {
-		List<String> photoUrls = loadDiaryForFeedPort.getPhotosForDiary(diary, requestMetaInfo);
-		String avatar = loadUserForFeedPort.getUserAvatar(diary.getUserId());
-		String avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar, requestMetaInfo);
-
-		FriendStatus friendStatus = userId != null
-				? loadSocialForFeedPort.getFriendshipStatus(userId, diary.getUserId())
-				: FriendStatus.NONE;
+	private ResponseDTO toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo) {
+		String avatarUrl = feedItem.avatarPath() != null
+				? loadUserForFeedPort.getUserAvatarUrl(feedItem.avatarPath(), requestMetaInfo)
+				: null;
 
 		return ResponseDTO.builder()
-				.diaryId(diary.getId())
-				.status(diary.getStatus())
-				.content(diary.getContent())
-				.imgUrls(photoUrls)
-				.date(diary.getDate())
-				.nickname(loadUserForFeedPort.getUserNickname(diary.getUserId()))
+				.diaryId(feedItem.diaryId())
+				.status(feedItem.status())
+				.content(feedItem.content())
+				.imgUrls(feedItem.imageUrls())
+				.date(feedItem.date())
+				.nickname(feedItem.nickname())
 				.avatar(avatarUrl)
-				.userId(diary.getUserId())
-				.createdAt(diary.getCreatedAt())
-				.friendStatus(friendStatus)
-				.commentCount(loadSocialForFeedPort.countComments(diary.getId()))
-				.likeCount(likeCountMap.getOrDefault(diary.getId(), 0L))
-				.isLiked(likedDiaryIds.contains(diary.getId()))
+				.userId(feedItem.userId())
+				.createdAt(feedItem.createdAt())
+				.friendStatus(feedItem.friendStatus())
+				.commentCount(feedItem.commentCount())
+				.likeCount(feedItem.likeCount())
+				.isLiked(feedItem.liked())
 				.build();
-	}
-
-	private Map<Long, Long> getLikeCountsForDiaries(List<Diary> diaries) {
-		List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
-		return loadSocialForFeedPort.getLikeCountsForDiaries(diaryIds);
-	}
-
-	private Set<Long> getLikedDiaryIds(List<Diary> diaries, String userId) {
-		List<Long> diaryIds = diaries.stream().map(Diary::getId).collect(Collectors.toList());
-		return loadSocialForFeedPort.getLikedDiaryIds(userId, diaryIds);
 	}
 }

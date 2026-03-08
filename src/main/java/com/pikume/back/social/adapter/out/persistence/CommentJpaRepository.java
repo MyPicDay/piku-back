@@ -18,10 +18,22 @@ public interface CommentJpaRepository extends JpaRepository<Comment, Long> {
 		long getReplyCount();
 	}
 
+	interface DiaryCommentCountProjection {
+		Long getDiaryId();
+
+		long getCommentCount();
+	}
+
 	Page<Comment> findByParentIdAndDeletedAtIsNull(Long parentId, Pageable pageable);
 
 	@Query("SELECT COUNT(c) FROM Comment c WHERE c.diaryId = :diaryId")
 	long countAllByDiaryId(@Param("diaryId") Long diaryId);
+
+	@Query("SELECT c.diaryId AS diaryId, COUNT(c) AS commentCount " +
+			"FROM Comment c " +
+			"WHERE c.diaryId IN :diaryIds " +
+			"GROUP BY c.diaryId")
+	List<DiaryCommentCountProjection> countAllByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 
 	@Query("SELECT c.parent.id AS parentId, COUNT(c) AS replyCount " +
 			"FROM Comment c " +

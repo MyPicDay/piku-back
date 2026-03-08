@@ -10,11 +10,11 @@ public interface LoadDiaryForFeedPort {
 
 	Diary getDiaryById(Long diaryId);
 
-	List<Diary> findAllById(List<Long> ids);
+	List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds);
 
-	List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds);
+	List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds);
 
-	List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status);
+	List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId);
 
 	List<String> getPhotosForDiary(Diary diary, RequestMetaInfo requestMetaInfo);
 }

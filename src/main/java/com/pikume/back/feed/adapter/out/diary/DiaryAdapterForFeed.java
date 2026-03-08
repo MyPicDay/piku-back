@@ -27,18 +27,35 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
 	}
 
 	@Override
-	public List<Diary> findAllById(List<Long> ids) {
-		return diaryJpaRepository.findByIdInAndDeletedAtIsNull(ids);
+	public List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds) {
+		if (ids.isEmpty()) {
+			return List.of();
+		}
+
+		List<Long> restorableIds = friendIds == null || friendIds.isEmpty()
+				? diaryJpaRepository.findRestorablePublicFeedIds(ids, currentUserId)
+				: diaryJpaRepository.findRestorableFeedIds(ids, currentUserId, friendIds);
+		java.util.Set<Long> restorableIdSet = new java.util.HashSet<>(restorableIds);
+
+		return ids.stream()
+				.filter(restorableIdSet::contains)
+				.toList();
 	}
 
 	@Override
-	public List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds) {
-		return diaryJpaRepository.findByStatusAndUserIdInAndDeletedAtIsNull(status, userIds);
+	public List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds) {
+		if (userIds.isEmpty()) {
+			return List.of();
+		}
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdIn(status, userIds);
 	}
 
 	@Override
-	public List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status) {
-		return diaryJpaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
+	public List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId) {
+		if (excludedUserId == null || excludedUserId.isBlank()) {
+			return diaryJpaRepository.findFeedIdsByStatus(status);
+		}
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(status, excludedUserId);
 	}
 
 	@Override

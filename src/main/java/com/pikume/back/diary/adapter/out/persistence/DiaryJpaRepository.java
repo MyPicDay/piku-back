@@ -9,6 +9,7 @@ import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,24 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 	boolean existsByIdAndDeletedAtIsNull(Long id);
 
 	List<Diary> findByIdInAndDeletedAtIsNull(List<Long> ids);
+
+	@Query("SELECT d.id FROM Diary d " +
+			"WHERE d.id IN :ids " +
+			"AND d.deletedAt IS NULL " +
+			"AND (:currentUserId IS NULL OR d.userId <> :currentUserId) " +
+			"AND (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
+			"OR (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.FRIENDS AND d.userId IN :friendIds))")
+	List<Long> findRestorableFeedIds(@Param("ids") Collection<Long> ids,
+			@Param("currentUserId") String currentUserId,
+			@Param("friendIds") Collection<String> friendIds);
+
+	@Query("SELECT d.id FROM Diary d " +
+			"WHERE d.id IN :ids " +
+			"AND d.deletedAt IS NULL " +
+			"AND (:currentUserId IS NULL OR d.userId <> :currentUserId) " +
+			"AND d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC")
+	List<Long> findRestorablePublicFeedIds(@Param("ids") Collection<Long> ids,
+			@Param("currentUserId") String currentUserId);
 
 	List<Diary> findByUserIdAndDeletedAtIsNullAndDateBetween(String userId, LocalDate start, LocalDate end);
 
@@ -65,4 +84,26 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"AND d.deletedAt IS NULL " +
 			"ORDER BY d.createdAt DESC")
 	List<Diary> findByStatusAndUserIdInAndDeletedAtIsNull(@Param("status") DiaryVisibility status, @Param("userIds") List<String> userIds);
+
+	@Query("SELECT d.id FROM Diary d " +
+			"WHERE d.status = :status " +
+			"AND d.userId IN :userIds " +
+			"AND d.deletedAt IS NULL " +
+			"ORDER BY d.createdAt DESC")
+	List<Long> findFeedIdsByStatusAndUserIdIn(@Param("status") DiaryVisibility status,
+			@Param("userIds") Collection<String> userIds);
+
+	@Query("SELECT d.id FROM Diary d " +
+			"WHERE d.status = :status " +
+			"AND d.deletedAt IS NULL " +
+			"ORDER BY d.createdAt DESC")
+	List<Long> findFeedIdsByStatus(@Param("status") DiaryVisibility status);
+
+	@Query("SELECT d.id FROM Diary d " +
+			"WHERE d.status = :status " +
+			"AND d.userId <> :excludedUserId " +
+			"AND d.deletedAt IS NULL " +
+			"ORDER BY d.createdAt DESC")
+	List<Long> findFeedIdsByStatusAndUserIdNot(@Param("status") DiaryVisibility status,
+			@Param("excludedUserId") String excludedUserId);
 }

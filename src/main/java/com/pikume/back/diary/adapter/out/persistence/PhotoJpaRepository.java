@@ -19,6 +19,11 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 
 	List<Photo> findByDiaryId(Long diaryId);
 
+	@Query("SELECT p FROM Photo p " +
+			"WHERE p.diary.id IN :diaryIds " +
+			"ORDER BY p.diary.id ASC, p.represent DESC, p.photoOrder ASC")
+	List<Photo> findByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
+
 	Optional<Photo> findFirstByDiaryIdAndRepresentIsTrue(Long diaryId);
 
 	@Query("SELECT p.diary.id AS diaryId, p.url AS url " +
