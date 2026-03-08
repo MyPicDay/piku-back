@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
 import com.pikume.back.social.application.port.out.LoadDiaryInfoPort;
@@ -15,6 +16,7 @@ import com.pikume.back.social.application.port.out.PublishEventPort;
 import com.pikume.back.social.application.port.out.SaveLikePort;
 import com.pikume.back.social.domain.event.SocialEvent;
 import com.pikume.back.social.domain.like.Like;
+import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeErrorCode;
 import com.pikume.back.social.domain.like.exception.LikeException;
 
@@ -59,7 +61,7 @@ class LikeServiceTest {
 		@DisplayName("성공적으로 좋아요를 추가하고 이벤트를 발행한다")
 		void addLikeSuccess() {
 			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
-			given(loadLikePort.findByUserIdAndDiaryId("liker-id", 1L)).willReturn(Optional.empty());
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
 			LikeResponse response = likeService.addLike("liker-id", 1L, requestMetaInfo);
@@ -67,7 +69,7 @@ class LikeServiceTest {
 			assertThat(response.getDiaryId()).isEqualTo(1L);
 			assertThat(response.getLikeCount()).isEqualTo(1L);
 			assertThat(response.isLiked()).isTrue();
-			then(saveLikePort).should().save(any(Like.class));
+			then(saveLikePort).should().saveAndFlush(any(Like.class));
 			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
 		}
 
@@ -98,7 +100,7 @@ class LikeServiceTest {
 		void failsAlreadyLiked() {
 			Like existingLike = Like.builder().userId("liker-id").diaryId(1L).build();
 			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
-			given(loadLikePort.findByUserIdAndDiaryId("liker-id", 1L)).willReturn(Optional.of(existingLike));
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(existingLike));
 
 			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L, requestMetaInfo))
 					.isInstanceOf(LikeException.class)
@@ -110,11 +112,41 @@ class LikeServiceTest {
 		@DisplayName("좋아요 추가 시 이벤트가 발행되지 않으면 안 된다")
 		void publishesEvent() {
 			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
-			given(loadLikePort.findByUserIdAndDiaryId("liker-id", 1L)).willReturn(Optional.empty());
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
 			likeService.addLike("liker-id", 1L, requestMetaInfo);
 
+			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
+		}
+
+		@Test
+		@DisplayName("저장 중 유니크 제약 충돌이 발생하면 중복 좋아요 예외로 변환한다")
+		void throwsDuplicateLikeExceptionOnConstraintViolation() {
+			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
+			given(saveLikePort.saveAndFlush(any(Like.class)))
+					.willThrow(new DataIntegrityViolationException("Duplicate entry for key 'likes.uk_user_diary'"));
+
+			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L, requestMetaInfo))
+					.isInstanceOf(DuplicateLikeException.class)
+					.hasMessage("좋아요 중복 저장이 감지되었습니다.");
+		}
+
+		@Test
+		@DisplayName("soft delete된 좋아요가 있으면 새로 저장하지 않고 복구한다")
+		void restoresSoftDeletedLike() {
+			Like softDeletedLike = Like.builder().userId("liker-id").diaryId(1L).build();
+			softDeletedLike.inactive();
+			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(softDeletedLike));
+			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
+
+			LikeResponse response = likeService.addLike("liker-id", 1L, requestMetaInfo);
+
+			assertThat(response.isLiked()).isTrue();
+			assertThat(softDeletedLike.getDeletedAt()).isNull();
+			then(saveLikePort).should().saveAndFlush(softDeletedLike);
 			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
 		}
 	}
@@ -136,6 +168,7 @@ class LikeServiceTest {
 			assertThat(response.getDiaryId()).isEqualTo(1L);
 			assertThat(response.getLikeCount()).isEqualTo(0L);
 			assertThat(response.isLiked()).isFalse();
+			assertThat(existingLike.getDeletedAt()).isNotNull();
 		}
 
 		@Test

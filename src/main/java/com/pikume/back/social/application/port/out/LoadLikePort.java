@@ -10,6 +10,10 @@ public interface LoadLikePort {
 
 	Optional<Like> findByUserIdAndDiaryId(String userId, Long diaryId);
 
+	Optional<Like> findAnyByUserIdAndDiaryId(String userId, Long diaryId);
+
+	Optional<Like> findAnyByUserIdAndDiaryIdForUpdate(String userId, Long diaryId);
+
 	boolean existsByUserIdAndDiaryId(String userId, Long diaryId);
 
 	long countByDiaryId(Long diaryId);

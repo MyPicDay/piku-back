@@ -4,5 +4,5 @@ import com.pikume.back.social.domain.like.Like;
 
 public interface SaveLikePort {
 
-	Like save(Like like);
+	Like saveAndFlush(Like like);
 }

@@ -2,6 +2,7 @@ package com.pikume.back.social.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.dto.RequestMetaInfo;
@@ -10,6 +11,7 @@ import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.domain.event.SocialEvent;
 import com.pikume.back.social.domain.like.Like;
+import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeErrorCode;
 import com.pikume.back.social.domain.like.exception.LikeException;
 
@@ -41,16 +43,25 @@ public class LikeService implements LikeUseCase {
 			throw new LikeException(LikeErrorCode.CANNOT_LIKE_OWN_DIARY);
 		}
 
-		Optional<Like> existingLike = loadLikePort.findByUserIdAndDiaryId(userId, diaryId);
+		Optional<Like> existingLike = loadLikePort.findAnyByUserIdAndDiaryIdForUpdate(userId, diaryId);
 		if (existingLike.isPresent()) {
-			throw new LikeException(LikeErrorCode.ALREADY_LIKED);
+			Like like = existingLike.get();
+			if (like.getDeletedAt() == null) {
+				throw new LikeException(LikeErrorCode.ALREADY_LIKED);
+			}
+			like.restore();
+			saveLikePort.saveAndFlush(like);
+		} else {
+			Like like = Like.builder()
+					.userId(userId)
+					.diaryId(diaryId)
+					.build();
+			try {
+				saveLikePort.saveAndFlush(like);
+			} catch (DataIntegrityViolationException e) {
+				throw new DuplicateLikeException("좋아요 중복 저장이 감지되었습니다.", e);
+			}
 		}
-
-		Like like = Like.builder()
-				.userId(userId)
-				.diaryId(diaryId)
-				.build();
-		saveLikePort.save(like);
 
 		publishEventPort.publish(new SocialEvent.LikeCreatedEvent(
 				diaryOwnerId, userId, diaryId));
@@ -142,4 +153,5 @@ public class LikeService implements LikeUseCase {
 		}
 		return loadLikePort.findLikedDiaryIdsByUserIdAndDiaryIds(userId, diaryIds);
 	}
+
 }

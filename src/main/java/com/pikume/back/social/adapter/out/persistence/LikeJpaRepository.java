@@ -1,6 +1,8 @@
 package com.pikume.back.social.adapter.out.persistence;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.pikume.back.social.domain.like.Like;
@@ -13,6 +15,13 @@ public interface LikeJpaRepository extends JpaRepository<Like, Long> {
 
 	@Query("SELECT l FROM Like l WHERE l.userId = :userId AND l.diaryId = :diaryId AND l.deletedAt IS NULL")
 	Optional<Like> findByUserIdAndDiaryId(@Param("userId") String userId, @Param("diaryId") Long diaryId);
+
+	@Query("SELECT l FROM Like l WHERE l.userId = :userId AND l.diaryId = :diaryId")
+	Optional<Like> findAnyByUserIdAndDiaryId(@Param("userId") String userId, @Param("diaryId") Long diaryId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT l FROM Like l WHERE l.userId = :userId AND l.diaryId = :diaryId")
+	Optional<Like> findAnyByUserIdAndDiaryIdForUpdate(@Param("userId") String userId, @Param("diaryId") Long diaryId);
 
 	@Query("SELECT CASE WHEN COUNT(l) > 0 THEN true ELSE false END FROM Like l WHERE l.userId = :userId AND l.diaryId = :diaryId AND l.deletedAt IS NULL")
 	boolean existsByUserIdAndDiaryId(@Param("userId") String userId, @Param("diaryId") Long diaryId);

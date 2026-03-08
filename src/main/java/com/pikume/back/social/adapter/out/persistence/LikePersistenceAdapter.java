@@ -22,6 +22,16 @@ public class LikePersistenceAdapter implements LoadLikePort, SaveLikePort {
 	}
 
 	@Override
+	public Optional<Like> findAnyByUserIdAndDiaryId(String userId, Long diaryId) {
+		return likeJpaRepository.findAnyByUserIdAndDiaryId(userId, diaryId);
+	}
+
+	@Override
+	public Optional<Like> findAnyByUserIdAndDiaryIdForUpdate(String userId, Long diaryId) {
+		return likeJpaRepository.findAnyByUserIdAndDiaryIdForUpdate(userId, diaryId);
+	}
+
+	@Override
 	public boolean existsByUserIdAndDiaryId(String userId, Long diaryId) {
 		return likeJpaRepository.existsByUserIdAndDiaryId(userId, diaryId);
 	}
@@ -42,7 +52,7 @@ public class LikePersistenceAdapter implements LoadLikePort, SaveLikePort {
 	}
 
 	@Override
-	public Like save(Like like) {
-		return likeJpaRepository.save(like);
+	public Like saveAndFlush(Like like) {
+		return likeJpaRepository.saveAndFlush(like);
 	}
 }
