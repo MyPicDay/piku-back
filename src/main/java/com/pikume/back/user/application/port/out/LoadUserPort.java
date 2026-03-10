@@ -2,6 +2,8 @@ package com.pikume.back.user.application.port.out;
 
 import com.pikume.back.user.domain.User;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -18,4 +20,6 @@ public interface LoadUserPort {
 	 * 이메일로 사용자를 조회합니다.
 	 */
 	Optional<User> findByEmail(String email);
+
+	List<User> findAllByIds(Collection<String> userIds);
 }

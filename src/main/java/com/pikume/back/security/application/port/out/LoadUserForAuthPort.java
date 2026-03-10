@@ -1,10 +1,10 @@
 package com.pikume.back.security.application.port.out;
 
-import com.pikume.back.user.domain.User;
+import com.pikume.back.security.application.dto.AuthUserView;
 
 import java.util.Optional;
 
 public interface LoadUserForAuthPort {
 
-	Optional<User> findByEmail(String email);
+	Optional<AuthUserView> findByEmail(String email);
 }

@@ -3,6 +3,7 @@ package com.pikume.back.global.util;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
+import com.pikume.back.global.dto.UploadedFileData;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
@@ -285,7 +286,7 @@ public class FileUtil {
 	 * @param desiredName 저장 시 사용할 파일명 (확장자 포함). null일 경우 원본 파일명 기반으로 유니크하게 생성.
 	 * @return 실제 저장된 파일명 (순수 파일명, 예: "image.png")
 	 */
-	public String saveCharacterImage(MultipartFile file, CharacterCreationType type, String userId,
+	public String saveCharacterImage(UploadedFileData file, CharacterCreationType type, String userId,
 			String desiredName) {
 		try {
 			Path characterStorageDir = getCharacterUploadDir(type, userId);
@@ -293,7 +294,7 @@ public class FileUtil {
 				Files.createDirectories(characterStorageDir);
 			}
 
-			if (file.isEmpty()) {
+			if (file == null || file.isEmpty()) {
 				throw new IllegalArgumentException("빈 파일은 저장할 수 없습니다.");
 			}
 
@@ -301,11 +302,13 @@ public class FileUtil {
 			if (desiredName != null && !desiredName.trim().isEmpty()) {
 				actualFileName = StringUtils.cleanPath(desiredName);
 			} else {
-				actualFileName = generateUniqueFileName(Objects.requireNonNull(file.getOriginalFilename()));
+				actualFileName = generateUniqueFileName(Objects.requireNonNull(file.originalFilename()));
 			}
 
 			Path filePath = characterStorageDir.resolve(actualFileName);
-			Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+			try (var inputStream = file.inputStream()) {
+				Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+			}
 
 			log.info("캐릭터 이미지 저장 완료 - 타입: {}, 사용자ID: {}, 파일: {}, 저장경로: {}", type, userId, actualFileName,
 					characterStorageDir);

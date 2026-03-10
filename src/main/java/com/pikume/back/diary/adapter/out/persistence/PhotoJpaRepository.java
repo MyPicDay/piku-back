@@ -17,6 +17,14 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 		String getUrl();
 	}
 
+	interface DiaryPhotoRowProjection {
+		Long getDiaryId();
+
+		String getUrl();
+
+		Boolean getRepresent();
+	}
+
 	List<Photo> findByDiaryId(Long diaryId);
 
 	@Query("SELECT p FROM Photo p " +
@@ -30,4 +38,10 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 			"FROM Photo p " +
 			"WHERE p.diary.id IN :diaryIds AND p.represent = true")
 	List<DiaryThumbnailProjection> findRepresentPhotoUrlsByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
+
+	@Query("SELECT p.diary.id AS diaryId, p.url AS url, p.represent AS represent " +
+			"FROM Photo p " +
+			"WHERE p.diary.id IN :diaryIds " +
+			"ORDER BY p.diary.id ASC, p.represent DESC, p.photoOrder ASC")
+	List<DiaryPhotoRowProjection> findPhotoRowsByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 }

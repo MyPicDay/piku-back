@@ -24,6 +24,7 @@ import com.pikume.back.global.error.ErrorResponse;
 import com.pikume.back.global.notification.DiscordWebhookService;
 import com.pikume.back.global.util.RequestUtil;
 import com.pikume.back.user.domain.exception.UserNotFoundException;
+import com.pikume.back.social.domain.comment.exception.CommentException;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeException;
 
@@ -51,6 +52,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(LikeException.class)
     public ResponseEntity<ErrorResponse> handleLikeException(LikeException e) {
         log.warn("LikeException occurred: {}", e.getMessage());
+        ErrorResponse response = new ErrorResponse(e.getErrorCode().getStatus().value(), e.getMessage());
+        return new ResponseEntity<>(response, e.getErrorCode().getStatus());
+    }
+
+    @ExceptionHandler(CommentException.class)
+    public ResponseEntity<ErrorResponse> handleCommentException(CommentException e) {
+        log.warn("CommentException occurred: {}", e.getMessage());
         ErrorResponse response = new ErrorResponse(e.getErrorCode().getStatus().value(), e.getMessage());
         return new ResponseEntity<>(response, e.getErrorCode().getStatus());
     }

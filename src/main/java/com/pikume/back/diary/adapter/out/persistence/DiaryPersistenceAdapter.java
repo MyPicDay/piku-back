@@ -10,7 +10,7 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,8 +27,22 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 	}
 
 	@Override
+	public List<Diary> findByIds(Collection<Long> diaryIds) {
+		if (diaryIds == null || diaryIds.isEmpty()) {
+			return List.of();
+		}
+		return diaryJpaRepository.findByIdInAndDeletedAtIsNull(List.copyOf(diaryIds));
+	}
+
+	@Override
 	public List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end) {
 		return diaryJpaRepository.findByUserIdAndDeletedAtIsNullAndDateBetween(userId, start, end);
+	}
+
+	@Override
+	public List<Diary> findByUserIdAndStatusesAndDateBetween(String userId, Collection<DiaryVisibility> statuses, LocalDate start,
+			LocalDate end) {
+		return diaryJpaRepository.findByUserIdAndStatusInAndDeletedAtIsNullAndDateBetween(userId, statuses, start, end);
 	}
 
 	@Override
@@ -42,8 +56,18 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 	}
 
 	@Override
+	public long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses) {
+		return diaryJpaRepository.countByUserIdAndStatusInAndDeletedAtIsNull(userId, statuses);
+	}
+
+	@Override
 	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo) {
 		return diaryJpaRepository.countDiariesPerMonth(userId, monthsAgo);
+	}
+
+	@Override
+	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo, Collection<DiaryVisibility> statuses) {
+		return diaryJpaRepository.countDiariesPerMonthByStatuses(userId, monthsAgo, statuses);
 	}
 
 	@Override
@@ -56,31 +80,56 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 		return photoJpaRepository.findFirstByDiaryIdAndRepresentIsTrue(diaryId);
 	}
 
-	// Feed 관련 (Phase 9 분리 전까지)
 	@Override
-	public List<Diary> findUnreadFeedsByVisibilityAndUserIds(DiaryVisibility status, List<String> friendIds,
-			List<Long> excludeIds) {
-		return diaryJpaRepository.findUnreadFeedsByVisibilityAndUserIds(status, friendIds, excludeIds);
+	public List<Photo> findPhotosByDiaryIds(Collection<Long> diaryIds) {
+		if (diaryIds == null || diaryIds.isEmpty()) {
+			return List.of();
+		}
+		return photoJpaRepository.findByDiaryIds(diaryIds);
 	}
 
 	@Override
-	public List<Diary> findUnreadPublicFeeds(List<Long> clickedFeedIds) {
-		return diaryJpaRepository.findUnreadPublicFeeds(clickedFeedIds);
+	public List<LoadDiaryPort.PhotoRow> findPhotoRowsByDiaryIds(Collection<Long> diaryIds) {
+		if (diaryIds == null || diaryIds.isEmpty()) {
+			return List.of();
+		}
+		return photoJpaRepository.findPhotoRowsByDiaryIds(diaryIds).stream()
+				.map(row -> new LoadDiaryPort.PhotoRow(
+						row.getDiaryId(),
+						row.getUrl(),
+						Boolean.TRUE.equals(row.getRepresent())))
+				.toList();
 	}
 
 	@Override
-	public List<Diary> findClickedFeedsAfter(List<Long> clickedFeedIds, LocalDateTime threeDaysAgo) {
-		return diaryJpaRepository.findClickedFeedsAfter(clickedFeedIds, threeDaysAgo);
+	public List<Long> findRecentDiaryIdsByStatusAndUserIds(DiaryVisibility status, Collection<String> userIds, int limit) {
+		if (userIds == null || userIds.isEmpty() || limit <= 0) {
+			return List.of();
+		}
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdIn(status, userIds,
+				org.springframework.data.domain.PageRequest.of(0, limit));
 	}
 
 	@Override
-	public List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status) {
-		return diaryJpaRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
+	public List<Long> findRecentDiaryIdsByStatus(DiaryVisibility status, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		return diaryJpaRepository.findFeedIdsByStatus(status, org.springframework.data.domain.PageRequest.of(0, limit));
 	}
 
 	@Override
-	public List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds) {
-		return diaryJpaRepository.findByStatusAndUserIdInAndDeletedAtIsNull(status, userIds);
+	public List<Long> findRecentDiaryIdsByStatusExcludingUser(DiaryVisibility status, String excludedUserId, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		if (excludedUserId == null || excludedUserId.isBlank()) {
+			return findRecentDiaryIdsByStatus(status, limit);
+		}
+		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(
+				status,
+				excludedUserId,
+				org.springframework.data.domain.PageRequest.of(0, limit));
 	}
 
 	@Override

@@ -1,14 +1,17 @@
 package com.pikume.back.user.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
 import com.pikume.back.user.application.port.out.UserQueryPort;
 import com.pikume.back.user.domain.User;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -32,6 +35,11 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQ
 	}
 
 	@Override
+	public List<User> findAllByIds(Collection<String> userIds) {
+		return jpaRepository.findAllById(userIds);
+	}
+
+	@Override
 	public User save(User user) {
 		return jpaRepository.save(user);
 	}
@@ -47,7 +55,7 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQ
 	}
 
 	@Override
-	public Page<User> searchByName(String keyword, Pageable pageable) {
-		return jpaRepository.searchByName(keyword, pageable);
+	public PageResult<User> searchByName(String keyword, PageQuery pageQuery) {
+		return SpringPageMapper.toPageResult(jpaRepository.searchByName(keyword, SpringPageMapper.toPageable(pageQuery)));
 	}
 }

@@ -7,8 +7,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.pikume.back.global.dto.CookieSpec;
+import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.jwt.JwtProvider;
@@ -17,8 +18,6 @@ import com.pikume.back.security.application.port.out.LoadRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 import com.pikume.back.security.application.port.out.SaveRefreshTokenPort;
 import com.pikume.back.security.domain.RefreshToken;
-import com.pikume.back.user.domain.User;
-
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +55,7 @@ class TokenServiceTest {
 		@DisplayName("유효한 이메일과 비밀번호로 로그인 성공 시 토큰을 반환한다")
 		void loginSuccess() {
 			LoginRequest request = new LoginRequest("test@piku.store", "password123");
-			User user = new User("test@piku.store", "encodedPassword", "testUser");
+			AuthUserView user = new AuthUserView("user-id", "test@piku.store", "encodedPassword", "testUser", "avatar.png");
 			given(loadUserForAuthPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
 			given(passwordEncoder.matches("password123", "encodedPassword")).willReturn(true);
 			given(jwtProvider.generateAccessToken("test@piku.store")).willReturn("access-token");
@@ -85,7 +84,7 @@ class TokenServiceTest {
 		@DisplayName("비밀번호가 일치하지 않을 때 예외가 발생한다")
 		void loginFailPasswordMismatch() {
 			LoginRequest request = new LoginRequest("test@piku.store", "wrongPassword");
-			User user = new User("test@piku.store", "encodedPassword", "testUser");
+			AuthUserView user = new AuthUserView("user-id", "test@piku.store", "encodedPassword", "testUser", "avatar.png");
 			given(loadUserForAuthPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
 			given(passwordEncoder.matches("wrongPassword", "encodedPassword")).willReturn(false);
 
@@ -152,20 +151,20 @@ class TokenServiceTest {
 		@Test
 		@DisplayName("Refresh Token 쿠키를 생성한다")
 		void newCookieRefreshToken() {
-			ResponseCookie cookie = tokenService.newCookieRefreshToken("refresh-token");
+			CookieSpec cookie = tokenService.newCookieRefreshToken("refresh-token");
 
-			assertThat(cookie.getValue()).isEqualTo("refresh-token");
-			assertThat(cookie.isHttpOnly()).isTrue();
-			assertThat(cookie.isSecure()).isTrue();
+			assertThat(cookie.value()).isEqualTo("refresh-token");
+			assertThat(cookie.httpOnly()).isTrue();
+			assertThat(cookie.secure()).isTrue();
 		}
 
 		@Test
 		@DisplayName("Refresh Token 쿠키를 제거한다")
 		void removeCookieRefreshToken() {
-			ResponseCookie cookie = tokenService.removeCookieRefreshToken();
+			CookieSpec cookie = tokenService.removeCookieRefreshToken();
 
-			assertThat(cookie.getValue()).isEmpty();
-			assertThat(cookie.getMaxAge().getSeconds()).isEqualTo(0);
+			assertThat(cookie.value()).isEmpty();
+			assertThat(cookie.maxAgeSeconds()).isEqualTo(0);
 		}
 	}
 }

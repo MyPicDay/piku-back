@@ -3,7 +3,7 @@ package com.pikume.back.user.adapter.out.diary;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
-import com.pikume.back.diary.application.service.DiaryQueryService;
+import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
 import com.pikume.back.user.application.port.out.UserDiaryPort;
 
 import java.util.List;
@@ -16,16 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DiaryAdapterForUser implements UserDiaryPort {
 
-	private final DiaryQueryService diaryQueryService;
+	private final GetCalendarUseCase getCalendarUseCase;
 
 	@Override
-	public long countDiariesByUserId(String userId) {
-		return diaryQueryService.countDiariesByUserId(userId);
+	public long countDiariesByUserId(String userId, String viewerId) {
+		return getCalendarUseCase.countDiariesByUserId(userId, viewerId);
 	}
 
 	@Override
-	public List<MonthlyDiaryCount> getMonthlyDiaryCount(String userId) {
-		List<DiaryMonthCountDTO> dtoList = diaryQueryService.getMonthlyDiaryCount(userId);
+	public List<MonthlyDiaryCount> getMonthlyDiaryCount(String userId, String viewerId) {
+		List<DiaryMonthCountDTO> dtoList = getCalendarUseCase.getMonthlyDiaryCount(userId, viewerId);
 		return dtoList.stream()
 				.map(dto -> new MonthlyDiaryCount(dto.getYear(), dto.getMonth(), dto.getCount()))
 				.toList();

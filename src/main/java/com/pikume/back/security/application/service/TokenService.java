@@ -2,12 +2,13 @@ package com.pikume.back.security.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.global.dto.CookieSpec;
+import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
@@ -19,8 +20,6 @@ import com.pikume.back.security.application.port.out.LoadRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 import com.pikume.back.security.application.port.out.SaveRefreshTokenPort;
 import com.pikume.back.security.domain.RefreshToken;
-import com.pikume.back.user.domain.User;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -37,13 +36,13 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	public TokenDto login(LoginRequest dto, String deviceId) {
 		log.info("[로그인] 서비스 호출 : 이메일={}", dto.getEmail());
 
-		User user = loadUserForAuthPort.findByEmail(dto.getEmail())
+		AuthUserView user = loadUserForAuthPort.findByEmail(dto.getEmail())
 				.orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-		validateLoginPassword(dto.getPassword(), user.getPassword(), dto.getEmail());
+		validateLoginPassword(dto.getPassword(), user.password(), dto.getEmail());
 
 		String accessToken = jwtProvider.generateAccessToken(dto.getEmail());
-		String refreshToken = saveNewRefreshToken(dto.getEmail(), deviceId, user.getId());
+		String refreshToken = saveNewRefreshToken(dto.getEmail(), deviceId, user.id());
 
 		log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
 		return new TokenDto(accessToken, refreshToken);
@@ -51,14 +50,14 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 
 	@Override
 	public UserInfo getUserInfoByEmail(String email) {
-		User user = loadUserForAuthPort.findByEmail(email)
+		AuthUserView user = loadUserForAuthPort.findByEmail(email)
 				.orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
 		return new UserInfo(
-				String.valueOf(user.getId()),
-				user.getEmail(),
-				user.getNickname(),
-				user.getAvatar());
+				user.id(),
+				user.email(),
+				user.nickname(),
+				user.avatarPath());
 	}
 
 	@Override
@@ -81,25 +80,27 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	}
 
 	@Override
-	public ResponseCookie newCookieRefreshToken(String refreshToken) {
-		return ResponseCookie.from(AuthConstants.REFRESH_TOKEN, refreshToken)
-				.httpOnly(true)
-				.secure(true)
-				.path("/")
-				.maxAge(AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME)
-				.sameSite("Lax")
-				.build();
+	public CookieSpec newCookieRefreshToken(String refreshToken) {
+		return new CookieSpec(
+				AuthConstants.REFRESH_TOKEN,
+				refreshToken,
+				true,
+				true,
+				"/",
+				AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME,
+				"Lax");
 	}
 
 	@Override
-	public ResponseCookie removeCookieRefreshToken() {
-		return ResponseCookie.from(AuthConstants.REFRESH_TOKEN, "")
-				.httpOnly(true)
-				.secure(true)
-				.path("/")
-				.maxAge(0)
-				.sameSite("Lax")
-				.build();
+	public CookieSpec removeCookieRefreshToken() {
+		return new CookieSpec(
+				AuthConstants.REFRESH_TOKEN,
+				"",
+				true,
+				true,
+				"/",
+				0,
+				"Lax");
 	}
 
 	@Override

@@ -23,12 +23,17 @@ import org.springframework.web.multipart.MultipartFile;
 import com.pikume.back.diary.adapter.in.web.dto.CalendarDiaryResponseDTO;
 import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
+import com.pikume.back.diary.application.dto.CalendarDiaryView;
+import com.pikume.back.diary.application.dto.CreateDiaryCommand;
+import com.pikume.back.diary.application.dto.DiaryCreatedResult;
+import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
 import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.util.RequestMetaMapper;
 
 import java.io.IOException;
@@ -64,9 +69,13 @@ public class DiaryController {
 			}
 
 			RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-			ResponseDiaryDTO isSaved = createDiaryUseCase.createDiary(diary, photos, userDetails.getId(), requestMetaInfo);
+			DiaryCreatedResult isSaved = createDiaryUseCase.createDiary(
+					toCreateDiaryCommand(diary),
+					toUploadedFiles(photos),
+					userDetails.getId(),
+					requestMetaInfo);
 			if (isSaved != null) {
-				return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+				return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseDiaryDTO(isSaved.diaryId(), isSaved.content()));
 			}
 			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
 		} catch (JsonProcessingException e) {
@@ -126,15 +135,50 @@ public class DiaryController {
 			@PathVariable String userId,
 			@RequestParam int year,
 			@RequestParam int month,
-			HttpServletRequest request) {
+			HttpServletRequest request,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		List<CalendarDiaryResponseDTO> diaries = getCalendarUseCase.findMonthlyDiaries(userId, year, month,
-				requestMetaInfo);
+		String viewerId = userDetails != null ? userDetails.getId() : null;
+		List<CalendarDiaryResponseDTO> diaries = getCalendarUseCase.findMonthlyDiaries(userId, viewerId, year, month,
+				requestMetaInfo).stream()
+				.map(this::toCalendarDiaryResponse)
+				.toList();
 
 		return ResponseEntity.ok()
 				.cacheControl(org.springframework.http.CacheControl
 						.noCache()
-						.mustRevalidate())
+				.mustRevalidate())
 				.body(diaries);
+	}
+
+	private CalendarDiaryResponseDTO toCalendarDiaryResponse(CalendarDiaryView diary) {
+		return new CalendarDiaryResponseDTO(diary.diaryId(), diary.coverPhotoUrl(), diary.date());
+	}
+
+	private CreateDiaryCommand toCreateDiaryCommand(DiaryDTO diary) {
+		return new CreateDiaryCommand(
+				diary.getStatus(),
+				diary.getContent(),
+				diary.getImageInfos().stream()
+						.map(info -> new DiaryImageCommand(info.getType(), info.getOrder(), info.getAiPhotoId(), info.getPhotoIndex()))
+						.toList(),
+				diary.getDate());
+	}
+
+	private List<UploadedFileData> toUploadedFiles(List<MultipartFile> photos) throws IOException {
+		if (photos == null) {
+			return null;
+		}
+		return photos.stream()
+				.map(this::toUploadedFile)
+				.toList();
+	}
+
+	private UploadedFileData toUploadedFile(MultipartFile file) {
+		try {
+			return new UploadedFileData(file.getOriginalFilename(), file.getContentType(), file.getBytes());
+		} catch (IOException e) {
+			throw new IllegalArgumentException("파일을 읽는 중 오류가 발생했습니다.", e);
+		}
 	}
 }

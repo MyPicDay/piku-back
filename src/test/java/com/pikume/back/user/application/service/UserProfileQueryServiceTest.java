@@ -51,7 +51,7 @@ class UserProfileQueryServiceTest {
 		given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
 		given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("https://avatar-url");
 		given(friendPort.countFriends("user-1")).willReturn(5);
-		given(diaryPort.countDiariesByUserId("user-1")).willReturn(10L);
+		given(diaryPort.countDiariesByUserId("user-1", "viewer-1")).willReturn(10L);
 		given(friendPort.getFriendshipStatus("viewer-1", "user-1")).willReturn("NONE");
 
 		ProfilePreviewResult result = service.getProfilePreview("user-1", "viewer-1", meta);
@@ -80,9 +80,9 @@ class UserProfileQueryServiceTest {
 		given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
 		given(imagePathToUrlConverter.userAvatarImageUrl(any(), any())).willReturn("https://avatar-url");
 		given(friendPort.countFriends("user-1")).willReturn(3);
-		given(diaryPort.countDiariesByUserId("user-1")).willReturn(7L);
+		given(diaryPort.countDiariesByUserId("user-1", "user-1")).willReturn(7L);
 		given(friendPort.getFriendshipStatus("user-1", "user-1")).willReturn("NONE");
-		given(diaryPort.getMonthlyDiaryCount("user-1")).willReturn(
+		given(diaryPort.getMonthlyDiaryCount("user-1", "user-1")).willReturn(
 				List.of(new UserDiaryPort.MonthlyDiaryCount(2026, 1, 5),
 						new UserDiaryPort.MonthlyDiaryCount(2026, 2, 2)));
 

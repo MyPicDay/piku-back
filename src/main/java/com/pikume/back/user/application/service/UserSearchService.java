@@ -2,11 +2,11 @@ package com.pikume.back.user.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.UserSearchResult;
 import com.pikume.back.user.application.port.in.SearchUserUseCase;
@@ -26,10 +26,10 @@ public class UserSearchService implements SearchUserUseCase {
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Override
-	public Page<UserSearchResult> searchByKeyword(String keyword, Pageable pageable, RequestMetaInfo requestMetaInfo) {
+	public PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery, RequestMetaInfo requestMetaInfo) {
 		String formattedKeyword = "%" + keyword + "%";
 
-		return userQueryPort.searchByName(formattedKeyword, pageable)
+		return userQueryPort.searchByName(formattedKeyword, pageQuery)
 				.map(user -> {
 					String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(user.getAvatar(), requestMetaInfo);
 					return new UserSearchResult(user.getId(), user.getNickname(), avatarUrl);

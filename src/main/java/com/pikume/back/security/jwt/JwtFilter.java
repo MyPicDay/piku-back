@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.user.domain.User;
-import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
+import com.pikume.back.security.application.dto.AuthUserView;
+import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 
 import java.io.IOException;
 
@@ -25,7 +25,7 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
-	private final UserJpaRepository userRepository;
+	private final LoadUserForAuthPort loadUserForAuthPort;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request,
@@ -59,21 +59,21 @@ public class JwtFilter extends OncePerRequestFilter {
 		String email = jwtProvider.getEmailFromToken(token);
 		log.info("[JWT 필터] 토큰 검증 성공 : 이메일={}", email);
 
-		User user = userRepository.findByEmail(email)
+		AuthUserView user = loadUserForAuthPort.findByEmail(email)
 				.orElseThrow(() -> {
 					log.warn("[JWT 필터] 사용자 이메일 DB 조회 실패 : {}", email);
 					return new RuntimeException("유저 없음");
 				});
 
 		CustomUserDetails userDetails = new CustomUserDetails(
-				user.getId(), user.getEmail(), user.getNickname());
+				user.id(), user.email(), user.nickname());
 
 		Authentication authentication = new UsernamePasswordAuthenticationToken(
 				userDetails, null, userDetails.getAuthorities());
 
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 		log.info("[JWT 필터] SecurityContext 인증 완료 : 사용자 ID={}, 이메일={}",
-				user.getId(), user.getEmail());
+				user.id(), user.email());
 	}
 
 	private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {

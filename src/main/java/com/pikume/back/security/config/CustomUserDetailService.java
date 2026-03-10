@@ -1,8 +1,8 @@
 package com.pikume.back.security.config;
 
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.user.domain.User;
-import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
+import com.pikume.back.security.application.dto.AuthUserView;
+import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -10,20 +10,20 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CustomUserDetailService implements UserDetailsService {
-	private final UserJpaRepository userRepository;
+	private final LoadUserForAuthPort loadUserForAuthPort;
 
-	public CustomUserDetailService(UserJpaRepository userRepository) {
-		this.userRepository = userRepository;
+	public CustomUserDetailService(LoadUserForAuthPort loadUserForAuthPort) {
+		this.loadUserForAuthPort = loadUserForAuthPort;
 	}
 
 	@Override
 	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		User user = userRepository.findByEmail(email)
+		AuthUserView user = loadUserForAuthPort.findByEmail(email)
 				.orElseThrow(() -> new UsernameNotFoundException("이메일 없음"));
 
 		return new CustomUserDetails(
-				user.getId(),
-				user.getEmail(),
-				user.getNickname());
+				user.id(),
+				user.email(),
+				user.nickname());
 	}
 }

@@ -6,35 +6,44 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface LoadDiaryPort {
 
+	record PhotoRow(Long diaryId, String url, boolean represent) {
+	}
+
 	Optional<Diary> findById(Long diaryId);
 
+	List<Diary> findByIds(Collection<Long> diaryIds);
+
 	List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end);
+
+	List<Diary> findByUserIdAndStatusesAndDateBetween(String userId, Collection<DiaryVisibility> statuses, LocalDate start, LocalDate end);
 
 	Optional<Diary> findByUserIdAndDate(String userId, LocalDate date);
 
 	long countByUserId(String userId);
 
+	long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses);
+
 	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo);
+
+	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo, Collection<DiaryVisibility> statuses);
 
 	boolean existsById(Long diaryId);
 
 	Optional<Photo> findRepresentPhotoByDiaryId(Long diaryId);
 
-	// Feed 관련 (Phase 9 분리 전까지 유지)
-	List<Diary> findUnreadFeedsByVisibilityAndUserIds(DiaryVisibility status, List<String> friendIds,
-			List<Long> excludeIds);
+	List<Photo> findPhotosByDiaryIds(Collection<Long> diaryIds);
 
-	List<Diary> findUnreadPublicFeeds(List<Long> clickedFeedIds);
+	List<PhotoRow> findPhotoRowsByDiaryIds(Collection<Long> diaryIds);
 
-	List<Diary> findClickedFeedsAfter(List<Long> clickedFeedIds, LocalDateTime threeDaysAgo);
+	List<Long> findRecentDiaryIdsByStatusAndUserIds(DiaryVisibility status, Collection<String> userIds, int limit);
 
-	List<Diary> findByStatusOrderByCreatedAtDesc(DiaryVisibility status);
+	List<Long> findRecentDiaryIdsByStatus(DiaryVisibility status, int limit);
 
-	List<Diary> findByStatusAndUserIdIn(DiaryVisibility status, List<String> userIds);
+	List<Long> findRecentDiaryIdsByStatusExcludingUser(DiaryVisibility status, String excludedUserId, int limit);
 }

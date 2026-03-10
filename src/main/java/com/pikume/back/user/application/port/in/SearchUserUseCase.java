@@ -1,8 +1,8 @@
 package com.pikume.back.user.application.port.in;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.application.dto.UserSearchResult;
 
 /**
@@ -13,5 +13,5 @@ public interface SearchUserUseCase {
 	/**
 	 * 키워드로 사용자를 검색합니다.
 	 */
-	Page<UserSearchResult> searchByKeyword(String keyword, Pageable pageable, RequestMetaInfo requestMetaInfo);
+	PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery, RequestMetaInfo requestMetaInfo);
 }

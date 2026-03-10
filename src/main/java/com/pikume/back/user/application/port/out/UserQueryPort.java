@@ -1,7 +1,7 @@
 package com.pikume.back.user.application.port.out;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.domain.User;
 
 /**
@@ -22,5 +22,5 @@ public interface UserQueryPort {
 	/**
 	 * 키워드로 사용자를 검색합니다.
 	 */
-	Page<User> searchByName(String keyword, Pageable pageable);
+	PageResult<User> searchByName(String keyword, PageQuery pageQuery);
 }

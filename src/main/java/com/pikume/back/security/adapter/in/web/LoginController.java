@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
@@ -52,7 +53,7 @@ public class LoginController {
 			UserInfo userInfo = loginUseCase.getUserInfoByEmail(dto.getEmail());
 			log.info("[로그인] 성공 : 이메일={}", dto.getEmail());
 
-			ResponseCookie responseCookie = loginUseCase.newCookieRefreshToken(tokens.getRefreshToken());
+			ResponseCookie responseCookie = toResponseCookie(loginUseCase.newCookieRefreshToken(tokens.getRefreshToken()));
 
 			LoginResponse loginResponse = new LoginResponse("로그인 성공", userInfo);
 
@@ -76,7 +77,7 @@ public class LoginController {
 		String refreshToken = cookieUtils.getCookieValue(request, AuthConstants.REFRESH_TOKEN);
 
 		String newAccessToken = reissueTokenUseCase.reissueAccessToken(refreshToken);
-		ResponseCookie resetCookie = loginUseCase.removeCookieRefreshToken();
+		ResponseCookie resetCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
 		if (newAccessToken == null) {
 			return ResponseEntity
 					.status(HttpStatus.UNAUTHORIZED)
@@ -101,10 +102,20 @@ public class LoginController {
 		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
 		loginUseCase.logout(user.getEmail(), deviceId);
 
-		ResponseCookie deleteCookie = loginUseCase.removeCookieRefreshToken();
+		ResponseCookie deleteCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
 
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
 				.body("로그아웃 완료");
+	}
+
+	private ResponseCookie toResponseCookie(CookieSpec cookieSpec) {
+		return ResponseCookie.from(cookieSpec.name(), cookieSpec.value())
+				.httpOnly(cookieSpec.httpOnly())
+				.secure(cookieSpec.secure())
+				.path(cookieSpec.path())
+				.maxAge(cookieSpec.maxAgeSeconds())
+				.sameSite(cookieSpec.sameSite())
+				.build();
 	}
 }

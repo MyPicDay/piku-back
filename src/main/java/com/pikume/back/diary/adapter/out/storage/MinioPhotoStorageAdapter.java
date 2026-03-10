@@ -5,17 +5,20 @@ import io.minio.MinioClient;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
+import com.pikume.back.global.dto.UploadedFileData;
+import com.pikume.back.global.port.out.ResolveImageUrlPort;
+import com.pikume.back.global.port.out.StoreObjectPort;
 import com.pikume.back.global.util.FileUtil;
 
 import java.io.ByteArrayInputStream;
@@ -27,7 +30,7 @@ import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PR
 
 @Slf4j
 @Component
-public class MinioPhotoStorageAdapter implements PhotoStoragePort {
+public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageUrlPort, CreativeImageStoragePort, StoreObjectPort {
 
 	private final S3Client s3Client;
 	private final PhotoUtil photoUtil;
@@ -45,12 +48,12 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort {
 	}
 
 	@Override
-	public void savePhoto(Diary diary, MultipartFile photo, String userId, Integer order) throws IOException {
+	public void savePhoto(Diary diary, UploadedFileData photo, String userId, Integer order) throws IOException {
 		log.info("사진 S3 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
 
 		try {
 			if (!photo.isEmpty()) {
-				String originalFilename = photo.getOriginalFilename();
+				String originalFilename = photo.originalFilename();
 				String filename = photoUtil.generateFileName(diary.getDate(), originalFilename);
 				boolean isPublic = (order != null && order == 0);
 				String objectName = isPublic ? PUBLIC_PREFIX + userId + "/" + filename : userId + "/" + filename;
@@ -60,8 +63,8 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort {
 				PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
 						.bucket(storageProperties.getBucket())
 						.key(objectName)
-						.contentType(photo.getContentType())
-						.contentLength(photo.getSize());
+						.contentType(photo.contentType())
+						.contentLength(photo.size());
 
 				if (isPublic) {
 					requestBuilder.cacheControl("public, max-age=31536000, immutable");
@@ -69,7 +72,7 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort {
 
 				PutObjectRequest putObjectRequest = requestBuilder.build();
 
-				s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(photo.getInputStream(), photo.getSize()));
+				s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(photo.inputStream(), photo.size()));
 
 				Photo savePhoto = new Photo(diary, objectName, order);
 				if (isPublic) {
@@ -85,21 +88,22 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort {
 		}
 	}
 
-	public String uploadToStorage(MultipartFile image, String userId, String objectKey) {
+	@Override
+	public String storeObject(UploadedFileData image, String objectKey) {
 		try {
 			ensureBucketExists(storageProperties.getBucket());
 
 			PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 					.bucket(storageProperties.getBucket())
 					.key(objectKey)
-					.contentType(image.getContentType())
-					.contentLength(image.getSize())
+					.contentType(image.contentType())
+					.contentLength(image.size())
 					.build();
 
-			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(image.getInputStream(), image.getSize()));
+			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(image.inputStream(), image.size()));
 
 			return objectKey;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			throw new RuntimeException("이미지 업로드 중 오류 발생", e);
 		}
 	}

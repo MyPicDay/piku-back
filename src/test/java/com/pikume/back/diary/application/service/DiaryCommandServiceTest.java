@@ -9,20 +9,25 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
-import com.pikume.back.creative.domain.DiaryImageGeneration;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryImageInfo;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
-import com.pikume.back.diary.application.port.out.*;
+import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
+import com.pikume.back.diary.application.dto.CreateDiaryCommand;
+import com.pikume.back.diary.application.dto.DiaryCreatedResult;
+import com.pikume.back.diary.application.dto.DiaryImageCommand;
+import com.pikume.back.diary.application.port.out.LoadCreativePort;
+import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.out.LoadUserForDiaryPort;
+import com.pikume.back.diary.application.port.out.PhotoStoragePort;
+import com.pikume.back.diary.application.port.out.SaveDiaryPort;
+import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
 import com.pikume.back.diary.domain.Diary;
-import com.pikume.back.diary.domain.vo.DiaryPhotoType;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.diary.domain.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
-import com.pikume.back.global.util.FileUtil;
+import com.pikume.back.diary.domain.vo.DiaryPhotoType;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.dto.UploadedFileData;
+import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 
@@ -32,9 +37,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.never;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DiaryCommandService")
@@ -78,20 +90,22 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("사용자 이미지로 공개 일기를 정상 생성한다")
 		void createsPublicDiaryWithUserPhotos() throws IOException {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "오늘의 일기",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
-			List<MultipartFile> photos = List.of(photo);
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"오늘의 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
+			List<UploadedFileData> photos = List.of(photo);
 
-			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryDTO.getDate())).willReturn(Optional.empty());
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 
-			ResponseDiaryDTO result = diaryCommandService.createDiary(diaryDTO, photos, USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID, requestMetaInfo);
 
 			assertThat(result).isNotNull();
-			assertThat(result.getContent()).isEqualTo("오늘의 일기");
+			assertThat(result.content()).isEqualTo("오늘의 일기");
 			then(saveDiaryPort).should().save(any(Diary.class));
 			then(photoStoragePort).should().savePhoto(any(Diary.class), eq(photo), eq(USER_ID), eq(0));
 		}
@@ -99,20 +113,20 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("AI 이미지로 일기를 생성한다")
 		void createsWithAiImage() throws IOException {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.AI_IMAGE, 0, 100L, null);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "AI 일기",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"AI 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 0, 100L, null)),
+					LocalDate.now());
 
-			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryDTO.getDate())).willReturn(Optional.empty());
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
 			given(loadCreativePort.existsByIdAndUserId(100L, USER_ID)).willReturn(true);
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
-
-			DiaryImageGeneration gen = mock(DiaryImageGeneration.class);
-			given(gen.getFilePath()).willReturn("ai/image.png");
-			given(loadCreativePort.findById(100L)).willReturn(gen);
+			given(loadCreativePort.findById(100L))
+					.willReturn(new DiaryImageGenerationView(100L, USER_ID, "prompt", "ai/image.png", null));
 			given(photoStoragePort.moveToPublic("ai/image.png")).willReturn("public/image.png");
 
-			ResponseDiaryDTO result = diaryCommandService.createDiary(diaryDTO, null, USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, null, USER_ID, requestMetaInfo);
 
 			assertThat(result).isNotNull();
 			then(saveDiaryPort).should().savePhoto(any());
@@ -122,17 +136,19 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("친구 공개 일기 생성 시 알림을 전송한다")
 		void notifiesFriendsForFriendsDiary() throws IOException {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.FRIENDS, "친구 일기",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.FRIENDS,
+					"친구 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
 
-			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryDTO.getDate())).willReturn(Optional.empty());
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 			given(friendUseCase.getFriends(USER_ID)).willReturn(List.of("friend-1", "friend-2"));
 
-			diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo);
+			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
 
 			then(sendDiaryNotificationPort).should().notifyFriendsOfNewDiary(
 					eq(List.of("friend-1", "friend-2")), eq(USER_ID), any(Diary.class), eq(requestMetaInfo));
@@ -141,16 +157,18 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("공개 일기에서는 알림을 전송하지 않는다")
 		void doesNotNotifyForPublicDiary() throws IOException {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "공개 일기",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"공개 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
 
-			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryDTO.getDate())).willReturn(Optional.empty());
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 
-			diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo);
+			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
 
 			then(sendDiaryNotificationPort).shouldHaveNoInteractions();
 		}
@@ -158,18 +176,19 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("같은 날짜에 일기가 이미 존재하면 예외를 던진다")
 		void throwsWhenDuplicateDate() {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
 			LocalDate date = LocalDate.now();
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "중복 일기",
-					new ArrayList<>(List.of(imageInfo)), date);
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"중복 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					date);
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
 
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, date))
 					.willReturn(Optional.of(new Diary("기존 일기", DiaryVisibility.PUBLIC, date, USER_ID)));
 
-			assertThatThrownBy(
-					() -> diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
 					.isInstanceOf(DuplicateDiaryException.class);
 		}
 
@@ -177,16 +196,17 @@ class DiaryCommandServiceTest {
 		@DisplayName("미래 날짜로 일기 작성 시 예외를 던진다")
 		void throwsWhenFutureDate() {
 			LocalDate futureDate = LocalDate.now().plusDays(1);
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "미래 일기",
-					new ArrayList<>(List.of(imageInfo)), futureDate);
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"미래 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					futureDate);
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
 
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, futureDate)).willReturn(Optional.empty());
 
-			assertThatThrownBy(
-					() -> diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
 					.isInstanceOf(IllegalArgumentException.class)
 					.hasMessageContaining("미래 날짜");
 		}
@@ -194,19 +214,21 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("이미지 순서가 중복되면 예외를 던진다")
 		void throwsWhenDuplicateOrder() {
-			DiaryImageInfo info1 = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryImageInfo info2 = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 1);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "순서 중복",
-					new ArrayList<>(List.of(info1, info2)), LocalDate.now());
-			MockMultipartFile photo1 = new MockMultipartFile("p1", "a.jpg", "image/jpeg", "data".getBytes());
-			MockMultipartFile photo2 = new MockMultipartFile("p2", "b.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"순서 중복",
+					List.of(
+							new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0),
+							new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 1)),
+					LocalDate.now());
+			UploadedFileData photo1 = uploadedFile("a.jpg", "image/jpeg");
+			UploadedFileData photo2 = uploadedFile("b.jpg", "image/jpeg");
 
 			given(fileUtil.getContentType("a.jpg")).willReturn("image/jpeg");
 			given(fileUtil.getContentType("b.jpg")).willReturn("image/jpeg");
 			given(loadDiaryPort.findByUserIdAndDate(eq(USER_ID), any())).willReturn(Optional.empty());
 
-			assertThatThrownBy(
-					() -> diaryCommandService.createDiary(diaryDTO, List.of(photo1, photo2), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo1, photo2), USER_ID, requestMetaInfo))
 					.isInstanceOf(IllegalArgumentException.class)
 					.hasMessageContaining("중복");
 		}
@@ -214,15 +236,16 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("허용되지 않는 이미지 확장자이면 예외를 던진다")
 		void throwsWhenInvalidImageType() {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "잘못된 확장자",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.pdf", "application/pdf", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"잘못된 확장자",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.pdf", "application/pdf");
 
 			given(fileUtil.getContentType("test.pdf")).willReturn("application/pdf");
 
-			assertThatThrownBy(
-					() -> diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
 					.isInstanceOf(IllegalArgumentException.class)
 					.hasMessageContaining("허용되지 않는");
 		}
@@ -230,17 +253,19 @@ class DiaryCommandServiceTest {
 		@Test
 		@DisplayName("메타데이터 분석 실패해도 일기 생성은 성공한다")
 		void succeedsEvenIfAnalysisFails() throws IOException {
-			DiaryImageInfo imageInfo = new DiaryImageInfo(DiaryPhotoType.USER_IMAGE, 0, null, 0);
-			DiaryDTO diaryDTO = new DiaryDTO(DiaryVisibility.PUBLIC, "분석 실패 일기",
-					new ArrayList<>(List.of(imageInfo)), LocalDate.now());
-			MockMultipartFile photo = new MockMultipartFile("photo", "test.jpg", "image/jpeg", "data".getBytes());
+			CreateDiaryCommand diaryCommand = createDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"분석 실패 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
 
-			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryDTO.getDate())).willReturn(Optional.empty());
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
-			willThrow(new RuntimeException("분석 오류")).given(analyzeDiaryContentUseCase).analyzeAndSave(any(), any());
+			willThrow(new RuntimeException("분석 오류")).given(analyzeDiaryContentUseCase).analyzeAndSave(anyLong(), anyString());
 
-			ResponseDiaryDTO result = diaryCommandService.createDiary(diaryDTO, List.of(photo), USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
 
 			assertThat(result).isNotNull();
 		}
@@ -290,15 +315,14 @@ class DiaryCommandServiceTest {
 		@DisplayName("대표 사진(order=0)이면 public으로 이동한다")
 		void movesToPublicWhenRepresent() {
 			Diary diary = new Diary("내용", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
-			DiaryImageGeneration gen = mock(DiaryImageGeneration.class);
-			given(gen.getFilePath()).willReturn("private/ai.png");
-			given(loadCreativePort.findById(1L)).willReturn(gen);
+			given(loadCreativePort.findById(1L))
+					.willReturn(new DiaryImageGenerationView(1L, USER_ID, "prompt", "private/ai.png", null));
 			given(photoStoragePort.moveToPublic("private/ai.png")).willReturn("public/ai.png");
 
 			diaryCommandService.saveAiPhoto(diary, 1L, USER_ID, 0);
 
 			then(photoStoragePort).should().moveToPublic("private/ai.png");
-			then(gen).should().updateFilePath("public/ai.png");
+			then(loadCreativePort).should().updateFilePath(1L, "public/ai.png");
 			then(saveDiaryPort).should().savePhoto(any());
 		}
 
@@ -306,10 +330,8 @@ class DiaryCommandServiceTest {
 		@DisplayName("대표 사진이 아니면 public으로 이동하지 않는다")
 		void doesNotMoveWhenNotRepresent() {
 			Diary diary = new Diary("내용", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
-			DiaryImageGeneration gen = mock(DiaryImageGeneration.class);
-			given(gen.getFilePath()).willReturn("private/ai.png");
-			given(loadCreativePort.findById(1L)).willReturn(gen);
-
+			given(loadCreativePort.findById(1L))
+					.willReturn(new DiaryImageGenerationView(1L, USER_ID, "prompt", "private/ai.png", null));
 			diaryCommandService.saveAiPhoto(diary, 1L, USER_ID, 1);
 
 			then(photoStoragePort).should(never()).moveToPublic(any());
@@ -325,6 +347,20 @@ class DiaryCommandServiceTest {
 
 			then(loadCreativePort).shouldHaveNoInteractions();
 			then(saveDiaryPort).should(never()).savePhoto(any());
+		}
+	}
+
+	private CreateDiaryCommand createDiaryCommand(DiaryVisibility visibility, String content,
+			List<DiaryImageCommand> imageInfos, LocalDate date) {
+		return new CreateDiaryCommand(visibility, content, new ArrayList<>(imageInfos), date);
+	}
+
+	private UploadedFileData uploadedFile(String originalFilename, String contentType) {
+		try {
+			MockMultipartFile file = new MockMultipartFile("photo", originalFilename, contentType, "data".getBytes());
+			return new UploadedFileData(file.getOriginalFilename(), file.getContentType(), file.getBytes());
+		} catch (IOException e) {
+			throw new RuntimeException(e);
 		}
 	}
 }

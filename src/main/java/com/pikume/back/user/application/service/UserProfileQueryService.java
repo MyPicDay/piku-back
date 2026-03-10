@@ -41,7 +41,7 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 
 		String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(profile.getAvatar(), requestMetaInfo);
 		int friendCount = friendPort.countFriends(profileId);
-		long diaryCount = diaryPort.countDiariesByUserId(profileId);
+		long diaryCount = diaryPort.countDiariesByUserId(profileId, currentUserId);
 		String friendshipStatus = friendPort.getFriendshipStatus(currentUserId, profileId);
 
 		log.info("사용자 ID {}에 대한 프로필 미리보기 조회 완료. 친구 수: {}, 일기 수: {}, 친구 상태: {}",
@@ -55,7 +55,7 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 	public UserProfileResult getUserProfile(String profileId, String currentUserId, RequestMetaInfo requestMetaInfo) {
 		ProfilePreviewResult preview = getProfilePreview(profileId, currentUserId, requestMetaInfo);
 		boolean isOwner = profileId.equals(currentUserId);
-		List<UserDiaryPort.MonthlyDiaryCount> monthlyDiaryCount = diaryPort.getMonthlyDiaryCount(profileId);
+		List<UserDiaryPort.MonthlyDiaryCount> monthlyDiaryCount = diaryPort.getMonthlyDiaryCount(profileId, currentUserId);
 
 		return new UserProfileResult(
 				preview.id(),

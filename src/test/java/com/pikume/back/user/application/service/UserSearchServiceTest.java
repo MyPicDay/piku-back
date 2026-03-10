@@ -7,11 +7,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.UserSearchResult;
 import com.pikume.back.user.application.port.out.UserQueryPort;
@@ -48,15 +46,15 @@ class UserSearchServiceTest {
 		@DisplayName("키워드로 검색 시 결과가 정상 반환된다")
 		void returnsSearchResults() {
 			String keyword = "피쿠";
-			Pageable pageable = PageRequest.of(0, 10);
+			PageQuery pageQuery = PageQuery.of(0, 10);
 			User user = new User("user-1", "piku@test.com", "password", "피쿠유저", "characters/fixed/base_image_1.png");
-			Page<User> userPage = new PageImpl<>(List.of(user));
+			PageResult<User> userPage = new PageResult<>(List.of(user), 0, 10, 1);
 
-			given(userQueryPort.searchByName("%피쿠%", pageable)).willReturn(userPage);
+			given(userQueryPort.searchByName("%피쿠%", pageQuery)).willReturn(userPage);
 			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.png", requestMetaInfo))
 					.willReturn("http://localhost:8080/api/characters/fixed/base_image_1.png");
 
-			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
 			assertThat(result.getContent()).hasSize(1);
 			UserSearchResult searchResult = result.getContent().get(0);
@@ -69,12 +67,12 @@ class UserSearchServiceTest {
 		@DisplayName("검색 결과가 없으면 빈 페이지를 반환한다")
 		void returnsEmptyPageWhenNoResults() {
 			String keyword = "존재하지않는유저";
-			Pageable pageable = PageRequest.of(0, 10);
-			Page<User> emptyPage = new PageImpl<>(Collections.emptyList());
+			PageQuery pageQuery = PageQuery.of(0, 10);
+			PageResult<User> emptyPage = new PageResult<>(Collections.emptyList(), 0, 10, 0);
 
-			given(userQueryPort.searchByName("%" + keyword + "%", pageable)).willReturn(emptyPage);
+			given(userQueryPort.searchByName("%" + keyword + "%", pageQuery)).willReturn(emptyPage);
 
-			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
 			assertThat(result.getContent()).isEmpty();
 			assertThat(result.getTotalElements()).isZero();
@@ -84,32 +82,32 @@ class UserSearchServiceTest {
 		@DisplayName("키워드에 와일드카드가 올바르게 추가된다")
 		void addsWildcardToKeyword() {
 			String keyword = "테스트";
-			Pageable pageable = PageRequest.of(0, 10);
-			Page<User> emptyPage = new PageImpl<>(Collections.emptyList());
+			PageQuery pageQuery = PageQuery.of(0, 10);
+			PageResult<User> emptyPage = new PageResult<>(Collections.emptyList(), 0, 10, 0);
 
-			given(userQueryPort.searchByName(anyString(), eq(pageable))).willReturn(emptyPage);
+			given(userQueryPort.searchByName(anyString(), eq(pageQuery))).willReturn(emptyPage);
 
-			userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
+			userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
-			then(userQueryPort).should().searchByName("%테스트%", pageable);
+			then(userQueryPort).should().searchByName("%테스트%", pageQuery);
 		}
 
 		@Test
 		@DisplayName("아바타 URL 변환이 각 결과에 올바르게 적용된다")
 		void convertsAvatarUrlForEachResult() {
 			String keyword = "유저";
-			Pageable pageable = PageRequest.of(0, 10);
+			PageQuery pageQuery = PageQuery.of(0, 10);
 			User user1 = new User("user-1", "a@test.com", "pw", "유저A", "path/avatar1.png");
 			User user2 = new User("user-2", "b@test.com", "pw", "유저B", "path/avatar2.png");
-			Page<User> userPage = new PageImpl<>(List.of(user1, user2));
+			PageResult<User> userPage = new PageResult<>(List.of(user1, user2), 0, 10, 2);
 
-			given(userQueryPort.searchByName("%유저%", pageable)).willReturn(userPage);
+			given(userQueryPort.searchByName("%유저%", pageQuery)).willReturn(userPage);
 			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar1.png", requestMetaInfo))
 					.willReturn("http://localhost:8080/api/path/avatar1.png");
 			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar2.png", requestMetaInfo))
 					.willReturn("http://localhost:8080/api/path/avatar2.png");
 
-			Page<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageable, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
 			assertThat(result.getContent()).hasSize(2);
 			assertThat(result.getContent().get(0).avatar()).isEqualTo("http://localhost:8080/api/path/avatar1.png");

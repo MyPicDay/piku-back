@@ -1,6 +1,6 @@
 package com.pikume.back.security.application.port.in;
 
-import org.springframework.http.ResponseCookie;
+import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
@@ -11,9 +11,9 @@ public interface LoginUseCase {
 
 	UserInfo getUserInfoByEmail(String email);
 
-	ResponseCookie newCookieRefreshToken(String refreshToken);
+	CookieSpec newCookieRefreshToken(String refreshToken);
 
-	ResponseCookie removeCookieRefreshToken();
+	CookieSpec removeCookieRefreshToken();
 
 	void logout(String email, String deviceId);
 }

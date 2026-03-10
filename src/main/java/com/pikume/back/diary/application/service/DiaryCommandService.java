@@ -4,11 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-import com.pikume.back.creative.domain.DiaryImageGeneration;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryImageInfo;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
+import com.pikume.back.diary.application.dto.CreateDiaryCommand;
+import com.pikume.back.diary.application.dto.DiaryCreatedResult;
+import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.out.*;
@@ -21,6 +19,7 @@ import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
 import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 
@@ -68,24 +67,24 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 
 	@Override
 	@Transactional
-	public ResponseDiaryDTO createDiary(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId,
+	public DiaryCreatedResult createDiary(CreateDiaryCommand diaryCommand, List<UploadedFileData> photos, String userId,
 			RequestMetaInfo requestMetaInfo) throws IOException {
 
-		validateDiaryDTO(diaryDTO, photos, userId);
+		validateDiaryCommand(diaryCommand, photos, userId);
 
-		Diary diary = new Diary(diaryDTO.getContent(), diaryDTO.getStatus(), diaryDTO.getDate(), userId);
+		Diary diary = new Diary(diaryCommand.content(), diaryCommand.status(), diaryCommand.date(), userId);
 		diary = saveDiaryPort.save(diary);
 		log.debug("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
 
-		List<DiaryImageInfo> infos = diaryDTO.getImageInfos();
-		infos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
+		List<DiaryImageCommand> infos = diaryCommand.imageInfos();
+		infos.sort(Comparator.comparing(DiaryImageCommand::order));
 
-		for (DiaryImageInfo info : infos) {
-			if (info.getType() == DiaryPhotoType.AI_IMAGE) {
-				saveAiPhoto(diary, info.getAiPhotoId(), userId, info.getOrder());
+		for (DiaryImageCommand info : infos) {
+			if (info.type() == DiaryPhotoType.AI_IMAGE) {
+				saveAiPhoto(diary, info.aiPhotoId(), userId, info.order());
 			} else {
-				if (info.getPhotoIndex() != null && photos != null && info.getPhotoIndex() < photos.size()) {
-					photoStoragePort.savePhoto(diary, photos.get(info.getPhotoIndex()), userId, info.getOrder());
+				if (info.photoIndex() != null && photos != null && info.photoIndex() < photos.size()) {
+					photoStoragePort.savePhoto(diary, photos.get(info.photoIndex()), userId, info.order());
 				}
 			}
 		}
@@ -104,15 +103,15 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			log.warn("일기 메타데이터 분석 실패 - diaryId: {}, error: {}", diary.getId(), e.getMessage());
 		}
 
-		return new ResponseDiaryDTO(diary.getId(), diary.getContent());
+		return new DiaryCreatedResult(diary.getId(), diary.getContent());
 	}
 
 	public void saveAiPhoto(Diary diary, Long aiPhoto, String userId, Integer order) {
 		log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
 
 		if (aiPhoto != null) {
-			DiaryImageGeneration diaryImageGeneration = loadCreativePort.findById(aiPhoto);
-			String filePath = diaryImageGeneration.getFilePath();
+			var diaryImageGeneration = loadCreativePort.findById(aiPhoto);
+			String filePath = diaryImageGeneration.filePath();
 
 			boolean isRepresent = (order != null && order == 0);
 			if (isRepresent) {
@@ -120,7 +119,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 				filePath = photoStoragePort.moveToPublic(filePath);
 				log.info("대표 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
 
-				diaryImageGeneration.updateFilePath(filePath);
+				loadCreativePort.updateFilePath(aiPhoto, filePath);
 				log.info("DiaryImageGeneration filePath 업데이트 완료 (ID: {})", aiPhoto);
 			}
 
@@ -137,40 +136,40 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		}
 	}
 
-	private void validateDiaryDate(DiaryDTO diaryDTO, String userId) {
-		Optional<Diary> existingDiary = loadDiaryPort.findByUserIdAndDate(userId, diaryDTO.getDate());
+	private void validateDiaryDate(CreateDiaryCommand diaryCommand, String userId) {
+		Optional<Diary> existingDiary = loadDiaryPort.findByUserIdAndDate(userId, diaryCommand.date());
 		if (existingDiary.isPresent()) {
 			log.info("일기 날짜 중복 요청");
-			throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryDTO.getDate());
+			throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryCommand.date());
 		}
 		LocalDate localDate = LocalDate.now();
-		if (diaryDTO.getDate().isAfter(localDate)) {
-			log.error("미래 날짜에 일기 작성 시도: {}", diaryDTO.getDate());
-			throw new IllegalArgumentException("미래 날짜에 일기를 작성할 수 없습니다: " + diaryDTO.getDate());
+		if (diaryCommand.date().isAfter(localDate)) {
+			log.error("미래 날짜에 일기 작성 시도: {}", diaryCommand.date());
+			throw new IllegalArgumentException("미래 날짜에 일기를 작성할 수 없습니다: " + diaryCommand.date());
 		}
 	}
 
-	private void validateDiaryDTO(DiaryDTO diaryDTO, List<MultipartFile> photos, String userId) {
+	private void validateDiaryCommand(CreateDiaryCommand diaryCommand, List<UploadedFileData> photos, String userId) {
 		validatePhotos(photos);
-		validateDiaryDate(diaryDTO, userId);
+		validateDiaryDate(diaryCommand, userId);
 
-		List<DiaryImageInfo> infos = diaryDTO.getImageInfos();
-		infos.sort(Comparator.comparing(DiaryImageInfo::getOrder));
+		List<DiaryImageCommand> infos = diaryCommand.imageInfos();
+		infos.sort(Comparator.comparing(DiaryImageCommand::order));
 		Set<Integer> uniqueOrders = infos.stream()
-				.map(DiaryImageInfo::getOrder)
+				.map(DiaryImageCommand::order)
 				.collect(Collectors.toSet());
 		if (uniqueOrders.size() != infos.size()) {
 			throw new IllegalArgumentException("이미지 순서가 중복되었습니다.");
 		}
 		int userImageCount = 0;
-		for (DiaryImageInfo info : infos) {
-			if (info.getType() == DiaryPhotoType.AI_IMAGE) {
-				if (!loadCreativePort.existsByIdAndUserId(info.getAiPhotoId(), userId)) {
-					throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.getAiPhotoId());
+		for (DiaryImageCommand info : infos) {
+			if (info.type() == DiaryPhotoType.AI_IMAGE) {
+				if (!loadCreativePort.existsByIdAndUserId(info.aiPhotoId(), userId)) {
+					throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.aiPhotoId());
 				}
 			}
-			if (info.getType() == DiaryPhotoType.USER_IMAGE) {
-				if (info.getPhotoIndex() == null) {
+			if (info.type() == DiaryPhotoType.USER_IMAGE) {
+				if (info.photoIndex() == null) {
 					throw new IllegalArgumentException("유효하지 않은 사용자 사진 인덱스: null");
 				}
 				userImageCount++;
@@ -181,12 +180,12 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		}
 	}
 
-	private void validatePhotos(List<MultipartFile> photos) {
+	private void validatePhotos(List<UploadedFileData> photos) {
 		if (photos == null || photos.isEmpty()) {
 			return;
 		}
-		for (MultipartFile file : photos) {
-			String originalFilename = file.getOriginalFilename();
+		for (UploadedFileData file : photos) {
+			String originalFilename = file.originalFilename();
 
 			if (originalFilename == null || !originalFilename.contains(".")) {
 				throw new IllegalArgumentException("유효하지 않은 파일 이름입니다: " + originalFilename);
