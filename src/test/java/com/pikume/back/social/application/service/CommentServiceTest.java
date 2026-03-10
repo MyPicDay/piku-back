@@ -4,17 +4,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.social.adapter.in.web.dto.CommentDeleteResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.CommentResponseDto;
+import com.pikume.back.social.application.dto.CommentDeleteResult;
+import com.pikume.back.social.application.dto.CommentListItemResult;
+import com.pikume.back.social.application.dto.CommentResult;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
@@ -73,12 +72,12 @@ class CommentServiceTest {
 			Comment savedComment = new Comment("댓글 내용", "user-id", 1L);
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
-			CommentResponseDto response = commentService.createComment(1L, "댓글 내용", null, "user-id", requestMetaInfo);
+			CommentResult response = commentService.createComment(1L, "댓글 내용", null, "user-id", requestMetaInfo);
 
-			assertThat(response.getContent()).isEqualTo("댓글 내용");
+			assertThat(response.content()).isEqualTo("댓글 내용");
 			then(publishEventPort).should().publish(any(SocialEvent.CommentCreatedEvent.class));
 		}
 
@@ -88,7 +87,7 @@ class CommentServiceTest {
 			Comment savedComment = new Comment("댓글 내용", "owner-id", 1L);
 			given(loadUserInfoPort.findUserInfoById("owner-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("owner-id", "주인", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "owner-id")).willReturn(Optional.of("owner-id"));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
 			commentService.createComment(1L, "댓글 내용", null, "owner-id", requestMetaInfo);
@@ -112,12 +111,12 @@ class CommentServiceTest {
 		void failsDiaryNotFound() {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(999L)).willReturn(Optional.empty());
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(999L, "user-id")).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> commentService.createComment(999L, "댓글", null, "user-id", requestMetaInfo))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
-							.isEqualTo(CommentErrorCode.INVALID_REQUEST));
+							.isEqualTo(CommentErrorCode.DIARY_NOT_FOUND));
 		}
 
 		@Test
@@ -125,7 +124,7 @@ class CommentServiceTest {
 		void failsParentNotFound() {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
 			given(loadCommentPort.findById(99L)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 99L, "user-id", requestMetaInfo))
@@ -142,7 +141,7 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
 			given(loadCommentPort.findById(10L)).willReturn(Optional.of(deletedParent));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 10L, "user-id", requestMetaInfo))
@@ -160,7 +159,7 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
 			given(loadCommentPort.findById(20L)).willReturn(Optional.of(replyComment));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대대댓글", 20L, "user-id", requestMetaInfo))
@@ -176,7 +175,7 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
 			given(loadCommentPort.findById(30L)).willReturn(Optional.of(parentInOtherDiary));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id", requestMetaInfo))
@@ -197,12 +196,12 @@ class CommentServiceTest {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
 			given(loadCommentPort.findById(1L)).willReturn(Optional.of(existingComment));
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "user-id")).willReturn(true);
 			given(saveCommentPort.save(any(Comment.class))).willAnswer(inv -> inv.getArgument(0));
 
-			CommentResponseDto response = commentService.updateComment(1L, "수정된 내용", "user-id");
+			CommentResult response = commentService.updateComment(1L, "수정된 내용", "user-id");
 
-			assertThat(response.getContent()).isEqualTo("수정된 내용");
+			assertThat(response.content()).isEqualTo("수정된 내용");
 		}
 
 		@Test
@@ -231,11 +230,11 @@ class CommentServiceTest {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
 			given(loadCommentPort.findById(1L)).willReturn(Optional.of(existingComment));
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "user-id")).willReturn(true);
 
-			CommentDeleteResponseDto response = commentService.deleteComment(1L, "user-id");
+			CommentDeleteResult response = commentService.deleteComment(1L, "user-id");
 
-			assertThat(response.isSuccess()).isTrue();
+			assertThat(response.success()).isTrue();
 			then(saveCommentPort).should().save(any(Comment.class));
 		}
 
@@ -262,7 +261,7 @@ class CommentServiceTest {
 		@Test
 		@DisplayName("루트 댓글 목록은 전용 조회 포트에서 읽고 응답으로 변환한다")
 		void loadRootCommentsFromDedicatedQueryPort() {
-			PageRequest pageable = PageRequest.of(0, 3);
+			PageQuery pageQuery = PageQuery.of(0, 3);
 			CommentListView comment = new CommentListView(
 					1L,
 					10L,
@@ -275,26 +274,26 @@ class CommentServiceTest {
 					LocalDateTime.of(2026, 3, 8, 10, 0),
 					LocalDateTime.of(2026, 3, 8, 10, 30),
 					false);
-			Page<CommentListView> page = new PageImpl<>(java.util.List.of(comment), pageable, 1);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(comment), 0, 3, 1);
 
-			given(loadDiaryInfoPort.existsById(10L)).willReturn(true);
-			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageable)).willReturn(page);
+			given(loadDiaryInfoPort.existsVisibleById(10L, "viewer-id")).willReturn(true);
+			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
 			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png", requestMetaInfo))
 					.willReturn("https://localhost:8080/api/avatars/user.png");
 
-			Page<CommentListResponseDto> response = commentService.getRootCommentsByDiaryId(10L, pageable, requestMetaInfo);
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(1);
-			assertThat(response.getContent().get(0).getNickname()).isEqualTo("닉네임");
-			assertThat(response.getContent().get(0).getReplyCount()).isEqualTo(2);
-			then(loadCommentListViewPort).should().loadRootCommentsByDiaryId(10L, pageable);
+			assertThat(response.getContent().get(0).nickname()).isEqualTo("닉네임");
+			assertThat(response.getContent().get(0).replyCount()).isEqualTo(2);
+			then(loadCommentListViewPort).should().loadRootCommentsByDiaryId(10L, pageQuery);
 			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 
 		@Test
 		@DisplayName("대댓글 목록도 전용 조회 포트에서 읽고 사용자 미존재 시 기본 닉네임을 사용한다")
 		void loadRepliesFromDedicatedQueryPort() {
-			PageRequest pageable = PageRequest.of(0, 2);
+			PageQuery pageQuery = PageQuery.of(0, 2);
 			Comment parentComment = new Comment("부모", "owner-id", 11L);
 			CommentListView reply = new CommentListView(
 					2L,
@@ -308,18 +307,18 @@ class CommentServiceTest {
 					LocalDateTime.of(2026, 3, 8, 11, 0),
 					LocalDateTime.of(2026, 3, 8, 11, 5),
 					false);
-			Page<CommentListView> page = new PageImpl<>(java.util.List.of(reply), pageable, 1);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(reply), 0, 2, 1);
 
 			given(loadCommentPort.findById(1L)).willReturn(Optional.of(parentComment));
-			given(loadDiaryInfoPort.existsById(11L)).willReturn(true);
-			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageable)).willReturn(page);
+			given(loadDiaryInfoPort.existsVisibleById(11L, "viewer-id")).willReturn(true);
+			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageQuery)).willReturn(page);
 
-			Page<CommentListResponseDto> response = commentService.getRepliesByParentCommentId(1L, pageable, requestMetaInfo);
+			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, requestMetaInfo, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(1);
-			assertThat(response.getContent().get(0).getNickname()).isEqualTo("me");
-			assertThat(response.getContent().get(0).getParentId()).isEqualTo(1L);
-			then(loadCommentListViewPort).should().loadRepliesByParentCommentId(1L, pageable);
+			assertThat(response.getContent().get(0).nickname()).isEqualTo("me");
+			assertThat(response.getContent().get(0).parentId()).isEqualTo(1L);
+			then(loadCommentListViewPort).should().loadRepliesByParentCommentId(1L, pageQuery);
 			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 	}
@@ -331,21 +330,21 @@ class CommentServiceTest {
 		@Test
 		@DisplayName("일기의 전체 댓글 수를 조회한다")
 		void countSuccess() {
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "viewer-id")).willReturn(true);
 			given(loadCommentPort.countAllByDiaryId(1L)).willReturn(15L);
 
-			assertThat(commentService.countAllCommentsByDiaryId(1L)).isEqualTo(15L);
+			assertThat(commentService.countAllCommentsByDiaryId("viewer-id", 1L)).isEqualTo(15L);
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 일기의 댓글 수 조회 시 예외 발생")
 		void failsDiaryNotFound() {
-			given(loadDiaryInfoPort.existsById(999L)).willReturn(false);
+			given(loadDiaryInfoPort.existsVisibleById(999L, "viewer-id")).willReturn(false);
 
-			assertThatThrownBy(() -> commentService.countAllCommentsByDiaryId(999L))
+			assertThatThrownBy(() -> commentService.countAllCommentsByDiaryId("viewer-id", 999L))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
-							.isEqualTo(CommentErrorCode.INVALID_REQUEST));
+							.isEqualTo(CommentErrorCode.DIARY_NOT_FOUND));
 		}
 	}
 }

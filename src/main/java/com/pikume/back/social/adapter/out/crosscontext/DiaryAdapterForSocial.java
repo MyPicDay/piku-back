@@ -2,7 +2,7 @@ package com.pikume.back.social.adapter.out.crosscontext;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
+import com.pikume.back.diary.application.port.in.QueryDiaryVisibilityUseCase;
 import com.pikume.back.social.application.port.out.LoadDiaryInfoPort;
 
 import java.util.Optional;
@@ -15,16 +15,15 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DiaryAdapterForSocial implements LoadDiaryInfoPort {
 
-	private final DiaryJpaRepository diaryJpaRepository;
+	private final QueryDiaryVisibilityUseCase queryDiaryVisibilityUseCase;
 
 	@Override
-	public boolean existsById(Long diaryId) {
-		return diaryJpaRepository.existsById(diaryId);
+	public boolean existsVisibleById(Long diaryId, String viewerId) {
+		return queryDiaryVisibilityUseCase.existsVisibleById(diaryId, viewerId);
 	}
 
 	@Override
-	public Optional<String> findOwnerUserIdByDiaryId(Long diaryId) {
-		return diaryJpaRepository.findById(diaryId)
-				.map(diary -> diary.getUserId());
+	public Optional<String> findVisibleOwnerUserIdByDiaryId(Long diaryId, String viewerId) {
+		return queryDiaryVisibilityUseCase.findVisibleOwnerUserIdByDiaryId(diaryId, viewerId);
 	}
 }

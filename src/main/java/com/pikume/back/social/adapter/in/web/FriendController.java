@@ -22,7 +22,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.global.util.RequestMetaMapper;
+import com.pikume.back.social.application.dto.FriendRemovalResult;
+import com.pikume.back.social.application.dto.FriendRequestResult;
+import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.adapter.in.web.dto.*;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 import com.pikume.back.social.domain.friend.exception.FriendException;
@@ -56,9 +62,9 @@ public class FriendController {
 		log.info("친구 요청(수락) 요청 {} 가 {}에게", customUserDetails.getId(), requestDto.getToUserId());
 		try {
 			RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-			FriendRequestResponseDto response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
+			FriendRequestResult response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
 					requestDto.getToUserId(), requestMetaInfo);
-			return ResponseEntity.ok(response);
+			return ResponseEntity.ok(toResponseDto(response));
 		} catch (FriendException e) {
 			return ResponseEntity
 					.status(HttpStatus.BAD_REQUEST)
@@ -78,7 +84,10 @@ public class FriendController {
 		log.info("{} 의 친구 목록 조회 요청", customUserDetails.getId());
 
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		Page<FriendsDTO> friends = friendUseCase.findFriendList(pageable, customUserDetails.getId(), requestMetaInfo);
+		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
+		PageResult<FriendsDTO> friendResults = friendUseCase.findFriendList(pageQuery, customUserDetails.getId(), requestMetaInfo)
+				.map(this::toFriendsDto);
+		Page<FriendsDTO> friends = SpringPageMapper.toSpringPage(friendResults, pageable);
 
 		return ResponseEntity.ok(friends);
 	}
@@ -95,7 +104,10 @@ public class FriendController {
 		log.info("{} 의 받은 친구 요청 목록 조회", customUserDetails.getId());
 
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		Page<FriendsDTO> requests = friendUseCase.findFriendRequests(pageable, customUserDetails.getId(), requestMetaInfo);
+		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
+		PageResult<FriendsDTO> requestResults = friendUseCase.findFriendRequests(pageQuery, customUserDetails.getId(), requestMetaInfo)
+				.map(this::toFriendsDto);
+		Page<FriendsDTO> requests = SpringPageMapper.toSpringPage(requestResults, pageable);
 
 		return ResponseEntity.ok(requests);
 	}
@@ -110,8 +122,8 @@ public class FriendController {
 			@PathVariable String fromUserId) {
 		log.info("{} 가 {} 의 친구 요청 거절", customUserDetails.getId(), fromUserId);
 		try {
-			FriendRequestResponseDto response = friendUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
-			return ResponseEntity.ok(response);
+			FriendRequestResult response = friendUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
+			return ResponseEntity.ok(toResponseDto(response));
 		} catch (FriendRequestNotFoundException e) {
 			return ResponseEntity
 					.status(HttpStatus.NOT_FOUND)
@@ -129,8 +141,8 @@ public class FriendController {
 			@PathVariable String toUserId) {
 		log.info("{} 가 {} 에게 보낸 친구 요청 취소", customUserDetails.getId(), toUserId);
 		try {
-			FriendRequestResponseDto response = friendUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
-			return ResponseEntity.ok(response);
+			FriendRequestResult response = friendUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
+			return ResponseEntity.ok(toResponseDto(response));
 		} catch (FriendRequestNotFoundException e) {
 			return ResponseEntity
 					.status(HttpStatus.NOT_FOUND)
@@ -151,12 +163,24 @@ public class FriendController {
 		log.info("User {} is unfriending user {}", fromUserId, toUserId);
 
 		try {
-			FriendRemoveDTO response = friendUseCase.removeFriend(fromUserId, toUserId);
-			return ResponseEntity.ok(response);
+			FriendRemovalResult response = friendUseCase.removeFriend(fromUserId, toUserId);
+			return ResponseEntity.ok(toRemoveDto(response));
 		} catch (FriendNotFoundException e) {
 			return ResponseEntity
 					.status(HttpStatus.NOT_FOUND)
 					.body(new FriendRemoveDTO(false, e.getMessage()));
 		}
+	}
+
+	private FriendRequestResponseDto toResponseDto(FriendRequestResult result) {
+		return new FriendRequestResponseDto(result.accepted(), result.message());
+	}
+
+	private FriendsDTO toFriendsDto(FriendSummaryResult result) {
+		return new FriendsDTO(result.userId(), result.nickname(), result.avatar());
+	}
+
+	private FriendRemoveDTO toRemoveDto(FriendRemovalResult result) {
+		return new FriendRemoveDTO(result.success(), result.message());
 	}
 }

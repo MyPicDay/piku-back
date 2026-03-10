@@ -30,7 +30,6 @@ public class UserPreferenceService implements ManageUserPreferenceUseCase {
 	private static final double CLICK_WEIGHT = 0.15;
 	private static final double MAX_AFFINITY = 1.0;
 
-	@Override
 	@Transactional
 	public UserPreference updatePreference(String userId, String topic, double weight) {
 		UserPreference preference = loadUserPreferencePort.findByUserId(userId)
@@ -54,12 +53,6 @@ public class UserPreferenceService implements ManageUserPreferenceUseCase {
 	}
 
 	@Override
-	@Transactional(readOnly = true)
-	public Optional<UserPreference> getPreference(String userId) {
-		return loadUserPreferencePort.findByUserId(userId);
-	}
-
-	@Override
 	@Transactional
 	public void recordInteraction(String userId, String topic, String interactionType) {
 		double weight = switch (interactionType.toUpperCase()) {
@@ -72,6 +65,18 @@ public class UserPreferenceService implements ManageUserPreferenceUseCase {
 		updatePreference(userId, topic, weight);
 		log.debug("상호작용 기록 - userId: {}, topic: {}, type: {}, weight: {}",
 				userId, topic, interactionType, weight);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public Map<String, Double> getUserAffinities(String userId) {
+		if (userId == null) {
+			return Map.of();
+		}
+
+		return loadUserPreferencePort.findByUserId(userId)
+				.map(pref -> parseAffinities(pref.getTopicAffinities()))
+				.orElse(Map.of());
 	}
 
 	@Override

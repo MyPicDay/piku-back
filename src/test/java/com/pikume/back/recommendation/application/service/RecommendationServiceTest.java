@@ -8,15 +8,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
 import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
 import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
 import com.pikume.back.recommendation.domain.DiaryMetadata;
-import com.pikume.back.recommendation.domain.ScoredDiary;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -122,13 +121,13 @@ class RecommendationServiceTest {
 					.qualityScore(0.5)
 					.build();
 
-			List<ScoredDiary> result = recommendationService.scoreAndSort(
+			List<RecommendationScoreResult> result = recommendationService.scoreAndSort(
 					List.of(meta1, meta2),
 					Map.of("travel", 0.8),
 					List.of());
 
 			assertThat(result).hasSize(2);
-			assertThat(result.get(0).getDiaryId()).isEqualTo(1L);
+			assertThat(result.get(0).diaryId()).isEqualTo(1L);
 		}
 	}
 
@@ -139,7 +138,7 @@ class RecommendationServiceTest {
 		@Test
 		@DisplayName("후보가 비어있으면 빈 리스트를 반환한다")
 		void returnsEmptyForNoCandidates() {
-			List<ScoredDiary> result = recommendationService.getRecommendedDiaries(
+			List<RecommendationScoreResult> result = recommendationService.getRecommendedDiaries(
 					"user-1", List.of(), List.of());
 
 			assertThat(result).isEmpty();
@@ -155,14 +154,14 @@ class RecommendationServiceTest {
 					.build();
 
 			given(loadDiaryMetadataPort.findByDiaryIds(List.of(1L))).willReturn(List.of(meta));
-			given(userPreferenceUseCase.getPreference("user-1")).willReturn(Optional.empty());
+			given(userPreferenceUseCase.getUserAffinities("user-1")).willReturn(Map.of());
 
-			List<ScoredDiary> result = recommendationService.getRecommendedDiaries(
+			List<RecommendationScoreResult> result = recommendationService.getRecommendedDiaries(
 					"user-1", List.of(1L), List.of());
 
 			assertThat(result).hasSize(1);
-			assertThat(result.get(0).getDiaryId()).isEqualTo(1L);
-			assertThat(result.get(0).getScore()).isGreaterThan(0);
+			assertThat(result.get(0).diaryId()).isEqualTo(1L);
+			assertThat(result.get(0).score()).isGreaterThan(0);
 		}
 	}
 

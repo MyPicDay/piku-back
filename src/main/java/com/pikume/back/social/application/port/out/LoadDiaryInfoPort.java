@@ -7,10 +7,10 @@ import java.util.Optional;
  */
 public interface LoadDiaryInfoPort {
 
-	boolean existsById(Long diaryId);
+	boolean existsVisibleById(Long diaryId, String viewerId);
 
 	/**
 	 * 일기의 소유자 userId를 반환합니다.
 	 */
-	Optional<String> findOwnerUserIdByDiaryId(Long diaryId);
+	Optional<String> findVisibleOwnerUserIdByDiaryId(Long diaryId, String viewerId);
 }

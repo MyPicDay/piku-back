@@ -1,7 +1,7 @@
 package com.pikume.back.social.application.port.in;
 
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
+import com.pikume.back.social.application.dto.LikeResult;
 
 import java.util.List;
 import java.util.Map;
@@ -9,11 +9,13 @@ import java.util.Set;
 
 public interface LikeUseCase {
 
-	LikeResponse addLike(String userId, Long diaryId, RequestMetaInfo requestMetaInfo);
+	LikeResult addLike(String userId, Long diaryId, RequestMetaInfo requestMetaInfo);
 
-	LikeResponse removeLike(String userId, Long diaryId);
+	LikeResult removeLike(String userId, Long diaryId);
 
-	LikeResponse getLikeStatus(String userId, Long diaryId);
+	LikeResult getLikeStatus(String userId, Long diaryId);
+
+	long getLikeCount(String userId, Long diaryId);
 
 	long getLikeCount(Long diaryId);
 

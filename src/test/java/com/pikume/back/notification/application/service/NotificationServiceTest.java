@@ -8,28 +8,31 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
-import com.pikume.back.notification.application.port.out.*;
+import com.pikume.back.notification.application.dto.NotificationResult;
+import com.pikume.back.notification.application.dto.NotificationStreamMessage;
+import com.pikume.back.notification.application.port.out.LoadDiaryForNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadNotificationListViewPort;
+import com.pikume.back.notification.application.port.out.LoadNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadUserForNotificationPort;
+import com.pikume.back.notification.application.port.out.NotificationStreamPort;
+import com.pikume.back.notification.application.port.out.PushNotificationPort;
+import com.pikume.back.notification.application.port.out.SaveNotificationPort;
 import com.pikume.back.notification.application.readmodel.NotificationListView;
 import com.pikume.back.notification.domain.Notification;
-import com.pikume.back.notification.domain.exception.NotificationNotFoundException;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.doThrow;
@@ -55,7 +58,7 @@ class NotificationServiceTest {
 	@Mock
 	private PushNotificationPort pushNotificationPort;
 	@Mock
-	private SseEmitterPort sseEmitterPort;
+	private NotificationStreamPort notificationStreamPort;
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 
@@ -70,43 +73,40 @@ class NotificationServiceTest {
 		@Test
 		@DisplayName("알림을 저장하고 SSE 및 FCM을 통해 전송한다")
 		void savesAndSendsNotification() throws Exception {
-			given(saveNotificationPort.save(any(Notification.class)))
-					.willAnswer(inv -> inv.getArgument(0));
-			given(sseEmitterPort.findAllByUserId("receiver-id"))
-					.willReturn(Collections.emptyMap());
+			given(saveNotificationPort.save(any(Notification.class))).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("avatar-url");
 			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 
-			notificationService.sendNotification(
-					"receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
 
-			ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-			then(saveNotificationPort).should().save(captor.capture());
-			Notification saved = captor.getValue();
+			ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+			ArgumentCaptor<NotificationStreamMessage> messageCaptor = ArgumentCaptor.forClass(NotificationStreamMessage.class);
+			then(saveNotificationPort).should().save(notificationCaptor.capture());
+			then(notificationStreamPort).should().sendToUser(eq("receiver-id"), messageCaptor.capture());
+			then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("보낸이"));
+
+			Notification saved = notificationCaptor.getValue();
 			assertThat(saved.getReceiverId()).isEqualTo("receiver-id");
 			assertThat(saved.getSenderId()).isEqualTo("sender-id");
 			assertThat(saved.getType()).isEqualTo(NotificationType.COMMENT);
 			assertThat(saved.getDiaryId()).isEqualTo(1L);
 			assertThat(saved.getIsRead()).isFalse();
-
-			then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("보낸이"));
+			assertThat(messageCaptor.getValue().data()).isNotNull();
 		}
 
 		@Test
 		@DisplayName("diaryId가 null이면 썸네일을 조회하지 않는다")
 		void skipsThumbnailWhenNoDiary() {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
-			given(sseEmitterPort.findAllByUserId("receiver-id")).willReturn(Collections.emptyMap());
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("avatar-url");
-			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Collections.emptySet());
+			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of());
 
-			notificationService.sendNotification(
-					"receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
+			notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
 
 			then(loadDiaryForNotificationPort).should(never()).getDiaryThumbnailUrl(any());
 		}
@@ -115,14 +115,13 @@ class NotificationServiceTest {
 		@DisplayName("FCM 토큰이 없으면 푸시를 전송하지 않는다")
 		void skipsPushWhenNoTokens() throws Exception {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
-			given(sseEmitterPort.findAllByUserId("receiver-id")).willReturn(Collections.emptyMap());
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
-			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Collections.emptySet());
+			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
+			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of());
 
-			notificationService.sendNotification(
-					"receiver-id", NotificationType.LIKE, "sender-id", 1L, null);
+			notificationService.sendNotification("receiver-id", NotificationType.LIKE, "sender-id", 1L, null);
 
 			then(pushNotificationPort).should(never()).sendMessage(any(), any());
 		}
@@ -131,16 +130,14 @@ class NotificationServiceTest {
 		@DisplayName("FCM 전송 실패 시 해당 토큰을 삭제한다")
 		void deletesTokenOnFcmFailure() throws Exception {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
-			given(sseEmitterPort.findAllByUserId("receiver-id")).willReturn(Collections.emptyMap());
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
+			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("bad-token"));
-			doThrow(new RuntimeException("FCM fail"))
-					.when(pushNotificationPort).sendMessage(eq("bad-token"), any());
+			doThrow(new RuntimeException("FCM fail")).when(pushNotificationPort).sendMessage(eq("bad-token"), any());
 
-			notificationService.sendNotification(
-					"receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
 
 			then(pushNotificationPort).should().deleteToken("bad-token");
 		}
@@ -164,7 +161,7 @@ class NotificationServiceTest {
 		@Test
 		@DisplayName("사용자의 알림 목록을 페이징으로 조회한다")
 		void returnsPagedNotifications() {
-			Pageable pageable = PageRequest.of(0, 10);
+			PageQuery pageQuery = PageQuery.of(0, 10);
 			NotificationListView notification = new NotificationListView(
 					1L,
 					"보낸이",
@@ -176,32 +173,28 @@ class NotificationServiceTest {
 					LocalDateTime.of(2026, 3, 8, 12, 0),
 					null,
 					null);
-			Page<NotificationListView> page = new PageImpl<>(List.of(notification), pageable, 1);
+			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
-			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
-					.willReturn(page);
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
 			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("avatar-url");
 
-			Page<NotificationResponseDTO> result = notificationService.getNotifications(
-					"receiver-id", requestMetaInfo, pageable);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
 
 			assertThat(result.getContent()).hasSize(1);
-			NotificationResponseDTO dto = result.getContent().get(0);
-			assertThat(dto.getNickname()).isEqualTo("보낸이");
-			assertThat(dto.getAvatarUrl()).isEqualTo("avatar-url");
-			assertThat(dto.getType()).isEqualTo(NotificationType.COMMENT);
-			assertThat(dto.getThumbnailUrl()).isEqualTo("thumb.jpg");
+			NotificationResult dto = result.getContent().get(0);
+			assertThat(dto.nickname()).isEqualTo("보낸이");
+			assertThat(dto.avatarUrl()).isEqualTo("avatar-url");
+			assertThat(dto.type()).isEqualTo(NotificationType.COMMENT);
+			assertThat(dto.thumbnailUrl()).isEqualTo("thumb.jpg");
 		}
 
 		@Test
 		@DisplayName("알림이 없으면 빈 페이지를 반환한다")
 		void returnsEmptyPage() {
-			Pageable pageable = PageRequest.of(0, 10);
-			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
-					.willReturn(Page.empty(pageable));
+			PageQuery pageQuery = PageQuery.of(0, 10);
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(PageResult.empty(pageQuery));
 
-			Page<NotificationResponseDTO> result = notificationService.getNotifications(
-					"receiver-id", requestMetaInfo, pageable);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
 
 			assertThat(result.getContent()).isEmpty();
 		}
@@ -209,7 +202,7 @@ class NotificationServiceTest {
 		@Test
 		@DisplayName("diaryId가 null인 알림은 썸네일 없이 반환한다")
 		void returnsNullThumbnailWhenNoDiary() {
-			Pageable pageable = PageRequest.of(0, 10);
+			PageQuery pageQuery = PageQuery.of(0, 10);
 			NotificationListView notification = new NotificationListView(
 					1L,
 					"보낸이",
@@ -221,115 +214,18 @@ class NotificationServiceTest {
 					LocalDateTime.of(2026, 3, 8, 12, 10),
 					null,
 					null);
-			Page<NotificationListView> page = new PageImpl<>(List.of(notification), pageable, 1);
+			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
-			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageable))
-					.willReturn(page);
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
 			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("url");
 
-			Page<NotificationResponseDTO> result = notificationService.getNotifications(
-					"receiver-id", requestMetaInfo, pageable);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
 
-			assertThat(result.getContent().get(0).getThumbnailUrl()).isNull();
-			then(loadNotificationListViewPort).should().loadNotifications("receiver-id", pageable);
+			assertThat(result.getContent().get(0).thumbnailUrl()).isNull();
+			then(loadNotificationListViewPort).should().loadNotifications("receiver-id", pageQuery);
 			then(loadNotificationPort).shouldHaveNoInteractions();
 			then(loadUserForNotificationPort).shouldHaveNoInteractions();
 			then(loadDiaryForNotificationPort).shouldHaveNoInteractions();
-		}
-	}
-
-	@Nested
-	@DisplayName("markAsRead - 알림 읽음 처리")
-	class MarkAsRead {
-
-		@Test
-		@DisplayName("본인의 알림을 읽음 처리한다")
-		void markAsReadSuccess() {
-			Notification notification = new Notification("user-id", "sender-id",
-					NotificationType.LIKE, 1L);
-			given(loadNotificationPort.findById(1L)).willReturn(notification);
-
-			boolean result = notificationService.markAsRead(1L, "user-id");
-
-			assertThat(result).isTrue();
-			assertThat(notification.getIsRead()).isTrue();
-		}
-
-		@Test
-		@DisplayName("타인의 알림을 읽음 처리하면 false를 반환한다")
-		void markAsReadUnauthorized() {
-			Notification notification = new Notification("other-user", "sender-id",
-					NotificationType.LIKE, 1L);
-			given(loadNotificationPort.findById(1L)).willReturn(notification);
-
-			boolean result = notificationService.markAsRead(1L, "user-id");
-
-			assertThat(result).isFalse();
-			assertThat(notification.getIsRead()).isFalse();
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 알림을 읽음 처리하면 예외가 발생한다")
-		void markAsReadNotFound() {
-			given(loadNotificationPort.findById(999L))
-					.willThrow(new NotificationNotFoundException("알림이 존재하지 않습니다. ID: 999"));
-
-			assertThatThrownBy(() -> notificationService.markAsRead(999L, "user-id"))
-					.isInstanceOf(NotificationNotFoundException.class);
-		}
-	}
-
-	@Nested
-	@DisplayName("markAllAsRead - 모두 읽음 처리")
-	class MarkAllAsRead {
-
-		@Test
-		@DisplayName("사용자의 모든 알림을 읽음 처리한다")
-		void markAllAsReadSuccess() {
-			given(loadNotificationPort.markAllAsReadByReceiverId("user-id")).willReturn(5);
-
-			notificationService.markAllAsRead("user-id");
-
-			then(loadNotificationPort).should().markAllAsReadByReceiverId("user-id");
-		}
-	}
-
-	@Nested
-	@DisplayName("deleteNotification - 알림 삭제")
-	class DeleteNotification {
-
-		@Test
-		@DisplayName("본인의 알림을 삭제한다")
-		void deleteSuccess() {
-			Notification notification = new Notification("user-id", "sender-id",
-					NotificationType.COMMENT, 1L);
-			given(loadNotificationPort.findById(1L)).willReturn(notification);
-
-			boolean result = notificationService.deleteNotification(1L, "user-id");
-
-			assertThat(result).isTrue();
-		}
-
-		@Test
-		@DisplayName("타인의 알림을 삭제하면 false를 반환한다")
-		void deleteUnauthorized() {
-			Notification notification = new Notification("other-user", "sender-id",
-					NotificationType.COMMENT, 1L);
-			given(loadNotificationPort.findById(1L)).willReturn(notification);
-
-			boolean result = notificationService.deleteNotification(1L, "user-id");
-
-			assertThat(result).isFalse();
-		}
-
-		@Test
-		@DisplayName("존재하지 않는 알림을 삭제하면 예외가 발생한다")
-		void deleteNotFound() {
-			given(loadNotificationPort.findById(999L))
-					.willThrow(new NotificationNotFoundException("알림이 존재하지 않습니다. ID: 999"));
-
-			assertThatThrownBy(() -> notificationService.deleteNotification(999L, "user-id"))
-					.isInstanceOf(NotificationNotFoundException.class);
 		}
 	}
 }

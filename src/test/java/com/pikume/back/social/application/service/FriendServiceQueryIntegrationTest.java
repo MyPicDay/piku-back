@@ -3,7 +3,7 @@ package com.pikume.back.social.application.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
+import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendRequestJpaRepository;
 import com.pikume.back.social.domain.friend.Friend;
@@ -41,9 +41,9 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		friendJpaRepository.save(new Friend(me.getId(), friend3.getId()));
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendList(PageRequest.of(0, 1), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendList(PageQuery.of(0, 1), me.getId(), REQUEST_META_INFO));
 		long threeItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendList(PageRequest.of(0, 3), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendList(PageQuery.of(0, 3), me.getId(), REQUEST_META_INFO));
 
 		assertThat(threeItemQueries)
 				.as("친구 row 수가 늘어도 사용자 조회를 배치로 제한해야 한다")
@@ -63,9 +63,9 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		friendRequestJpaRepository.save(new FriendRequest(requester3.getId(), me.getId()));
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendRequests(PageRequest.of(0, 1), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendRequests(PageQuery.of(0, 1), me.getId(), REQUEST_META_INFO));
 		long threeItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendRequests(PageRequest.of(0, 3), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendRequests(PageQuery.of(0, 3), me.getId(), REQUEST_META_INFO));
 
 		assertThat(threeItemQueries)
 				.as("친구 요청 row 수가 늘어도 사용자 조회를 배치로 제한해야 한다")

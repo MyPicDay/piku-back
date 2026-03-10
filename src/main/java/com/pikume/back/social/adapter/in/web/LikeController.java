@@ -14,6 +14,7 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
+import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 
 @Tag(name = "Like", description = "좋아요 API")
@@ -34,8 +35,8 @@ public class LikeController {
 			@AuthenticationPrincipal CustomUserDetails userDetails,
 			HttpServletRequest request) {
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		LikeResponse response = likeUseCase.addLike(userDetails.getId(), diaryId, requestMetaInfo);
-		return ResponseEntity.ok(response);
+		LikeResult response = likeUseCase.addLike(userDetails.getId(), diaryId, requestMetaInfo);
+		return ResponseEntity.ok(toResponse(response));
 	}
 
 	@Operation(summary = "좋아요 취소", description = "일기의 좋아요를 취소합니다.")
@@ -44,8 +45,8 @@ public class LikeController {
 	public ResponseEntity<LikeResponse> removeLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		LikeResponse response = likeUseCase.removeLike(userDetails.getId(), diaryId);
-		return ResponseEntity.ok(response);
+		LikeResult response = likeUseCase.removeLike(userDetails.getId(), diaryId);
+		return ResponseEntity.ok(toResponse(response));
 	}
 
 	@Operation(summary = "좋아요 상태 조회", description = "일기의 좋아요 수와 현재 사용자의 좋아요 여부를 조회합니다.")
@@ -54,15 +55,25 @@ public class LikeController {
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		String userId = userDetails != null ? userDetails.getId() : null;
-		LikeResponse response = likeUseCase.getLikeStatus(userId, diaryId);
-		return ResponseEntity.ok(response);
+		LikeResult response = likeUseCase.getLikeStatus(userId, diaryId);
+		return ResponseEntity.ok(toResponse(response));
 	}
 
 	@Operation(summary = "좋아요 수 조회", description = "일기의 좋아요 수만 조회합니다.")
 	@GetMapping("/diary/{diaryId}/count")
 	public ResponseEntity<Long> getLikeCount(
-			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId) {
-		long count = likeUseCase.getLikeCount(diaryId);
+			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String userId = userDetails != null ? userDetails.getId() : null;
+		long count = likeUseCase.getLikeCount(userId, diaryId);
 		return ResponseEntity.ok(count);
+	}
+
+	private LikeResponse toResponse(LikeResult result) {
+		return LikeResponse.builder()
+				.diaryId(result.diaryId())
+				.likeCount(result.likeCount())
+				.isLiked(result.liked())
+				.build();
 	}
 }

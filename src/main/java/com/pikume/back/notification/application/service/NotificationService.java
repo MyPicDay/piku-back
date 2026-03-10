@@ -2,23 +2,21 @@ package com.pikume.back.notification.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
-import com.pikume.back.notification.adapter.in.web.dto.SseResponse;
+import com.pikume.back.notification.application.dto.NotificationResult;
+import com.pikume.back.notification.application.dto.NotificationSsePayload;
+import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.application.port.out.*;
 import com.pikume.back.notification.application.readmodel.NotificationListView;
 import com.pikume.back.notification.domain.Notification;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
-import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -32,7 +30,7 @@ public class NotificationService implements NotificationUseCase {
 	private final LoadDiaryForNotificationPort loadDiaryForNotificationPort;
 	private final LoadNotificationListViewPort loadNotificationListViewPort;
 	private final PushNotificationPort pushNotificationPort;
-	private final SseEmitterPort sseEmitterPort;
+	private final NotificationStreamPort notificationStreamPort;
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Override
@@ -44,7 +42,6 @@ public class NotificationService implements NotificationUseCase {
 		saveNotificationPort.save(notification);
 
 		String eventId = receiverId + "_" + System.currentTimeMillis();
-		Map<String, SseEmitter> emitters = sseEmitterPort.findAllByUserId(receiverId);
 		String message = generateMessage(type);
 
 		String senderNickname = loadUserForNotificationPort.getUserNickname(senderId);
@@ -56,29 +53,22 @@ public class NotificationService implements NotificationUseCase {
 			thumbnailUrl = loadDiaryForNotificationPort.getDiaryThumbnailUrl(diaryId);
 		}
 
-		SseResponse notificationDTO = new SseResponse(
+		NotificationSsePayload notificationDTO = new NotificationSsePayload(
 				type, message, diaryId, senderId,
 				senderNickname, senderAvatarUrl, thumbnailUrl);
 
-		emitters.forEach((emitterId, emitter) -> {
-			try {
-				log.info("[SSE 알림 전송] receiverId: {}, emitterId: {}", receiverId, emitterId);
-				String eventName = (type == NotificationType.FRIEND_REQUEST) ? "FriendRequest" : null;
-				sendSseEvent(emitter, eventId, emitterId, notificationDTO, eventName);
-			} catch (Exception e) {
-				log.warn("SSE 알림 전송 실패: {}", e.getMessage());
-			}
-		});
+		String eventName = (type == NotificationType.FRIEND_REQUEST) ? "FriendRequest" : null;
+		notificationStreamPort.sendToUser(receiverId, new NotificationStreamMessage(eventId, eventName, notificationDTO));
 
 		sendPushNotification(receiverId, senderNickname + message);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public Page<NotificationResponseDTO> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo,
-			Pageable pageable) {
+	public PageResult<NotificationResult> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo,
+			PageQuery pageQuery) {
 		log.info("알림 조회 시작 - receiverId: {}", receiverId);
-		Page<NotificationListView> notifications = loadNotificationListViewPort.loadNotifications(receiverId, pageable);
+		PageResult<NotificationListView> notifications = loadNotificationListViewPort.loadNotifications(receiverId, pageQuery);
 		return notifications.map(notification -> toNotificationResponse(notification, requestMetaInfo));
 	}
 
@@ -131,20 +121,6 @@ public class NotificationService implements NotificationUseCase {
 		};
 	}
 
-	private void sendSseEvent(SseEmitter emitter, String eventId, String emitterId,
-			SseResponse response, String eventName) {
-		try {
-			SseEmitter.SseEventBuilder builder = SseEmitter.event().id(eventId).data(response);
-			if (eventName != null) {
-				builder.name(eventName);
-			}
-			emitter.send(builder);
-		} catch (IOException e) {
-			sseEmitterPort.deleteById(emitterId);
-			throw new RuntimeException("연결 오류!");
-		}
-	}
-
 	private void sendPushNotification(String receiverId, String body) {
 		try {
 			Set<String> tokens = pushNotificationPort.getTokenByUserId(receiverId);
@@ -166,12 +142,12 @@ public class NotificationService implements NotificationUseCase {
 		}
 	}
 
-	private NotificationResponseDTO toNotificationResponse(NotificationListView notification, RequestMetaInfo requestMetaInfo) {
+	private NotificationResult toNotificationResponse(NotificationListView notification, RequestMetaInfo requestMetaInfo) {
 		String senderAvatarUrl = notification.senderAvatarPath() != null
 				? imagePathToUrlConverter.userAvatarImageUrl(notification.senderAvatarPath(), requestMetaInfo)
 				: null;
 
-		return new NotificationResponseDTO(
+		return new NotificationResult(
 				notification.notificationId(),
 				generateMessage(notification.type()),
 				notification.senderNickname(),

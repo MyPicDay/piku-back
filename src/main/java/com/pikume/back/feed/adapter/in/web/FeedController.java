@@ -15,9 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
 import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
+import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
@@ -35,20 +35,20 @@ public class FeedController {
 	private final RequestMetaMapper requestMetaMapper;
 
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "일기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ResponseDTO.class))),
+			@ApiResponse(responseCode = "200", description = "일기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = FeedDiaryResult.class))),
 			@ApiResponse(responseCode = "401", description = "인증 실패", content = @Content),
 			@ApiResponse(responseCode = "404", description = "대표 사진을 찾을 수 없음", content = @Content),
 			@ApiResponse(responseCode = "500", description = "서버 오류", content = @Content)
 	})
 	@Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
 	@GetMapping("/{diaryId}")
-	public ResponseEntity<ResponseDTO> getDiaryWithPhotos(@PathVariable Long diaryId, HttpServletRequest request,
+	public ResponseEntity<FeedDiaryResult> getDiaryWithPhotos(@PathVariable Long diaryId, HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		ResponseDTO response = getFeedUseCase.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
+		FeedDiaryResult response = getFeedUseCase.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
 		if (userId != null) {
 			getFeedUseCase.logClick(userId, diaryId);
 		}
@@ -63,14 +63,14 @@ public class FeedController {
 			    - limit: 1~100 사이 정수
 			""")
 	@GetMapping
-	public ResponseEntity<FeedCursorPage<ResponseDTO>> getAllDiaries(
+	public ResponseEntity<FeedCursorPage<FeedDiaryResult>> getAllDiaries(
 			@RequestParam(required = false) String cursor,
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
 			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		FeedCursorPage<ResponseDTO> page = getFeedUseCase.getAllDiaries(
+		FeedCursorPage<FeedDiaryResult> page = getFeedUseCase.getAllDiaries(
 				new FeedCursorRequest(cursor, limit),
 				requestMetaInfo,
 				userId);

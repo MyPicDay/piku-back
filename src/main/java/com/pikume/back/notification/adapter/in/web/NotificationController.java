@@ -17,8 +17,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
+import com.pikume.back.global.pagination.SortQuery;
 import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
+import com.pikume.back.notification.application.dto.NotificationResult;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.application.port.in.SseUseCase;
 
@@ -34,13 +39,16 @@ public class NotificationController {
 	private final NotificationUseCase notificationUseCase;
 	private final SseUseCase sseUseCase;
 	private final RequestMetaMapper requestMetaMapper;
+	private static final long DEFAULT_SSE_TIMEOUT = 60L * 1000 * 60;
 
 	@Operation(summary = "SSE 구독 시작", description = "서버-전송 이벤트 연결")
 	@GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
 		String userId = userDetails.getId();
 		log.info("SSE 구독 요청 - userId: {}", userId);
-		return sseUseCase.subscribe(userId);
+		SseEmitterConnection connection = new SseEmitterConnection(DEFAULT_SSE_TIMEOUT);
+		sseUseCase.subscribe(userId, connection);
+		return connection.emitter();
 	}
 
 	@Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 알림 목록을 조회합니다.")
@@ -53,8 +61,14 @@ public class NotificationController {
 				pageable.getPageNumber(), pageable.getPageSize(),
 				Sort.by(Sort.Direction.DESC, "createdAt"));
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		Page<NotificationResponseDTO> notifications = notificationUseCase.getNotifications(
-				userDetails.getId(), requestMetaInfo, sortedPageable);
+		PageQuery pageQuery = new PageQuery(
+				sortedPageable.getPageNumber(),
+				sortedPageable.getPageSize(),
+				java.util.List.of(SortQuery.desc("createdAt")));
+		PageResult<NotificationResponseDTO> notificationResults = notificationUseCase.getNotifications(
+				userDetails.getId(), requestMetaInfo, pageQuery)
+				.map(this::toResponseDto);
+		Page<NotificationResponseDTO> notifications = SpringPageMapper.toSpringPage(notificationResults, sortedPageable);
 		return ResponseEntity.ok(notifications);
 	}
 
@@ -83,5 +97,20 @@ public class NotificationController {
 			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+	}
+
+	private NotificationResponseDTO toResponseDto(NotificationResult notification) {
+		return new NotificationResponseDTO(
+				notification.id(),
+				notification.message(),
+				notification.nickname(),
+				notification.avatarUrl(),
+				notification.type(),
+				notification.relatedDiaryId(),
+				notification.thumbnailUrl(),
+				notification.isRead(),
+				notification.createdAt(),
+				notification.diaryDate(),
+				notification.diaryUserId());
 	}
 }

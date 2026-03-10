@@ -6,7 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
@@ -39,11 +39,11 @@ class FeedCandidateCollectorTest {
 
 		given(loadFeedClickPort.findClickedDiaryIdsByUserId("viewer")).willReturn(List.of(2L));
 		given(loadSocialForFeedPort.getFriendIds("viewer")).willReturn(friendIds);
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, 10))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.FRIENDS, friendIds, 10))
 				.willReturn(List.of(1L, 2L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, 10))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.PUBLIC, friendIds, 10))
 				.willReturn(List.of(3L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, "viewer", 10))
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, "viewer", 10))
 				.willReturn(List.of(3L, 4L, 5L));
 
 		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 5);
@@ -60,11 +60,11 @@ class FeedCandidateCollectorTest {
 
 		given(loadFeedClickPort.findClickedDiaryIdsByUserId("viewer")).willReturn(List.of());
 		given(loadSocialForFeedPort.getFriendIds("viewer")).willReturn(friendIds);
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, 6))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.FRIENDS, friendIds, 6))
 				.willReturn(List.of(1L, 2L, 3L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, 6))
+		given(loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.PUBLIC, friendIds, 6))
 				.willReturn(List.of(4L, 5L));
-		given(loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, "viewer", 6))
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, "viewer", 6))
 				.willReturn(List.of(4L, 5L, 6L, 7L));
 
 		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 3);

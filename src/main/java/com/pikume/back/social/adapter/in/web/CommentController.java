@@ -17,8 +17,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.dto.CommentDeleteResponseDto;
+import com.pikume.back.social.application.dto.CommentDeleteResult;
+import com.pikume.back.social.application.dto.CommentListItemResult;
+import com.pikume.back.social.application.dto.CommentResult;
 import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
 import com.pikume.back.social.adapter.in.web.dto.CommentRequestDto;
 import com.pikume.back.social.adapter.in.web.dto.CommentResponseDto;
@@ -44,14 +50,14 @@ public class CommentController {
 
 		log.info("사용자 {}님이 {} 일기, {} 댓글에 댓글 등록 요청, 댓글 내용: {}", userDetails.getId(), commentRequestDto.getDiaryId(),
 				commentRequestDto.getParentId(), commentRequestDto.getContent());
-		CommentResponseDto isSaved = commentUseCase.createComment(
+		CommentResult isSaved = commentUseCase.createComment(
 				commentRequestDto.getDiaryId(),
 				commentRequestDto.getContent(),
 				commentRequestDto.getParentId(),
 				userDetails.getId(),
 				requestMetaInfo);
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(isSaved));
 	}
 
 	@Operation(summary = "댓글 수정", description = "댓글 내용을 수정합니다.")
@@ -59,9 +65,9 @@ public class CommentController {
 	public ResponseEntity<CommentResponseDto> updateComment(@PathVariable Long commentId,
 			@RequestBody CommentUpdateDto updateDto, @AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("사용자 {}님이 {} 댓글 수정 요청, 수정할 댓글 내용: {}", userDetails.getId(), commentId, updateDto.getContent());
-		CommentResponseDto isSaved = commentUseCase.updateComment(commentId, updateDto.getContent(), userDetails.getId());
+		CommentResult isSaved = commentUseCase.updateComment(commentId, updateDto.getContent(), userDetails.getId());
 
-		return ResponseEntity.status(HttpStatus.CREATED).body(isSaved);
+		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(isSaved));
 	}
 
 	@Operation(summary = "원댓글 조회", description = "특정 일기의 루트 댓글을 페이징하여 조회합니다. 각 댓글의 대댓글 개수 포함.")
@@ -69,12 +75,17 @@ public class CommentController {
 	public ResponseEntity<Page<CommentListResponseDto>> getRootComments(
 			@RequestParam Long diaryId,
 			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 10) Pageable pageable,
-			HttpServletRequest request) {
+			HttpServletRequest request,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("일기 {}의 원댓글 조회 요청, page: {}, size: {}", diaryId, pageable.getPageNumber(), pageable.getPageSize());
 
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		Page<CommentListResponseDto> rootCommentsPage = commentUseCase.getRootCommentsByDiaryId(diaryId, pageable,
-				requestMetaInfo);
+		String viewerId = userDetails != null ? userDetails.getId() : null;
+		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
+		PageResult<CommentListResponseDto> rootCommentResults = commentUseCase.getRootCommentsByDiaryId(diaryId, pageQuery,
+				requestMetaInfo, viewerId)
+				.map(this::toResponse);
+		Page<CommentListResponseDto> rootCommentsPage = SpringPageMapper.toSpringPage(rootCommentResults, pageable);
 
 		return ResponseEntity.status(HttpStatus.OK).body(rootCommentsPage);
 	}
@@ -84,13 +95,18 @@ public class CommentController {
 	public ResponseEntity<Page<CommentListResponseDto>> getReplies(
 			@PathVariable Long parentCommentId,
 			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.ASC, size = 10) Pageable pageable,
-			HttpServletRequest request) {
+			HttpServletRequest request,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("부모 댓글 {}에 대한 대댓글 조회 요청, page: {}, size: {}", parentCommentId, pageable.getPageNumber(),
 				pageable.getPageSize());
 
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		Page<CommentListResponseDto> repliesPage = commentUseCase.getRepliesByParentCommentId(parentCommentId, pageable,
-				requestMetaInfo);
+		String viewerId = userDetails != null ? userDetails.getId() : null;
+		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
+		PageResult<CommentListResponseDto> replyResults = commentUseCase.getRepliesByParentCommentId(parentCommentId, pageQuery,
+				requestMetaInfo, viewerId)
+				.map(this::toResponse);
+		Page<CommentListResponseDto> repliesPage = SpringPageMapper.toSpringPage(replyResults, pageable);
 
 		return ResponseEntity.ok(repliesPage);
 	}
@@ -100,8 +116,30 @@ public class CommentController {
 	public ResponseEntity<CommentDeleteResponseDto> deleteComment(@PathVariable Long commentId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("사용자 {}님이 {} 댓글 삭제 요청", userDetails.getId(), commentId);
-		CommentDeleteResponseDto isDeleted = commentUseCase.deleteComment(commentId, userDetails.getId());
+		CommentDeleteResult isDeleted = commentUseCase.deleteComment(commentId, userDetails.getId());
 
-		return ResponseEntity.status(HttpStatus.OK).body(isDeleted);
+		return ResponseEntity.status(HttpStatus.OK).body(toResponse(isDeleted));
+	}
+
+	private CommentResponseDto toResponse(CommentResult result) {
+		return new CommentResponseDto(result.id(), result.content(), result.createdAt());
+	}
+
+	private CommentDeleteResponseDto toResponse(CommentDeleteResult result) {
+		return new CommentDeleteResponseDto(result.success(), result.message(), result.commentId());
+	}
+
+	private CommentListResponseDto toResponse(CommentListItemResult result) {
+		return new CommentListResponseDto(
+				result.id(),
+				result.diaryId(),
+				result.userId(),
+				result.nickname(),
+				result.avatar(),
+				result.content(),
+				result.parentId(),
+				result.createdAt(),
+				result.updatedAt(),
+				result.replyCount());
 	}
 }

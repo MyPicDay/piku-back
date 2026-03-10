@@ -3,15 +3,15 @@ package com.pikume.back.social.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.social.adapter.in.web.dto.CommentDeleteResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.CommentResponseDto;
+import com.pikume.back.social.application.dto.CommentDeleteResult;
+import com.pikume.back.social.application.dto.CommentListItemResult;
+import com.pikume.back.social.application.dto.CommentResult;
 import com.pikume.back.social.application.port.in.CommentUseCase;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.CommentListView;
@@ -35,14 +35,14 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional
-	public CommentResponseDto createComment(Long diaryId, String content, Long parentId, String userId,
+	public CommentResult createComment(Long diaryId, String content, Long parentId, String userId,
 			RequestMetaInfo requestMetaInfo) {
 		// 사용자/일기 존재 확인
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
 
-		String diaryOwnerId = loadDiaryInfoPort.findOwnerUserIdByDiaryId(diaryId)
-				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
+		String diaryOwnerId = loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(diaryId, userId)
+				.orElseThrow(() -> new CommentException(CommentErrorCode.DIARY_NOT_FOUND));
 
 		Comment comment = new Comment(content, userId, diaryId);
 
@@ -78,7 +78,7 @@ public class CommentService implements CommentUseCase {
 					receiverId, userId, diaryId, isReply));
 		}
 
-		return new CommentResponseDto(
+		return new CommentResult(
 				savedComment.getId(),
 				savedComment.getContent(),
 				savedComment.getCreatedAt());
@@ -86,7 +86,7 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional
-	public CommentResponseDto updateComment(Long commentId, String content, String userId) {
+	public CommentResult updateComment(Long commentId, String content, String userId) {
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
 		Comment comment = validateCommentForEditOrDelete(commentId, userId);
@@ -95,7 +95,7 @@ public class CommentService implements CommentUseCase {
 
 		log.info("사용자 {}님이 댓글 {} 수정 완료", userId, updatedComment.getId());
 
-		return new CommentResponseDto(
+		return new CommentResult(
 				updatedComment.getId(),
 				updatedComment.getContent(),
 				updatedComment.getCreatedAt());
@@ -103,7 +103,7 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional
-	public CommentDeleteResponseDto deleteComment(Long commentId, String userId) {
+	public CommentDeleteResult deleteComment(Long commentId, String userId) {
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
 		Comment comment = validateCommentForEditOrDelete(commentId, userId);
@@ -111,17 +111,17 @@ public class CommentService implements CommentUseCase {
 		saveCommentPort.save(comment);
 		log.info("사용자 {}님이 댓글 {} 삭제 완료", userId, commentId);
 
-		return new CommentDeleteResponseDto(true, "성공적으로 댓글을 삭제하였습니다.", commentId);
+		return new CommentDeleteResult(true, "성공적으로 댓글을 삭제하였습니다.", commentId);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public Page<CommentListResponseDto> getRootCommentsByDiaryId(Long diaryId, Pageable pageable,
-			RequestMetaInfo requestMetaInfo) {
-		if (!loadDiaryInfoPort.existsById(diaryId)) {
-			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
+	public PageResult<CommentListItemResult> getRootCommentsByDiaryId(Long diaryId, PageQuery pageQuery,
+			RequestMetaInfo requestMetaInfo, String viewerId) {
+		if (!loadDiaryInfoPort.existsVisibleById(diaryId, viewerId)) {
+			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
 		}
-		Page<CommentListView> rootCommentsPage = loadCommentListViewPort.loadRootCommentsByDiaryId(diaryId, pageable);
+		PageResult<CommentListView> rootCommentsPage = loadCommentListViewPort.loadRootCommentsByDiaryId(diaryId, pageQuery);
 		log.info("일기 ID {}에 대한 루트 댓글 {}개 조회 완료.", diaryId, rootCommentsPage.getTotalElements());
 
 		return rootCommentsPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
@@ -129,13 +129,13 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public Page<CommentListResponseDto> getRepliesByParentCommentId(Long parentCommentId, Pageable pageable,
-			RequestMetaInfo requestMetaInfo) {
+	public PageResult<CommentListItemResult> getRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery,
+			RequestMetaInfo requestMetaInfo, String viewerId) {
 		Comment parentComment = validateCommentExists(parentCommentId);
-		if (!loadDiaryInfoPort.existsById(parentComment.getDiaryId())) {
-			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
+		if (!loadDiaryInfoPort.existsVisibleById(parentComment.getDiaryId(), viewerId)) {
+			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
 		}
-		Page<CommentListView> repliesPage = loadCommentListViewPort.loadRepliesByParentCommentId(parentCommentId, pageable);
+		PageResult<CommentListView> repliesPage = loadCommentListViewPort.loadRepliesByParentCommentId(parentCommentId, pageQuery);
 		log.info("부모 댓글 ID {}에 대한 대댓글 {}개 조회 완료.", parentCommentId, repliesPage.getTotalElements());
 
 		return repliesPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
@@ -143,13 +143,36 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public long countAllCommentsByDiaryId(Long diaryId) {
-		if (!loadDiaryInfoPort.existsById(diaryId)) {
-			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
+	public long countAllCommentsByDiaryId(String viewerId, Long diaryId) {
+		if (!loadDiaryInfoPort.existsVisibleById(diaryId, viewerId)) {
+			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
 		}
 		long count = loadCommentPort.countAllByDiaryId(diaryId);
 		log.info("일기 ID {}에 달린 전체 댓글 수: {}", diaryId, count);
 		return count;
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public java.util.Map<Long, Long> getCommentCountsForDiaries(java.util.List<Long> diaryIds) {
+		if (diaryIds == null || diaryIds.isEmpty()) {
+			return java.util.Map.of();
+		}
+
+		return loadCommentPort.countAllByDiaryIds(diaryIds).stream()
+				.collect(java.util.stream.Collectors.toMap(
+						row -> (Long) row[0],
+						row -> ((Number) row[1]).longValue()));
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public java.util.Set<Long> getCommentedDiaryIds(String userId, java.util.List<Long> diaryIds) {
+		if (userId == null || userId.isBlank() || diaryIds == null || diaryIds.isEmpty()) {
+			return java.util.Set.of();
+		}
+
+		return loadCommentPort.findCommentedDiaryIdsByUserId(userId, diaryIds);
 	}
 
 	private Comment saveCommentToDb(Comment comment, String userId, Long diaryId) {
@@ -176,9 +199,9 @@ public class CommentService implements CommentUseCase {
 		}
 	}
 
-	private CommentListResponseDto toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo) {
+	private CommentListItemResult toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo) {
 		if (comment.deleted()) {
-			return new CommentListResponseDto(
+			return new CommentListItemResult(
 					comment.commentId(),
 					comment.diaryId(),
 					null,
@@ -196,7 +219,7 @@ public class CommentService implements CommentUseCase {
 				? imagePathToUrlConverter.userAvatarImageUrl(comment.avatarPath(), requestMetaInfo)
 				: null;
 
-		return new CommentListResponseDto(
+		return new CommentListItemResult(
 				comment.commentId(),
 				comment.diaryId(),
 				comment.userId(),
@@ -218,9 +241,9 @@ public class CommentService implements CommentUseCase {
 			throw new CommentException(CommentErrorCode.UNAUTHORIZED_ACCESS);
 		}
 
-		if (!loadDiaryInfoPort.existsById(comment.getDiaryId())) {
+		if (!loadDiaryInfoPort.existsVisibleById(comment.getDiaryId(), userId)) {
 			log.error("댓글 {}이 연결된 다이어리를 찾을 수 없습니다.", commentId);
-			throw new CommentException(CommentErrorCode.INVALID_REQUEST);
+			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
 		}
 
 		return comment;

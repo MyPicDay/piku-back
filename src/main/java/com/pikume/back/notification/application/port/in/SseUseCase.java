@@ -1,8 +1,8 @@
 package com.pikume.back.notification.application.port.in;
 
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
 
 public interface SseUseCase {
 
-	SseEmitter subscribe(String userId);
+	void subscribe(String userId, NotificationStreamConnection connection);
 }

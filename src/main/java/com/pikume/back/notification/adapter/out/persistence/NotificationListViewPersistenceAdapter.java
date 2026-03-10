@@ -1,22 +1,21 @@
 package com.pikume.back.notification.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
-import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
-import com.pikume.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
+import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
+import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationListViewPort;
 import com.pikume.back.notification.application.readmodel.NotificationListView;
 import com.pikume.back.notification.domain.Notification;
-import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
-import com.pikume.back.user.domain.User;
+import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -24,33 +23,29 @@ import java.util.stream.Collectors;
 public class NotificationListViewPersistenceAdapter implements LoadNotificationListViewPort {
 
 	private final NotificationJpaRepository notificationJpaRepository;
-	private final UserJpaRepository userJpaRepository;
-	private final PhotoJpaRepository photoJpaRepository;
-	private final MinioPhotoStorageAdapter minioPhotoStorageAdapter;
+	private final QueryUserSummaryUseCase queryUserSummaryUseCase;
+	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
+	private final ResolveImageUrlPort resolveImageUrlPort;
 
 	@Override
-	public Page<NotificationListView> loadNotifications(String receiverId, Pageable pageable) {
-		Page<Notification> notifications = notificationJpaRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, pageable);
-		Map<String, User> usersById = loadUsers(notifications.getContent());
+	public PageResult<NotificationListView> loadNotifications(String receiverId, PageQuery pageQuery) {
+		org.springframework.data.domain.Page<Notification> notifications =
+				notificationJpaRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, SpringPageMapper.toPageable(pageQuery));
+		Map<String, UserSummaryView> usersById = loadUsers(notifications.getContent());
 		Map<Long, String> thumbnailsByDiaryId = loadThumbnails(notifications.getContent());
 
 		List<NotificationListView> content = notifications.getContent().stream()
 				.map(notification -> toNotificationListView(notification, usersById, thumbnailsByDiaryId))
 				.toList();
-		return new PageImpl<>(content, pageable, notifications.getTotalElements());
+		return new PageResult<>(content, notifications.getNumber(), notifications.getSize(), notifications.getTotalElements());
 	}
 
-	private Map<String, User> loadUsers(List<Notification> notifications) {
+	private Map<String, UserSummaryView> loadUsers(List<Notification> notifications) {
 		Set<String> senderIds = notifications.stream()
 				.map(Notification::getSenderId)
 				.filter(senderId -> senderId != null && !senderId.isBlank())
 				.collect(Collectors.toSet());
-		if (senderIds.isEmpty()) {
-			return Map.of();
-		}
-
-		return userJpaRepository.findAllById(senderIds).stream()
-				.collect(Collectors.toMap(User::getId, Function.identity()));
+		return queryUserSummaryUseCase.getUserSummaries(senderIds);
 	}
 
 	private Map<Long, String> loadThumbnails(List<Notification> notifications) {
@@ -62,20 +57,20 @@ public class NotificationListViewPersistenceAdapter implements LoadNotificationL
 			return Map.of();
 		}
 
-		return photoJpaRepository.findRepresentPhotoUrlsByDiaryIds(diaryIds).stream()
+		return queryDiaryReadUseCase.getRepresentPhotoPaths(diaryIds).entrySet().stream()
 				.collect(Collectors.toMap(
-						PhotoJpaRepository.DiaryThumbnailProjection::getDiaryId,
-						projection -> minioPhotoStorageAdapter.getPhotoUrl(projection.getUrl(), true)));
+						Map.Entry::getKey,
+						entry -> resolveImageUrlPort.getPhotoUrl(entry.getValue(), true)));
 	}
 
-	private NotificationListView toNotificationListView(Notification notification, Map<String, User> usersById,
+	private NotificationListView toNotificationListView(Notification notification, Map<String, UserSummaryView> usersById,
 			Map<Long, String> thumbnailsByDiaryId) {
-		User sender = notification.getSenderId() != null ? usersById.get(notification.getSenderId()) : null;
+		UserSummaryView sender = notification.getSenderId() != null ? usersById.get(notification.getSenderId()) : null;
 
 		return new NotificationListView(
 				notification.getId(),
-				sender != null ? sender.getNickname() : null,
-				sender != null ? sender.getAvatar() : null,
+				sender != null ? sender.nickname() : null,
+				sender != null ? sender.avatarPath() : null,
 				notification.getType(),
 				notification.getDiaryId(),
 				notification.getDiaryId() != null ? thumbnailsByDiaryId.get(notification.getDiaryId()) : null,

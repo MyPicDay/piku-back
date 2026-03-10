@@ -4,17 +4,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.social.adapter.in.web.dto.FriendRemoveDTO;
-import com.pikume.back.social.adapter.in.web.dto.FriendRequestResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.FriendsDTO;
+import com.pikume.back.social.application.dto.FriendRemovalResult;
+import com.pikume.back.social.application.dto.FriendRequestResult;
+import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.FriendSummaryView;
 import com.pikume.back.social.domain.event.SocialEvent;
@@ -105,10 +104,10 @@ class FriendServiceTest {
 			given(loadFriendRequestPort.findById(new FriendRequestID("to-user", "from-user")))
 					.willReturn(Optional.empty());
 
-			FriendRequestResponseDto response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
 
-			assertThat(response.isAccepted()).isFalse();
-			assertThat(response.getMessage()).contains("보냈습니다");
+			assertThat(response.accepted()).isFalse();
+			assertThat(response.message()).contains("보냈습니다");
 			then(saveFriendRequestPort).should().save(any(FriendRequest.class));
 			then(publishEventPort).should().publish(any(SocialEvent.FriendRequestEvent.class));
 		}
@@ -126,10 +125,10 @@ class FriendServiceTest {
 			given(loadFriendRequestPort.findById(new FriendRequestID("to-user", "from-user")))
 					.willReturn(Optional.of(existingRequest));
 
-			FriendRequestResponseDto response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
 
-			assertThat(response.isAccepted()).isTrue();
-			assertThat(response.getMessage()).contains("수락");
+			assertThat(response.accepted()).isTrue();
+			assertThat(response.message()).contains("수락");
 			then(saveFriendRequestPort).should().delete(existingRequest);
 			then(saveFriendPort).should().save(any());
 			then(publishEventPort).should().publish(any(SocialEvent.FriendAcceptedEvent.class));
@@ -183,10 +182,10 @@ class FriendServiceTest {
 			FriendRequestID id = new FriendRequestID("from-user", "to-user");
 			given(loadFriendRequestPort.existsById(id)).willReturn(true);
 
-			FriendRequestResponseDto response = friendService.rejectFriendRequest("to-user", "from-user");
+			FriendRequestResult response = friendService.rejectFriendRequest("to-user", "from-user");
 
-			assertThat(response.isAccepted()).isFalse();
-			assertThat(response.getMessage()).contains("거절");
+			assertThat(response.accepted()).isFalse();
+			assertThat(response.message()).contains("거절");
 			then(saveFriendRequestPort).should().deleteById(id);
 		}
 
@@ -211,10 +210,10 @@ class FriendServiceTest {
 			FriendRequestID id = new FriendRequestID("from-user", "to-user");
 			given(loadFriendRequestPort.existsById(id)).willReturn(true);
 
-			FriendRequestResponseDto response = friendService.cancelFriendRequest("from-user", "to-user");
+			FriendRequestResult response = friendService.cancelFriendRequest("from-user", "to-user");
 
-			assertThat(response.isAccepted()).isFalse();
-			assertThat(response.getMessage()).contains("취소");
+			assertThat(response.accepted()).isFalse();
+			assertThat(response.message()).contains("취소");
 			then(saveFriendRequestPort).should().deleteById(id);
 		}
 
@@ -236,41 +235,43 @@ class FriendServiceTest {
 		@Test
 		@DisplayName("친구 목록은 전용 조회 포트에서 읽고 응답으로 변환한다")
 		void loadFriendListFromDedicatedQueryPort() {
-			PageRequest pageable = PageRequest.of(0, 3);
-			Page<FriendSummaryView> page = new PageImpl<>(
+			PageQuery pageQuery = PageQuery.of(0, 3);
+			PageResult<FriendSummaryView> page = new PageResult<>(
 					List.of(new FriendSummaryView("friend-1", "친구1", "avatars/friend1.png")),
-					pageable,
+					0,
+					3,
 					1);
 
-			given(loadFriendListViewPort.loadFriendList("me", pageable)).willReturn(page);
+			given(loadFriendListViewPort.loadFriendList("me", pageQuery)).willReturn(page);
 			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/friend1.png", requestMetaInfo))
 					.willReturn("https://localhost:8080/api/avatars/friend1.png");
 
-			Page<FriendsDTO> response = friendService.findFriendList(pageable, "me", requestMetaInfo);
+			PageResult<FriendSummaryResult> response = friendService.findFriendList(pageQuery, "me", requestMetaInfo);
 
 			assertThat(response.getContent()).hasSize(1);
-			assertThat(response.getContent().get(0).getNickname()).isEqualTo("친구1");
-			then(loadFriendListViewPort).should().loadFriendList("me", pageable);
+			assertThat(response.getContent().get(0).nickname()).isEqualTo("친구1");
+			then(loadFriendListViewPort).should().loadFriendList("me", pageQuery);
 			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 
 		@Test
 		@DisplayName("친구 요청 목록도 전용 조회 포트에서 읽고 avatar가 없으면 null로 유지한다")
 		void loadFriendRequestsFromDedicatedQueryPort() {
-			PageRequest pageable = PageRequest.of(0, 2);
-			Page<FriendSummaryView> page = new PageImpl<>(
+			PageQuery pageQuery = PageQuery.of(0, 2);
+			PageResult<FriendSummaryView> page = new PageResult<>(
 					List.of(new FriendSummaryView("requester-1", "요청자", null)),
-					pageable,
+					0,
+					2,
 					1);
 
-			given(loadFriendListViewPort.loadFriendRequests("me", pageable)).willReturn(page);
+			given(loadFriendListViewPort.loadFriendRequests("me", pageQuery)).willReturn(page);
 
-			Page<FriendsDTO> response = friendService.findFriendRequests(pageable, "me", requestMetaInfo);
+			PageResult<FriendSummaryResult> response = friendService.findFriendRequests(pageQuery, "me", requestMetaInfo);
 
 			assertThat(response.getContent()).hasSize(1);
-			assertThat(response.getContent().get(0).getNickname()).isEqualTo("요청자");
-			assertThat(response.getContent().get(0).getAvatar()).isNull();
-			then(loadFriendListViewPort).should().loadFriendRequests("me", pageable);
+			assertThat(response.getContent().get(0).nickname()).isEqualTo("요청자");
+			assertThat(response.getContent().get(0).avatar()).isNull();
+			then(loadFriendListViewPort).should().loadFriendRequests("me", pageQuery);
 			then(loadUserInfoPort).shouldHaveNoInteractions();
 		}
 	}
@@ -351,10 +352,10 @@ class FriendServiceTest {
 		void removeSuccess() {
 			given(loadFriendPort.existsFriendship("me", "target")).willReturn(true);
 
-			FriendRemoveDTO result = friendService.removeFriend("me", "target");
+			FriendRemovalResult result = friendService.removeFriend("me", "target");
 
-			assertThat(result.isSuccess()).isTrue();
-			assertThat(result.getMessage()).contains("해제");
+			assertThat(result.success()).isTrue();
+			assertThat(result.message()).contains("해제");
 			then(saveFriendPort).should().deleteByUserIds("me", "target");
 		}
 

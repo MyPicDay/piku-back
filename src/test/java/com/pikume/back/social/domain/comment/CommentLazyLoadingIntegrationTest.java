@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
+import com.pikume.back.social.application.dto.CommentListItemResult;
 import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
@@ -49,8 +49,18 @@ class CommentLazyLoadingIntegrationTest extends AbstractJpaQueryCountIntegration
 		Statistics statistics = hibernateStatistics();
 		statistics.clear();
 
-		List<CommentListResponseDto> response = replies.stream()
-				.map(comment -> CommentListResponseDto.fromEntity(comment, "nickname", null, 0))
+		List<CommentListItemResult> response = replies.stream()
+				.map(comment -> new CommentListItemResult(
+						comment.getId(),
+						comment.getDiaryId(),
+						comment.getUserId(),
+						"nickname",
+						null,
+						comment.getContent(),
+						comment.getParent() != null ? comment.getParent().getId() : null,
+						comment.getCreatedAt(),
+						comment.getUpdatedAt(),
+						0))
 				.toList();
 
 		assertThat(response).hasSize(3);

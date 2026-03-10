@@ -7,7 +7,7 @@ import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUse
 import com.pikume.back.recommendation.application.port.in.CacheFeedUseCase;
 import com.pikume.back.recommendation.application.port.in.GetRecommendationUseCase;
 import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
-import com.pikume.back.recommendation.domain.ScoredDiary;
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +37,7 @@ public class RecommendationAdapterForFeed implements LoadRecommendationForFeedPo
 	}
 
 	@Override
-	public List<ScoredDiary> getRecommendedDiaries(String userId, List<Long> allCandidateIds, List<Long> friendDiaryIds) {
+	public List<RecommendationScoreResult> getRecommendedDiaries(String userId, List<Long> allCandidateIds, List<Long> friendDiaryIds) {
 		return getRecommendationUseCase.getRecommendedDiaries(userId, allCandidateIds, friendDiaryIds);
 	}
 
@@ -49,6 +49,6 @@ public class RecommendationAdapterForFeed implements LoadRecommendationForFeedPo
 	@Override
 	public Optional<String> getMetadataTopic(Long diaryId) {
 		return analyzeDiaryContentUseCase.getMetadata(diaryId)
-				.map(meta -> meta.getPrimaryTopic());
+				.map(meta -> meta.primaryTopic());
 	}
 }

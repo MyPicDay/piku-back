@@ -1,67 +1,85 @@
 package com.pikume.back.feed.adapter.out.diary;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
-import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
-import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
-import com.pikume.back.diary.application.service.DiaryQueryService;
-import com.pikume.back.diary.domain.Diary;
-import com.pikume.back.diary.domain.Photo;
+import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
+import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
-import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
+import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
+import com.pikume.back.global.port.out.ResolveImageUrlPort;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
 
-	private final DiaryJpaRepository diaryJpaRepository;
-	private final PhotoJpaRepository photoJpaRepository;
-	private final DiaryQueryService diaryQueryService;
+	private final QueryDiaryFeedUseCase queryDiaryFeedUseCase;
+	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
+	private final ResolveImageUrlPort resolveImageUrlPort;
 
 	@Override
-	public Diary getDiaryById(Long diaryId) {
-		return diaryQueryService.getDiaryById(diaryId);
+	public Optional<FeedDiaryDetailView> findVisibleDiaryById(Long diaryId, String viewerId) {
+		return queryDiaryFeedUseCase.findVisibleDiaryDetailById(diaryId, viewerId)
+				.map(diary -> new FeedDiaryDetailView(
+						diary.diaryId(),
+						diary.userId(),
+						toFeedVisibility(diary.status()),
+						diary.content(),
+						diary.photos().stream()
+								.map(photo -> resolveImageUrlPort.getPhotoUrl(photo.path(), photo.represent()))
+								.toList(),
+						diary.date(),
+						diary.createdAt()));
 	}
 
 	@Override
 	public List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds) {
-		if (ids.isEmpty()) {
-			return List.of();
-		}
-
-		List<Long> restorableIds = friendIds == null || friendIds.isEmpty()
-				? diaryJpaRepository.findRestorablePublicFeedIds(ids, currentUserId)
-				: diaryJpaRepository.findRestorableFeedIds(ids, currentUserId, friendIds);
-		java.util.Set<Long> restorableIdSet = new java.util.HashSet<>(restorableIds);
-
-		return ids.stream()
-				.filter(restorableIdSet::contains)
-				.toList();
+		return queryDiaryFeedUseCase.findRestorableDiaryIds(ids, currentUserId, friendIds);
 	}
 
 	@Override
-	public List<Long> findFeedIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds, int limit) {
-		if (userIds.isEmpty()) {
-			return List.of();
-		}
-		return diaryJpaRepository.findFeedIdsByStatusAndUserIdIn(status, userIds, PageRequest.of(0, limit));
+	public List<Long> findFeedIdsByStatusAndUserIds(FeedVisibility status, List<String> userIds, int limit) {
+		return queryDiaryFeedUseCase.findDiaryIdsByStatusAndUserIds(toDiaryVisibility(status), userIds, limit);
 	}
 
 	@Override
-	public List<Long> findFeedIdsByStatus(DiaryVisibility status, String excludedUserId, int limit) {
-		if (excludedUserId == null || excludedUserId.isBlank()) {
-			return diaryJpaRepository.findFeedIdsByStatus(status, PageRequest.of(0, limit));
-		}
-		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(status, excludedUserId, PageRequest.of(0, limit));
+	public List<Long> findFeedIdsByStatus(FeedVisibility status, String excludedUserId, int limit) {
+		return queryDiaryFeedUseCase.findDiaryIdsByStatus(toDiaryVisibility(status), excludedUserId, limit);
 	}
 
 	@Override
-	public List<String> getPhotosForDiary(Diary diary, RequestMetaInfo requestMetaInfo) {
-		List<Photo> photos = photoJpaRepository.findByDiaryId(diary.getId());
-		return diaryQueryService.sortPhotos(photos, requestMetaInfo);
+	public Map<Long, FeedDiaryCandidateView> getFeedDiaryCandidates(Set<Long> diaryIds) {
+		return queryDiaryReadUseCase.getDiarySummaries(diaryIds).values().stream()
+				.collect(Collectors.toMap(
+						DiarySummaryView::diaryId,
+						diary -> new FeedDiaryCandidateView(
+								diary.diaryId(),
+								diary.userId(),
+								diary.createdAt())));
+	}
+
+	private FeedVisibility toFeedVisibility(DiaryVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> FeedVisibility.PUBLIC;
+			case FRIENDS -> FeedVisibility.FRIENDS;
+			case PRIVATE -> FeedVisibility.PRIVATE;
+		};
+	}
+
+	private DiaryVisibility toDiaryVisibility(FeedVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> DiaryVisibility.PUBLIC;
+			case FRIENDS -> DiaryVisibility.FRIENDS;
+			case PRIVATE -> DiaryVisibility.PRIVATE;
+		};
 	}
 }

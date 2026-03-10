@@ -3,66 +3,53 @@ package com.pikume.back.notification.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.port.in.SseUseCase;
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
-import com.pikume.back.notification.application.port.out.SseEmitterPort;
-
-import java.io.IOException;
+import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
+import com.pikume.back.notification.application.port.out.NotificationStreamPort;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SseSubscriptionService implements SseUseCase {
 
-	private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60;
-
-	private final SseEmitterPort sseEmitterPort;
+	private final NotificationStreamPort notificationStreamPort;
 	private final LoadNotificationPort loadNotificationPort;
 
 	@Override
-	public SseEmitter subscribe(String userId) {
+	public void subscribe(String userId, NotificationStreamConnection connection) {
 		log.info("[Emitter 생성 요청]");
 		String emitterId = userId + "_" + System.currentTimeMillis();
-		SseEmitter emitter = sseEmitterPort.save(emitterId, new SseEmitter(DEFAULT_TIMEOUT));
+		notificationStreamPort.save(emitterId, userId, connection);
 
-		emitter.onCompletion(() -> {
+		connection.onCompletion(() -> {
 			log.info("[Emitter 종료 - Completion] emitterId: {}", emitterId);
-			sseEmitterPort.deleteById(emitterId);
+			notificationStreamPort.deleteById(emitterId);
 		});
 
-		emitter.onTimeout(() -> {
+		connection.onTimeout(() -> {
 			log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
-			emitter.complete(); // DeferredResult에 정상 결과 설정 → onCompletion에서 정리
+			connection.complete();
 		});
 
 		long unreadCount = loadNotificationPort.countUnreadByReceiverId(userId);
 		String eventId = userId + "_" + System.currentTimeMillis();
-		sendInitialCount(emitter, eventId, emitterId, unreadCount);
+		send(connection, emitterId, new NotificationStreamMessage(eventId, null, unreadCount));
 
 		boolean hasFriendRequest = loadNotificationPort.existsFriendRequestByReceiverId(userId);
 		if (hasFriendRequest) {
 			String friendEventId = userId + "_" + System.currentTimeMillis();
-			try {
-				log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
-				emitter.send(SseEmitter.event()
-						.id(friendEventId)
-						.name("FriendRequest")
-						.data("on"));
-			} catch (IOException e) {
-				log.warn("친구 요청 전송 실패 → emitter 제거");
-				sseEmitterPort.deleteById(emitterId);
-			}
+			log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
+			send(connection, emitterId, new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
 		}
-
-		return emitter;
 	}
 
-	private void sendInitialCount(SseEmitter emitter, String eventId, String emitterId, Long count) {
+	private void send(NotificationStreamConnection connection, String emitterId, NotificationStreamMessage message) {
 		try {
-			emitter.send(SseEmitter.event().id(eventId).data(count));
-		} catch (IOException e) {
-			sseEmitterPort.deleteById(emitterId);
+			connection.send(message);
+		} catch (RuntimeException e) {
+			notificationStreamPort.deleteById(emitterId);
 			throw new RuntimeException("연결 오류!");
 		}
 	}

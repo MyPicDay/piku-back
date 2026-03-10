@@ -1,6 +1,6 @@
 package com.pikume.back.feed.application.port.out;
 
-import com.pikume.back.recommendation.domain.ScoredDiary;
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,7 +13,7 @@ public interface LoadRecommendationForFeedPort {
 
 	void invalidateCache(String userId);
 
-	List<ScoredDiary> getRecommendedDiaries(String userId, List<Long> allCandidateIds, List<Long> friendDiaryIds);
+	List<RecommendationScoreResult> getRecommendedDiaries(String userId, List<Long> allCandidateIds, List<Long> friendDiaryIds);
 
 	void recordInteraction(String userId, String topic, String interactionType);
 

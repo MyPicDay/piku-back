@@ -1,6 +1,6 @@
 package com.pikume.back.recommendation.application.port.in;
 
-import com.pikume.back.recommendation.domain.DiaryMetadata;
+import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
 
 import java.util.Optional;
 
@@ -9,7 +9,7 @@ import java.util.Optional;
  */
 public interface AnalyzeDiaryContentUseCase {
 
-	DiaryMetadata analyzeAndSave(Long diaryId, String content);
+	void analyzeAndSave(Long diaryId, String content);
 
-	Optional<DiaryMetadata> getMetadata(Long diaryId);
+	Optional<DiaryMetadataResult> getMetadata(Long diaryId);
 }

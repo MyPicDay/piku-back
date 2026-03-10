@@ -10,6 +10,7 @@ import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,6 +37,11 @@ public class FriendPersistenceAdapter implements LoadFriendPort, SaveFriendPort,
 	@Override
 	public List<String> findFriendIds(String userId) {
 		return friendJpaRepository.findFriendIds(userId);
+	}
+
+	@Override
+	public List<String> findFriendIdsWithinTargets(String userId, java.util.Set<String> targetUserIds) {
+		return friendJpaRepository.findFriendIdsWithinTargets(userId, targetUserIds);
 	}
 
 	// --- SaveFriendPort ---
@@ -65,6 +71,16 @@ public class FriendPersistenceAdapter implements LoadFriendPort, SaveFriendPort,
 	@Override
 	public Optional<FriendRequest> findByFromUserIdAndToUserId(String fromUserId, String toUserId) {
 		return friendRequestJpaRepository.findByFromUserIdAndToUserId(fromUserId, toUserId);
+	}
+
+	@Override
+	public List<String> findRequestedTargetIds(String userId, Collection<String> targetUserIds) {
+		return friendRequestJpaRepository.findRequestedTargetIds(userId, targetUserIds);
+	}
+
+	@Override
+	public List<String> findReceivedFromUserIds(String userId, Collection<String> targetUserIds) {
+		return friendRequestJpaRepository.findReceivedFromUserIds(userId, targetUserIds);
 	}
 
 	// --- SaveFriendRequestPort ---

@@ -3,10 +3,10 @@ package com.pikume.back.social.application.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
@@ -48,9 +48,9 @@ class CommentServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegratio
 		saveReply("reply-3", commenter1.getId(), diary.getId(), root3);
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				commentService.getRootCommentsByDiaryId(diary.getId(), PageRequest.of(0, 1), REQUEST_META_INFO));
+				commentService.getRootCommentsByDiaryId(diary.getId(), PageQuery.of(0, 1), REQUEST_META_INFO, owner.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				commentService.getRootCommentsByDiaryId(diary.getId(), PageRequest.of(0, 3), REQUEST_META_INFO));
+				commentService.getRootCommentsByDiaryId(diary.getId(), PageQuery.of(0, 3), REQUEST_META_INFO, owner.getId()));
 
 		assertThat(threeItemQueries)
 				.as("댓글 row 수가 늘어도 사용자/답글 수 조회를 배치로 제한해야 한다")
@@ -72,9 +72,9 @@ class CommentServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegratio
 		saveReply("reply-3", replier3.getId(), diary.getId(), parent);
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				commentService.getRepliesByParentCommentId(parent.getId(), PageRequest.of(0, 1), REQUEST_META_INFO));
+				commentService.getRepliesByParentCommentId(parent.getId(), PageQuery.of(0, 1), REQUEST_META_INFO, owner.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				commentService.getRepliesByParentCommentId(parent.getId(), PageRequest.of(0, 3), REQUEST_META_INFO));
+				commentService.getRepliesByParentCommentId(parent.getId(), PageQuery.of(0, 3), REQUEST_META_INFO, owner.getId()));
 
 		assertThat(threeItemQueries)
 				.as("대댓글 row 수가 늘어도 사용자 조회는 배치로 제한해야 한다")

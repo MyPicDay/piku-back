@@ -4,9 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import jakarta.persistence.EntityManager;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
+import jakarta.persistence.EntityManager;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
 import com.pikume.back.diary.adapter.out.storage.PhotoConstants;
@@ -16,6 +15,7 @@ import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.adapter.out.persistence.FeedClickJpaRepository;
 import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
+import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
@@ -163,14 +163,14 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	@Test
 	@DisplayName("첫 페이지는 not consumed friend bucket을 최신성 우선으로 반환하며 self/private는 제외한다")
 	void firstPagePrioritizesNotConsumedFriendBucket() {
-		FeedCursorPage<ResponseDTO> page = feedQueryService.getAllDiaries(
+		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 4),
 				REQUEST_META_INFO,
 				viewer.getId());
 
-		assertThat(page.items()).extracting(ResponseDTO::getDiaryId)
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.containsExactly(friendExtra.getId(), friendLow.getId(), friendMid.getId(), friendHigh.getId());
-		assertThat(page.items()).extracting(ResponseDTO::getDiaryId)
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.doesNotContain(ownDiary.getId(), privateDiary.getId(), friendConsumed.getId(), publicHigh.getId());
 		assertThat(page.nextCursor()).isNotBlank();
 		assertThat(page.hasNext()).isTrue();
@@ -179,19 +179,19 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	@Test
 	@DisplayName("nextCursor로 다음 페이지를 요청하면 다음 bucket으로 이어진다")
 	void nextCursorContinuesIntoNextBucket() {
-		FeedCursorPage<ResponseDTO> firstPage = feedQueryService.getAllDiaries(
+		FeedCursorPage<FeedDiaryResult> firstPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 4),
 				REQUEST_META_INFO,
 				viewer.getId());
 
-		FeedCursorPage<ResponseDTO> secondPage = feedQueryService.getAllDiaries(
+		FeedCursorPage<FeedDiaryResult> secondPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(firstPage.nextCursor(), 3),
 				REQUEST_META_INFO,
 				viewer.getId());
 
-		assertThat(secondPage.items()).extracting(ResponseDTO::getDiaryId)
+		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
 				.containsExactly(publicLow.getId(), publicHigh.getId(), friendConsumed.getId());
-		assertThat(secondPage.items()).extracting(ResponseDTO::getDiaryId)
+		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
 				.doesNotContain(friendHigh.getId(), friendMid.getId(), friendLow.getId(), friendExtra.getId());
 	}
 

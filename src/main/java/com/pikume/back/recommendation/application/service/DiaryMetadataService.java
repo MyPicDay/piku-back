@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
 import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import com.pikume.back.recommendation.application.port.out.ContentAnalyzerPort;
 import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
@@ -23,7 +24,7 @@ public class DiaryMetadataService implements AnalyzeDiaryContentUseCase {
 
 	@Override
 	@Transactional
-	public DiaryMetadata analyzeAndSave(Long diaryId, String content) {
+	public void analyzeAndSave(Long diaryId, String content) {
 		DiaryMetadata analysis = contentAnalyzerPort.analyze(diaryId, content);
 
 		Optional<DiaryMetadata> existing = loadDiaryMetadataPort.findByDiaryId(diaryId);
@@ -35,16 +36,20 @@ public class DiaryMetadataService implements AnalyzeDiaryContentUseCase {
 					analysis.getTopics(),
 					analysis.getQualityScore());
 			log.debug("일기 메타데이터 업데이트 - diaryId: {}, topic: {}", diaryId, analysis.getPrimaryTopic());
-			return metadata;
 		} else {
 			log.debug("일기 메타데이터 신규 저장 - diaryId: {}, topic: {}", diaryId, analysis.getPrimaryTopic());
-			return saveDiaryMetadataPort.save(analysis);
+			saveDiaryMetadataPort.save(analysis);
 		}
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public Optional<DiaryMetadata> getMetadata(Long diaryId) {
-		return loadDiaryMetadataPort.findByDiaryId(diaryId);
+	public Optional<DiaryMetadataResult> getMetadata(Long diaryId) {
+		return loadDiaryMetadataPort.findByDiaryId(diaryId)
+				.map(metadata -> new DiaryMetadataResult(
+						metadata.getDiaryId(),
+						metadata.getPrimaryTopic(),
+						metadata.getTopics(),
+						metadata.getQualityScore()));
 	}
 }

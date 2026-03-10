@@ -7,6 +7,7 @@ import com.pikume.back.feed.application.port.out.SaveFeedClickPort;
 import com.pikume.back.feed.domain.FeedClick;
 
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +23,14 @@ public class FeedClickPersistenceAdapter implements LoadFeedClickPort, SaveFeedC
 	@Override
 	public List<Long> findClickedDiaryIdsByUserId(String userId) {
 		return feedClickJpaRepository.findClickedDiaryIdsByUserId(userId);
+	}
+
+	@Override
+	public Set<Long> findClickedDiaryIdsByUserIdAndDiaryIds(String userId, List<Long> diaryIds) {
+		if (userId == null || userId.isBlank() || diaryIds == null || diaryIds.isEmpty()) {
+			return Set.of();
+		}
+		return feedClickJpaRepository.findClickedDiaryIdsByUserIdAndDiaryIdIn(userId, diaryIds);
 	}
 
 	@Override

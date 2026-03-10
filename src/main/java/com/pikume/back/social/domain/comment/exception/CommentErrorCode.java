@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum CommentErrorCode {
+	DIARY_NOT_FOUND(HttpStatus.NOT_FOUND, "DIARY_404", "해당 일기를 찾을 수 없습니다."),
 	COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMENT_404_1", "해당 댓글을 찾을 수 없습니다."),
 	DELETED_COMMENT(HttpStatus.BAD_REQUEST, "COMMENT_404_2", "이미 삭제된 댓글입니다."),
 	INVALID_PARENT_COMMENT(HttpStatus.BAD_REQUEST, "COMMENT_400_1", "대댓글에 대댓글을 달 수 없습니다."),

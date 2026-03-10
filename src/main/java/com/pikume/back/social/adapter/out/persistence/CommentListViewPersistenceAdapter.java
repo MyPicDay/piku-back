@@ -1,20 +1,19 @@
 package com.pikume.back.social.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
+import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.social.application.port.out.LoadCommentListViewPort;
 import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
-import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
-import com.pikume.back.user.domain.User;
+import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -22,42 +21,39 @@ import java.util.stream.Collectors;
 public class CommentListViewPersistenceAdapter implements LoadCommentListViewPort {
 
 	private final CommentJpaRepository commentJpaRepository;
-	private final UserJpaRepository userJpaRepository;
+	private final QueryUserSummaryUseCase queryUserSummaryUseCase;
 
 	@Override
-	public Page<CommentListView> loadRootCommentsByDiaryId(Long diaryId, Pageable pageable) {
-		Page<Comment> rootComments = commentJpaRepository.findVisibleRootCommentsByDiaryId(diaryId, pageable);
-		Map<String, User> usersById = loadUsers(rootComments.getContent());
+	public PageResult<CommentListView> loadRootCommentsByDiaryId(Long diaryId, PageQuery pageQuery) {
+		org.springframework.data.domain.Page<Comment> rootComments =
+				commentJpaRepository.findVisibleRootCommentsByDiaryId(diaryId, SpringPageMapper.toPageable(pageQuery));
+		Map<String, UserSummaryView> usersById = loadUsers(rootComments.getContent());
 		Map<Long, Integer> replyCountsByParentId = loadReplyCounts(rootComments.getContent());
 
 		List<CommentListView> content = rootComments.getContent().stream()
 				.map(comment -> toCommentListView(comment, usersById, replyCountsByParentId))
 				.toList();
-		return new PageImpl<>(content, pageable, rootComments.getTotalElements());
+		return new PageResult<>(content, rootComments.getNumber(), rootComments.getSize(), rootComments.getTotalElements());
 	}
 
 	@Override
-	public Page<CommentListView> loadRepliesByParentCommentId(Long parentCommentId, Pageable pageable) {
-		Page<Comment> replies = commentJpaRepository.findByParentIdAndDeletedAtIsNull(parentCommentId, pageable);
-		Map<String, User> usersById = loadUsers(replies.getContent());
+	public PageResult<CommentListView> loadRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery) {
+		org.springframework.data.domain.Page<Comment> replies =
+				commentJpaRepository.findByParentIdAndDeletedAtIsNull(parentCommentId, SpringPageMapper.toPageable(pageQuery));
+		Map<String, UserSummaryView> usersById = loadUsers(replies.getContent());
 
 		List<CommentListView> content = replies.getContent().stream()
 				.map(comment -> toCommentListView(comment, usersById, Map.of()))
 				.toList();
-		return new PageImpl<>(content, pageable, replies.getTotalElements());
+		return new PageResult<>(content, replies.getNumber(), replies.getSize(), replies.getTotalElements());
 	}
 
-	private Map<String, User> loadUsers(List<Comment> comments) {
+	private Map<String, UserSummaryView> loadUsers(List<Comment> comments) {
 		Set<String> userIds = comments.stream()
 				.filter(comment -> !comment.isDeleted())
 				.map(Comment::getUserId)
 				.collect(Collectors.toSet());
-		if (userIds.isEmpty()) {
-			return Map.of();
-		}
-
-		return userJpaRepository.findAllById(userIds).stream()
-				.collect(Collectors.toMap(User::getId, Function.identity()));
+		return queryUserSummaryUseCase.getUserSummaries(userIds);
 	}
 
 	private Map<Long, Integer> loadReplyCounts(List<Comment> comments) {
@@ -74,17 +70,17 @@ public class CommentListViewPersistenceAdapter implements LoadCommentListViewPor
 						projection -> Math.toIntExact(projection.getReplyCount())));
 	}
 
-	private CommentListView toCommentListView(Comment comment, Map<String, User> usersById,
+	private CommentListView toCommentListView(Comment comment, Map<String, UserSummaryView> usersById,
 			Map<Long, Integer> replyCountsByParentId) {
-		User user = usersById.get(comment.getUserId());
+		UserSummaryView user = usersById.get(comment.getUserId());
 		Long parentId = comment.getParent() != null ? comment.getParent().getId() : null;
 
 		return new CommentListView(
 				comment.getId(),
 				comment.getDiaryId(),
 				comment.getUserId(),
-				user != null ? user.getNickname() : null,
-				user != null ? user.getAvatar() : null,
+				user != null ? user.nickname() : null,
+				user != null ? user.avatarPath() : null,
 				comment.getContent(),
 				parentId,
 				replyCountsByParentId.getOrDefault(comment.getId(), 0),

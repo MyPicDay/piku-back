@@ -9,7 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
+import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.out.LoadDiaryInfoPort;
 import com.pikume.back.social.application.port.out.LoadLikePort;
 import com.pikume.back.social.application.port.out.PublishEventPort;
@@ -60,15 +60,15 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("성공적으로 좋아요를 추가하고 이벤트를 발행한다")
 		void addLikeSuccess() {
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			LikeResponse response = likeService.addLike("liker-id", 1L, requestMetaInfo);
+			LikeResult response = likeService.addLike("liker-id", 1L, requestMetaInfo);
 
-			assertThat(response.getDiaryId()).isEqualTo(1L);
-			assertThat(response.getLikeCount()).isEqualTo(1L);
-			assertThat(response.isLiked()).isTrue();
+			assertThat(response.diaryId()).isEqualTo(1L);
+			assertThat(response.likeCount()).isEqualTo(1L);
+			assertThat(response.liked()).isTrue();
 			then(saveLikePort).should().saveAndFlush(any(Like.class));
 			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
 		}
@@ -76,7 +76,7 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("존재하지 않는 일기에 좋아요하면 예외 발생")
 		void failsDiaryNotFound() {
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(999L)).willReturn(Optional.empty());
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(999L, "liker-id")).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> likeService.addLike("liker-id", 999L, requestMetaInfo))
 					.isInstanceOf(LikeException.class)
@@ -87,7 +87,7 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("본인 일기에 좋아요하면 예외 발생")
 		void failsOwnDiary() {
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "owner-id")).willReturn(Optional.of("owner-id"));
 
 			assertThatThrownBy(() -> likeService.addLike("owner-id", 1L, requestMetaInfo))
 					.isInstanceOf(LikeException.class)
@@ -99,7 +99,7 @@ class LikeServiceTest {
 		@DisplayName("이미 좋아요한 일기에 다시 좋아요하면 예외 발생")
 		void failsAlreadyLiked() {
 			Like existingLike = Like.builder().userId("liker-id").diaryId(1L).build();
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(existingLike));
 
 			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L, requestMetaInfo))
@@ -111,7 +111,7 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("좋아요 추가 시 이벤트가 발행되지 않으면 안 된다")
 		void publishesEvent() {
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
@@ -123,7 +123,7 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("저장 중 유니크 제약 충돌이 발생하면 중복 좋아요 예외로 변환한다")
 		void throwsDuplicateLikeExceptionOnConstraintViolation() {
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(saveLikePort.saveAndFlush(any(Like.class)))
 					.willThrow(new DataIntegrityViolationException("Duplicate entry for key 'likes.uk_user_diary'"));
@@ -138,13 +138,13 @@ class LikeServiceTest {
 		void restoresSoftDeletedLike() {
 			Like softDeletedLike = Like.builder().userId("liker-id").diaryId(1L).build();
 			softDeletedLike.inactive();
-			given(loadDiaryInfoPort.findOwnerUserIdByDiaryId(1L)).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(softDeletedLike));
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			LikeResponse response = likeService.addLike("liker-id", 1L, requestMetaInfo);
+			LikeResult response = likeService.addLike("liker-id", 1L, requestMetaInfo);
 
-			assertThat(response.isLiked()).isTrue();
+			assertThat(response.liked()).isTrue();
 			assertThat(softDeletedLike.getDeletedAt()).isNull();
 			then(saveLikePort).should().saveAndFlush(softDeletedLike);
 			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
@@ -159,22 +159,22 @@ class LikeServiceTest {
 		@DisplayName("성공적으로 좋아요를 취소한다")
 		void removeLikeSuccess() {
 			Like existingLike = Like.builder().userId("liker-id").diaryId(1L).build();
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "liker-id")).willReturn(true);
 			given(loadLikePort.findByUserIdAndDiaryId("liker-id", 1L)).willReturn(Optional.of(existingLike));
 			given(loadLikePort.countByDiaryId(1L)).willReturn(0L);
 
-			LikeResponse response = likeService.removeLike("liker-id", 1L);
+			LikeResult response = likeService.removeLike("liker-id", 1L);
 
-			assertThat(response.getDiaryId()).isEqualTo(1L);
-			assertThat(response.getLikeCount()).isEqualTo(0L);
-			assertThat(response.isLiked()).isFalse();
+			assertThat(response.diaryId()).isEqualTo(1L);
+			assertThat(response.likeCount()).isEqualTo(0L);
+			assertThat(response.liked()).isFalse();
 			assertThat(existingLike.getDeletedAt()).isNotNull();
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 일기의 좋아요 취소 시 예외 발생")
 		void failsDiaryNotFound() {
-			given(loadDiaryInfoPort.existsById(999L)).willReturn(false);
+			given(loadDiaryInfoPort.existsVisibleById(999L, "liker-id")).willReturn(false);
 
 			assertThatThrownBy(() -> likeService.removeLike("liker-id", 999L))
 					.isInstanceOf(LikeException.class)
@@ -185,7 +185,7 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("좋아요하지 않은 일기 취소 시 예외 발생")
 		void failsNotLiked() {
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "liker-id")).willReturn(true);
 			given(loadLikePort.findByUserIdAndDiaryId("liker-id", 1L)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> likeService.removeLike("liker-id", 1L))
@@ -202,33 +202,33 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("로그인 사용자가 좋아요한 일기의 상태를 조회한다")
 		void loggedInUserWhoLiked() {
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, "liker-id")).willReturn(true);
 			given(loadLikePort.countByDiaryId(1L)).willReturn(5L);
 			given(loadLikePort.existsByUserIdAndDiaryId("liker-id", 1L)).willReturn(true);
 
-			LikeResponse response = likeService.getLikeStatus("liker-id", 1L);
+			LikeResult response = likeService.getLikeStatus("liker-id", 1L);
 
-			assertThat(response.getDiaryId()).isEqualTo(1L);
-			assertThat(response.getLikeCount()).isEqualTo(5L);
-			assertThat(response.isLiked()).isTrue();
+			assertThat(response.diaryId()).isEqualTo(1L);
+			assertThat(response.likeCount()).isEqualTo(5L);
+			assertThat(response.liked()).isTrue();
 		}
 
 		@Test
 		@DisplayName("비로그인 사용자가 일기의 좋아요 상태를 조회한다")
 		void anonymousUser() {
-			given(loadDiaryInfoPort.existsById(1L)).willReturn(true);
+			given(loadDiaryInfoPort.existsVisibleById(1L, null)).willReturn(true);
 			given(loadLikePort.countByDiaryId(1L)).willReturn(5L);
 
-			LikeResponse response = likeService.getLikeStatus(null, 1L);
+			LikeResult response = likeService.getLikeStatus(null, 1L);
 
-			assertThat(response.getLikeCount()).isEqualTo(5L);
-			assertThat(response.isLiked()).isFalse();
+			assertThat(response.likeCount()).isEqualTo(5L);
+			assertThat(response.liked()).isFalse();
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 일기 조회 시 예외 발생")
 		void failsDiaryNotFound() {
-			given(loadDiaryInfoPort.existsById(999L)).willReturn(false);
+			given(loadDiaryInfoPort.existsVisibleById(999L, "user-id")).willReturn(false);
 
 			assertThatThrownBy(() -> likeService.getLikeStatus("user-id", 999L))
 					.isInstanceOf(LikeException.class);
@@ -242,9 +242,10 @@ class LikeServiceTest {
 		@Test
 		@DisplayName("좋아요 수를 조회한다")
 		void getLikeCount() {
+			given(loadDiaryInfoPort.existsVisibleById(1L, "user-id")).willReturn(true);
 			given(loadLikePort.countByDiaryId(1L)).willReturn(10L);
 
-			assertThat(likeService.getLikeCount(1L)).isEqualTo(10L);
+			assertThat(likeService.getLikeCount("user-id", 1L)).isEqualTo(10L);
 		}
 
 		@Test

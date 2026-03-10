@@ -8,7 +8,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.dto.FeedBucket;
@@ -16,6 +15,9 @@ import com.pikume.back.feed.application.dto.FeedCursor;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
+import com.pikume.back.feed.application.dto.FeedDiaryResult;
+import com.pikume.back.feed.application.dto.FeedFriendStatus;
+import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadFeedCursorCandidatesPort;
@@ -24,11 +26,12 @@ import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadUserForFeedPort;
 import com.pikume.back.feed.application.port.out.SaveFeedClickPort;
+import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
+import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -91,17 +94,16 @@ class FeedQueryServiceTest {
 		@Test
 		@DisplayName("공개 일기는 누구나 전체 내용을 조회할 수 있다")
 		void publicDiaryAccessibleByAnyone() {
-			given(loadDiaryForFeedPort.getDiaryById(1L)).willReturn(publicDiary);
-			given(loadDiaryForFeedPort.getPhotosForDiary(any(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(loadSocialForFeedPort.areFriends(anyString(), anyString())).willReturn(false);
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id"))
+					.willReturn(java.util.Optional.of(detailView(publicDiary, List.of("photo1.jpg", "photo2.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(10L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(false);
-			given(loadSocialForFeedPort.countComments(any())).willReturn(5L);
+			given(loadSocialForFeedPort.countComments(eq("viewer-id"), any())).willReturn(5L);
 
-			ResponseDTO result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
 
 			assertThat(result.getContent()).isEqualTo("공개 일기 내용");
 			assertThat(result.getImgUrls()).hasSize(2);
@@ -111,58 +113,55 @@ class FeedQueryServiceTest {
 		@Test
 		@DisplayName("비공개 일기는 본인만 전체 내용을 조회할 수 있다")
 		void privateDiaryAccessibleByOwner() {
-			given(loadDiaryForFeedPort.getDiaryById(1L)).willReturn(privateDiary);
-			given(loadDiaryForFeedPort.getPhotosForDiary(any(), any())).willReturn(List.of("photo1.jpg"));
-			given(loadSocialForFeedPort.areFriends(anyString(), anyString())).willReturn(false);
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "owner-id"))
+					.willReturn(java.util.Optional.of(detailView(privateDiary, List.of("photo1.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(0L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(false);
-			given(loadSocialForFeedPort.countComments(any())).willReturn(0L);
+			given(loadSocialForFeedPort.countComments(eq("owner-id"), any())).willReturn(0L);
 
-			ResponseDTO result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
 
 			assertThat(result.getContent()).isEqualTo("비공개 일기");
 		}
 
 		@Test
-		@DisplayName("비공개 일기는 타인에게 대표 사진만 보인다")
-		void privateDiaryShowsOnlyThumbnailToOthers() {
-			given(loadDiaryForFeedPort.getDiaryById(1L)).willReturn(privateDiary);
-			given(loadDiaryForFeedPort.getPhotosForDiary(any(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(loadSocialForFeedPort.areFriends(anyString(), anyString())).willReturn(false);
-			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
-			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
-			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
-			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(0L);
-			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(false);
-			given(loadSocialForFeedPort.countComments(any())).willReturn(0L);
+		@DisplayName("비공개 일기는 타인에게 존재가 노출되지 않는다")
+		void privateDiaryHiddenFromOthers() {
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id")).willReturn(java.util.Optional.empty());
 
-			ResponseDTO result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
-
-			assertThat(result.getContent()).isNull();
-			assertThat(result.getImgUrls()).hasSize(1);
+			assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id"))
+					.isInstanceOf(FeedDiaryNotFoundException.class);
 		}
 
 		@Test
 		@DisplayName("친구 공개 일기는 친구에게 전체 내용이 보인다")
 		void friendsDiaryAccessibleByFriend() {
-			given(loadDiaryForFeedPort.getDiaryById(1L)).willReturn(friendsDiary);
-			given(loadDiaryForFeedPort.getPhotosForDiary(any(), any())).willReturn(List.of("photo1.jpg", "photo2.jpg"));
-			given(loadSocialForFeedPort.areFriends("owner-id", "friend-id")).willReturn(true);
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "friend-id"))
+					.willReturn(java.util.Optional.of(detailView(friendsDiary, List.of("photo1.jpg", "photo2.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
 			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(5L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(true);
-			given(loadSocialForFeedPort.countComments(any())).willReturn(3L);
+			given(loadSocialForFeedPort.countComments(eq("friend-id"), any())).willReturn(3L);
 
-			ResponseDTO result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "friend-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "friend-id");
 
 			assertThat(result.getContent()).isEqualTo("친구 공개 일기");
 			assertThat(result.getImgUrls()).hasSize(2);
 			assertThat(result.getIsLiked()).isTrue();
+		}
+
+		@Test
+		@DisplayName("친구 공개 일기는 비친구에게 존재가 노출되지 않는다")
+		void friendsDiaryHiddenFromStranger() {
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "stranger-id")).willReturn(java.util.Optional.empty());
+
+			assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "stranger-id"))
+					.isInstanceOf(FeedDiaryNotFoundException.class);
 		}
 	}
 
@@ -181,18 +180,18 @@ class FeedQueryServiceTest {
 			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_FRIEND, second.toCursor(), 1))
 					.willReturn(List.of(candidate(FeedBucket.NOT_CONSUMED_FRIEND, 10L, 3L, 1L)));
 			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 20L), "viewer-id")).willReturn(List.of(
-					feedItem(30L, "writer-30", FriendStatus.FRIENDS),
-					feedItem(20L, "writer-20", FriendStatus.FRIENDS)));
+					feedItem(30L, "writer-30", FeedFriendStatus.FRIENDS),
+					feedItem(20L, "writer-20", FeedFriendStatus.FRIENDS)));
 			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
 					.willAnswer(invocation -> invocation.getArgument(0));
 			given(feedCursorTokenCodec.encode(second.toCursor())).willReturn("next-token");
 
-			FeedCursorPage<ResponseDTO> result = feedQueryService.getAllDiaries(
+			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 2),
 					requestMetaInfo,
 					"viewer-id");
 
-			assertThat(result.items()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 20L);
+			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 20L);
 			assertThat(result.hasNext()).isTrue();
 			assertThat(result.nextCursor()).isEqualTo("next-token");
 		}
@@ -210,18 +209,18 @@ class FeedQueryServiceTest {
 			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_PUBLIC, publicDiary.toCursor(), 1))
 					.willReturn(List.of(candidate(FeedBucket.NOT_CONSUMED_PUBLIC, 9L, 1L, 1L)));
 			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 10L), "viewer-id")).willReturn(List.of(
-					feedItem(30L, "friend-writer", FriendStatus.FRIENDS),
-					feedItem(10L, "public-writer", FriendStatus.NONE)));
+					feedItem(30L, "friend-writer", FeedFriendStatus.FRIENDS),
+					feedItem(10L, "public-writer", FeedFriendStatus.NONE)));
 			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
 					.willAnswer(invocation -> invocation.getArgument(0));
 			given(feedCursorTokenCodec.encode(publicDiary.toCursor())).willReturn("next-public-token");
 
-			FeedCursorPage<ResponseDTO> result = feedQueryService.getAllDiaries(
+			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 2),
 					requestMetaInfo,
 					"viewer-id");
 
-			assertThat(result.items()).extracting(ResponseDTO::getDiaryId).containsExactly(30L, 10L);
+			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 10L);
 			assertThat(result.hasNext()).isTrue();
 			assertThat(result.nextCursor()).isEqualTo("next-public-token");
 		}
@@ -248,10 +247,10 @@ class FeedQueryServiceTest {
 			return new FeedCursorCandidate(bucket, diaryId, likeCount, commentCount, LocalDateTime.now().minusDays(diaryId));
 		}
 
-		private FeedListItemView feedItem(Long diaryId, String writerId, FriendStatus friendStatus) {
+		private FeedListItemView feedItem(Long diaryId, String writerId, FeedFriendStatus friendStatus) {
 			return new FeedListItemView(
 					diaryId,
-					DiaryVisibility.PUBLIC,
+					FeedVisibility.PUBLIC,
 					"content-" + diaryId,
 					List.of("photo-" + diaryId + ".jpg"),
 					LocalDate.now(),
@@ -273,6 +272,8 @@ class FeedQueryServiceTest {
 		@Test
 		@DisplayName("처음 클릭하면 로그가 저장된다")
 		void firstClickSavesLog() {
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "user-id"))
+					.willReturn(java.util.Optional.of(detailView(publicDiary, List.of())));
 			given(loadFeedClickPort.existsByUserIdAndDiaryId("user-id", 1L)).willReturn(false);
 
 			feedQueryService.logClick("user-id", 1L);
@@ -283,11 +284,35 @@ class FeedQueryServiceTest {
 		@Test
 		@DisplayName("이미 클릭한 경우 중복 저장하지 않는다")
 		void duplicateClickIsIgnored() {
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "user-id"))
+					.willReturn(java.util.Optional.of(detailView(publicDiary, List.of())));
 			given(loadFeedClickPort.existsByUserIdAndDiaryId("user-id", 1L)).willReturn(true);
 
 			feedQueryService.logClick("user-id", 1L);
 
 			verify(saveFeedClickPort, never()).save(any());
 		}
+
+		@Test
+		@DisplayName("숨겨진 일기는 클릭 로그를 남기지 않는다")
+		void hiddenDiaryDoesNotRecordClick() {
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "stranger-id")).willReturn(java.util.Optional.empty());
+
+			feedQueryService.logClick("stranger-id", 1L);
+
+			verify(loadFeedClickPort, never()).existsByUserIdAndDiaryId(anyString(), any());
+			verify(saveFeedClickPort, never()).save(any());
+		}
+	}
+
+	private FeedDiaryDetailView detailView(Diary diary, List<String> imageUrls) {
+		return new FeedDiaryDetailView(
+				1L,
+				diary.getUserId(),
+				FeedVisibility.valueOf(diary.getStatus().name()),
+				diary.getContent(),
+				imageUrls,
+				diary.getDate(),
+				diary.getCreatedAt());
 	}
 }

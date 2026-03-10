@@ -6,7 +6,10 @@ import com.pikume.back.social.application.port.out.LoadCommentPort;
 import com.pikume.back.social.application.port.out.SaveCommentPort;
 import com.pikume.back.social.domain.comment.Comment;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +25,21 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
 	@Override
 	public long countAllByDiaryId(Long diaryId) {
 		return commentJpaRepository.countAllByDiaryId(diaryId);
+	}
+
+	@Override
+	public List<Object[]> countAllByDiaryIds(Collection<Long> diaryIds) {
+		return commentJpaRepository.countAllByDiaryIds(diaryIds).stream()
+				.map(result -> new Object[] { result.getDiaryId(), result.getCommentCount() })
+				.toList();
+	}
+
+	@Override
+	public Set<Long> findCommentedDiaryIdsByUserId(String userId, Collection<Long> diaryIds) {
+		if (userId == null || diaryIds == null || diaryIds.isEmpty()) {
+			return Set.of();
+		}
+		return commentJpaRepository.findCommentedDiaryIdsByUserIdAndDiaryIdIn(userId, diaryIds);
 	}
 
 	@Override

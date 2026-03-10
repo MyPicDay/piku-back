@@ -4,21 +4,21 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDTO;
-import com.pikume.back.diary.domain.Diary;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.dto.FeedBucket;
 import com.pikume.back.feed.application.dto.FeedCursor;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
+import com.pikume.back.feed.application.dto.FeedDiaryResult;
+import com.pikume.back.feed.application.dto.FeedFriendStatus;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.feed.application.port.out.*;
+import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
-import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
 import java.util.*;
 
@@ -48,30 +48,24 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public ResponseDTO getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, String userId) {
+	public FeedDiaryResult getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, String userId) {
 		log.info("일기 상세 조회 요청 - diaryId: {}", diaryId);
 
-		Diary diary = loadDiaryForFeedPort.getDiaryById(diaryId);
-		List<String> photoUrls = loadDiaryForFeedPort.getPhotosForDiary(diary, requestMetaInfo);
-
-		boolean isOwner = diary.getUserId().equals(userId);
-		boolean isFriend = loadSocialForFeedPort.areFriends(diary.getUserId(), userId);
-		boolean hasAccess = isOwner || (diary.getStatus() == DiaryVisibility.PUBLIC)
-				|| (diary.getStatus() == DiaryVisibility.FRIENDS && isFriend);
-
-		return buildResponseDTO(diary, photoUrls, requestMetaInfo, userId, null, hasAccess);
+		FeedDiaryDetailView diary = loadDiaryForFeedPort.findVisibleDiaryById(diaryId, userId)
+				.orElseThrow(FeedDiaryNotFoundException::new);
+		return buildResponseDTO(diary, requestMetaInfo, userId, null);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public FeedCursorPage<ResponseDTO> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
+	public FeedCursorPage<FeedDiaryResult> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
 		FeedCursor cursor = decodeCursor(request.cursor(), userId);
 		List<FeedCursorCandidate> candidates = loadCursorPageCandidates(userId, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedCursorCandidate::diaryId)
 				.toList();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
-		List<ResponseDTO> responseList = feedItems.stream()
+		List<FeedDiaryResult> responseList = feedItems.stream()
 				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
 				.toList();
 		boolean hasNext = hasNext(userId, candidates, request.limit());
@@ -85,6 +79,10 @@ public class FeedQueryService implements GetFeedUseCase {
 	@Override
 	@Transactional
 	public void logClick(String userId, Long diaryId) {
+		Optional<FeedDiaryDetailView> visibleDiary = loadDiaryForFeedPort.findVisibleDiaryById(diaryId, userId);
+		if (visibleDiary.isEmpty()) {
+			return;
+		}
 		if (loadFeedClickPort.existsByUserIdAndDiaryId(userId, diaryId)) {
 			return;
 		}
@@ -170,39 +168,36 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	// ==================== DTO Builders ====================
 
-	private ResponseDTO buildResponseDTO(Diary diary, List<String> photoUrls, RequestMetaInfo requestMetaInfo,
-			String userId, FriendStatus friendStatus, boolean hasFullAccess) {
-		String avatar = loadUserForFeedPort.getUserAvatar(diary.getUserId());
+	private FeedDiaryResult buildResponseDTO(FeedDiaryDetailView diary, RequestMetaInfo requestMetaInfo,
+			String userId, FeedFriendStatus friendStatus) {
+		String avatar = loadUserForFeedPort.getUserAvatar(diary.userId());
 		String avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar, requestMetaInfo);
-		long likeCount = loadSocialForFeedPort.getLikeCount(diary.getId());
-		boolean isLiked = loadSocialForFeedPort.isLikedByUser(userId, diary.getId());
+		long likeCount = loadSocialForFeedPort.getLikeCount(diary.diaryId());
+		boolean isLiked = loadSocialForFeedPort.isLikedByUser(userId, diary.diaryId());
 
-		List<String> displayPhotos = hasFullAccess ? photoUrls : List.of(photoUrls.get(0));
-		String displayContent = hasFullAccess ? diary.getContent() : null;
-
-		return ResponseDTO.builder()
-				.diaryId(diary.getId())
-				.status(diary.getStatus())
-				.content(displayContent)
-				.imgUrls(displayPhotos)
-				.date(diary.getDate())
-				.nickname(loadUserForFeedPort.getUserNickname(diary.getUserId()))
+		return FeedDiaryResult.builder()
+				.diaryId(diary.diaryId())
+				.status(diary.status())
+				.content(diary.content())
+				.imgUrls(diary.imageUrls())
+				.date(diary.date())
+				.nickname(loadUserForFeedPort.getUserNickname(diary.userId()))
 				.avatar(avatarUrl)
-				.userId(diary.getUserId())
-				.createdAt(diary.getCreatedAt())
+				.userId(diary.userId())
+				.createdAt(diary.createdAt())
 				.friendStatus(friendStatus)
-				.commentCount(loadSocialForFeedPort.countComments(diary.getId()))
+				.commentCount(loadSocialForFeedPort.countComments(userId, diary.diaryId()))
 				.likeCount(likeCount)
 				.isLiked(isLiked)
 				.build();
 	}
 
-	private ResponseDTO toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo) {
+	private FeedDiaryResult toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo) {
 		String avatarUrl = feedItem.avatarPath() != null
 				? loadUserForFeedPort.getUserAvatarUrl(feedItem.avatarPath(), requestMetaInfo)
 				: null;
 
-		return ResponseDTO.builder()
+		return FeedDiaryResult.builder()
 				.diaryId(feedItem.diaryId())
 				.status(feedItem.status())
 				.content(feedItem.content())

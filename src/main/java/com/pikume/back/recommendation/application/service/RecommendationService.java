@@ -4,11 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
 import com.pikume.back.recommendation.application.port.in.GetRecommendationUseCase;
 import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
 import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
 import com.pikume.back.recommendation.domain.DiaryMetadata;
-import com.pikume.back.recommendation.domain.ScoredDiary;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -31,7 +31,6 @@ public class RecommendationService implements GetRecommendationUseCase {
 	private static final double DEFAULT_METADATA_SCORE = 0.3;
 	private static final double RECENCY_HALF_LIFE_HOURS = 72.0;
 
-	@Override
 	public double calculateScore(DiaryMetadata metadata, Map<String, Double> userAffinities, boolean isFriend) {
 		double topicScore = 0.0;
 		double qualityScore = metadata.getQualityScore() != null ? metadata.getQualityScore() : DEFAULT_QUALITY_SCORE;
@@ -47,8 +46,7 @@ public class RecommendationService implements GetRecommendationUseCase {
 		return Math.min(1.0, baseScore);
 	}
 
-	@Override
-	public List<ScoredDiary> scoreAndSort(List<DiaryMetadata> metadataList,
+	public List<RecommendationScoreResult> scoreAndSort(List<DiaryMetadata> metadataList,
 			Map<String, Double> userAffinities,
 			List<Long> friendDiaryIds) {
 		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
@@ -57,15 +55,15 @@ public class RecommendationService implements GetRecommendationUseCase {
 				.map(meta -> {
 					boolean isFriend = friendSet.contains(meta.getDiaryId());
 					double score = calculateScore(meta, userAffinities, isFriend);
-					return new ScoredDiary(meta.getDiaryId(), score);
+					return new RecommendationScoreResult(meta.getDiaryId(), score);
 				})
-				.sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
+				.sorted((a, b) -> Double.compare(b.score(), a.score()))
 				.collect(Collectors.toList());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<ScoredDiary> getRecommendedDiaries(String userId, List<Long> candidateDiaryIds,
+	public List<RecommendationScoreResult> getRecommendedDiaries(String userId, List<Long> candidateDiaryIds,
 			List<Long> friendDiaryIds) {
 		if (candidateDiaryIds == null || candidateDiaryIds.isEmpty()) {
 			return Collections.emptyList();
@@ -75,10 +73,10 @@ public class RecommendationService implements GetRecommendationUseCase {
 		Map<Long, DiaryMetadata> metadataMap = metadataList.stream()
 				.collect(Collectors.toMap(DiaryMetadata::getDiaryId, m -> m));
 
-		Map<String, Double> userAffinities = getUserAffinities(userId);
+		Map<String, Double> userAffinities = userPreferenceUseCase.getUserAffinities(userId);
 		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
 
-		List<ScoredDiary> results = candidateDiaryIds.stream()
+		List<RecommendationScoreResult> results = candidateDiaryIds.stream()
 				.map(diaryId -> {
 					DiaryMetadata metadata = metadataMap.get(diaryId);
 					double score;
@@ -89,9 +87,9 @@ public class RecommendationService implements GetRecommendationUseCase {
 						score = DEFAULT_METADATA_SCORE;
 					}
 
-					return new ScoredDiary(diaryId, score);
+					return new RecommendationScoreResult(diaryId, score);
 				})
-				.sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
+				.sorted((a, b) -> Double.compare(b.score(), a.score()))
 				.collect(Collectors.toList());
 
 		log.debug("추천 스코어링 완료 - 후보: {}, 메타데이터 있음: {}", candidateDiaryIds.size(), metadataMap.size());
@@ -109,13 +107,4 @@ public class RecommendationService implements GetRecommendationUseCase {
 		return 1.0 / (1.0 + decayFactor);
 	}
 
-	private Map<String, Double> getUserAffinities(String userId) {
-		if (userId == null) {
-			return Collections.emptyMap();
-		}
-
-		return userPreferenceUseCase.getPreference(userId)
-				.map(pref -> userPreferenceUseCase.parseAffinities(pref.getTopicAffinities()))
-				.orElse(Collections.emptyMap());
-	}
 }

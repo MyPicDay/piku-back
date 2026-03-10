@@ -20,8 +20,11 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.global.util.RequestMetaMapper;
+import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
+import com.pikume.back.social.domain.like.exception.LikeErrorCode;
+import com.pikume.back.social.domain.like.exception.LikeException;
 
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,6 +83,33 @@ class LikeControllerTest {
 				.andExpect(status().isConflict())
 				.andExpect(jsonPath("$.status").value(409))
 				.andExpect(jsonPath("$.message").value("좋아요 중복 저장이 감지되었습니다."));
+	}
+
+	@Test
+	@DisplayName("GET /api/likes/diary/{diaryId}/count는 비공개 일기 접근 시 404를 반환한다")
+	void getLikeCountReturnsNotFoundWhenDiaryIsHidden() throws Exception {
+		given(likeUseCase.getLikeCount("user-1", 1L))
+				.willThrow(new LikeException(LikeErrorCode.DIARY_NOT_FOUND));
+
+		mockMvc.perform(get("/api/likes/diary/1/count")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.message").value(LikeErrorCode.DIARY_NOT_FOUND.getMessage()));
+	}
+
+	@Test
+	@DisplayName("GET /api/likes/diary/{diaryId}는 application result를 web response로 변환한다")
+	void getLikeStatusMapsApplicationResult() throws Exception {
+		given(likeUseCase.getLikeStatus("user-1", 1L))
+				.willReturn(new LikeResult(1L, 3L, true));
+
+		mockMvc.perform(get("/api/likes/diary/1")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.diaryId").value(1L))
+				.andExpect(jsonPath("$.likeCount").value(3L))
+				.andExpect(jsonPath("$.liked").value(true));
 	}
 
 	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {

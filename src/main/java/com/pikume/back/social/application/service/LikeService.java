@@ -6,7 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
+import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.domain.event.SocialEvent;
@@ -33,10 +33,10 @@ public class LikeService implements LikeUseCase {
 
 	@Override
 	@Transactional
-	public LikeResponse addLike(String userId, Long diaryId, RequestMetaInfo requestMetaInfo) {
+	public LikeResult addLike(String userId, Long diaryId, RequestMetaInfo requestMetaInfo) {
 		log.info("[좋아요 추가 요청] userId: {}, diaryId: {}", userId, diaryId);
 
-		String diaryOwnerId = loadDiaryInfoPort.findOwnerUserIdByDiaryId(diaryId)
+		String diaryOwnerId = loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(diaryId, userId)
 				.orElseThrow(() -> new LikeException(LikeErrorCode.DIARY_NOT_FOUND));
 
 		if (diaryOwnerId.equals(userId)) {
@@ -69,19 +69,15 @@ public class LikeService implements LikeUseCase {
 		long likeCount = loadLikePort.countByDiaryId(diaryId);
 		log.info("[좋아요 추가 완료] diaryId: {}, 총 좋아요 수: {}", diaryId, likeCount);
 
-		return LikeResponse.builder()
-				.diaryId(diaryId)
-				.likeCount(likeCount)
-				.isLiked(true)
-				.build();
+		return new LikeResult(diaryId, likeCount, true);
 	}
 
 	@Override
 	@Transactional
-	public LikeResponse removeLike(String userId, Long diaryId) {
+	public LikeResult removeLike(String userId, Long diaryId) {
 		log.info("[좋아요 취소 요청] userId: {}, diaryId: {}", userId, diaryId);
 
-		if (!loadDiaryInfoPort.existsById(diaryId)) {
+		if (!loadDiaryInfoPort.existsVisibleById(diaryId, userId)) {
 			throw new LikeException(LikeErrorCode.DIARY_NOT_FOUND);
 		}
 
@@ -93,28 +89,29 @@ public class LikeService implements LikeUseCase {
 		long likeCount = loadLikePort.countByDiaryId(diaryId);
 		log.info("[좋아요 취소 완료] diaryId: {}, 총 좋아요 수: {}", diaryId, likeCount);
 
-		return LikeResponse.builder()
-				.diaryId(diaryId)
-				.likeCount(likeCount)
-				.isLiked(false)
-				.build();
+		return new LikeResult(diaryId, likeCount, false);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public LikeResponse getLikeStatus(String userId, Long diaryId) {
-		if (!loadDiaryInfoPort.existsById(diaryId)) {
+	public LikeResult getLikeStatus(String userId, Long diaryId) {
+		if (!loadDiaryInfoPort.existsVisibleById(diaryId, userId)) {
 			throw new LikeException(LikeErrorCode.DIARY_NOT_FOUND);
 		}
 
 		long likeCount = loadLikePort.countByDiaryId(diaryId);
 		boolean isLiked = userId != null && loadLikePort.existsByUserIdAndDiaryId(userId, diaryId);
 
-		return LikeResponse.builder()
-				.diaryId(diaryId)
-				.likeCount(likeCount)
-				.isLiked(isLiked)
-				.build();
+		return new LikeResult(diaryId, likeCount, isLiked);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public long getLikeCount(String userId, Long diaryId) {
+		if (!loadDiaryInfoPort.existsVisibleById(diaryId, userId)) {
+			throw new LikeException(LikeErrorCode.DIARY_NOT_FOUND);
+		}
+		return loadLikePort.countByDiaryId(diaryId);
 	}
 
 	@Override

@@ -9,6 +9,7 @@ import com.pikume.back.social.domain.comment.Comment;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 public interface CommentJpaRepository extends JpaRepository<Comment, Long> {
 
@@ -34,6 +35,14 @@ public interface CommentJpaRepository extends JpaRepository<Comment, Long> {
 			"WHERE c.diaryId IN :diaryIds " +
 			"GROUP BY c.diaryId")
 	List<DiaryCommentCountProjection> countAllByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
+
+	@Query("SELECT DISTINCT c.diaryId " +
+			"FROM Comment c " +
+			"WHERE c.userId = :userId " +
+			"AND c.diaryId IN :diaryIds " +
+			"AND c.deletedAt IS NULL")
+	Set<Long> findCommentedDiaryIdsByUserIdAndDiaryIdIn(@Param("userId") String userId,
+			@Param("diaryIds") Collection<Long> diaryIds);
 
 	@Query("SELECT c.parent.id AS parentId, COUNT(c) AS replyCount " +
 			"FROM Comment c " +

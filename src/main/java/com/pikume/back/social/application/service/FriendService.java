@@ -3,14 +3,14 @@ package com.pikume.back.social.application.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.social.adapter.in.web.dto.FriendRemoveDTO;
-import com.pikume.back.social.adapter.in.web.dto.FriendRequestResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.FriendsDTO;
+import com.pikume.back.social.application.dto.FriendRemovalResult;
+import com.pikume.back.social.application.dto.FriendRequestResult;
+import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.FriendSummaryView;
@@ -24,7 +24,9 @@ import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 import com.pikume.back.social.domain.friend.vo.FriendStatus;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -48,7 +50,7 @@ public class FriendService implements FriendUseCase {
 
 	@Override
 	@Transactional
-	public FriendRequestResponseDto sendFriendRequest(String fromUserId, String toUserId,
+	public FriendRequestResult sendFriendRequest(String fromUserId, String toUserId,
 			RequestMetaInfo requestMetaInfo) {
 		log.info("사용자 조회 요청");
 		loadUserInfoPort.findUserInfoById(fromUserId)
@@ -75,7 +77,7 @@ public class FriendService implements FriendUseCase {
 			saveFriendPort.save(new Friend(fromUserId, toUserId));
 
 			publishEventPort.publish(new SocialEvent.FriendAcceptedEvent(toUserId, fromUserId));
-			return new FriendRequestResponseDto(true, "친구 요청을 수락했습니다.");
+			return new FriendRequestResult(true, "친구 요청을 수락했습니다.");
 
 		} else {
 			log.info("{},{} 사용자 친구 요청 테이블 추가 요청", toUserId, fromUserId);
@@ -84,34 +86,34 @@ public class FriendService implements FriendUseCase {
 			saveFriendRequestPort.save(request);
 
 			publishEventPort.publish(new SocialEvent.FriendRequestEvent(toUserId, fromUserId));
-			return new FriendRequestResponseDto(false, "친구 요청을 보냈습니다.");
+			return new FriendRequestResult(false, "친구 요청을 보냈습니다.");
 		}
 	}
 
 	@Override
-	public Page<FriendsDTO> findFriendList(Pageable pageable, String id, RequestMetaInfo requestMetaInfo) {
+	public PageResult<FriendSummaryResult> findFriendList(PageQuery pageQuery, String id, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자 친구 조회 요청");
-		Page<FriendSummaryView> friendsPage = loadFriendListViewPort.loadFriendList(id, pageable);
+		PageResult<FriendSummaryView> friendsPage = loadFriendListViewPort.loadFriendList(id, pageQuery);
 		return friendsPage.map(friend -> toFriendsDto(friend, requestMetaInfo));
 	}
 
 	@Override
-	public List<String> findFriendIdList(Pageable pageable, String userId, RequestMetaInfo requestMetaInfo) {
-		Page<FriendsDTO> friendsPage = findFriendList(pageable, userId, requestMetaInfo);
+	public List<String> findFriendIdList(PageQuery pageQuery, String userId, RequestMetaInfo requestMetaInfo) {
+		PageResult<FriendSummaryResult> friendsPage = findFriendList(pageQuery, userId, requestMetaInfo);
 		return friendsPage.stream()
-				.map(FriendsDTO::getUserId)
+				.map(FriendSummaryResult::userId)
 				.collect(Collectors.toList());
 	}
 
 	@Override
-	public Page<FriendsDTO> findFriendRequests(Pageable pageable, String toUserId, RequestMetaInfo requestMetaInfo) {
+	public PageResult<FriendSummaryResult> findFriendRequests(PageQuery pageQuery, String toUserId, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
-		Page<FriendSummaryView> requests = loadFriendListViewPort.loadFriendRequests(toUserId, pageable);
+		PageResult<FriendSummaryView> requests = loadFriendListViewPort.loadFriendRequests(toUserId, pageQuery);
 		return requests.map(friend -> toFriendsDto(friend, requestMetaInfo));
 	}
 
 	@Override
-	public FriendRequestResponseDto rejectFriendRequest(String toUserId, String fromUserId) {
+	public FriendRequestResult rejectFriendRequest(String toUserId, String fromUserId) {
 		log.info("친구 요청 거절: from {} to {}", fromUserId, toUserId);
 		FriendRequestID friendRequestID = new FriendRequestID(fromUserId, toUserId);
 		if (!loadFriendRequestPort.existsById(friendRequestID)) {
@@ -119,11 +121,11 @@ public class FriendService implements FriendUseCase {
 			throw new FriendRequestNotFoundException("해당 친구 요청 기록을 찾을 수 없습니다.");
 		}
 		saveFriendRequestPort.deleteById(friendRequestID);
-		return new FriendRequestResponseDto(false, "친구 요청을 거절했습니다.");
+		return new FriendRequestResult(false, "친구 요청을 거절했습니다.");
 	}
 
 	@Override
-	public FriendRequestResponseDto cancelFriendRequest(String fromUserId, String toUserId) {
+	public FriendRequestResult cancelFriendRequest(String fromUserId, String toUserId) {
 		log.info("친구 요청 취소: from {} to {}", fromUserId, toUserId);
 		FriendRequestID friendRequestID = new FriendRequestID(fromUserId, toUserId);
 		if (!loadFriendRequestPort.existsById(friendRequestID)) {
@@ -131,7 +133,7 @@ public class FriendService implements FriendUseCase {
 			throw new FriendRequestNotFoundException("요청 보낸 기록이 없습니다.");
 		}
 		saveFriendRequestPort.deleteById(friendRequestID);
-		return new FriendRequestResponseDto(false, "친구 요청을 취소했습니다.");
+		return new FriendRequestResult(false, "친구 요청을 취소했습니다.");
 	}
 
 	@Override
@@ -148,6 +150,46 @@ public class FriendService implements FriendUseCase {
 	}
 
 	@Override
+	public Map<String, FriendStatus> getFriendStatuses(String currentUserId, Set<String> targetUserIds) {
+		if (currentUserId == null || currentUserId.isBlank() || targetUserIds == null || targetUserIds.isEmpty()) {
+			return Map.of();
+		}
+
+		Set<String> filteredTargetIds = targetUserIds.stream()
+				.filter(targetUserId -> !currentUserId.equals(targetUserId))
+				.collect(Collectors.toSet());
+		if (filteredTargetIds.isEmpty()) {
+			return Map.of();
+		}
+
+		Map<String, FriendStatus> statuses = new java.util.HashMap<>();
+		loadFriendPort.findFriendIdsWithinTargets(currentUserId, filteredTargetIds)
+				.forEach(friendId -> statuses.put(friendId, FriendStatus.FRIENDS));
+
+		Set<String> unresolvedTargetIds = filteredTargetIds.stream()
+				.filter(targetUserId -> !statuses.containsKey(targetUserId))
+				.collect(Collectors.toSet());
+		if (unresolvedTargetIds.isEmpty()) {
+			return statuses;
+		}
+
+		loadFriendRequestPort.findRequestedTargetIds(currentUserId, unresolvedTargetIds)
+				.forEach(targetUserId -> statuses.put(targetUserId, FriendStatus.REQUESTED));
+
+		Set<String> requestedResolvedTargetIds = unresolvedTargetIds.stream()
+				.filter(targetUserId -> !statuses.containsKey(targetUserId))
+				.collect(Collectors.toSet());
+		if (requestedResolvedTargetIds.isEmpty()) {
+			return statuses;
+		}
+
+		loadFriendRequestPort.findReceivedFromUserIds(currentUserId, requestedResolvedTargetIds)
+				.forEach(targetUserId -> statuses.put(targetUserId, FriendStatus.RECEIVED));
+
+		return statuses;
+	}
+
+	@Override
 	public int countFriends(String userId) {
 		log.info("사용자 ID: {} 의 친구 수 조회 요청", userId);
 		return loadFriendPort.countByUserId(userId);
@@ -160,7 +202,7 @@ public class FriendService implements FriendUseCase {
 
 	@Override
 	@Transactional
-	public FriendRemoveDTO removeFriend(String myId, String targetId) {
+	public FriendRemovalResult removeFriend(String myId, String targetId) {
 		boolean exists = loadFriendPort.existsFriendship(myId, targetId);
 		if (!exists) {
 			throw new FriendNotFoundException("친구 관계가 존재하지 않습니다.");
@@ -168,13 +210,13 @@ public class FriendService implements FriendUseCase {
 
 		saveFriendPort.deleteByUserIds(myId, targetId);
 
-		return new FriendRemoveDTO(true, "친구 관계가 해제되었습니다.");
+		return new FriendRemovalResult(true, "친구 관계가 해제되었습니다.");
 	}
 
-	private FriendsDTO toFriendsDto(FriendSummaryView friend, RequestMetaInfo requestMetaInfo) {
+	private FriendSummaryResult toFriendsDto(FriendSummaryView friend, RequestMetaInfo requestMetaInfo) {
 		String avatarUrl = friend.avatarPath() != null
 				? imagePathToUrlConverter.userAvatarImageUrl(friend.avatarPath(), requestMetaInfo)
 				: null;
-		return new FriendsDTO(friend.userId(), friend.nickname(), avatarUrl);
+		return new FriendSummaryResult(friend.userId(), friend.nickname(), avatarUrl);
 	}
 }

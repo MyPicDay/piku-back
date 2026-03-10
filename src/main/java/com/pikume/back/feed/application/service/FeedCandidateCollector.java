@@ -3,7 +3,7 @@ package com.pikume.back.feed.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
@@ -78,7 +78,7 @@ public class FeedCandidateCollector {
 			return List.of();
 		}
 
-		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.FRIENDS, friendIds, limit);
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.FRIENDS, friendIds, limit);
 	}
 
 	private List<Long> getFriendPublicFeedIds(List<String> friendIds, int limit) {
@@ -86,11 +86,11 @@ public class FeedCandidateCollector {
 			return List.of();
 		}
 
-		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(DiaryVisibility.PUBLIC, friendIds, limit);
+		return loadDiaryForFeedPort.findFeedIdsByStatusAndUserIds(FeedVisibility.PUBLIC, friendIds, limit);
 	}
 
 	private List<Long> getPublicFeedIds(String userId, int limit) {
-		return loadDiaryForFeedPort.findFeedIdsByStatus(DiaryVisibility.PUBLIC, userId, limit);
+		return loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, userId, limit);
 	}
 
 	private List<Long> combineFeedIdsByPriority(List<Long> friendFeedIds, List<Long> publicFeedIds,

@@ -7,7 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
-import com.pikume.back.recommendation.domain.ScoredDiary;
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
 
 import java.util.List;
 
@@ -29,13 +29,13 @@ class FeedCompositionServiceTest {
 	void fixedSlotUsesRequestedFeedSize() {
 		List<Long> friendDiaryIds = List.of(1L, 2L, 3L, 4L);
 		List<Long> publicDiaryIds = List.of(5L, 6L);
-		List<ScoredDiary> scoredDiaries = List.of(
-				new ScoredDiary(1L, 0.95),
-				new ScoredDiary(5L, 0.90),
-				new ScoredDiary(6L, 0.85),
-				new ScoredDiary(2L, 0.20),
-				new ScoredDiary(3L, 0.15),
-				new ScoredDiary(4L, 0.10));
+		List<RecommendationScoreResult> scoredDiaries = List.of(
+				new RecommendationScoreResult(1L, 0.95),
+				new RecommendationScoreResult(5L, 0.90),
+				new RecommendationScoreResult(6L, 0.85),
+				new RecommendationScoreResult(2L, 0.20),
+				new RecommendationScoreResult(3L, 0.15),
+				new RecommendationScoreResult(4L, 0.10));
 
 		given(loadRecommendationForFeedPort.getRecommendedDiaries("viewer", List.of(1L, 2L, 3L, 4L, 5L, 6L), friendDiaryIds))
 				.willReturn(scoredDiaries);

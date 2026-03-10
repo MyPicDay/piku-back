@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
 import com.pikume.back.recommendation.application.port.out.ContentAnalyzerPort;
 import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
 import com.pikume.back.recommendation.application.port.out.SaveDiaryMetadataPort;
@@ -53,9 +54,8 @@ class DiaryMetadataServiceTest {
 			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.empty());
 			given(saveDiaryMetadataPort.save(analysis)).willReturn(analysis);
 
-			DiaryMetadata result = diaryMetadataService.analyzeAndSave(diaryId, content);
+			diaryMetadataService.analyzeAndSave(diaryId, content);
 
-			assertThat(result.getPrimaryTopic()).isEqualTo("travel");
 			verify(saveDiaryMetadataPort).save(analysis);
 		}
 
@@ -80,9 +80,8 @@ class DiaryMetadataServiceTest {
 			given(contentAnalyzerPort.analyze(diaryId, content)).willReturn(newAnalysis);
 			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.of(existing));
 
-			DiaryMetadata result = diaryMetadataService.analyzeAndSave(diaryId, content);
-
-			assertThat(result.getPrimaryTopic()).isEqualTo("food");
+			diaryMetadataService.analyzeAndSave(diaryId, content);
+			assertThat(existing.getPrimaryTopic()).isEqualTo("food");
 		}
 	}
 
@@ -102,10 +101,10 @@ class DiaryMetadataServiceTest {
 
 			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.of(metadata));
 
-			Optional<DiaryMetadata> result = diaryMetadataService.getMetadata(diaryId);
+			Optional<DiaryMetadataResult> result = diaryMetadataService.getMetadata(diaryId);
 
 			assertThat(result).isPresent();
-			assertThat(result.get().getPrimaryTopic()).isEqualTo("travel");
+			assertThat(result.get().primaryTopic()).isEqualTo("travel");
 		}
 
 		@Test
@@ -113,7 +112,7 @@ class DiaryMetadataServiceTest {
 		void returnsEmptyForMissing() {
 			given(loadDiaryMetadataPort.findByDiaryId(99L)).willReturn(Optional.empty());
 
-			Optional<DiaryMetadata> result = diaryMetadataService.getMetadata(99L);
+			Optional<DiaryMetadataResult> result = diaryMetadataService.getMetadata(99L);
 
 			assertThat(result).isEmpty();
 		}
