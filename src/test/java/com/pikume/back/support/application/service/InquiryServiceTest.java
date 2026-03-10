@@ -7,7 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.support.application.port.out.LoadUserInfoForSupportPort;
 import com.pikume.back.support.application.port.out.SaveInquiryPort;
 import com.pikume.back.support.application.port.out.SendFeedbackEmailPort;
@@ -16,8 +16,9 @@ import com.pikume.back.support.domain.Inquiry;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.*;
-import static org.mockito.Mockito.mock;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,8 +46,7 @@ class InquiryServiceTest {
 		@Test
 		@DisplayName("이미지 포함 문의를 성공적으로 등록한다")
 		void submitWithImage() {
-			MultipartFile mockImage = mock(MultipartFile.class);
-			given(mockImage.isEmpty()).willReturn(false);
+			UploadedFileData mockImage = new UploadedFileData("inquiry.png", "image/png", "data".getBytes());
 			given(loadUserInfoForSupportPort.existsById("user-id")).willReturn(true);
 			given(uploadInquiryImagePort.upload(mockImage, "user-id")).willReturn("https://image-url.com/img.jpg");
 
@@ -82,8 +82,7 @@ class InquiryServiceTest {
 		@Test
 		@DisplayName("이메일 전송 실패 시에도 문의 저장은 성공한다")
 		void emailFailureDoesNotBlockSave() {
-			MultipartFile mockImage = mock(MultipartFile.class);
-			given(mockImage.isEmpty()).willReturn(false);
+			UploadedFileData mockImage = new UploadedFileData("inquiry.png", "image/png", "data".getBytes());
 			given(loadUserInfoForSupportPort.existsById("user-id")).willReturn(true);
 			given(uploadInquiryImagePort.upload(mockImage, "user-id")).willReturn("https://img.jpg");
 			willThrow(new RuntimeException("SMTP 오류"))

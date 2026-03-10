@@ -7,21 +7,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.io.Resource;
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.character.application.dto.CharacterImageContent;
+import com.pikume.back.character.application.dto.CharacterResult;
+import com.pikume.back.character.application.port.out.CharacterImageStoragePort;
 import com.pikume.back.character.application.port.out.LoadCharacterPort;
 import com.pikume.back.character.application.port.out.SaveCharacterPort;
 import com.pikume.back.character.domain.Character;
 import com.pikume.back.character.domain.exception.CharacterNotFoundException;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
-import com.pikume.back.global.util.FileUtil;
+import com.pikume.back.global.dto.UploadedFileData;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CharacterService")
@@ -37,9 +40,7 @@ class CharacterServiceTest {
 	private SaveCharacterPort saveCharacterPort;
 
 	@Mock
-	private FileUtil fileUtil;
-
-	// === GetCharacterUseCase ===
+	private CharacterImageStoragePort characterImageStoragePort;
 
 	@Nested
 	@DisplayName("getFixedCharacters")
@@ -52,10 +53,10 @@ class CharacterServiceTest {
 			Character c2 = new Character("base_image_2.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findByType(CharacterCreationType.FIXED)).willReturn(List.of(c1, c2));
 
-			List<Character> result = characterService.getFixedCharacters();
+			List<CharacterResult> result = characterService.getFixedCharacters();
 
 			assertThat(result).hasSize(2);
-			assertThat(result).allSatisfy(c -> assertThat(c.getType()).isEqualTo(CharacterCreationType.FIXED));
+			assertThat(result).allSatisfy(c -> assertThat(c.type()).isEqualTo(CharacterCreationType.FIXED));
 		}
 
 		@Test
@@ -63,7 +64,7 @@ class CharacterServiceTest {
 		void returnsEmptyListWhenNone() {
 			given(loadCharacterPort.findByType(CharacterCreationType.FIXED)).willReturn(List.of());
 
-			List<Character> result = characterService.getFixedCharacters();
+			List<CharacterResult> result = characterService.getFixedCharacters();
 
 			assertThat(result).isEmpty();
 		}
@@ -79,9 +80,9 @@ class CharacterServiceTest {
 			Character character = new Character("test.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			Character result = characterService.getCharacterById(1L);
+			CharacterResult result = characterService.getCharacterById(1L);
 
-			assertThat(result.getImageUrl()).isEqualTo("test.png");
+			assertThat(result.imageUrl()).isEqualTo("test.png");
 		}
 
 		@Test
@@ -162,77 +163,78 @@ class CharacterServiceTest {
 		}
 	}
 
-	// === ManageCharacterUseCase ===
-
 	@Nested
 	@DisplayName("createAiCharacter")
 	class CreateAiCharacter {
 
 		@Test
-		@DisplayName("String userId로 AI 캐릭터를 정상 생성한다 (User 객체 불필요)")
+		@DisplayName("String userId로 AI 캐릭터를 정상 생성한다")
 		void createsAiCharacterWithUserIdOnly() {
 			String userId = "user-42";
-			MultipartFile imageFile = mock(MultipartFile.class);
+			UploadedFileData imageFile = new UploadedFileData("character.png", "image/png", "data".getBytes());
 			String desiredName = "my_character";
 
-			given(fileUtil.saveCharacterImage(imageFile, CharacterCreationType.AI_GENERATED, userId, desiredName))
+			given(characterImageStoragePort.saveCharacterImage(imageFile, CharacterCreationType.AI_GENERATED, userId, desiredName))
 					.willReturn("saved_image.png");
 			given(saveCharacterPort.save(any(Character.class)))
 					.willAnswer(inv -> inv.getArgument(0));
 
-			Character result = characterService.createAiCharacter(userId, imageFile, desiredName);
+			CharacterResult result = characterService.createAiCharacter(userId, imageFile, desiredName);
 
-			assertThat(result.getUserId()).isEqualTo("user-42");
-			assertThat(result.getImageUrl()).isEqualTo("saved_image.png");
-			assertThat(result.getType()).isEqualTo(CharacterCreationType.AI_GENERATED);
+			assertThat(result.userId()).isEqualTo("user-42");
+			assertThat(result.imageUrl()).isEqualTo("saved_image.png");
+			assertThat(result.type()).isEqualTo(CharacterCreationType.AI_GENERATED);
 		}
 
 		@Test
 		@DisplayName("userId가 null이면 IllegalArgumentException 발생")
 		void throwsWhenUserIdIsNull() {
-			assertThatThrownBy(() -> characterService.createAiCharacter(null, mock(MultipartFile.class), "name"))
+			assertThatThrownBy(() -> characterService.createAiCharacter(null,
+					new UploadedFileData("a.png", "image/png", "x".getBytes()), "name"))
 					.isInstanceOf(IllegalArgumentException.class);
 		}
 
 		@Test
 		@DisplayName("userId가 빈 문자열이면 IllegalArgumentException 발생")
 		void throwsWhenUserIdIsBlank() {
-			assertThatThrownBy(() -> characterService.createAiCharacter("  ", mock(MultipartFile.class), "name"))
+			assertThatThrownBy(() -> characterService.createAiCharacter("  ",
+					new UploadedFileData("a.png", "image/png", "x".getBytes()), "name"))
 					.isInstanceOf(IllegalArgumentException.class);
 		}
 	}
 
 	@Nested
-	@DisplayName("saveCharacter")
-	class SaveCharacter {
+	@DisplayName("saveFixedCharacter")
+	class SaveFixedCharacter {
 
 		@Test
-		@DisplayName("캐릭터를 정상 저장한다")
+		@DisplayName("고정 캐릭터를 정상 저장한다")
 		void savesCharacter() {
 			Character character = new Character("new.png", CharacterCreationType.FIXED);
-			given(saveCharacterPort.save(character)).willReturn(character);
+			given(saveCharacterPort.save(any(Character.class))).willReturn(character);
 
-			Character saved = characterService.saveCharacter(character);
+			CharacterResult saved = characterService.saveFixedCharacter("new.png");
 
-			assertThat(saved.getImageUrl()).isEqualTo("new.png");
-			then(saveCharacterPort).should().save(character);
+			assertThat(saved.imageUrl()).isEqualTo("new.png");
+			assertThat(saved.type()).isEqualTo(CharacterCreationType.FIXED);
+			then(saveCharacterPort).should().save(any(Character.class));
 		}
 	}
 
 	@Nested
-	@DisplayName("getFixedCharacterImageAsResource")
-	class GetFixedCharacterImageAsResource {
+	@DisplayName("getFixedCharacterImage")
+	class GetFixedCharacterImage {
 
 		@Test
-		@DisplayName("고정 캐릭터 이미지를 Resource로 로드한다")
+		@DisplayName("고정 캐릭터 이미지를 application DTO로 로드한다")
 		void loadsResourceForFixedCharacter() {
-			Resource mockResource = mock(Resource.class);
-			given(fileUtil.loadCharacterImageAsResource(CharacterCreationType.FIXED, null, "base.png"))
-					.willReturn(mockResource);
+			CharacterImageContent content = new CharacterImageContent("base.png", "image/png", "img".getBytes());
+			given(characterImageStoragePort.loadCharacterImage(CharacterCreationType.FIXED, null, "base.png"))
+					.willReturn(content);
 
-			Resource result = characterService.getFixedCharacterImageAsResource("base.png");
+			CharacterImageContent result = characterService.getFixedCharacterImage("base.png");
 
-			assertThat(result).isEqualTo(mockResource);
+			assertThat(result).isEqualTo(content);
 		}
 	}
 }

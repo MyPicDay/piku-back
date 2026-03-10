@@ -4,18 +4,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.creative.application.port.out.AiImageGeneratorPort;
+import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.creative.application.port.out.SaveGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 import com.pikume.back.creative.domain.exception.ImageGenerationException;
-import com.pikume.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
-import com.pikume.back.global.util.FileUtil;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.user.application.port.out.LoadUserPort;
-import com.pikume.back.user.domain.User;
 import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.global.error.ErrorCode;
+import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.util.FileUtil;
+import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.domain.User;
 
 /**
  * AI 이미지 생성 Application Service
@@ -30,11 +31,11 @@ public class ImageGenerationService implements GenerateImageUseCase {
 	private final SaveGenerationPort saveGenerationPort;
 	private final FileUtil fileUtil;
 	private final LoadUserPort loadUserPort;
-	private final MinioPhotoStorageAdapter photoStorage;
+	private final CreativeImageStoragePort creativeImageStoragePort;
 
 	@Override
 	@Transactional
-	public DiaryImageGeneration generateDiaryImage(String content, String userId, RequestMetaInfo requestMetaInfo) {
+	public GeneratedImageResult generateDiaryImage(String content, String userId, RequestMetaInfo requestMetaInfo) {
 		log.info("사용자 ID '{}' 일기 이미지 생성 요청", userId);
 
 		User user = loadUserPort.findById(userId)
@@ -56,19 +57,12 @@ public class ImageGenerationService implements GenerateImageUseCase {
 			throw new ImageGenerationException("Gemini API에서 이미지 생성을 실패했거나 파일 저장에 실패했습니다.");
 		}
 
-		String aiUrl = photoStorage.getPhotoUrl(generatedImageRelativePath, false);
+		String aiUrl = creativeImageStoragePort.getPhotoUrl(generatedImageRelativePath, false);
 		DiaryImageGeneration diaryImageGeneration = saveGenerationPort.save(
 				new DiaryImageGeneration(userId, prompt, generatedImageRelativePath));
 		log.info("생성된 이미지 URL: {}", aiUrl);
 
-		return diaryImageGeneration;
-	}
-
-	/**
-	 * 생성된 이미지의 URL을 반환 (DiaryImageGeneration에 없는 정보이므로 별도 제공)
-	 */
-	public String getImageUrl(String filePath) {
-		return photoStorage.getPhotoUrl(filePath, false);
+		return new GeneratedImageResult(diaryImageGeneration.getId(), aiUrl, generatedImageRelativePath);
 	}
 
 	private String generateCharacterActionImage(String prompt, String characterImageBase64, String userId) {
@@ -78,7 +72,7 @@ public class ImageGenerationService implements GenerateImageUseCase {
 			String base64ImageData = aiImageGeneratorPort.editImage(characterImageBase64, prompt).block();
 
 			if (base64ImageData != null && !base64ImageData.isEmpty()) {
-				String savedFilePathSuffix = photoStorage.saveAIPhoto(base64ImageData, userId, "png");
+				String savedFilePathSuffix = creativeImageStoragePort.saveAIPhoto(base64ImageData, userId, "png");
 				log.info("Gemini API 행위 이미지 생성 및 저장 성공: 사용자 ID: {}, 경로: {}", userId, savedFilePathSuffix);
 				return savedFilePathSuffix;
 			} else {

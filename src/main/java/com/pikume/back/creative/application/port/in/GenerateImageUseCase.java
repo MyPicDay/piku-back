@@ -1,6 +1,6 @@
 package com.pikume.back.creative.application.port.in;
 
-import com.pikume.back.creative.domain.DiaryImageGeneration;
+import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 /**
@@ -11,7 +11,7 @@ public interface GenerateImageUseCase {
 	/**
 	 * 일기 내용 기반 AI 이미지 생성
 	 * 
-	 * @return 생성된 DiaryImageGeneration (id, url 포함)
+	 * @return 생성 결과 (id, url 포함)
 	 */
-	DiaryImageGeneration generateDiaryImage(String content, String userId, RequestMetaInfo requestMetaInfo);
+	GeneratedImageResult generateDiaryImage(String content, String userId, RequestMetaInfo requestMetaInfo);
 }

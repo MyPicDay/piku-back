@@ -10,9 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
+import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
-import com.pikume.back.creative.application.service.ImageGenerationService;
-import com.pikume.back.creative.domain.DiaryImageGeneration;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.service.RedisService;
@@ -34,7 +33,6 @@ public class AiGeneratorController {
 	private static final String AI_GENERATE_ACTION = "ai_generate";
 
 	private final GenerateImageUseCase generateImageUseCase;
-	private final ImageGenerationService imageGenerationService;
 	private final RequestMetaMapper requestMetaMapper;
 
 	@Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
@@ -56,11 +54,10 @@ public class AiGeneratorController {
 		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 
 		try {
-			DiaryImageGeneration generation = generateImageUseCase.generateDiaryImage(content, userId, requestMetaInfo);
-			String imageUrl = imageGenerationService.getImageUrl(generation.getFilePath());
-			log.info("Generated image URL: {}", imageUrl);
+			GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(content, userId, requestMetaInfo);
+			log.info("Generated image URL: {}", generation.imageUrl());
 			redisService.incrementRequestCount(AI_GENERATE_ACTION, userId);
-			return ResponseEntity.ok(new AiDiaryResponse(generation.getId(), imageUrl, null));
+			return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
 		} catch (RuntimeException e) {
 			log.error("AI 이미지 생성 실패", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

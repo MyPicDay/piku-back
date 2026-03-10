@@ -1,6 +1,6 @@
 package com.pikume.back.character.application.port.in;
 
-import com.pikume.back.character.domain.Character;
+import com.pikume.back.character.application.dto.CharacterResult;
 
 import java.util.List;
 
@@ -12,12 +12,12 @@ public interface GetCharacterUseCase {
 	/**
 	 * 고정 캐릭터 목록을 조회합니다.
 	 */
-	List<Character> getFixedCharacters();
+	List<CharacterResult> getFixedCharacters();
 
 	/**
 	 * ID로 캐릭터를 조회합니다.
 	 */
-	Character getCharacterById(Long id);
+	CharacterResult getCharacterById(Long id);
 
 	/**
 	 * 고정 캐릭터 이미지 URL을 조회합니다.

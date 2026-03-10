@@ -4,10 +4,11 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.support.application.port.out.SendFeedbackEmailPort;
 import com.pikume.back.user.auth.constants.EmailConstants;
 
@@ -24,7 +25,7 @@ public class EmailAdapterForSupport implements SendFeedbackEmailPort {
 	private String adminEmail;
 
 	@Override
-	public void sendFeedbackEmail(String content, MultipartFile image) {
+	public void sendFeedbackEmail(String content, UploadedFileData image) {
 		try {
 			MimeMessage mimeMessage = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
@@ -38,7 +39,9 @@ public class EmailAdapterForSupport implements SendFeedbackEmailPort {
 			helper.setText(htmlContent, true);
 
 			if (image != null && !image.isEmpty()) {
-				helper.addAttachment(Objects.requireNonNull(image.getOriginalFilename()), image);
+				helper.addAttachment(
+						Objects.requireNonNull(image.originalFilename()),
+						new ByteArrayResource(image.bytes()));
 			}
 
 			mailSender.send(mimeMessage);

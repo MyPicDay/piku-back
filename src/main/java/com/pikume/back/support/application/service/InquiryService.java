@@ -3,7 +3,7 @@ package com.pikume.back.support.application.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.support.application.port.in.InquiryUseCase;
 import com.pikume.back.support.application.port.out.LoadUserInfoForSupportPort;
 import com.pikume.back.support.application.port.out.SaveInquiryPort;
@@ -22,7 +22,7 @@ public class InquiryService implements InquiryUseCase {
 	private final SaveInquiryPort saveInquiryPort;
 
 	@Override
-	public void submitInquiry(String userId, String content, MultipartFile image) {
+	public void submitInquiry(String userId, String content, UploadedFileData image) {
 		if (!loadUserInfoForSupportPort.existsById(userId)) {
 			throw new IllegalArgumentException("존재하지 않는 사용자입니다: " + userId);
 		}

@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,12 +14,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.pikume.back.character.adapter.in.web.dto.CharacterResponse;
+import com.pikume.back.character.application.dto.CharacterImageContent;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * Character Web Adapter (Inbound)
@@ -40,37 +39,27 @@ public class CharacterController {
 	@GetMapping("/fixed")
 	public ResponseEntity<List<CharacterResponse>> getFixedCharacters() {
 		List<CharacterResponse> fixedCharacters = getCharacterUseCase.getFixedCharacters().stream()
-				.map(CharacterResponse::fromEntity)
-				.collect(Collectors.toList());
+				.map(CharacterResponse::fromResult)
+				.toList();
 		return ResponseEntity.ok(fixedCharacters);
 	}
 
 	@Operation(summary = "고정 캐릭터 이미지 조회", description = "고정 캐릭터의 이미지를 조회합니다.")
 	@GetMapping("/fixed/{fileName:.+}")
-	public ResponseEntity<Resource> getFixedCharacterImage(
+	public ResponseEntity<byte[]> getFixedCharacterImage(
 			@Parameter(description = "이미지 파일명", example = "base_image_1.png") @PathVariable String fileName) {
 		try {
-			Resource resource = manageCharacterUseCase.getFixedCharacterImageAsResource(fileName);
-
-			String contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
-			String resourceFilename = resource.getFilename();
-			if (resourceFilename != null) {
-				if (resourceFilename.endsWith(".png"))
-					contentType = MediaType.IMAGE_PNG_VALUE;
-				else if (resourceFilename.endsWith(".jpg") || resourceFilename.endsWith(".jpeg"))
-					contentType = MediaType.IMAGE_JPEG_VALUE;
-				else if (resourceFilename.endsWith(".gif"))
-					contentType = MediaType.IMAGE_GIF_VALUE;
-			}
+			CharacterImageContent image = manageCharacterUseCase.getFixedCharacterImage(fileName);
+			String contentType = image.contentType() != null ? image.contentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
 
 			return ResponseEntity.ok()
 					.contentType(MediaType.parseMediaType(contentType))
-					.header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+					.header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + image.fileName() + "\"")
 					.cacheControl(CacheControl
 							.maxAge(365, TimeUnit.DAYS)
 							.cachePublic()
 							.immutable())
-					.body(resource);
+					.body(image.bytes());
 
 		} catch (RuntimeException e) {
 			log.warn("고정 캐릭터 이미지 '{}' 로드 중 오류 발생(서비스 호출): {}", fileName, e.getMessage());

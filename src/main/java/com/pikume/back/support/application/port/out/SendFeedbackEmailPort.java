@@ -1,8 +1,8 @@
 package com.pikume.back.support.application.port.out;
 
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 
 public interface SendFeedbackEmailPort {
 
-	void sendFeedbackEmail(String content, MultipartFile image);
+	void sendFeedbackEmail(String content, UploadedFileData image);
 }

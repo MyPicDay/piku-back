@@ -1,6 +1,6 @@
 package com.pikume.back.support.application.port.out;
 
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 
 public interface UploadInquiryImagePort {
 
@@ -11,5 +11,5 @@ public interface UploadInquiryImagePort {
 	 * @param userId 사용자 ID
 	 * @return 업로드된 이미지 URL
 	 */
-	String upload(MultipartFile image, String userId);
+	String upload(UploadedFileData image, String userId);
 }

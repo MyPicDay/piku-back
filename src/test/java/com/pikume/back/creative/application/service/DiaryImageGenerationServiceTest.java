@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
 import com.pikume.back.creative.application.port.out.SaveGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
@@ -60,9 +61,10 @@ class DiaryImageGenerationServiceTest {
 			DiaryImageGeneration generation = new DiaryImageGeneration(userId, "prompt", path);
 			given(loadPort.findByUserIdAndFilePath(userId, path)).willReturn(Optional.of(generation));
 
-			DiaryImageGeneration result = service.getByUserIdAndFilePath(userId, path);
+			DiaryImageGenerationView result = service.getByUserIdAndFilePath(userId, path);
 
-			assertThat(result).isEqualTo(generation);
+			assertThat(result.filePath()).isEqualTo(path);
+			assertThat(result.userId()).isEqualTo(userId);
 		}
 
 		@Test

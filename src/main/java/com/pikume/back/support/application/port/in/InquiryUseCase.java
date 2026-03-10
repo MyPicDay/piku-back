@@ -1,8 +1,8 @@
 package com.pikume.back.support.application.port.in;
 
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.global.dto.UploadedFileData;
 
 public interface InquiryUseCase {
 
-	void submitInquiry(String userId, String content, MultipartFile image);
+	void submitInquiry(String userId, String content, UploadedFileData image);
 }

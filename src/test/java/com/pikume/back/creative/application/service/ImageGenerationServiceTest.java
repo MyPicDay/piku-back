@@ -8,13 +8,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
+import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.out.AiImageGeneratorPort;
+import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.creative.application.port.out.SaveGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 import com.pikume.back.creative.domain.exception.ImageGenerationException;
-import com.pikume.back.diary.adapter.out.storage.MinioPhotoStorageAdapter;
-import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.domain.User;
 import java.util.Optional;
@@ -43,7 +44,7 @@ class ImageGenerationServiceTest {
 	private LoadUserPort loadUserPort;
 
 	@Mock
-	private MinioPhotoStorageAdapter photoStorage;
+	private CreativeImageStoragePort creativeImageStoragePort;
 
 	@Nested
 	@DisplayName("generateDiaryImage")
@@ -65,18 +66,18 @@ class ImageGenerationServiceTest {
 			given(aiImageGeneratorPort.editImage(eq("base64_avatar"), anyString()))
 					.willReturn(Mono.just("base64_generated_image"));
 
-			given(photoStorage.saveAIPhoto("base64_generated_image", userId, "png")).willReturn("user-1/generated.png");
-			given(photoStorage.getPhotoUrl("user-1/generated.png", false)).willReturn("http://url/generated.png");
+			given(creativeImageStoragePort.saveAIPhoto("base64_generated_image", userId, "png")).willReturn("user-1/generated.png");
+			given(creativeImageStoragePort.getPhotoUrl("user-1/generated.png", false)).willReturn("http://url/generated.png");
 
 			given(saveGenerationPort.save(any(DiaryImageGeneration.class))).willAnswer(inv -> {
 				DiaryImageGeneration generation = inv.getArgument(0);
 				return generation;
 			});
 
-			DiaryImageGeneration result = imageGenerationService.generateDiaryImage(content, userId, metaInfo);
+			GeneratedImageResult result = imageGenerationService.generateDiaryImage(content, userId, metaInfo);
 
-			assertThat(result.getFilePath()).isEqualTo("user-1/generated.png");
-			assertThat(result.getUserId()).isEqualTo(userId);
+			assertThat(result.filePath()).isEqualTo("user-1/generated.png");
+			assertThat(result.imageUrl()).isEqualTo("http://url/generated.png");
 			then(saveGenerationPort).should().save(any(DiaryImageGeneration.class));
 		}
 

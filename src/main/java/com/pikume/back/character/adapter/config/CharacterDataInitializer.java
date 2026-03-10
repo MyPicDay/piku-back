@@ -2,10 +2,9 @@ package com.pikume.back.character.adapter.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.pikume.back.character.application.dto.CharacterResult;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
-import com.pikume.back.character.domain.Character;
-import com.pikume.back.character.domain.vo.CharacterCreationType;
 import com.pikume.back.global.util.FileConstants;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -51,9 +50,9 @@ public class CharacterDataInitializer implements CommandLineRunner {
 	}
 
 	private Set<String> loadExistingFixedCharacterImageUrlsFromDb() {
-		List<Character> dbFixedCharacters = getCharacterUseCase.getFixedCharacters();
+		List<CharacterResult> dbFixedCharacters = getCharacterUseCase.getFixedCharacters();
 		Set<String> dbImageFileNames = dbFixedCharacters.stream()
-				.map(Character::getImageUrl)
+				.map(CharacterResult::imageUrl)
 				.collect(Collectors.toSet());
 		log.info("DB에 등록된 기존 고정 캐릭터 파일명 수: {}", dbImageFileNames.size());
 		return dbImageFileNames;
@@ -94,8 +93,7 @@ public class CharacterDataInitializer implements CommandLineRunner {
 
 		if (isSupportedImage) {
 			if (!dbImageFileNames.contains(imageName)) {
-				Character newCharacter = new Character(imageName, CharacterCreationType.FIXED);
-				manageCharacterUseCase.saveCharacter(newCharacter);
+				manageCharacterUseCase.saveFixedCharacter(imageName);
 				log.info("새로운 고정 캐릭터 DB 추가: 파일명 = {}, 실제 파일 위치: {}", imageName, imagePath);
 				return true;
 			}

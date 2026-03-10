@@ -15,7 +15,10 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.support.application.port.in.InquiryUseCase;
+
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/inquiry")
@@ -31,10 +34,17 @@ public class InquiryController {
 	public ResponseEntity<Void> saveInquiry(
 			@RequestPart @Valid @Size(max = 1000) String content,
 			@RequestPart(required = false) MultipartFile image,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+			@AuthenticationPrincipal CustomUserDetails customUserDetails) throws IOException {
 		String userId = customUserDetails.getId();
 
-		inquiryUseCase.submitInquiry(userId, content, image);
+		inquiryUseCase.submitInquiry(userId, content, toUploadedFile(image));
 		return ResponseEntity.status(HttpStatus.CREATED).build();
+	}
+
+	private UploadedFileData toUploadedFile(MultipartFile image) throws IOException {
+		if (image == null) {
+			return null;
+		}
+		return new UploadedFileData(image.getOriginalFilename(), image.getContentType(), image.getBytes());
 	}
 }

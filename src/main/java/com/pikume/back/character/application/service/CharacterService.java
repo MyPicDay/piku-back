@@ -2,18 +2,19 @@ package com.pikume.back.character.application.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
+import com.pikume.back.character.application.dto.CharacterImageContent;
+import com.pikume.back.character.application.dto.CharacterResult;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
+import com.pikume.back.character.application.port.out.CharacterImageStoragePort;
 import com.pikume.back.character.application.port.out.LoadCharacterPort;
 import com.pikume.back.character.application.port.out.SaveCharacterPort;
 import com.pikume.back.character.domain.Character;
 import com.pikume.back.character.domain.exception.CharacterNotFoundException;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
-import com.pikume.back.global.util.FileUtil;
+import com.pikume.back.global.dto.UploadedFileData;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,22 +34,25 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 
 	private final LoadCharacterPort loadCharacterPort;
 	private final SaveCharacterPort saveCharacterPort;
-	private final FileUtil fileUtil;
+	private final CharacterImageStoragePort characterImageStoragePort;
 
 	// === GetCharacterUseCase ===
 
 	@Override
-	public List<Character> getFixedCharacters() {
-		return loadCharacterPort.findByType(CharacterCreationType.FIXED);
+	public List<CharacterResult> getFixedCharacters() {
+		return loadCharacterPort.findByType(CharacterCreationType.FIXED).stream()
+				.map(this::toResult)
+				.toList();
 	}
 
 	@Override
-	public Character getCharacterById(Long id) {
-		return loadCharacterPort.findById(id)
+	public CharacterResult getCharacterById(Long id) {
+		Character character = loadCharacterPort.findById(id)
 				.orElseThrow(() -> {
 					log.error("Character not found with id: {}", id);
 					return new CharacterNotFoundException(id);
 				});
+		return toResult(character);
 	}
 
 	@Override
@@ -72,24 +76,31 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 
 	@Override
 	@Transactional
-	public Character createAiCharacter(String userId, MultipartFile imageFile, String desiredName) {
+	public CharacterResult createAiCharacter(String userId, UploadedFileData imageFile, String desiredName) {
 		if (userId == null || userId.isBlank()) {
 			throw new IllegalArgumentException("AI 캐릭터 생성을 위해서는 사용자 정보가 필요합니다.");
 		}
-		String savedFileName = fileUtil.saveCharacterImage(imageFile, CharacterCreationType.AI_GENERATED, userId,
+		String savedFileName = characterImageStoragePort.saveCharacterImage(
+				imageFile,
+				CharacterCreationType.AI_GENERATED,
+				userId,
 				desiredName);
 		Character newCharacter = new Character(userId, savedFileName);
-		return saveCharacterPort.save(newCharacter);
+		return toResult(saveCharacterPort.save(newCharacter));
 	}
 
 	@Override
 	@Transactional
-	public Character saveCharacter(Character character) {
-		return saveCharacterPort.save(character);
+	public CharacterResult saveFixedCharacter(String imageUrl) {
+		return toResult(saveCharacterPort.save(new Character(imageUrl, CharacterCreationType.FIXED)));
 	}
 
 	@Override
-	public Resource getFixedCharacterImageAsResource(String fileName) {
-		return fileUtil.loadCharacterImageAsResource(CharacterCreationType.FIXED, null, fileName);
+	public CharacterImageContent getFixedCharacterImage(String fileName) {
+		return characterImageStoragePort.loadCharacterImage(CharacterCreationType.FIXED, null, fileName);
+	}
+
+	private CharacterResult toResult(Character character) {
+		return new CharacterResult(character.getId(), character.getUserId(), character.getImageUrl(), character.getType());
 	}
 }

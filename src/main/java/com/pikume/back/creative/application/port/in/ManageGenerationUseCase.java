@@ -1,6 +1,6 @@
 package com.pikume.back.creative.application.port.in;
 
-import com.pikume.back.creative.domain.DiaryImageGeneration;
+import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.global.config.CustomUserDetails;
 
 import java.util.List;
@@ -10,15 +10,17 @@ import java.util.List;
  */
 public interface ManageGenerationUseCase {
 
-	DiaryImageGeneration findById(Long id);
+	DiaryImageGenerationView findById(Long id);
 
 	void updateDiaryId(Long historyId, Long diaryId);
 
-	List<DiaryImageGeneration> findUnsavedGenerations();
+	List<DiaryImageGenerationView> findUnsavedGenerations();
 
-	DiaryImageGeneration getByUserIdAndFilePath(String userId, String filePath);
+	DiaryImageGenerationView getByUserIdAndFilePath(String userId, String filePath);
 
 	void diaryUpdate(CustomUserDetails customUserDetails, Long diaryId, String path);
+
+	void updateFilePath(Long generationId, String filePath);
 
 	boolean existsByIdAndUserId(Long id, String userId);
 }
