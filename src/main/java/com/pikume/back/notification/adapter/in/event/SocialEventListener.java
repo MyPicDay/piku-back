@@ -22,40 +22,40 @@ public class SocialEventListener {
 	@EventListener
 	public void handleCommentCreated(SocialEvent.CommentCreatedEvent event) {
 		log.info("[SocialEventListener] 댓글 생성 이벤트 수신 - receiverId: {}, senderId: {}, diaryId: {}",
-				event.getReceiverId(), event.getSenderId(), event.getDiaryId());
+				event.receiverId(), event.senderId(), event.diaryId());
 
 		NotificationType type = event.isReply() ? NotificationType.REPLY : NotificationType.COMMENT;
 		notificationUseCase.sendNotification(
-				event.getReceiverId(), type, event.getSenderId(), event.getDiaryId(), null);
+				event.receiverId(), type, event.senderId(), event.diaryId(), null);
 	}
 
 	@EventListener
 	public void handleLikeCreated(SocialEvent.LikeCreatedEvent event) {
 		log.info("[SocialEventListener] 좋아요 이벤트 수신 - receiverId: {}, senderId: {}, diaryId: {}",
-				event.getReceiverId(), event.getSenderId(), event.getDiaryId());
+				event.receiverId(), event.senderId(), event.diaryId());
 
 		notificationUseCase.sendNotification(
-				event.getReceiverId(), NotificationType.LIKE,
-				event.getSenderId(), event.getDiaryId(), null);
+				event.receiverId(), NotificationType.LIKE,
+				event.senderId(), event.diaryId(), null);
 	}
 
 	@EventListener
 	public void handleFriendRequest(SocialEvent.FriendRequestEvent event) {
 		log.info("[SocialEventListener] 친구 요청 이벤트 수신 - receiverId: {}, senderId: {}",
-				event.getReceiverId(), event.getSenderId());
+				event.receiverId(), event.senderId());
 
 		notificationUseCase.sendNotification(
-				event.getReceiverId(), NotificationType.FRIEND_REQUEST,
-				event.getSenderId(), null, null);
+				event.receiverId(), NotificationType.FRIEND_REQUEST,
+				event.senderId(), null, null);
 	}
 
 	@EventListener
 	public void handleFriendAccepted(SocialEvent.FriendAcceptedEvent event) {
 		log.info("[SocialEventListener] 친구 수락 이벤트 수신 - receiverId: {}, senderId: {}",
-				event.getReceiverId(), event.getSenderId());
+				event.receiverId(), event.senderId());
 
 		notificationUseCase.sendNotification(
-				event.getReceiverId(), NotificationType.FRIEND_ACCEPT,
-				event.getSenderId(), null, null);
+				event.receiverId(), NotificationType.FRIEND_ACCEPT,
+				event.senderId(), null, null);
 	}
 }
