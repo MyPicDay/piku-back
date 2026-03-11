@@ -100,17 +100,77 @@ _Entity_
 
 ---
 
+## 댓글(Comment)
+
+_Entity_
+
+### 속성
+
+- `id` : Long. 댓글의 고유 식별자
+- `content` : String. 댓글 내용
+- `userId` : String (UUID 36자리). 댓글 작성자 식별자
+- `diaryId` : Long. 댓글이 속한 일기 식별자
+- `parent` : Comment. 부모 댓글. 루트 댓글이면 `null`
+- `children` : List<Comment>. 이 댓글에 달린 답글 목록
+- `createdAt` : LocalDateTime. 댓글 생성 일시 (`BaseEntity` 공통)
+- `updatedAt` : LocalDateTime. 댓글 수정 일시 (`BaseEntity` 공통)
+- `deletedAt` : LocalDateTime. 댓글 삭제 일시 (`BaseEntity` 공통, 소프트 삭제용)
+
+### 행위
+
+- `Comment(String content, String userId, Long diaryId)` : 특정 사용자가 특정 일기에 댓글을 생성한다.
+- `connectParent(Comment parent)` : 부모 댓글을 연결하거나 변경한다.
+- `updateContent(String content)` : 댓글 내용을 수정한다.
+- `inactive()` : 댓글을 소프트 삭제한다. (`BaseEntity` 공통)
+- `isDeleted()` : 삭제된 댓글인지 여부를 반환한다.
+
+### 규칙
+
+- 댓글은 정확히 하나의 일기(`diaryId`)에 종속된다.
+- `parent == null`이면 루트 댓글, `parent != null`이면 답글이다.
+- 답글은 동일한 일기 안의 댓글에만 연결될 수 있다.
+- 서비스 정책상 답글의 답글은 허용하지 않는다. 즉 댓글 계층은 최대 2단(댓글 / 답글)까지만 허용된다.
+- 삭제는 물리 삭제가 아니라 소프트 삭제로 처리되며, 삭제된 댓글은 조회 시 별도 정책을 따른다.
+
+---
+
+## 좋아요(Like)
+
+_Entity_
+
+### 속성
+
+- `id` : Long. 좋아요의 고유 식별자
+- `userId` : String (UUID 36자리). 좋아요를 누른 사용자 식별자
+- `diaryId` : Long. 좋아요 대상 일기 식별자
+- `createdAt` : LocalDateTime. 좋아요 생성 일시 (`BaseEntity` 공통)
+- `updatedAt` : LocalDateTime. 수정 일시 (`BaseEntity` 공통)
+- `deletedAt` : LocalDateTime. 취소 처리 일시 (`BaseEntity` 공통, 소프트 삭제용)
+
+### 행위
+
+- `Like.builder()` : 사용자와 일기를 기준으로 좋아요를 생성한다.
+- `inactive()` : 좋아요를 소프트 삭제한다. (`BaseEntity` 공통)
+
+### 규칙
+
+- 하나의 사용자(`userId`)는 하나의 일기(`diaryId`)에 active 좋아요를 한 번만 가질 수 있다.
+- 좋아요 중복 방지는 `(userId, diaryId)` 유니크 제약으로 보장한다.
+- 좋아요 취소는 소프트 삭제로 처리되며, 재활성화 정책은 application service가 결정한다.
+
+---
+
 ## 댓글과 좋아요 접근 정책
 
 ### FRIENDS 일기 상호작용 정책
 
 - `FRIENDS` 공개 범위 일기의 댓글과 답글은 작성자 본인 및 현재 친구 관계인 사용자만 조회할 수 있다.
 - 비친구는 `FRIENDS` 일기의 댓글 목록, 답글 목록, 댓글 수, 좋아요 상태, 좋아요 수에 접근할 수 없다.
-- 비친구는 `commentId` 또는 `parentCommentId`를 알고 있어도 댓글 조회, 답글 조회, 수정, 삭제를 통해 존재를 유추할 수 없어야 한다.
-- 따라서 비친구의 `FRIENDS` 일기 댓글/답글 직접 접근은 모두 `404 Not Found`로 처리하여 존재를 숨긴다.
+- 비친구는 `diaryId` 기반 댓글/좋아요 API에서 숨겨진 일기의 내용과 상호작용 정보를 조회할 수 없다.
+- `commentId` 또는 `parentCommentId`를 직접 아는 경우의 접근은 애플리케이션 에러 정책을 따르며, 존재 은닉 자체를 1차 목표로 두지는 않는다.
 
 ### PRIVATE 일기 상호작용 정책
 
 - `PRIVATE` 일기의 댓글과 좋아요는 작성자 본인만 접근할 수 있다.
-- 비소유자는 `PRIVATE` 일기의 댓글/좋아요 API를 통해 `diaryId`, `commentId`, 답글 존재 여부를 유추할 수 없어야 한다.
-- 따라서 비소유자의 `PRIVATE` 일기 댓글/좋아요 접근도 모두 `404 Not Found`로 처리한다.
+- 비소유자는 `PRIVATE` 일기의 댓글 목록, 답글 목록, 댓글 수, 좋아요 상태, 좋아요 수에 접근할 수 없다.
+- `commentId` 직접 접근 경로의 세부 에러는 애플리케이션 정책을 따르되, 숨겨진 일기의 본문이나 목록 응답은 노출되면 안 된다.
