@@ -2,38 +2,41 @@
 
 ## 도메인 개요
 
-Feed 도메인은 **여러 사용자의 공개 일기를 개인화된 형태로 탐색하게 하고, 사용자의 열람 행위 이력을 수집·관리**하는 도메인입니다. 수집된 클릭 이력은 향후 추천 시스템의 핵심 데이터로 활용됩니다.
+Feed 도메인은 **여러 사용자의 일기를 정책 기반으로 정렬해 탐색하게 하고, 사용자의 열람 행위 이력을 수집·관리**하는 도메인입니다. 수집된 클릭 이력은 향후 추천 시스템의 입력 데이터로 활용됩니다.
 
 ### 목적
 
-- `PUBLIC` 또는 `FRIENDS` 공개 범위 일기를 추천 점수 기반으로 개인화하여 탐색할 수 있도록 피드를 제공한다.
+- `PUBLIC` 또는 `FRIENDS` 공개 범위 일기를 cursor 기반 정책 랭킹으로 탐색할 수 있도록 피드를 제공한다.
 - 일기 열람 행위(`FeedClick`)를 기록함으로써 사용자 행위 기반 선호도 데이터를 수집한다.
-- 피드 결과를 캐시하고, 클릭 발생 시 캐시를 무효화하여 최신 선호도가 반영된 피드를 제공한다.
+- 로그인 사용자 기준으로 친구/비친구, consumed/not consumed를 구분해 우선순위를 제공한다.
 
 ### 핵심 책임
 
 - 피드 클릭 이력(`FeedClick`) 생성 및 중복 클릭 방지
 - 클릭 발생 시 일기 토픽 조회 후 사용자 선호도(`recordInteraction`) 자동 업데이트
-- 클릭 발생 시 추천 피드 캐시 무효화(`invalidateCache`)
-- 친구 일기 후보와 공개 일기 후보를 구분하여 `FeedCompositionService`로 위임, 친구 일기 약 30% 고정 슬롯 + 추천 점수 정렬
+- 피드 목록을 `cursor -> bucket query -> read model materialize` 순서로 orchestration
 - 피드 목록 응답 DTO에 좋아요 수, 댓글 수, 현재 사용자 좋아요 여부, 작성자 닉네임·아바타·친구 상태 포함
-- 일기 상세 조회 시 접근 권한(소유자 / `PUBLIC` / `FRIENDS` + 친구 여부) 검증
+- 일기 상세 조회 시 접근 권한(소유자 / 친구 / 비친구)을 `DiaryVisibility` 정책으로 검증
 
 ### 도메인 경계
 
 - **Aggregate Root**: `FeedClick`
 - `FeedClick`은 독립적인 로그 성격의 Aggregate이며, `Diary`나 `User`의 상태에 직접 영향을 주지 않는다.
-- 피드 후보 수집(`FeedCandidateCollector`), 피드 구성(`FeedCompositionService`), 피드 조회(`FeedQueryService`)는 Application 계층에서 분리된 역할을 갖는다.
-- 추천 캐시와 점수 계산은 `Recommendation` 도메인(`LoadRecommendationForFeedPort`)에 위임한다.
+- 현재 피드 목록은 `FeedQueryService`가 cursor 해석과 bucket 순회를 담당하고, `FeedCursorPersistenceAdapter`가 후보 조회를 담당하며, `FeedListViewPersistenceAdapter`가 read model 조립을 담당한다.
+- `Recommendation` 도메인은 현재 목록 정렬보다 클릭 후 선호도 기록(`recordInteraction`)에 가깝게 사용된다.
 
 ### 타 도메인과의 관계
 
 | 도메인             | 관계 설명                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------ |
-| **User**           | `LoadUserForFeedPort`를 통해 일기 작성자의 닉네임·아바타 URL을 피드 응답에 포함한다.             |
-| **Diary**          | `LoadDiaryForFeedPort`를 통해 피드 후보 일기 목록 및 사진 URL을 조회한다.                        |
-| **Social**         | `LoadSocialForFeedPort`를 통해 친구 관계·좋아요·댓글 수를 피드 DTO에 포함한다.                   |
-| **Recommendation** | `LoadRecommendationForFeedPort`를 통해 추천 점수 조회, 캐시 저장/무효화, 선호도 기록을 위임한다. |
+| **User**           | 작성자의 닉네임·아바타 URL과 친구 상태를 피드 응답에 포함한다.                                      |
+| **Diary**          | 피드 후보 일기와 상세 일기의 공개 범위, 본문, 사진을 제공한다.                                     |
+| **Social**         | 좋아요·댓글 수, 현재 사용자의 좋아요 여부, 친구 관계를 피드 응답에 포함한다.                       |
+| **Recommendation** | 클릭 후 토픽 선호도 기록과 metadata topic 조회를 위임한다. 현재 cursor 목록 정렬의 직접 주체는 아니다. |
+
+### 상세 동작 문서
+
+- 현재 구현 기준의 상세 흐름은 [RECOMMENDATION_FLOW.md](/Users/yk/piku/piku-back/RECOMMENDATION_FLOW.md) 를 따른다.
 
 ---
 
@@ -44,16 +47,25 @@ Feed 도메인은 [`Diary` 도메인이 정의한 공개 범위 정책](DIARY.md
 
 ### 공개 범위별 후보 규칙
 
+- 현재 피드를 요청한 사용자의 일기는 공개 범위와 무관하게 피드 추천 후보에서 제외되어야 한다.
 - `PUBLIC` : 피드 추천 후보에 포함될 수 있다.
 - `FRIENDS` : 현재 조회 사용자가 작성자의 친구인 경우에만 피드 추천 후보에 포함될 수 있다.
 - `PRIVATE` : **어떠한 경우에도 피드 추천 후보에 포함되어서는 안 된다.**
 
 ### PRIVATE 정책 준수 규칙
 
+- 현재 요청 사용자의 own diary는 신규 후보 수집, 캐시 복원, 재정렬, 페이지 materialize 어느 단계에서도 다시 포함되면 안 된다.
 - `PRIVATE` 일기는 신규 후보 수집 시점에 제외되어야 한다.
 - `PRIVATE` 일기는 캐시 hit 복원 시점에도 다시 검증되어 제외되어야 한다.
 - `PRIVATE` 일기는 추천 점수 계산, 후보 병합, 정렬, 페이지 materialize 어느 단계에서도 다시 살아나면 안 된다.
-- `Diary` 도메인에서 허용하는 `대표 이미지 1장 반환` 정책은 캘린더 커버 이미지, 목록 미리보기, 요약 카드 썸네일 용도이며, 피드 후보 허용 근거가 될 수 없다.
+- `PRIVATE` 일기는 피드 상세 조회에서도 비소유자에게 `404`로 숨겨져야 하며, `diaryId`와 이미지가 노출되면 안 된다.
+
+### 상세 조회 규칙
+
+- `PUBLIC` 상세는 누구나 조회할 수 있다.
+- `FRIENDS` 상세는 작성자 본인과 친구만 조회할 수 있다.
+- 비친구는 `FRIENDS` 상세를 조회할 때 `404`로 숨겨져야 하며, 부분 응답을 받아서는 안 된다.
+- `PRIVATE` 상세는 작성자 본인만 조회할 수 있다.
 
 ### 구현 메모
 
