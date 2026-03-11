@@ -92,7 +92,11 @@ public class SecurityConfig {
 							return new org.springframework.security.authorization.AuthorizationDecision(false);
 						})
 						.requestMatchers("/api/diary/ai/**").authenticated()
-						.requestMatchers(HttpMethod.GET, "/api/diary", "/api/diary/**", "/api/comments",
+						.requestMatchers(HttpMethod.GET,
+								"/api/diary",
+								"/api/diary/**",
+								"/api/comments",
+								"/api/comments/*/replies",
 								"/api/users/{userId}/profile-preview")
 						.permitAll()
 						.requestMatchers(permittedPaths.toArray(new String[0]))
