@@ -49,6 +49,7 @@ public class LikeController {
 		return ResponseEntity.ok(toResponse(response));
 	}
 
+	/*
 	@Operation(summary = "좋아요 상태 조회", description = "일기의 좋아요 수와 현재 사용자의 좋아요 여부를 조회합니다.")
 	@GetMapping("/diary/{diaryId}")
 	public ResponseEntity<LikeResponse> getLikeStatus(
@@ -68,6 +69,7 @@ public class LikeController {
 		long count = likeUseCase.getLikeCount(userId, diaryId);
 		return ResponseEntity.ok(count);
 	}
+	*/
 
 	private LikeResponse toResponse(LikeResult result) {
 		return LikeResponse.builder()
