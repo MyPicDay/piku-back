@@ -29,7 +29,7 @@ import java.util.Map;
 public class AiGeneratorController {
 
 	private final RedisService redisService;
-	private static final int MAX_AI_REQUESTS_PER_DAY = 10;
+	private static final int MAX_AI_REQUESTS_PER_DAY = 3;
 	private static final String AI_GENERATE_ACTION = "ai_generate";
 
 	private final GenerateImageUseCase generateImageUseCase;
