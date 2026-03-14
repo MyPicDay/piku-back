@@ -49,3 +49,5 @@ minio-data
 report
 
 .DS_Store
+
+docs/tasks/
