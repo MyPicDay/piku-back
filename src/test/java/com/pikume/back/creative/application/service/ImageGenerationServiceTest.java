@@ -7,17 +7,16 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Mono;
+import com.pikume.back.creative.application.dto.CharacterReferenceImage;
+import com.pikume.back.creative.application.dto.GeneratedIllustrationPayload;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
-import com.pikume.back.creative.application.port.out.AiImageGeneratorPort;
+import com.pikume.back.creative.application.policy.DiaryIllustrationPromptPolicy;
 import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
+import com.pikume.back.creative.application.port.out.GenerateDiaryIllustrationPort;
+import com.pikume.back.creative.application.port.out.LoadCharacterReferencePort;
 import com.pikume.back.creative.application.port.out.SaveGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 import com.pikume.back.creative.domain.exception.ImageGenerationException;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.util.FileUtil;
-import com.pikume.back.user.application.port.out.LoadUserPort;
-import com.pikume.back.user.domain.User;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -32,16 +31,16 @@ class ImageGenerationServiceTest {
 	private ImageGenerationService imageGenerationService;
 
 	@Mock
-	private AiImageGeneratorPort aiImageGeneratorPort;
+	private GenerateDiaryIllustrationPort generateDiaryIllustrationPort;
 
 	@Mock
 	private SaveGenerationPort saveGenerationPort;
 
 	@Mock
-	private FileUtil fileUtil;
+	private LoadCharacterReferencePort loadCharacterReferencePort;
 
 	@Mock
-	private LoadUserPort loadUserPort;
+	private DiaryIllustrationPromptPolicy diaryIllustrationPromptPolicy;
 
 	@Mock
 	private CreativeImageStoragePort creativeImageStoragePort;
@@ -55,16 +54,11 @@ class ImageGenerationServiceTest {
 		void generatesDiaryImageSuccessfully() {
 			String userId = "user-1";
 			String content = "Taking a walk in the park";
-			RequestMetaInfo metaInfo = mock(RequestMetaInfo.class);
-
-			User user = mock(User.class);
-			given(user.getAvatar()).willReturn("avatar_path");
-			given(loadUserPort.findById(userId)).willReturn(Optional.of(user));
-
-			given(fileUtil.getImageAsBase64("avatar_path")).willReturn("base64_avatar");
-
-			given(aiImageGeneratorPort.editImage(eq("base64_avatar"), anyString()))
-					.willReturn(Mono.just("base64_generated_image"));
+			given(loadCharacterReferencePort.findByUserId(userId))
+					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
+			given(diaryIllustrationPromptPolicy.createPrompt(content)).willReturn("generated prompt");
+			given(generateDiaryIllustrationPort.generate(any()))
+					.willReturn(new GeneratedIllustrationPayload("base64_generated_image", "png"));
 
 			given(creativeImageStoragePort.saveAIPhoto("base64_generated_image", userId, "png")).willReturn("user-1/generated.png");
 			given(creativeImageStoragePort.getPhotoUrl("user-1/generated.png", false)).willReturn("http://url/generated.png");
@@ -74,7 +68,7 @@ class ImageGenerationServiceTest {
 				return generation;
 			});
 
-			GeneratedImageResult result = imageGenerationService.generateDiaryImage(content, userId, metaInfo);
+			GeneratedImageResult result = imageGenerationService.generateDiaryImage(content, userId);
 
 			assertThat(result.filePath()).isEqualTo("user-1/generated.png");
 			assertThat(result.imageUrl()).isEqualTo("http://url/generated.png");
@@ -82,18 +76,14 @@ class ImageGenerationServiceTest {
 		}
 
 		@Test
-		@DisplayName("아바타 로드 실패 시 예외 발생")
-		void throwsWhenAvatarLoadFails() {
+		@DisplayName("참조 캐릭터 이미지를 찾지 못하면 예외가 발생한다")
+		void throwsWhenCharacterReferenceMissing() {
 			String userId = "user-1";
-			User user = mock(User.class);
-			given(user.getAvatar()).willReturn("invalid_path");
-			given(loadUserPort.findById(userId)).willReturn(Optional.of(user));
-			given(fileUtil.getImageAsBase64("invalid_path")).willReturn(null);
+			given(loadCharacterReferencePort.findByUserId(userId)).willReturn(Optional.empty());
 
-			assertThatThrownBy(
-					() -> imageGenerationService.generateDiaryImage("content", userId, mock(RequestMetaInfo.class)))
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
 					.isInstanceOf(ImageGenerationException.class)
-					.hasMessageContaining("아바타 이미지");
+					.hasMessageContaining("참조 캐릭터 이미지");
 		}
 	}
 }

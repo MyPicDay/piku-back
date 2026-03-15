@@ -13,10 +13,7 @@ import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.service.RedisService;
-import com.pikume.back.global.util.RequestMetaMapper;
-import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,14 +30,12 @@ public class AiGeneratorController {
 	private static final String AI_GENERATE_ACTION = "ai_generate";
 
 	private final GenerateImageUseCase generateImageUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 
 	@Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
 	@SecurityRequirement(name = "JWT")
 	@PostMapping("/diary/ai/generate")
 	public ResponseEntity<Object> generateDiaryImage(
 			@RequestBody Map<String, String> body,
-			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
 		String content = body.get("content");
@@ -51,10 +46,8 @@ public class AiGeneratorController {
 					.body("일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.");
 		}
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-
 		try {
-			GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(content, userId, requestMetaInfo);
+			GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(content, userId);
 			log.info("Generated image URL: {}", generation.imageUrl());
 			redisService.incrementRequestCount(AI_GENERATE_ACTION, userId);
 			return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
