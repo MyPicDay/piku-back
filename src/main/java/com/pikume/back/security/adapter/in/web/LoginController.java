@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.global.dto.CookieSpec;
+import com.pikume.back.global.error.ErrorResponse;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
@@ -63,7 +64,8 @@ public class LoginController {
 					.body(loginResponse);
 		} catch (RuntimeException e) {
 			log.warn("[로그인] 실패 : {}", e.getMessage());
-			return ResponseEntity.status(401).body("로그인 실패: " + e.getMessage());
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+					.body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "로그인 실패: " + e.getMessage()));
 		}
 	}
 
