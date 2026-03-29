@@ -25,6 +25,8 @@ import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.then;
 
 class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 
@@ -95,6 +97,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@DisplayName("좋아요 후 취소한 일기에 다시 좋아요를 누르면 기존 좋아요가 복구된다")
 	void restoresSoftDeletedLikeWhenRelike() {
 		likeService.addLike(likerId, diaryId, requestMetaInfo);
+		then(publishEventPort).should().publish(any());
 		flushAndClear();
 		likeService.removeLike(likerId, diaryId);
 		flushAndClear();
@@ -112,6 +115,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 		assertThat(restoredLike.getId()).isEqualTo(likeId);
 		assertThat(restoredLike.getDeletedAt()).isNull();
 		assertThat(restoredLike.getUpdatedAt()).isAfterOrEqualTo(removedUpdatedAt);
+		then(publishEventPort).shouldHaveNoMoreInteractions();
 	}
 
 	@Test

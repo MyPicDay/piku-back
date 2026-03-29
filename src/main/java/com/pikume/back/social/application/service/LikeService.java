@@ -44,6 +44,7 @@ public class LikeService implements LikeUseCase {
 		}
 
 		Optional<Like> existingLike = loadLikePort.findAnyByUserIdAndDiaryIdForUpdate(userId, diaryId);
+		boolean shouldPublishLikeCreatedEvent = false;
 		if (existingLike.isPresent()) {
 			Like like = existingLike.get();
 			if (like.getDeletedAt() == null) {
@@ -58,13 +59,16 @@ public class LikeService implements LikeUseCase {
 					.build();
 			try {
 				saveLikePort.saveAndFlush(like);
+				shouldPublishLikeCreatedEvent = true;
 			} catch (DataIntegrityViolationException e) {
 				throw new DuplicateLikeException("좋아요 중복 저장이 감지되었습니다.", e);
 			}
 		}
 
-		publishEventPort.publish(new SocialEvent.LikeCreatedEvent(
-				diaryOwnerId, userId, diaryId));
+		if (shouldPublishLikeCreatedEvent) {
+			publishEventPort.publish(new SocialEvent.LikeCreatedEvent(
+					diaryOwnerId, userId, diaryId));
+		}
 
 		long likeCount = loadLikePort.countByDiaryId(diaryId);
 		log.info("[좋아요 추가 완료] diaryId: {}, 총 좋아요 수: {}", diaryId, likeCount);

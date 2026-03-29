@@ -147,7 +147,7 @@ class LikeServiceTest {
 			assertThat(response.liked()).isTrue();
 			assertThat(softDeletedLike.getDeletedAt()).isNull();
 			then(saveLikePort).should().saveAndFlush(softDeletedLike);
-			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
+			then(publishEventPort).shouldHaveNoInteractions();
 		}
 	}
 
