@@ -2,62 +2,48 @@ package com.pikume.back.diary.adapter.in.web;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.Getter;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.pikume.back.diary.adapter.in.web.problem.DiaryProblemType;
 import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
-import com.pikume.back.global.error.ErrorCode;
+import com.pikume.back.global.error.ProblemDetailFactory;
 
 @RestControllerAdvice(basePackages = { "com.pikume.back.diary", "com.pikume.back.comment" })
+@RequiredArgsConstructor
 public class DiaryExceptionHandler {
 
+	private final ProblemDetailFactory problemDetailFactory;
+
 	@ExceptionHandler(AccessDeniedException.class)
-	public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex,
+	public ResponseEntity<ProblemDetail> handleAccessDeniedException(AccessDeniedException ex,
 			HttpServletRequest request) {
-		ErrorResponse error = new ErrorResponse(HttpStatus.FORBIDDEN.value(), "권한이 없습니다.", request.getRequestURI());
-		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+		return problem(DiaryProblemType.FORBIDDEN, "권한이 없습니다.", request);
 	}
 
 	@ExceptionHandler(DiaryNotFoundException.class)
-	public ResponseEntity<ErrorResponse> handleDiaryNotFoundException(DiaryNotFoundException ex,
+	public ResponseEntity<ProblemDetail> handleDiaryNotFoundException(DiaryNotFoundException ex,
 			HttpServletRequest request) {
-		ErrorCode errorCode = ex.getErrorCode();
-		ErrorResponse error = new ErrorResponse(errorCode.getStatus(), errorCode.getMessage(), request.getRequestURI());
-		return ResponseEntity.status(HttpStatus.valueOf(errorCode.getStatus())).body(error);
+		return problem(DiaryProblemType.NOT_FOUND, ex.getMessage(), request);
 	}
 
 	@ExceptionHandler(DuplicateDiaryException.class)
-	public ResponseEntity<ErrorResponse> handleDuplicateDiaryException(DuplicateDiaryException ex,
+	public ResponseEntity<ProblemDetail> handleDuplicateDiaryException(DuplicateDiaryException ex,
 			HttpServletRequest request) {
-		ErrorResponse error = new ErrorResponse(
-				HttpStatus.CONFLICT.value(), // 409
-				ex.getMessage(), // 예외 메시지
-				request.getRequestURI() // 요청 경로
-		);
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+		return problem(DiaryProblemType.CONFLICT, ex.getMessage(), request);
 	}
 
 	@ExceptionHandler(EntityNotFoundException.class)
-	public ResponseEntity<ErrorResponse> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
-		ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "엔티티를 찾을 수 없습니다.", request.getRequestURI());
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+	public ResponseEntity<ProblemDetail> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
+		return problem(DiaryProblemType.NOT_FOUND, "엔티티를 찾을 수 없습니다.", request);
 	}
 
-	// ErrorResponse 클래스 정의
-	@Getter
-	public static class ErrorResponse {
-		private final int status;
-		private final String message;
-		private final String path;
-
-		public ErrorResponse(int status, String message, String path) {
-			this.status = status;
-			this.message = message;
-			this.path = path;
-		}
+	private ResponseEntity<ProblemDetail> problem(DiaryProblemType problemType, String detail, HttpServletRequest request) {
+		ProblemDetail problemDetail = problemDetailFactory.create(problemType, detail, request.getRequestURI());
+		return ResponseEntity.status(problemType.status()).body(problemDetail);
 	}
 }

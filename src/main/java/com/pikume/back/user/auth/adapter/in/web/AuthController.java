@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
@@ -39,13 +40,8 @@ public class AuthController {
 	})
 	@PostMapping("/signup")
 	public ResponseEntity<?> signup(@RequestBody SignupRequest dto) {
-		try {
-			signUpUseCase.signup(dto);
-			return ResponseEntity.status(HttpStatus.CREATED).body("회원가입 성공");
-		} catch (RuntimeException e) {
-			log.warn("[회원가입] 실패 : {}", e.getMessage());
-			return ResponseEntity.badRequest().body("회원가입 실패: " + e.getMessage());
-		}
+		signUpUseCase.signup(dto);
+		return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("회원가입 성공"));
 	}
 
 	@Operation(summary = "회원가입 이메일 발송", description = "회원가입시 사용자 본인인증과 이메일 중복확인을 위해 인증코드를 이메일로 발송합니다.")
@@ -56,13 +52,8 @@ public class AuthController {
 	@PostMapping("/send-verification/sign-up")
 	public ResponseEntity<?> sendSignUpVerificationEmail(@RequestBody Map<String, String> request) {
 		String email = request.get("email");
-		try {
-			verifyEmailUseCase.sendSignUpVerificationEmail(email);
-			return ResponseEntity.ok("회원가입 인증 이메일이 발송되었습니다.");
-		} catch (RuntimeException e) {
-			log.warn("[이메일 발송] 실패 : {}", e.getMessage());
-			return ResponseEntity.badRequest().body("이메일 발송 실패: " + e.getMessage());
-		}
+		verifyEmailUseCase.sendSignUpVerificationEmail(email);
+		return ResponseEntity.ok(new MessageResponse("회원가입 인증 이메일이 발송되었습니다."));
 	}
 
 	@Operation(summary = "비밀번호 재설정 이메일 발송", description = "비밀번호 재설정을 위한 인증코드를 이메일로 발송합니다.")
@@ -73,37 +64,22 @@ public class AuthController {
 	@PostMapping("/send-verification/password-reset")
 	public ResponseEntity<?> sendPasswordResetVerificationEmail(@RequestBody Map<String, String> request) {
 		String email = request.get("email");
-		try {
-			verifyEmailUseCase.sendPasswordResetVerificationEmail(email);
-			return ResponseEntity.ok("비밀번호 재설정 인증 이메일이 발송되었습니다.");
-		} catch (RuntimeException e) {
-			log.warn("[이메일 발송] 실패: {}", e.getMessage());
-			return ResponseEntity.badRequest().body("이메일 발송 실패: " + e.getMessage());
-		}
+		verifyEmailUseCase.sendPasswordResetVerificationEmail(email);
+		return ResponseEntity.ok(new MessageResponse("비밀번호 재설정 인증 이메일이 발송되었습니다."));
 	}
 
 	@Operation(summary = "이메일 인증 코드 검증", description = "사용자가 입력한 인증 코드를 검증합니다.")
 	@PostMapping("/verify-code")
 	public ResponseEntity<?> verifyCode(@RequestBody EmailValidRequest dto) {
-		try {
-			verifyEmailUseCase.verifyCode(dto);
-			return ResponseEntity.ok("이메일 인증이 완료되었습니다.");
-		} catch (RuntimeException e) {
-			log.warn("[코드 검증] 실패 : {}", e.getMessage());
-			return ResponseEntity.badRequest().body("코드 검증 실패: " + e.getMessage());
-		}
+		verifyEmailUseCase.verifyCode(dto);
+		return ResponseEntity.ok(new MessageResponse("이메일 인증이 완료되었습니다."));
 	}
 
 	@Operation(summary = "비밀번호 재설정", description = "인증 이메일을 통해 비밀번호를 재설정합니다.")
 	@PostMapping("/password-reset")
 	public ResponseEntity<?> resetPassword(@RequestBody PwdResetRequest dto) {
-		try {
-			resetPasswordUseCase.verifyCodeAndResetPwd(dto);
-			return ResponseEntity.ok("비밀번호가 재설정되었습니다.");
-		} catch (RuntimeException e) {
-			log.warn("[비밀번호 재설정] 실패: {}", e.getMessage());
-			return ResponseEntity.badRequest().body("비밀번호 재설정 실패: " + e.getMessage());
-		}
+		resetPasswordUseCase.verifyCodeAndResetPwd(dto);
+		return ResponseEntity.ok(new MessageResponse("비밀번호가 재설정되었습니다."));
 	}
 
 	@Operation(summary = "이메일 허용 여부 확인", description = "이메일이 허용된 도메인에 속하는지 확인합니다.")

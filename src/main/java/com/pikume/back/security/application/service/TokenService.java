@@ -9,6 +9,8 @@ import org.springframework.util.StringUtils;
 import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.application.dto.AuthUserView;
+import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
@@ -33,11 +35,11 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	private final PasswordEncoder passwordEncoder;
 
 	@Override
-	public TokenDto login(LoginRequest dto, String deviceId) {
+	public LoginResult login(LoginRequest dto, String deviceId) {
 		log.info("[로그인] 서비스 호출 : 이메일={}", dto.getEmail());
 
 		AuthUserView user = loadUserForAuthPort.findByEmail(dto.getEmail())
-				.orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+				.orElseThrow(this::invalidCredentials);
 
 		validateLoginPassword(dto.getPassword(), user.password(), dto.getEmail());
 
@@ -45,19 +47,9 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		String refreshToken = saveNewRefreshToken(dto.getEmail(), deviceId, user.id());
 
 		log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
-		return new TokenDto(accessToken, refreshToken);
-	}
-
-	@Override
-	public UserInfo getUserInfoByEmail(String email) {
-		AuthUserView user = loadUserForAuthPort.findByEmail(email)
-				.orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-
-		return new UserInfo(
-				user.id(),
-				user.email(),
-				user.nickname(),
-				user.avatarPath());
+		return new LoginResult(
+				new TokenDto(accessToken, refreshToken),
+				new UserInfo(user.id(), user.email(), user.nickname(), user.avatarPath()));
 	}
 
 	@Override
@@ -73,7 +65,10 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		}
 
 		RefreshToken tokenEntity = loadRefreshTokenPort.findByRefreshToken(refreshToken)
-				.orElseThrow(() -> new RuntimeException("저장된 리프레시 토큰 없음"));
+				.orElse(null);
+		if (tokenEntity == null) {
+			return null;
+		}
 
 		String email = tokenEntity.getKey().split("-")[0];
 		return jwtProvider.generateAccessToken(email);
@@ -113,8 +108,12 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	private void validateLoginPassword(String requestPassword, String storedPassword, String email) {
 		if (!passwordEncoder.matches(requestPassword, storedPassword)) {
 			log.warn("[로그인] 실패 - 비밀번호 불일치 : 이메일={}", email);
-			throw new RuntimeException("비밀번호가 일치하지 않습니다.");
+			throw invalidCredentials();
 		}
+	}
+
+	private InvalidCredentialsException invalidCredentials() {
+		return new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
 	}
 
 	private String saveNewRefreshToken(String email, String deviceId, String userId) {

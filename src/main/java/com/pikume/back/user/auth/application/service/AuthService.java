@@ -76,7 +76,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 			log.info("이미 가입된 이메일로 인증 요청 감지. email= {}", email);
 		}
 
-		String code = sendVerificationEmailPort.sendVerificationEmail(email);
+		String code = sendVerificationEmail(email);
 		log.info("회원가입을 위한 인증 이메일을 발송합니다. email= {}", email);
 		saveVerificationCode(email, code, VerificationType.SIGN_UP);
 	}
@@ -88,7 +88,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 			log.info("가입되지 않은 이메일로 비밀번호 재설정을 요청 감지. email= {}", email);
 		}
 
-		String code = sendVerificationEmailPort.sendVerificationEmail(email);
+		String code = sendVerificationEmail(email);
 		log.info("비밀번호 재설정을 위한 인증 이메일을 발송합니다. email= {}", email);
 		saveVerificationCode(email, code, VerificationType.PASSWORD_RESET);
 	}
@@ -151,6 +151,16 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 			Verification verification = new Verification(email, code, type);
 			saveVerificationPort.save(verification);
 			log.info("[인증 코드 저장] 신규 인증 정보 저장 완료. verificationId={}", verification.getId());
+		}
+	}
+
+	private String sendVerificationEmail(String email) {
+		try {
+			return sendVerificationEmailPort.sendVerificationEmail(email);
+		} catch (AuthException e) {
+			throw e;
+		} catch (RuntimeException e) {
+			throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
 		}
 	}
 

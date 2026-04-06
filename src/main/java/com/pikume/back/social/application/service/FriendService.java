@@ -17,6 +17,7 @@ import com.pikume.back.social.application.readmodel.FriendSummaryView;
 import com.pikume.back.social.domain.event.SocialEvent;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
+import com.pikume.back.social.domain.friend.exception.AlreadyFriendsException;
 import com.pikume.back.social.domain.friend.exception.FriendException;
 import com.pikume.back.social.domain.friend.exception.FriendNotFoundException;
 import com.pikume.back.social.domain.friend.exception.FriendRequestNotFoundException;
@@ -63,7 +64,7 @@ public class FriendService implements FriendUseCase {
 		}
 
 		if (areFriends(fromUserId, toUserId) || areFriends(toUserId, fromUserId)) {
-			throw new FriendException("이미 친구입니다.");
+			throw new AlreadyFriendsException("이미 친구입니다.");
 		}
 
 		Optional<FriendRequest> existing = loadFriendRequestPort.findById(

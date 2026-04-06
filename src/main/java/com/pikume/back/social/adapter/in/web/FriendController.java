@@ -16,7 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -31,9 +31,6 @@ import com.pikume.back.social.application.dto.FriendRequestResult;
 import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.adapter.in.web.dto.*;
 import com.pikume.back.social.application.port.in.FriendUseCase;
-import com.pikume.back.social.domain.friend.exception.FriendException;
-import com.pikume.back.social.domain.friend.exception.FriendNotFoundException;
-import com.pikume.back.social.domain.friend.exception.FriendRequestNotFoundException;
 
 @Tag(name = "Friend", description = "친구 관련 API")
 @RestController
@@ -51,8 +48,8 @@ public class FriendController {
 					@ExampleObject(name = "요청 보냄", value = "{\"accepted\": false, \"message\": \"친구 요청을 보냈습니다.\"}"),
 					@ExampleObject(name = "요청 수락", value = "{\"accepted\": true, \"message\": \"친구 요청을 수락했습니다.\"}")
 			})),
-			@ApiResponse(responseCode = "409", description = "이미 친구인 상태", content = @Content(mediaType = "application/json", schema = @Schema(implementation = FriendRequestResponseDto.class), examples = @ExampleObject(value = "{\"accepted\": false, \"message\": \"이미 친구입니다.\"}"))),
-			@ApiResponse(responseCode = "400", description = "잘못된 요청 (자신에게 요청 등)", content = @Content(mediaType = "application/json", schema = @Schema(implementation = FriendRequestResponseDto.class), examples = @ExampleObject(value = "{\"accepted\": false, \"message\": \"자신에게 요청 할 수 없습니다.\"}")))
+			@ApiResponse(responseCode = "409", description = "이미 친구인 상태", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/already-friends\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 친구입니다.\",\"instance\":\"/api/relation\"}"))),
+			@ApiResponse(responseCode = "400", description = "잘못된 요청 (자신에게 요청 등)", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/invalid-friend-request\",\"title\":\"Bad Request\",\"status\":400,\"detail\":\"자신에게 요청 할 수 없습니다.\",\"instance\":\"/api/relation\"}")))
 	})
 	@PostMapping
 	public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
@@ -60,16 +57,10 @@ public class FriendController {
 			@RequestBody FriendRequestDto requestDto,
 			HttpServletRequest request) {
 		log.info("친구 요청(수락) 요청 {} 가 {}에게", customUserDetails.getId(), requestDto.getToUserId());
-		try {
-			RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-			FriendRequestResult response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
-					requestDto.getToUserId(), requestMetaInfo);
-			return ResponseEntity.ok(toResponseDto(response));
-		} catch (FriendException e) {
-			return ResponseEntity
-					.status(HttpStatus.BAD_REQUEST)
-					.body(new FriendRequestResponseDto(false, e.getMessage()));
-		}
+		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
+		FriendRequestResult response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
+				requestDto.getToUserId(), requestMetaInfo);
+		return ResponseEntity.ok(toResponseDto(response));
 	}
 
 	@Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다.")
@@ -114,45 +105,33 @@ public class FriendController {
 
 	@Operation(summary = "친구 요청 거절", description = "받은 친구 요청을 거절합니다.", responses = {
 			@ApiResponse(responseCode = "200", description = "친구 요청 거절 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"친구 요청을 거절했습니다.\", \"accepted\": false}"), schema = @Schema(implementation = FriendRequestResponseDto.class))),
-			@ApiResponse(responseCode = "404", description = "친구 요청이 존재하지 않음", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"해당 친구 요청을 찾을 수 없습니다.\", \"accepted\": false}"), schema = @Schema(implementation = FriendRequestResponseDto.class)))
+			@ApiResponse(responseCode = "404", description = "친구 요청이 존재하지 않음", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/friend-request-not-found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"해당 친구 요청 기록을 찾을 수 없습니다.\",\"instance\":\"/api/relation/requests/{fromUserId}\"}")))
 	})
 	@DeleteMapping("/requests/{fromUserId}")
 	public ResponseEntity<FriendRequestResponseDto> rejectFriendRequest(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@PathVariable String fromUserId) {
 		log.info("{} 가 {} 의 친구 요청 거절", customUserDetails.getId(), fromUserId);
-		try {
-			FriendRequestResult response = friendUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
-			return ResponseEntity.ok(toResponseDto(response));
-		} catch (FriendRequestNotFoundException e) {
-			return ResponseEntity
-					.status(HttpStatus.NOT_FOUND)
-					.body(new FriendRequestResponseDto(false, e.getMessage()));
-		}
+		FriendRequestResult response = friendUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
+		return ResponseEntity.ok(toResponseDto(response));
 	}
 
 	@Operation(summary = "친구 요청 취소", description = "친구 요청을 취소합니다.", responses = {
 			@ApiResponse(responseCode = "200", description = "친구 요청 취소 성공", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"친구 요청을 취소했습니다.\", \"accepted\": false}"), schema = @Schema(implementation = FriendRequestResponseDto.class))),
-			@ApiResponse(responseCode = "404", description = "취소할 친구 요청이 존재하지 않음", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "{\"message\": \"취소할 친구 요청을 찾을 수 없습니다.\", \"accepted\": false}"), schema = @Schema(implementation = FriendRequestResponseDto.class)))
+			@ApiResponse(responseCode = "404", description = "취소할 친구 요청이 존재하지 않음", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/friend-request-not-found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"요청 보낸 기록이 없습니다.\",\"instance\":\"/api/relation/cancel/{toUserId}\"}")))
 	})
 	@DeleteMapping("/cancel/{toUserId}")
 	public ResponseEntity<FriendRequestResponseDto> cancelFriendRequest(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@PathVariable String toUserId) {
 		log.info("{} 가 {} 에게 보낸 친구 요청 취소", customUserDetails.getId(), toUserId);
-		try {
-			FriendRequestResult response = friendUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
-			return ResponseEntity.ok(toResponseDto(response));
-		} catch (FriendRequestNotFoundException e) {
-			return ResponseEntity
-					.status(HttpStatus.NOT_FOUND)
-					.body(new FriendRequestResponseDto(false, e.getMessage()));
-		}
+		FriendRequestResult response = friendUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
+		return ResponseEntity.ok(toResponseDto(response));
 	}
 
 	@Operation(summary = "친구 끊기", description = "특정 사용자의 친구 관계를 삭제합니다.", responses = {
 			@ApiResponse(responseCode = "200", description = "친구 관계 삭제 성공"),
-			@ApiResponse(responseCode = "404", description = "친구 관계가 존재하지 않을 경우", content = @Content(mediaType = "application/json", schema = @Schema(implementation = FriendRemoveDTO.class, example = "{\"success\": false, \"message\": \"친구 관계가 존재하지 않습니다.\"}")))
+			@ApiResponse(responseCode = "404", description = "친구 관계가 존재하지 않을 경우", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/friend-not-found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"친구 관계가 존재하지 않습니다.\",\"instance\":\"/api/relation/{toUserId}\"}")))
 	})
 	@DeleteMapping("/{toUserId}")
 	public ResponseEntity<FriendRemoveDTO> removeFriend(
@@ -161,15 +140,8 @@ public class FriendController {
 
 		String fromUserId = customUserDetails.getId();
 		log.info("User {} is unfriending user {}", fromUserId, toUserId);
-
-		try {
-			FriendRemovalResult response = friendUseCase.removeFriend(fromUserId, toUserId);
-			return ResponseEntity.ok(toRemoveDto(response));
-		} catch (FriendNotFoundException e) {
-			return ResponseEntity
-					.status(HttpStatus.NOT_FOUND)
-					.body(new FriendRemoveDTO(false, e.getMessage()));
-		}
+		FriendRemovalResult response = friendUseCase.removeFriend(fromUserId, toUserId);
+		return ResponseEntity.ok(toRemoveDto(response));
 	}
 
 	private FriendRequestResponseDto toResponseDto(FriendRequestResult result) {

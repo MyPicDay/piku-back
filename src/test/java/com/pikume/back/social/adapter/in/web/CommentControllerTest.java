@@ -19,13 +19,12 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.util.RequestMetaMapper;
+import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.port.in.CommentUseCase;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
-
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,7 +57,7 @@ class CommentControllerTest {
 				.setCustomArgumentResolvers(
 						new AuthenticationPrincipalResolver(userDetails),
 						new PageableHandlerMethodArgumentResolver())
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty()))
+				.setControllerAdvice(new SocialExceptionHandler(new ProblemDetailFactory()))
 				.build();
 		requestMetaInfo = new RequestMetaInfo(
 				"https",
@@ -81,8 +80,9 @@ class CommentControllerTest {
 						.param("diaryId", "1")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.type").value(SocialProblemType.DIARY_NOT_FOUND.type().toString()))
 				.andExpect(jsonPath("$.status").value(404))
-				.andExpect(jsonPath("$.message").value(CommentErrorCode.DIARY_NOT_FOUND.getMessage()));
+				.andExpect(jsonPath("$.detail").value(CommentErrorCode.DIARY_NOT_FOUND.getMessage()));
 	}
 
 	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {

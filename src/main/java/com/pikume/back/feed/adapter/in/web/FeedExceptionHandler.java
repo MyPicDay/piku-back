@@ -1,28 +1,27 @@
 package com.pikume.back.feed.adapter.in.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.pikume.back.feed.adapter.in.web.problem.FeedProblemType;
 import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
+import com.pikume.back.global.error.ProblemDetailFactory;
 
 @RestControllerAdvice(basePackages = "com.pikume.back.feed")
+@RequiredArgsConstructor
 public class FeedExceptionHandler {
 
-	@ExceptionHandler(FeedDiaryNotFoundException.class)
-	public ResponseEntity<FeedErrorResponse> handleFeedDiaryNotFoundException(HttpServletRequest request) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND)
-				.body(new FeedErrorResponse(
-						HttpStatus.NOT_FOUND.value(),
-						"일기를 찾을 수 없습니다.",
-						request.getRequestURI()));
-	}
+	private final ProblemDetailFactory problemDetailFactory;
 
-	public record FeedErrorResponse(
-			int status,
-			String message,
-			String path
-	) {
+	@ExceptionHandler(FeedDiaryNotFoundException.class)
+	public ResponseEntity<ProblemDetail> handleFeedDiaryNotFoundException(HttpServletRequest request) {
+		ProblemDetail problemDetail = problemDetailFactory.create(
+				FeedProblemType.DIARY_NOT_FOUND,
+				"일기를 찾을 수 없습니다.",
+				request.getRequestURI());
+		return ResponseEntity.status(FeedProblemType.DIARY_NOT_FOUND.status()).body(problemDetail);
 	}
 }

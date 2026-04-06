@@ -3,11 +3,13 @@ package com.pikume.back.global.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,15 +20,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
-import com.pikume.back.global.dto.ValidationErrorResponse;
+import com.pikume.back.global.error.ApiProblemType;
+import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.error.ErrorResponse;
+import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.error.ValidationProblemType;
 import com.pikume.back.global.notification.DiscordWebhookService;
 import com.pikume.back.global.util.RequestUtil;
 import com.pikume.back.user.domain.exception.UserNotFoundException;
-import com.pikume.back.social.domain.comment.exception.CommentException;
-import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
-import com.pikume.back.social.domain.like.exception.LikeException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -36,45 +37,33 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
-@RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
     private final Optional<DiscordWebhookService> discordWebhookService;
+    private final ProblemDetailFactory problemDetailFactory;
+
+    @Autowired
+    public GlobalExceptionHandler(Optional<DiscordWebhookService> discordWebhookService,
+            ProblemDetailFactory problemDetailFactory) {
+        this.discordWebhookService = discordWebhookService;
+        this.problemDetailFactory = problemDetailFactory;
+    }
+
+    public GlobalExceptionHandler(Optional<DiscordWebhookService> discordWebhookService) {
+        this(discordWebhookService, new ProblemDetailFactory());
+    }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
+    public ResponseEntity<ProblemDetail> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.error("BusinessException occurred: {}", e.getMessage(), e);
-        ErrorCode errorCode = e.getErrorCode();
-        ErrorResponse response = new ErrorResponse(errorCode.getStatus(), errorCode.getMessage());
-        return new ResponseEntity<>(response, HttpStatus.valueOf(errorCode.getStatus()));
-    }
-
-    @ExceptionHandler(LikeException.class)
-    public ResponseEntity<ErrorResponse> handleLikeException(LikeException e) {
-        log.warn("LikeException occurred: {}", e.getMessage());
-        ErrorResponse response = new ErrorResponse(e.getErrorCode().getStatus().value(), e.getMessage());
-        return new ResponseEntity<>(response, e.getErrorCode().getStatus());
-    }
-
-    @ExceptionHandler(CommentException.class)
-    public ResponseEntity<ErrorResponse> handleCommentException(CommentException e) {
-        log.warn("CommentException occurred: {}", e.getMessage());
-        ErrorResponse response = new ErrorResponse(e.getErrorCode().getStatus().value(), e.getMessage());
-        return new ResponseEntity<>(response, e.getErrorCode().getStatus());
-    }
-
-    @ExceptionHandler(DuplicateLikeException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateLikeException(DuplicateLikeException e) {
-        log.warn("DuplicateLikeException occurred: {}", e.getMessage());
-        ErrorResponse response = new ErrorResponse(HttpStatus.CONFLICT.value(), e.getMessage());
-        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        return buildProblem(resolveLegacyProblemType(e.getErrorCode()), e.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ValidationErrorResponse> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ProblemDetail> handleValidationException(MethodArgumentNotValidException e,
+            HttpServletRequest request) {
         log.warn("Validation failed: {}", e.getMessage());
 
-        // 필드별 에러 메시지 수집
         Map<String, String> errors = e.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -85,27 +74,21 @@ public class GlobalExceptionHandler {
                                 : "메시지가 null입니다."));
         log.info("프론트에서 보내지는 에러: {}", errors);
 
-        ValidationErrorResponse response = new ValidationErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                errors);
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingParams(MissingServletRequestParameterException ex) {
-        Map<String, Object> errorResponse = new HashMap<>();
-        errorResponse.put("error", "Missing required request parameter");
-        errorResponse.put("parameterName", ex.getParameterName());
-        errorResponse.put("parameterType", ex.getParameterType());
-        errorResponse.put("message", String.format("'%s' parameter of type '%s' is missing",
-                ex.getParameterName(), ex.getParameterType()));
-
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    public ResponseEntity<ProblemDetail> handleMissingParams(MissingServletRequestParameterException ex,
+            HttpServletRequest request) {
+        Map<String, String> errors = Map.of(
+                ex.getParameterName(),
+                String.format("'%s' parameter of type '%s' is missing", ex.getParameterName(), ex.getParameterType()));
+        return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ValidationErrorResponse> handleConstraintViolationException(ConstraintViolationException e) {
+    public ResponseEntity<ProblemDetail> handleConstraintViolationException(ConstraintViolationException e,
+            HttpServletRequest request) {
         log.warn("Constraint violation failed: {}", e.getMessage());
 
         Map<String, String> errors = e.getConstraintViolations().stream()
@@ -113,15 +96,12 @@ public class GlobalExceptionHandler {
                         violation -> violation.getPropertyPath().toString(),
                         ConstraintViolation::getMessage));
 
-        ValidationErrorResponse response = new ValidationErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                errors);
-
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ValidationErrorResponse> handleMethodValidationException(HandlerMethodValidationException e) {
+    public ResponseEntity<ProblemDetail> handleMethodValidationException(HandlerMethodValidationException e,
+            HttpServletRequest request) {
         log.warn("Validation failed for method parameters: {}", e.getMessage());
 
         Map<String, String> errors = new HashMap<>();
@@ -133,34 +113,35 @@ public class GlobalExceptionHandler {
             errors.put(parameterName, message);
         }
 
-        ValidationErrorResponse response = new ValidationErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                errors);
+        return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
+    }
 
-        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleHttpMessageNotReadable(HttpMessageNotReadableException e,
+            HttpServletRequest request) {
+        log.warn("Malformed request body: {}", e.getMessage());
+        return buildProblem(CommonProblemType.MALFORMED_REQUEST, "요청 본문을 해석할 수 없습니다.", request);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException e) {
+    public ResponseEntity<ProblemDetail> handleNoResourceFoundException(NoResourceFoundException e,
+            HttpServletRequest request) {
         log.warn("Resource not found at path: {}", e.getResourcePath());
-        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "요청한 리소스를 찾을 수 없습니다.");
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        return buildProblem(CommonProblemType.RESOURCE_NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.", request);
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ResponseEntity<ErrorResponse> handleException(Exception e, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleException(Exception e, HttpServletRequest request) {
         log.error("Unhandled Exception occurred: {}", e.getMessage(), e);
 
         discordWebhookService.ifPresent(service -> service.sendExceptionNotification(e, request));
 
-        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
-        ErrorResponse response = new ErrorResponse(errorCode.getStatus(), errorCode.getMessage());
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildProblem(CommonProblemType.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), request);
     }
 
     @ExceptionHandler(IOException.class)
-    public ResponseEntity<ErrorResponse> handleIOException(IOException ex, HttpServletRequest request) {
+    public ResponseEntity<ProblemDetail> handleIOException(IOException ex, HttpServletRequest request) {
         String message = ex.getMessage();
 
         if (message != null && isConnectionReset(message)) {
@@ -172,16 +153,14 @@ public class GlobalExceptionHandler {
         // 그 외 IOException은 다시 던져서 기본 처리
         discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
         log.error("IOException occurred: {}", message, ex);
-        return new ResponseEntity<>(
-                new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "파일 처리 중 오류가 발생했습니다."),
-                HttpStatus.INTERNAL_SERVER_ERROR);
+        return buildProblem(CommonProblemType.INTERNAL_SERVER_ERROR, "파일 처리 중 오류가 발생했습니다.", request);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUserNotFoundException(UserNotFoundException e) {
+    public ResponseEntity<ProblemDetail> handleUserNotFoundException(UserNotFoundException e,
+            HttpServletRequest request) {
         log.error("유저를 찾을 수 없습니다: {}", e.getMessage());
-        ErrorResponse response = new ErrorResponse(HttpStatus.NOT_FOUND.value(), e.getMessage());
-        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        return buildProblem(CommonProblemType.RESOURCE_NOT_FOUND, e.getMessage(), request);
     }
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)
@@ -199,6 +178,27 @@ public class GlobalExceptionHandler {
         return message.contains("Connection reset by peer")
                 || message.contains("Broken pipe")
                 || message.contains("An existing connection was forcibly closed");
+    }
+
+    private ResponseEntity<ProblemDetail> buildProblem(ApiProblemType problemType, String detail,
+            HttpServletRequest request) {
+        ProblemDetail problemDetail = problemDetailFactory.create(problemType, detail, request.getRequestURI());
+        return ResponseEntity.status(problemType.status()).body(problemDetail);
+    }
+
+    private ResponseEntity<ProblemDetail> buildValidationProblem(String detail, Map<String, String> fieldErrors,
+            HttpServletRequest request) {
+        ProblemDetail problemDetail = problemDetailFactory.validation(detail, request.getRequestURI(), fieldErrors);
+        return ResponseEntity.status(ValidationProblemType.INVALID_REQUEST.status()).body(problemDetail);
+    }
+
+    private ApiProblemType resolveLegacyProblemType(ErrorCode errorCode) {
+        return switch (errorCode) {
+            case DIARY_NOT_FOUND -> CommonProblemType.RESOURCE_NOT_FOUND;
+            case DIARY_ACCESS_DENIED -> CommonProblemType.FORBIDDEN;
+            case INVALID_FEED_CURSOR, USER_NOT_FOUND -> ValidationProblemType.INVALID_REQUEST;
+            case INTERNAL_SERVER_ERROR -> CommonProblemType.INTERNAL_SERVER_ERROR;
+        };
     }
 
 }

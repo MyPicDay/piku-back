@@ -19,6 +19,7 @@ import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.global.util.RequestMetaMapper;
 
@@ -52,7 +53,9 @@ class FeedControllerTest {
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(feedController)
-				.setControllerAdvice(new FeedExceptionHandler(), new GlobalExceptionHandler(java.util.Optional.empty()))
+				.setControllerAdvice(
+						new FeedExceptionHandler(new ProblemDetailFactory()),
+						new GlobalExceptionHandler(java.util.Optional.empty()))
 				.build();
 		requestMetaInfo = new RequestMetaInfo(
 				"https",

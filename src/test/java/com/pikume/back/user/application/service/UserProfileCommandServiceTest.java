@@ -14,7 +14,9 @@ import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
 import com.pikume.back.user.application.port.out.UserQueryPort;
 import com.pikume.back.user.application.dto.UpdateProfileCommand;
+import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
+import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.service.NicknamePolicy;
 
@@ -93,6 +95,7 @@ class UserProfileCommandServiceTest {
 			UpdateProfileResult result = service.updateProfile(command);
 
 			assertThat(result.success()).isFalse();
+			assertThat(result.failureReason()).isEqualTo(UpdateProfileFailureReason.INVALID_REQUEST);
 		}
 
 		@Test
@@ -103,6 +106,21 @@ class UserProfileCommandServiceTest {
 
 			assertThatThrownBy(() -> service.updateProfile(command))
 					.isInstanceOf(BusinessException.class);
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 캐릭터면 RESOURCE_NOT_FOUND 실패 응답")
+		void nonExistentCharacterReturnsResourceNotFoundFailure() {
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
+			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 999L);
+			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
+			given(characterPort.getFixedCharacterImageUrl(999L)).willReturn(null);
+
+			UpdateProfileResult result = service.updateProfile(command);
+
+			assertThat(result.success()).isFalse();
+			assertThat(result.failureReason()).isEqualTo(UpdateProfileFailureReason.RESOURCE_NOT_FOUND);
+			assertThat(result.message()).isEqualTo("존재하지 않는 캐릭터입니다.");
 		}
 	}
 
@@ -118,22 +136,20 @@ class UserProfileCommandServiceTest {
 			given(characterPort.getFixedCharacterImageUrl(1L)).willReturn("new-avatar-url");
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
-			boolean result = service.updateProfileImage("user-1", 1L);
+			service.updateProfileImage("user-1", 1L);
 
-			assertThat(result).isTrue();
 			verify(saveUserPort).save(any(User.class));
 		}
 
 		@Test
-		@DisplayName("존재하지 않는 캐릭터 이미지면 실패")
-		void nonExistentCharacterReturnsFalse() {
+		@DisplayName("존재하지 않는 캐릭터 이미지면 ProfileImageNotFoundException 발생")
+		void nonExistentCharacterThrowsNotFound() {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "avatar");
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
 			given(characterPort.getFixedCharacterImageUrl(999L)).willReturn(null);
 
-			boolean result = service.updateProfileImage("user-1", 999L);
-
-			assertThat(result).isFalse();
+			assertThatThrownBy(() -> service.updateProfileImage("user-1", 999L))
+					.isInstanceOf(ProfileImageNotFoundException.class);
 			verify(saveUserPort, never()).save(any());
 		}
 	}

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,8 @@ import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.error.CommonProblemType;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.service.RedisService;
 
 import java.util.HashMap;
@@ -30,6 +33,7 @@ public class AiGeneratorController {
 	private static final String AI_GENERATE_ACTION = "ai_generate";
 
 	private final GenerateImageUseCase generateImageUseCase;
+	private final ProblemDetailFactory problemDetailFactory;
 
 	@Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
 	@SecurityRequirement(name = "JWT")
@@ -43,7 +47,10 @@ public class AiGeneratorController {
 
 		if (redisService.isLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
 			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-					.body("일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.");
+					.body(problemDetailFactory.create(
+							CommonProblemType.RATE_LIMIT_EXCEEDED,
+							"일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.",
+							"/api/diary/ai/generate"));
 		}
 
 		try {
@@ -54,7 +61,10 @@ public class AiGeneratorController {
 		} catch (RuntimeException e) {
 			log.error("AI 이미지 생성 실패", e);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(new AiDiaryResponse(null, null, e.getMessage()));
+					.body(problemDetailFactory.create(
+							CommonProblemType.INTERNAL_SERVER_ERROR,
+							e.getMessage() != null ? e.getMessage() : "AI 이미지 생성에 실패했습니다.",
+							"/api/diary/ai/generate"));
 		}
 	}
 

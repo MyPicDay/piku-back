@@ -1,6 +1,9 @@
 package com.pikume.back.user.adapter.in.web;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -8,11 +11,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.error.CommonProblemType;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameChangeResponse;
@@ -21,11 +27,14 @@ import com.pikume.back.user.adapter.in.web.dto.response.ProfilePreviewResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.UserProfileResponse;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UpdateProfileCommand;
+import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
+import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.dto.UserProfileResult;
 import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
 import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
 import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
+import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 
 @Tag(name = "Users", description = "유저 관련 API")
 @RestController
@@ -38,6 +47,7 @@ public class UserController {
 	private final UpdateProfileUseCase updateProfileUseCase;
 	private final CheckNicknameUseCase checkNicknameUseCase;
 	private final RequestMetaMapper requestMetaMapper;
+	private final ProblemDetailFactory problemDetailFactory;
 
 	@Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보기 시 사용될 정보를 조회하여 반환합니다.")
 	@GetMapping("/{userId}/profile-preview")
@@ -68,27 +78,37 @@ public class UserController {
 
 	@Operation(summary = "닉네임 중복조회 검사", responses = {
 			@ApiResponse(responseCode = "200", description = "사용 가능한 닉네임입니다."),
-			@ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.")
+			@ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/user/nickname-conflict\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 사용 중인 닉네임입니다.\",\"instance\":\"/api/users/nickname/availability\"}")))
 	})
 	@GetMapping("/nickname/availability")
-	public ResponseEntity<NicknameCheckResponse> checkNickname(
+	public ResponseEntity<?> checkNickname(
 			@RequestParam String nickname,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		boolean reserved = checkNicknameUseCase.checkAvailability(nickname, userDetails.getId());
-		NicknameCheckResponse response = new NicknameCheckResponse(
-				reserved,
-				reserved ? "사용 가능한 닉네임입니다." : "이미 사용 중인 닉네임입니다.");
-		return ResponseEntity.status(reserved ? HttpStatus.OK : HttpStatus.CONFLICT).body(response);
+		if (reserved) {
+			NicknameCheckResponse response = new NicknameCheckResponse(true, "사용 가능한 닉네임입니다.");
+			return ResponseEntity.ok(response);
+		}
+
+		ProblemDetail problemDetail = problemDetailFactory.create(
+				UserProblemType.NICKNAME_CONFLICT,
+				"이미 사용 중인 닉네임입니다.",
+				"/api/users/nickname/availability");
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
 	}
 
 	@Operation(summary = "변경할 닉네임/캐릭터 사진 등록")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "닉네임 변경 성공"),
-			@ApiResponse(responseCode = "409", description = "점유 정보가 없거나 만료되었거나 본인이 아닙니다."),
-			@ApiResponse(responseCode = "409", description = "이미 사용 중인 닉네임입니다.")
+			@ApiResponse(responseCode = "400", description = "잘못된 요청", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/validation/invalid-request\",\"title\":\"Bad Request\",\"status\":400,\"detail\":\"변경할 닉네임이나 캐릭터 정보가 없습니다.\",\"instance\":\"/api/users/profile\"}"))),
+			@ApiResponse(responseCode = "404", description = "참조 리소스를 찾을 수 없음", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/common/resource-not-found\",\"title\":\"Not Found\",\"status\":404,\"detail\":\"존재하지 않는 캐릭터입니다.\",\"instance\":\"/api/users/profile\"}"))),
+			@ApiResponse(responseCode = "409", description = "닉네임 또는 프로필 변경 충돌", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = {
+					@ExampleObject(name = "nicknameConflict", value = "{\"type\":\"https://api.pikume.com/problems/user/nickname-conflict\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 사용 중인 닉네임입니다.\",\"instance\":\"/api/users/profile\"}"),
+					@ExampleObject(name = "profileConflict", value = "{\"type\":\"https://api.pikume.com/problems/user/profile-conflict\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"점유 정보가 없거나 만료되었거나 본인이 아닙니다.\",\"instance\":\"/api/users/profile\"}")
+			}))
 	})
 	@PatchMapping("/profile")
-	public ResponseEntity<NicknameChangeResponse> changeNickname(
+	public ResponseEntity<?> changeNickname(
 			@AuthenticationPrincipal CustomUserDetails userDetails,
 			@RequestBody UpdateProfileRequest updateProfileRequest) {
 		UpdateProfileCommand command = new UpdateProfileCommand(
@@ -96,21 +116,56 @@ public class UserController {
 				updateProfileRequest.newNickname(),
 				updateProfileRequest.characterId());
 		UpdateProfileResult result = updateProfileUseCase.updateProfile(command);
-		NicknameChangeResponse response = NicknameChangeResponse.from(result);
-		return result.success()
-				? ResponseEntity.ok(response)
-				: ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+		if (result.success()) {
+			return ResponseEntity.ok(NicknameChangeResponse.from(result));
+		}
+
+		return buildUpdateProfileFailureResponse(result);
 	}
 
 	@PutMapping("/profile-image")
-	public ResponseEntity<Void> updateProfileImage(
+	public ResponseEntity<?> updateProfileImage(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@RequestParam Long imageId) {
-		boolean success = updateProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
-		if (success) {
+		try {
+			updateProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
 			return ResponseEntity.ok().build();
-		} else {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+		} catch (ProfileImageNotFoundException e) {
+			ProblemDetail problemDetail = problemDetailFactory.create(
+					CommonProblemType.RESOURCE_NOT_FOUND,
+					"존재하지 않는 프로필 이미지입니다.",
+					"/api/users/profile-image");
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
 		}
+	}
+
+	private ResponseEntity<ProblemDetail> buildUpdateProfileFailureResponse(UpdateProfileResult result) {
+		UpdateProfileFailureReason failureReason = result.failureReason();
+		if (failureReason == null) {
+			ProblemDetail problemDetail = problemDetailFactory.create(
+					CommonProblemType.INTERNAL_SERVER_ERROR,
+					"프로필 변경 결과를 해석할 수 없습니다.",
+					"/api/users/profile");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problemDetail);
+		}
+
+		return switch (failureReason) {
+			case INVALID_REQUEST -> ResponseEntity.badRequest().body(problemDetailFactory.create(
+					com.pikume.back.global.error.ValidationProblemType.INVALID_REQUEST,
+					result.message(),
+					"/api/users/profile"));
+			case NICKNAME_CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetailFactory.create(
+					UserProblemType.NICKNAME_CONFLICT,
+					result.message(),
+					"/api/users/profile"));
+			case PROFILE_CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetailFactory.create(
+					UserProblemType.PROFILE_CONFLICT,
+					result.message(),
+					"/api/users/profile"));
+			case RESOURCE_NOT_FOUND -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetailFactory.create(
+					CommonProblemType.RESOURCE_NOT_FOUND,
+					result.message(),
+					"/api/users/profile"));
+		};
 	}
 }

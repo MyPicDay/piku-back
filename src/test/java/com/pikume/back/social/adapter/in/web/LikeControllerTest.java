@@ -18,15 +18,14 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.util.RequestMetaMapper;
+import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeErrorCode;
 import com.pikume.back.social.domain.like.exception.LikeException;
-
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,7 +58,7 @@ class LikeControllerTest {
 		userDetails = new CustomUserDetails("user-1", "user@example.com", "user");
 		mockMvc = MockMvcBuilders.standaloneSetup(likeController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty()))
+				.setControllerAdvice(new SocialExceptionHandler(new ProblemDetailFactory()))
 				.build();
 		requestMetaInfo = new RequestMetaInfo(
 				"https",
@@ -81,8 +80,9 @@ class LikeControllerTest {
 		mockMvc.perform(post("/api/likes/diary/1")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value(SocialProblemType.DUPLICATE_LIKE.type().toString()))
 				.andExpect(jsonPath("$.status").value(409))
-				.andExpect(jsonPath("$.message").value("좋아요 중복 저장이 감지되었습니다."));
+				.andExpect(jsonPath("$.detail").value("좋아요 중복 저장이 감지되었습니다."));
 	}
 
 	/*

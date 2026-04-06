@@ -19,6 +19,8 @@ import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,6 +33,8 @@ public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 	private final Environment env;
+	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
+	private final ProblemDetailAccessDeniedHandler accessDeniedHandler;
 
 	@Value("${monitoring.allowed-ips:}")
 	private String allowedIps;
@@ -69,6 +73,9 @@ public class SecurityConfig {
 				.securityContext(context -> context.requireExplicitSave(false))
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.exceptionHandling(exceptionHandling -> exceptionHandling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/actuator/**").access((authentication, context) -> {
 							String remoteAddr = context.getRequest().getRemoteAddr();

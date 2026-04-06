@@ -332,14 +332,7 @@ public class FileUtil {
 		try {
 			Path characterStorageDir = getCharacterUploadDir(type, userId);
 			Path filePath = characterStorageDir.resolve(fileName).normalize();
-			Resource resource = new UrlResource(filePath.toUri());
-
-			if (resource.exists() && resource.isReadable()) {
-				return resource;
-			} else {
-				log.warn("캐릭터 이미지를 찾을 수 없거나 읽을 수 없습니다: {}", filePath);
-				throw new RuntimeException("캐릭터 이미지를 찾을 수 없거나 읽을 수 없습니다: " + filePath);
-			}
+			return new UrlResource(filePath.toUri());
 		} catch (MalformedURLException e) {
 			log.error("캐릭터 이미지 로드 실패 - 경로 조합 중 오류: type={}, userId={}, fileName={}, 오류: {}", type, userId, fileName,
 					e.getMessage());

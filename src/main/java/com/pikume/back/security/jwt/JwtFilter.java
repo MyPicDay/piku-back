@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.pikume.back.user.auth.constants.AuthConstants;
@@ -26,6 +28,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
 	private final LoadUserForAuthPort loadUserForAuthPort;
+	private final AuthenticationEntryPoint authenticationEntryPoint;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request,
@@ -40,14 +43,16 @@ public class JwtFilter extends OncePerRequestFilter {
 			try {
 				if (!jwtProvider.validateToken(token)) {
 					log.warn("[JWT 필터] 토큰 유효성 검사 실패");
-					sendUnauthorizedResponse(response, "Access token has expired.");
+					authenticationEntryPoint.commence(request, response,
+							new BadCredentialsException("인증이 필요합니다."));
 					return;
 				}
 
 				authenticateUser(token);
 			} catch (Exception e) {
 				log.error("[JWT 필터] 토큰 처리 중 오류 발생 : {}", e.getMessage());
-				sendUnauthorizedResponse(response, "Token processing error.");
+				authenticationEntryPoint.commence(request, response,
+						new BadCredentialsException("인증이 필요합니다."));
 				return;
 			}
 		}
@@ -74,10 +79,5 @@ public class JwtFilter extends OncePerRequestFilter {
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 		log.info("[JWT 필터] SecurityContext 인증 완료 : 사용자 ID={}, 이메일={}",
 				user.id(), user.email());
-	}
-
-	private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
-		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-		response.getWriter().write(message);
 	}
 }

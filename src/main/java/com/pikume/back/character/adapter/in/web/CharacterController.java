@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.pikume.back.character.application.exception.FixedCharacterImageNotFoundException;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -17,6 +18,8 @@ import com.pikume.back.character.adapter.in.web.dto.CharacterResponse;
 import com.pikume.back.character.application.dto.CharacterImageContent;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
+import com.pikume.back.global.error.CommonProblemType;
+import com.pikume.back.global.error.ProblemDetailFactory;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +37,7 @@ public class CharacterController {
 
 	private final GetCharacterUseCase getCharacterUseCase;
 	private final ManageCharacterUseCase manageCharacterUseCase;
+	private final ProblemDetailFactory problemDetailFactory;
 
 	@Operation(summary = "고정 캐릭터 목록 조회", description = "기본으로 제공되는 고정 캐릭터 목록을 조회합니다.")
 	@GetMapping("/fixed")
@@ -46,7 +50,7 @@ public class CharacterController {
 
 	@Operation(summary = "고정 캐릭터 이미지 조회", description = "고정 캐릭터의 이미지를 조회합니다.")
 	@GetMapping("/fixed/{fileName:.+}")
-	public ResponseEntity<byte[]> getFixedCharacterImage(
+	public ResponseEntity<?> getFixedCharacterImage(
 			@Parameter(description = "이미지 파일명", example = "base_image_1.png") @PathVariable String fileName) {
 		try {
 			CharacterImageContent image = manageCharacterUseCase.getFixedCharacterImage(fileName);
@@ -61,9 +65,14 @@ public class CharacterController {
 							.immutable())
 					.body(image.bytes());
 
-		} catch (RuntimeException e) {
-			log.warn("고정 캐릭터 이미지 '{}' 로드 중 오류 발생(서비스 호출): {}", fileName, e.getMessage());
-			return ResponseEntity.notFound().build();
+			} catch (FixedCharacterImageNotFoundException e) {
+				log.warn("고정 캐릭터 이미지 '{}' 로드 중 오류 발생(서비스 호출): {}", fileName, e.getMessage());
+				return ResponseEntity.status(404)
+						.contentType(MediaType.APPLICATION_PROBLEM_JSON)
+					.body(problemDetailFactory.create(
+							CommonProblemType.RESOURCE_NOT_FOUND,
+							"고정 캐릭터 이미지를 찾을 수 없습니다.",
+							"/api/characters/fixed/" + fileName));
 		}
 	}
 }

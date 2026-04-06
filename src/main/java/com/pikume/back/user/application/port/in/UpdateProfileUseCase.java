@@ -21,7 +21,6 @@ public interface UpdateProfileUseCase {
 	 *
 	 * @param userId  사용자 ID
 	 * @param imageId 캐릭터 이미지 ID
-	 * @return 성공 여부
 	 */
-	boolean updateProfileImage(String userId, Long imageId);
+	void updateProfileImage(String userId, Long imageId);
 }

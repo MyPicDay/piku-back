@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.util.StringUtils;
 import com.pikume.back.global.error.ErrorCode;
 import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.user.application.dto.UpdateProfileCommand;
+import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
+import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
+import com.pikume.back.user.application.exception.UpdateProfileFailureException;
 import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
 import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
 import com.pikume.back.user.application.port.out.LoadCharacterPort;
@@ -68,7 +70,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	@Transactional
 	public UpdateProfileResult updateProfile(UpdateProfileCommand command) {
 		if ((!StringUtils.hasText(command.newNickname())) && (command.characterId() == null)) {
-			return UpdateProfileResult.failure("변경할 닉네임이나 캐릭터 정보가 없습니다.", null);
+			return UpdateProfileResult.failure(UpdateProfileFailureReason.INVALID_REQUEST, "변경할 닉네임이나 캐릭터 정보가 없습니다.", null);
 		}
 
 		User user = loadUserPort.findById(command.userId())
@@ -79,15 +81,15 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		String targetNickname;
 		try {
 			targetNickname = getValidatedNewNickname(command.userId(), command.newNickname(), oldNickname);
-		} catch (RuntimeException e) {
-			return UpdateProfileResult.failure(e.getMessage(), oldNickname);
+		} catch (UpdateProfileFailureException e) {
+			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
 		String targetAvatar;
 		try {
 			targetAvatar = getUpdatedAvatar(command.characterId(), oldAvatar);
-		} catch (RuntimeException e) {
-			return UpdateProfileResult.failure(e.getMessage(), oldNickname);
+		} catch (UpdateProfileFailureException e) {
+			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
 		boolean nicknameChanged = !targetNickname.equals(oldNickname);
@@ -111,24 +113,18 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 
 	@Override
 	@Transactional
-	public boolean updateProfileImage(String userId, Long imageId) {
+	public void updateProfileImage(String userId, Long imageId) {
 		User user = loadUserPort.findById(userId)
 				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-		if (!user.getId().equals(userId)) {
-			throw new AccessDeniedException("본인만 프로필 이미지를 변경할 수 있습니다.");
-		}
 
 		String avatarUrl = characterPort.getFixedCharacterImageUrl(imageId);
 		if (avatarUrl == null) {
 			log.warn("고정 캐릭터 이미지를 찾을 수 없습니다. imageId: {}", imageId);
-			return false;
+			throw new ProfileImageNotFoundException(imageId);
 		}
 
 		user.changeAvatar(avatarUrl);
 		saveUserPort.save(user);
-
-		return true;
 	}
 
 	private String getValidatedNewNickname(String userId, String newNickname, String oldNickname) {
@@ -139,11 +135,15 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		long now = System.currentTimeMillis();
 		NicknameHoldEntry hold = nicknameHoldMap.get(newNickname);
 		if (hold == null || nicknamePolicy.isHoldExpired(hold.timestamp(), now) || !hold.userId().equals(userId)) {
-			throw new RuntimeException("닉네임 점유 정보가 없거나 만료되었거나 본인이 아닙니다.");
+			throw new UpdateProfileFailureException(
+					UpdateProfileFailureReason.PROFILE_CONFLICT,
+					"닉네임 점유 정보가 없거나 만료되었거나 본인이 아닙니다.");
 		}
 		if (userQueryPort.existsByNickname(newNickname)) {
 			nicknameHoldMap.remove(newNickname);
-			throw new RuntimeException("이미 사용 중인 닉네임입니다.");
+			throw new UpdateProfileFailureException(
+					UpdateProfileFailureReason.NICKNAME_CONFLICT,
+					"이미 사용 중인 닉네임입니다.");
 		}
 		return newNickname;
 	}
@@ -152,19 +152,20 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		if (characterId == null) {
 			return oldAvatar;
 		}
-		try {
-			String newCharacter = characterPort.getFixedCharacterImageUrl(characterId);
-			if (newCharacter == null) {
-				throw new IllegalArgumentException("존재하지 않는 캐릭터입니다.");
-			}
-			return newCharacter.equals(oldAvatar) ? oldAvatar : newCharacter;
-		} catch (NumberFormatException e) {
-			log.warn("Invalid character ID format: {}", characterId);
-			throw new RuntimeException("유효하지 않은 캐릭터 ID 형식입니다.");
-		} catch (IllegalArgumentException e) {
-			log.warn("Character not found for ID: {}", characterId);
-			throw new RuntimeException("존재하지 않는 캐릭터입니다.");
+		if (characterId <= 0) {
+			log.warn("Invalid character ID value: {}", characterId);
+			throw new UpdateProfileFailureException(
+					UpdateProfileFailureReason.INVALID_REQUEST,
+					"유효하지 않은 캐릭터 ID입니다.");
 		}
+		String newCharacter = characterPort.getFixedCharacterImageUrl(characterId);
+		if (newCharacter == null) {
+			log.warn("Character not found for ID: {}", characterId);
+			throw new UpdateProfileFailureException(
+					UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
+					"존재하지 않는 캐릭터입니다.");
+		}
+		return newCharacter.equals(oldAvatar) ? oldAvatar : newCharacter;
 	}
 
 	private UpdateProfileResult buildSuccessResult(boolean nicknameChanged, boolean characterChanged, String nickname,

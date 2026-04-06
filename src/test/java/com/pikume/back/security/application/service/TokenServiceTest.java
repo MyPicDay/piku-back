@@ -10,7 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.application.dto.AuthUserView;
-import com.pikume.back.security.dto.TokenDto;
+import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.security.application.port.out.DeleteRefreshTokenPort;
@@ -62,10 +63,11 @@ class TokenServiceTest {
 			given(jwtProvider.generateRefreshToken()).willReturn("refresh-token");
 			given(saveRefreshTokenPort.save(any(RefreshToken.class))).willReturn(null);
 
-			TokenDto result = tokenService.login(request, "device-1");
+			LoginResult result = tokenService.login(request, "device-1");
 
-			assertThat(result.getAccessToken()).isEqualTo("access-token");
-			assertThat(result.getRefreshToken()).isEqualTo("refresh-token");
+			assertThat(result.tokens().getAccessToken()).isEqualTo("access-token");
+			assertThat(result.tokens().getRefreshToken()).isEqualTo("refresh-token");
+			assertThat(result.userInfo().getEmail()).isEqualTo("test@piku.store");
 			then(saveRefreshTokenPort).should().save(any(RefreshToken.class));
 		}
 
@@ -76,8 +78,8 @@ class TokenServiceTest {
 			given(loadUserForAuthPort.findByEmail("unknown@piku.store")).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> tokenService.login(request, "device-1"))
-					.isInstanceOf(RuntimeException.class)
-					.hasMessageContaining("사용자를 찾을 수 없습니다");
+					.isInstanceOf(InvalidCredentialsException.class)
+					.hasMessageContaining("이메일 또는 비밀번호가 올바르지 않습니다.");
 		}
 
 		@Test
@@ -89,8 +91,8 @@ class TokenServiceTest {
 			given(passwordEncoder.matches("wrongPassword", "encodedPassword")).willReturn(false);
 
 			assertThatThrownBy(() -> tokenService.login(request, "device-1"))
-					.isInstanceOf(RuntimeException.class)
-					.hasMessageContaining("비밀번호가 일치하지 않습니다");
+					.isInstanceOf(InvalidCredentialsException.class)
+					.hasMessageContaining("이메일 또는 비밀번호가 올바르지 않습니다.");
 		}
 	}
 
@@ -126,6 +128,17 @@ class TokenServiceTest {
 		@DisplayName("빈 Refresh Token으로 재발급 시 null을 반환한다")
 		void reissueFailEmptyToken() {
 			String result = tokenService.reissueAccessToken("");
+
+			assertThat(result).isNull();
+		}
+
+		@Test
+		@DisplayName("저장소에 없는 Refresh Token으로 재발급 시 null을 반환한다")
+		void reissueFailWhenRefreshTokenIsNotStored() {
+			given(jwtProvider.validateToken("missing-refresh")).willReturn(true);
+			given(loadRefreshTokenPort.findByRefreshToken("missing-refresh")).willReturn(Optional.empty());
+
+			String result = tokenService.reissueAccessToken("missing-refresh");
 
 			assertThat(result).isNull();
 		}

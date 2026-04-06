@@ -11,12 +11,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.error.CommonProblemType;
+import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
@@ -39,6 +42,7 @@ public class NotificationController {
 	private final NotificationUseCase notificationUseCase;
 	private final SseUseCase sseUseCase;
 	private final RequestMetaMapper requestMetaMapper;
+	private final ProblemDetailFactory problemDetailFactory;
 	private static final long DEFAULT_SSE_TIMEOUT = 60L * 1000 * 60;
 
 	@Operation(summary = "SSE 구독 시작", description = "서버-전송 이벤트 연결")
@@ -74,12 +78,12 @@ public class NotificationController {
 
 	@Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 상태로 표시합니다.")
 	@PatchMapping("/{notificationId}")
-	public ResponseEntity<Void> markAsRead(@PathVariable Long notificationId,
+	public ResponseEntity<?> markAsRead(@PathVariable Long notificationId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		if (notificationUseCase.markAsRead(notificationId, userDetails.getId())) {
 			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		return notFoundProblem("/api/sse/" + notificationId, "알림을 찾을 수 없습니다.");
 	}
 
 	@Operation(summary = "알림 모두 읽음 처리", description = "사용자의 모든 알림을 읽음 상태로 표시합니다.")
@@ -91,12 +95,17 @@ public class NotificationController {
 
 	@Operation(summary = "알림 삭제", description = "특정 알림을 삭제합니다.(SoftDelete)")
 	@DeleteMapping("/{notificationId}")
-	public ResponseEntity<Void> deleteNotification(@PathVariable Long notificationId,
+	public ResponseEntity<?> deleteNotification(@PathVariable Long notificationId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		if (notificationUseCase.deleteNotification(notificationId, userDetails.getId())) {
 			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		return notFoundProblem("/api/sse/" + notificationId, "알림을 찾을 수 없습니다.");
+	}
+
+	private ResponseEntity<ProblemDetail> notFoundProblem(String instance, String detail) {
+		ProblemDetail problemDetail = problemDetailFactory.create(CommonProblemType.RESOURCE_NOT_FOUND, detail, instance);
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
 	}
 
 	private NotificationResponseDTO toResponseDto(NotificationResult notification) {

@@ -1,6 +1,4 @@
 package com.pikume.back.diary.adapter.in.web;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -16,6 +14,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +33,9 @@ import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
+import com.pikume.back.global.error.CommonProblemType;
+import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.error.ValidationProblemType;
 import com.pikume.back.global.util.RequestMetaMapper;
 
 import java.io.IOException;
@@ -53,10 +55,11 @@ public class DiaryController {
 	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
 	private final Validator validator;
+	private final ProblemDetailFactory problemDetailFactory;
 
 	@Operation(summary = "일기 생성", description = "일기 내용과 사진을 받아 새로운 일기를 생성합니다. `multipart/form-data` 형식으로 요청해야 합니다.")
 	@PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public ResponseEntity<ResponseDiaryDTO> createDiary(
+	public ResponseEntity<?> createDiary(
 			@Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class)) @RequestPart("diary") DiaryDTO diary,
 			@RequestPart(value = "photos", required = false) List<MultipartFile> photos,
 			@AuthenticationPrincipal CustomUserDetails userDetails,
@@ -77,22 +80,31 @@ public class DiaryController {
 			if (isSaved != null) {
 				return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseDiaryDTO(isSaved.diaryId(), isSaved.content()));
 			}
-			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).build();
-		} catch (JsonProcessingException e) {
-			log.error("JSON parsing error for diary data: {}", e.getMessage());
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+			return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+					.body(problemDetailFactory.create(
+							CommonProblemType.UNPROCESSABLE_CONTENT,
+							"일기를 저장할 수 없습니다.",
+							"/api/diary"));
 		} catch (IllegalArgumentException e) {
 			log.error("일기 생성 중 오류 발생: {}", e.getMessage());
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body(problemDetailFactory.create(
+							ValidationProblemType.INVALID_REQUEST,
+							e.getMessage(),
+							"/api/diary"));
 		} catch (IOException e) {
 			log.error("IOException 발생: {}", e.getMessage());
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(problemDetailFactory.create(
+							CommonProblemType.INTERNAL_SERVER_ERROR,
+							"일기 저장 중 오류가 발생했습니다.",
+							"/api/diary"));
 		}
 	}
 
 	@Operation(summary = "일기 이미지 조회", description = "일기에 첨부된 이미지를 조회합니다.")
 	@GetMapping("/images/{userId}/{filename:.+}")
-	public ResponseEntity<Resource> getFile(@Parameter(description = "사용자 ID") @PathVariable String userId,
+	public ResponseEntity<?> getFile(@Parameter(description = "사용자 ID") @PathVariable String userId,
 			@Parameter(description = "이미지 파일명") @PathVariable String filename) {
 		log.info("이미지 파일 요청 - userId: {}, filename: {}", userId, filename);
 		try {
@@ -110,7 +122,12 @@ public class DiaryController {
 
 		} catch (Exception e) {
 			log.error("이미지 파일 로드 실패 - userId: {}, filename: {}, error: {}", userId, filename, e.getMessage(), e);
-			return ResponseEntity.notFound().build();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.contentType(MediaType.APPLICATION_PROBLEM_JSON)
+					.body(problemDetailFactory.create(
+							CommonProblemType.RESOURCE_NOT_FOUND,
+							"이미지 파일을 찾을 수 없습니다.",
+							"/api/diary/images/" + userId + "/" + filename));
 		}
 	}
 
