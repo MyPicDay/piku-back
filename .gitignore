@@ -51,4 +51,5 @@ report
 .DS_Store
 
 docs/tasks/
+docs/superpowers/
 .worktrees/
