@@ -68,5 +68,6 @@ grep -q "ProblemDetailFactory" docs/standards/api-error-responses.md || fail "ap
 
 [[ ! -d docs/domain_models ]] || fail "legacy docs/domain_models directory still exists"
 [[ ! -d docs/tasks ]] || fail "legacy docs/tasks directory still exists"
+[[ ! -d .agent ]] || fail "legacy .agent directory still exists"
 
 echo "docs-lint: OK"
