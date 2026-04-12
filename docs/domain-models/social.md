@@ -1,5 +1,10 @@
 # Social 도메인 모델
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 도메인 개요
 
 Social 도메인은 **사용자 간의 친구 관계뿐 아니라 댓글, 좋아요 등 컨텐츠 상호작용을 모델링하고 관리**하는 도메인입니다. 관계 발생 → 이벤트 발행 → 알림 트리거의 흐름을 담당하며, 다른 도메인에서 공개 범위 판단 및 피드 구성의 기준점이 됩니다.

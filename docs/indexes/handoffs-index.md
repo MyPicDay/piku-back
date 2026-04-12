@@ -11,4 +11,4 @@
 
 ## Active Documents
 
-- 현재 active 문서 없음
+- [Backend Client Handoff Policy](../handoffs/backend-client-handoff-policy.md): 프론트/모바일 전달 문서 작성 기준

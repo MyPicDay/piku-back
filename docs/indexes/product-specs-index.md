@@ -11,4 +11,4 @@
 
 ## Active Documents
 
-- 현재 active 문서 없음
+- [Feed Docs Rewrite Policy](../product-specs/feed-docs-rewrite-policy.md): feed 관련 legacy 문서를 재사용하지 않고 다시 쓰는 기준

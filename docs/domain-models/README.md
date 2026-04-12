@@ -1,5 +1,10 @@
 # 도메인 모델 (Domain Models)
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 이 디렉토리는 `piku-back` 프로젝트의 도메인 모델링 문서를 포함합니다.
 각 문서는 DDD 원칙에 따라 **도메인 개요 → 엔티티/VO → 상태 → 행위 → 규칙** 순서로 기술합니다.
 
@@ -9,11 +14,11 @@
 
 | 도메인           | 핵심 역할                              | 문서                               |
 | ---------------- | -------------------------------------- | ---------------------------------- |
-| **Diary**        | 일기 작성, 사진 첨부, 공개 범위 제어   | [DIARY.md](DIARY.md)               |
-| **User**         | 사용자 식별, 프로필 관리, 닉네임 점유  | [USER.md](USER.md)                 |
-| **Social**       | 친구 관계, 댓글, 좋아요, 이벤트 발행   | [SOCIAL.md](SOCIAL.md)             |
-| **Feed**         | 개인화 피드 구성, 열람 행위 이력 수집  | [FEED.md](FEED.md)                 |
-| **Notification** | SSE/FCM 이중 알림 발송, 기기 토큰 관리 | [NOTIFICATION.md](NOTIFICATION.md) |
+| **Diary**        | 일기 작성, 사진 첨부, 공개 범위 제어   | [diary.md](diary.md)               |
+| **User**         | 사용자 식별, 프로필 관리, 닉네임 점유  | [user.md](user.md)                 |
+| **Social**       | 친구 관계, 댓글, 좋아요, 이벤트 발행   | [social.md](social.md)             |
+| **Feed**         | 개인화 피드 구성, 열람 행위 이력 수집  | [feed.md](feed.md)                 |
+| **Notification** | SSE/FCM 이중 알림 발송, 기기 토큰 관리 | [notification.md](notification.md) |
 
 ---
 

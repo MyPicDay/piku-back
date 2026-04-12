@@ -11,4 +11,4 @@
 
 ## Active Documents
 
-- 현재 active 문서 없음
+- [Legacy Document Retirement Notes](../references/legacy-document-retirement-notes.md): 삭제된 legacy 문서 정리 메모

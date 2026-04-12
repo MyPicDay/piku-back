@@ -1,5 +1,10 @@
 # Feed 도메인 모델
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 도메인 개요
 
 Feed 도메인은 **여러 사용자의 일기를 정책 기반으로 정렬해 탐색하게 하고, 사용자의 열람 행위 이력을 수집·관리**하는 도메인입니다. 수집된 클릭 이력은 향후 추천 시스템의 입력 데이터로 활용됩니다.

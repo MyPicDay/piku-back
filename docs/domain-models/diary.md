@@ -1,5 +1,10 @@
 # Diary 도메인 모델
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 도메인 개요
 
 Diary 도메인은 **Piku 서비스의 핵심 도메인**으로, 사용자가 날짜별로 텍스트 기반 일기를 작성하고 사진을 첨부하는 기록 기능 전체를 담당합니다.

@@ -11,4 +11,4 @@
 
 ## Active Documents
 
-- 현재 active 문서 없음
+- [DDD + 헥사고날 아키텍처](../architecture/ddd-hexagonal-architecture.md): 도메인 경계, 포트/어댑터 흐름, cross-context 접근 원칙

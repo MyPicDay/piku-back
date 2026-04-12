@@ -1,5 +1,10 @@
 # DDD + 헥사고날 아키텍처 문서
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 이 문서는 `piku-back` 프로젝트의 도메인 주도 설계(DDD) 및 헥사고날 아키텍처 구조를 설명합니다.
 
 ## 1. 도메인 종류

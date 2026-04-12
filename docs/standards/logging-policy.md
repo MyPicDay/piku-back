@@ -1,5 +1,10 @@
 # 로그 정책 설계
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 목표
 
 Piku 백엔드의 애플리케이션 로그를 개인정보 최소화 원칙에 맞게 재설계한다.
@@ -250,35 +255,13 @@ event=request_failed outcome=denied problemType=https://api.pikume.com/problems/
 event=request_failed outcome=failed problemType=https://api.pikume.com/problems/common/internal-server-error status=500 requestId=... exception=IllegalStateException
 ```
 
-## 현재 코드베이스 우선 정리 대상
+## 적용 원칙
 
-1. [AuthService.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/user/auth/application/service/AuthService.java)
-   - raw 이메일 로그 제거
-   - 이메일 인증/비밀번호 재설정 관련 로그를 `event` 중심으로 변경
-2. [TokenService.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/application/service/TokenService.java)
-   - 로그인/재발급 로그에서 이메일 제거
-   - `key=email-deviceId` 같은 로그 제거 또는 대체
-3. [JwtProvider.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/jwt/JwtProvider.java)
-   - 토큰 생성/파싱 성공 로그 축소 또는 `DEBUG` 하향
-4. [JwtFilter.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/jwt/JwtFilter.java)
-   - 이메일 직접 로그 제거
-   - JWT 인증 성공 `INFO` 로그 삭제 또는 `DEBUG` 하향
-5. `requestId`를 MDC에 넣는 공통 필터 도입
+이 정책은 다음 기준으로 코드에 적용한다.
 
-## 마이그레이션 원칙
+- 신규 로그는 즉시 이 정책을 따른다.
+- 기존 로그는 개인정보 민감도와 운영 노이즈를 기준으로 우선 정리한다.
+- 인증, 이메일, JWT처럼 개인정보와 고빈도 로그가 섞인 경로를 우선 정리한다.
+- 로그 정책은 구현 세부 단계보다 최종 규칙을 우선한다.
 
-- 신규 로그는 즉시 새 정책을 따른다.
-- 기존 로그는 민감도와 빈도 기준으로 우선순위를 정해 점진 정리한다.
-- 인증, 이메일, JWT 관련 로그를 1차 우선순위로 처리한다.
-- 단순 문자열 문장형 로그를 한 번에 전부 없애기보다, 개인정보 노출과 고빈도 노이즈를 먼저 줄인다.
-
-## 완료 기준
-
-아래가 만족되면 이번 로그 정책 작업은 완료로 본다.
-
-- raw 이메일 로그가 인증/이메일 관련 주요 경로에서 제거된다.
-- 토큰, 인증 코드, `Authorization`, `deviceId`, `client IP`가 raw로 로그에 남지 않는다.
-- 신규 및 정리 대상 로그가 키-값 중심 형식을 따른다.
-- `requestId`가 주요 애플리케이션 로그에서 추적 가능하다.
-- JWT 성공 고빈도 로그가 `INFO`에서 제거되거나 `DEBUG`로 하향된다.
-- 예측 가능한 실패와 시스템 예외가 서로 다른 레벨/형식으로 정리된다.
+즉 이 문서는 “어떤 로그를 남길 것인가”를 정의하고, “어떤 파일을 어떤 순서로 바꿀 것인가”는 별도 내부 구현 문서에서 다룬다.

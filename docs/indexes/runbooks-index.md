@@ -11,4 +11,4 @@
 
 ## Active Documents
 
-- 현재 active 문서 없음
+- [Documentation Maintenance Runbook](../runbooks/documentation-maintenance-runbook.md): 문서 추가/수정/삭제/검증 절차

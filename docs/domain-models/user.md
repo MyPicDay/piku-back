@@ -1,5 +1,10 @@
 # User 도메인 모델
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 도메인 개요
 
 User 도메인은 **서비스를 이용하는 모든 사용자의 식별 정보와 프로필을 관리**하는 도메인입니다. 시스템 전반에서 주체(Actor)가 되는 사용자 개념을 정의하며, 프로필 변경의 비즈니스 규칙을 캡슐화합니다.

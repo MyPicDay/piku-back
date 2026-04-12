@@ -1,5 +1,10 @@
 # Notification 도메인 모델
 
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-04-12
+
 ## 도메인 개요
 
 Notification 도메인은 **시스템 내 이벤트(소셜 상호작용, 컨텐츠 활동 등)를 사용자에게 비동기적으로 전달하는 알림 발송 및 기기 토큰 관리를 담당**하는 도메인입니다.
