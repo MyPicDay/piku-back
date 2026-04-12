@@ -22,6 +22,7 @@ import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.dto.response.LoginResponse;
@@ -82,8 +83,8 @@ public class LoginController {
 	public ResponseEntity<?> reissue(HttpServletRequest request) {
 		String refreshToken = cookieUtils.getCookieValue(request, AuthConstants.REFRESH_TOKEN);
 
-		String newAccessToken = reissueTokenUseCase.reissueAccessToken(refreshToken);
-		if (newAccessToken == null) {
+		ReissueResult reissueResult = reissueTokenUseCase.reissueTokens(refreshToken);
+		if (reissueResult == null) {
 			ResponseCookie resetCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.header(HttpHeaders.SET_COOKIE, resetCookie.toString())
@@ -93,7 +94,7 @@ public class LoginController {
 							request.getRequestURI()));
 		}
 		return ResponseEntity.ok()
-				.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + newAccessToken)
+				.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + reissueResult.accessToken())
 				.body(new MessageResponse("토큰 재발급 성공"));
 	}
 

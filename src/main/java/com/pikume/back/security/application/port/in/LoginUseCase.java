@@ -13,4 +13,6 @@ public interface LoginUseCase {
 	CookieSpec removeCookieRefreshToken();
 
 	void logout(String email, String deviceId);
+
+	void logoutByRefreshToken(String refreshToken);
 }

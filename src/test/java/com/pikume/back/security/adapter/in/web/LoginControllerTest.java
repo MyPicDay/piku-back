@@ -23,6 +23,7 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.global.util.CookieUtils;
 import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.application.port.in.LoginUseCase;
 import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
@@ -37,6 +38,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -134,7 +136,7 @@ class LoginControllerTest {
 	void reissueReturnsProblemDetailWhenRefreshTokenIsInvalid() throws Exception {
 		CookieSpec deleteCookie = new CookieSpec("refreshToken", "", true, true, "/", 0, "None");
 		given(cookieUtils.getCookieValue(any(), anyString())).willReturn("invalid-refresh-token");
-		given(reissueTokenUseCase.reissueAccessToken("invalid-refresh-token")).willReturn(null);
+		given(reissueTokenUseCase.reissueTokens("invalid-refresh-token")).willReturn(null);
 		given(loginUseCase.removeCookieRefreshToken()).willReturn(deleteCookie);
 
 		mockMvc.perform(post("/api/auth/reissue"))
@@ -143,18 +145,23 @@ class LoginControllerTest {
 				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/security/invalid-refresh-token"))
 				.andExpect(jsonPath("$.status").value(401))
 				.andExpect(jsonPath("$.instance").value("/api/auth/reissue"));
+
+		then(reissueTokenUseCase).should().reissueTokens("invalid-refresh-token");
 	}
 
 	@Test
 	@DisplayName("POST /api/auth/reissue는 성공 시 MessageResponse를 반환한다")
 	void reissueReturnsMessageResponseWhenSuccessful() throws Exception {
 		given(cookieUtils.getCookieValue(any(), anyString())).willReturn("valid-refresh-token");
-		given(reissueTokenUseCase.reissueAccessToken("valid-refresh-token")).willReturn("new-access-token");
+		given(reissueTokenUseCase.reissueTokens("valid-refresh-token"))
+				.willReturn(new ReissueResult("new-access-token", "valid-refresh-token", 1800L, 604800L));
 
 		mockMvc.perform(post("/api/auth/reissue"))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Authorization", "Bearer new-access-token"))
 				.andExpect(jsonPath("$.message").value("토큰 재발급 성공"));
+
+		then(reissueTokenUseCase).should().reissueTokens("valid-refresh-token");
 	}
 
 	@Test

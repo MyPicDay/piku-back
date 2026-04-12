@@ -10,6 +10,7 @@ import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.UserInfo;
@@ -75,6 +76,34 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	}
 
 	@Override
+	@Transactional
+	public ReissueResult reissueTokens(String refreshToken) {
+		if (!StringUtils.hasText(refreshToken)) {
+			return null;
+		}
+
+		if (!jwtProvider.validateToken(refreshToken)) {
+			deleteRefreshTokenPort.deleteByRefreshToken(refreshToken);
+			return null;
+		}
+
+		RefreshToken tokenEntity = loadRefreshTokenPort.findByRefreshToken(refreshToken)
+				.orElse(null);
+		if (tokenEntity == null) {
+			return null;
+		}
+
+		String email = tokenEntity.getKey().split("-")[0];
+		String newAccessToken = jwtProvider.generateAccessToken(email);
+
+		return new ReissueResult(
+				newAccessToken,
+				refreshToken,
+				AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME / 1000L,
+				AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME / 1000L);
+	}
+
+	@Override
 	public CookieSpec newCookieRefreshToken(String refreshToken) {
 		return new CookieSpec(
 				AuthConstants.REFRESH_TOKEN,
@@ -103,6 +132,14 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		String key = email + "-" + deviceId;
 		deleteRefreshTokenPort.deleteById(key);
 		log.info("[로그아웃] Refresh Token 삭제 완료 : key={}", key);
+	}
+
+	@Override
+	public void logoutByRefreshToken(String refreshToken) {
+		if (!StringUtils.hasText(refreshToken)) {
+			return;
+		}
+		deleteRefreshTokenPort.deleteByRefreshToken(refreshToken);
 	}
 
 	private void validateLoginPassword(String requestPassword, String storedPassword, String email) {

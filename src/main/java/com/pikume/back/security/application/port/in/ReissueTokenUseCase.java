@@ -1,5 +1,7 @@
 package com.pikume.back.security.application.port.in;
 
+import com.pikume.back.security.application.dto.ReissueResult;
+
 public interface ReissueTokenUseCase {
 
 	/**
@@ -9,4 +11,6 @@ public interface ReissueTokenUseCase {
 	 * @return 새로운 Access Token, 실패 시 null
 	 */
 	String reissueAccessToken(String refreshToken);
+
+	ReissueResult reissueTokens(String refreshToken);
 }

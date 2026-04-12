@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.application.dto.LoginResult;
+import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.jwt.JwtProvider;
@@ -142,6 +143,23 @@ class TokenServiceTest {
 
 			assertThat(result).isNull();
 		}
+
+		@Test
+		@DisplayName("유효한 Refresh Token이면 모바일용 재발급 결과를 반환한다")
+		void reissueTokensReturnsMobileResult() {
+			String refreshToken = "refresh-token";
+			RefreshToken stored = new RefreshToken("user@example.com-device", refreshToken, "user-1");
+			given(jwtProvider.validateToken(refreshToken)).willReturn(true);
+			given(loadRefreshTokenPort.findByRefreshToken(refreshToken)).willReturn(Optional.of(stored));
+			given(jwtProvider.generateAccessToken("user@example.com")).willReturn("new-access");
+
+			ReissueResult result = tokenService.reissueTokens(refreshToken);
+
+			assertThat(result.accessToken()).isEqualTo("new-access");
+			assertThat(result.refreshToken()).isEqualTo(refreshToken);
+			assertThat(result.accessTokenExpiresIn()).isGreaterThan(0L);
+			assertThat(result.refreshTokenExpiresIn()).isGreaterThan(0L);
+		}
 	}
 
 	@Nested
@@ -154,6 +172,22 @@ class TokenServiceTest {
 			tokenService.logout("test@piku.store", "device-1");
 
 			then(deleteRefreshTokenPort).should().deleteById("test@piku.store-device-1");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 refresh token으로 토큰을 삭제한다")
+		void logoutByRefreshTokenSuccess() {
+			tokenService.logoutByRefreshToken("refresh-token");
+
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 빈 refresh token이면 삭제하지 않는다")
+		void logoutByRefreshTokenIgnoresBlank() {
+			tokenService.logoutByRefreshToken("");
+
+			then(deleteRefreshTokenPort).shouldHaveNoInteractions();
 		}
 	}
 
