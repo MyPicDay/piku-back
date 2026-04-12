@@ -57,6 +57,7 @@ public class SecurityConfig {
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		List<String> permittedPaths = new ArrayList<>(Arrays.asList(
 				"/api/auth/**",
+				"/api/mobile/auth/**",
 				"/api/diary/images/{userId}/{fileName:.+}",
 				"/api/characters/fixed/**",
 				"/api/search"));

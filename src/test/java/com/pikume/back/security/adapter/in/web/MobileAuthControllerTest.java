@@ -143,15 +143,14 @@ class MobileAuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/mobile/auth/logout은 refresh token이 비어 있으면 Problem Details를 반환한다")
-	void logoutReturnsProblemDetailWhenRefreshTokenIsBlank() throws Exception {
+	@DisplayName("POST /api/mobile/auth/logout은 refresh token이 비어 있어도 성공을 반환한다")
+	void logoutReturnsSuccessWhenRefreshTokenIsBlank() throws Exception {
 		mockMvc.perform(post("/api/mobile/auth/logout")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{"refreshToken":""}
 								"""))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/security/invalid-refresh-token"))
-				.andExpect(jsonPath("$.instance").value("/api/mobile/auth/logout"));
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("로그아웃 완료"));
 	}
 }

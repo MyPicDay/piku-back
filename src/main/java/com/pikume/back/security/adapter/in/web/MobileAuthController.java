@@ -19,7 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -73,10 +72,6 @@ public class MobileAuthController {
 
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(@RequestBody MobileLogoutRequest dto, HttpServletRequest request) {
-		if (!StringUtils.hasText(dto.refreshToken())) {
-			return buildProblem(SecurityProblemType.INVALID_REFRESH_TOKEN, "유효하지 않은 Refresh Token입니다.", request);
-		}
-
 		loginUseCase.logoutByRefreshToken(dto.refreshToken());
 		return ResponseEntity.ok(new MessageResponse("로그아웃 완료"));
 	}
