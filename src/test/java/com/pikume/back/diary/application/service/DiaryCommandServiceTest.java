@@ -111,6 +111,28 @@ class DiaryCommandServiceTest {
 		}
 
 		@Test
+		@DisplayName("불변 imageInfos 리스트여도 사용자 이미지 일기를 생성한다")
+		void createsDiaryWithImmutableImageInfos() throws IOException {
+			CreateDiaryCommand diaryCommand = new CreateDiaryCommand(
+					DiaryVisibility.PUBLIC,
+					"오늘의 일기",
+					List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)),
+					LocalDate.now());
+			UploadedFileData photo = uploadedFile("test.jpg", "image/jpeg");
+			List<UploadedFileData> photos = List.of(photo);
+
+			given(loadDiaryPort.findByUserIdAndDate(USER_ID, diaryCommand.date())).willReturn(Optional.empty());
+			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
+			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
+
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID, requestMetaInfo);
+
+			assertThat(result).isNotNull();
+			assertThat(result.content()).isEqualTo("오늘의 일기");
+			then(photoStoragePort).should().savePhoto(any(Diary.class), eq(photo), eq(USER_ID), eq(0));
+		}
+
+		@Test
 		@DisplayName("AI 이미지로 일기를 생성한다")
 		void createsWithAiImage() throws IOException {
 			CreateDiaryCommand diaryCommand = createDiaryCommand(

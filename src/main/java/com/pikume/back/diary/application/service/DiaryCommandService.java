@@ -25,6 +25,7 @@ import com.pikume.back.social.application.port.in.FriendUseCase;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -76,7 +77,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		diary = saveDiaryPort.save(diary);
 		log.debug("사용자 [{}] - 일기 저장 완료. 일기 ID: {}", userId, diary.getId());
 
-		List<DiaryImageCommand> infos = diaryCommand.imageInfos();
+		List<DiaryImageCommand> infos = new ArrayList<>(diaryCommand.imageInfos());
 		infos.sort(Comparator.comparing(DiaryImageCommand::order));
 
 		for (DiaryImageCommand info : infos) {
@@ -153,7 +154,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		validatePhotos(photos);
 		validateDiaryDate(diaryCommand, userId);
 
-		List<DiaryImageCommand> infos = diaryCommand.imageInfos();
+		List<DiaryImageCommand> infos = new ArrayList<>(diaryCommand.imageInfos());
 		infos.sort(Comparator.comparing(DiaryImageCommand::order));
 		Set<Integer> uniqueOrders = infos.stream()
 				.map(DiaryImageCommand::order)
