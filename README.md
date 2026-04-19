@@ -53,6 +53,38 @@ Pikume 프로젝트의 백엔드 저장소입니다.
     docker compose --profile dev-server up -d
     ```
 
+### 운영용 앱 실행
+
+운영용 애플리케이션 컨테이너는 루트 `.env` 파일을 기준으로 환경변수를 주입받아 `prod` 프로필로 실행됩니다.
+
+1. **운영용 앱 이미지를 빌드합니다.**
+
+    ```bash
+    docker compose --profile prod build app
+    ```
+
+2. **운영용 앱 컨테이너를 실행합니다.**
+
+    ```bash
+    docker compose --profile prod up -d app
+    ```
+
+3. **앱 상태와 로그를 확인합니다.**
+
+    ```bash
+    docker compose --profile prod ps app
+    docker compose --profile prod logs -f app
+    ```
+
+4. **앱을 중지합니다.**
+
+    ```bash
+    docker compose --profile prod stop app
+    ```
+
+- 애플리케이션 로그 파일은 호스트 `./logs/application.log` 에 기록됩니다.
+- `.env` 파일은 이미지에 복사되지 않고, 컨테이너 실행 시 환경변수로만 주입됩니다.
+
 ## 🌱 개발 규칙
 
 ### 브랜치 전략

@@ -1,5 +1,39 @@
 # docker compose --profile dev up -d
 services:
+  app:
+    container_name: piku-prod-app
+    profiles:
+      - "prod"
+    depends_on:
+      - prod-db
+      - redis
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      PROFILE: prod
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      PROD_DB_URL: jdbc:mysql://prod-db:3306/piku_prod
+      PROD_REDIS_URL: redis
+      GOOGLE_APPLICATION_CREDENTIALS: /app/firebase-credentials.json
+    ports:
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+    volumes:
+      - ./logs:/app/logs
+      - ./${GOOGLE_APPLICATION_CREDENTIALS}:/app/firebase-credentials.json:ro
+      - ./characters:/app/characters:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${SERVER_PORT:-8080}/actuator || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - default
+      - piku-network
+
   db:
     image: mysql:8.0
     container_name: dev-piku-mysql
