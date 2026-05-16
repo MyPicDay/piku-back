@@ -79,7 +79,7 @@ class SearchControllerTest {
 						.param("size", "20")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.content[0].id").value("user-1"))
+				.andExpect(jsonPath("$.content[0].userId").value("user-1"))
 				.andExpect(jsonPath("$.content[0].nickname").value("테스트유저"))
 				.andExpect(jsonPath("$.content[0].avatar").value("https://cdn.example/avatar.png"))
 				.andExpect(jsonPath("$.totalElements").value(1))
