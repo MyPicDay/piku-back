@@ -6,7 +6,6 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSourceResolvable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -15,7 +14,6 @@ import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -128,16 +126,6 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
         log.warn("Resource not found at path: {}", e.getResourcePath());
         return buildProblem(CommonProblemType.RESOURCE_NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.", request);
-    }
-
-    @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ResponseEntity<ProblemDetail> handleException(Exception e, HttpServletRequest request) {
-        log.error("Unhandled Exception occurred: {}", e.getMessage(), e);
-
-        discordWebhookService.ifPresent(service -> service.sendExceptionNotification(e, request));
-
-        return buildProblem(CommonProblemType.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.getMessage(), request);
     }
 
     @ExceptionHandler(IOException.class)

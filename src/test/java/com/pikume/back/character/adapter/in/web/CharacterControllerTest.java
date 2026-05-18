@@ -1,10 +1,11 @@
 package com.pikume.back.character.adapter.in.web;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.character.application.exception.FixedCharacterImageNotFoundException;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.global.exception.ProblemDetailFallbackExceptionResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,8 +16,6 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -36,15 +35,19 @@ class CharacterControllerTest {
 
 	private CharacterController characterController;
 	private MockMvc mockMvc;
+	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
 		characterController = new CharacterController(
 				getCharacterUseCase,
 				manageCharacterUseCase,
-				new ProblemDetailFactory());
+				problemDetailFactory);
 		mockMvc = MockMvcBuilders.standaloneSetup(characterController)
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new ProblemDetailFactory()))
+				.setHandlerExceptionResolvers(new ProblemDetailFallbackExceptionResolver(
+						new ObjectMapper(),
+						problemDetailFactory,
+						java.util.Optional.empty()))
 				.build();
 	}
 

@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.pikume.back.diary.adapter.in.web.problem.DiaryProblemType;
+import com.pikume.back.diary.domain.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -23,6 +24,12 @@ public class DiaryExceptionHandler {
 	public ResponseEntity<ProblemDetail> handleAccessDeniedException(AccessDeniedException ex,
 			HttpServletRequest request) {
 		return problem(DiaryProblemType.FORBIDDEN, "권한이 없습니다.", request);
+	}
+
+	@ExceptionHandler(DiaryAccessDeniedException.class)
+	public ResponseEntity<ProblemDetail> handleDiaryAccessDeniedException(DiaryAccessDeniedException ex,
+			HttpServletRequest request) {
+		return problem(DiaryProblemType.FORBIDDEN, ex.getMessage(), request);
 	}
 
 	@ExceptionHandler(DiaryNotFoundException.class)

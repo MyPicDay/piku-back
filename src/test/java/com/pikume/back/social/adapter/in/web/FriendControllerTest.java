@@ -3,6 +3,7 @@ package com.pikume.back.social.adapter.in.web;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.port.in.FriendUseCase;
@@ -51,6 +52,7 @@ class FriendControllerTest {
 	private MockMvc mockMvc;
 	private CustomUserDetails userDetails;
 	private RequestMetaInfo requestMetaInfo;
+	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
@@ -65,7 +67,9 @@ class FriendControllerTest {
 				"127.0.0.1");
 		mockMvc = MockMvcBuilders.standaloneSetup(friendController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
-				.setControllerAdvice(new SocialExceptionHandler(new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
+						new SocialExceptionHandler(problemDetailFactory))
 				.build();
 	}
 

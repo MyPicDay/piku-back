@@ -1,5 +1,6 @@
 package com.pikume.back.diary.adapter.in.web;
 
+import com.pikume.back.global.error.ErrorCode;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,9 +11,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.pikume.back.diary.domain.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.exception.GlobalExceptionHandler;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,8 +28,11 @@ class DiaryExceptionHandlerTest {
 
 	@BeforeEach
 	void setUp() {
+		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		mockMvc = MockMvcBuilders.standaloneSetup(new TestController())
-				.setControllerAdvice(new DiaryExceptionHandler(new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
+						new DiaryExceptionHandler(problemDetailFactory))
 				.build();
 	}
 
@@ -48,6 +54,36 @@ class DiaryExceptionHandlerTest {
 				.andExpect(jsonPath("$.status").value(403));
 	}
 
+	@Test
+	@DisplayName("DiaryAccessDeniedException은 diary forbidden Problem Details를 반환한다")
+	void handlesDiaryAccessDeniedException() throws Exception {
+		mockMvc.perform(get("/test/diary/domain-forbidden").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/forbidden"))
+				.andExpect(jsonPath("$.status").value(403))
+				.andExpect(jsonPath("$.detail").value(ErrorCode.DIARY_ACCESS_DENIED.getMessage()));
+	}
+
+	@Test
+	@DisplayName("DuplicateDiaryException은 diary conflict Problem Details를 반환한다")
+	void handlesDuplicateDiaryException() throws Exception {
+		mockMvc.perform(get("/test/diary/conflict").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/conflict"))
+				.andExpect(jsonPath("$.status").value(409))
+				.andExpect(jsonPath("$.detail").value("already exists"));
+	}
+
+	@Test
+	@DisplayName("EntityNotFoundException은 diary not-found Problem Details를 반환한다")
+	void handlesEntityNotFoundException() throws Exception {
+		mockMvc.perform(get("/test/diary/entity-not-found").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/not-found"))
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.detail").value("엔티티를 찾을 수 없습니다."));
+	}
+
 	@RestController
 	static class TestController {
 		@GetMapping("/test/diary/not-found")
@@ -58,6 +94,11 @@ class DiaryExceptionHandlerTest {
 		@GetMapping("/test/diary/forbidden")
 		String forbidden() {
 			throw new AccessDeniedException("denied");
+		}
+
+		@GetMapping("/test/diary/domain-forbidden")
+		String domainForbidden() {
+			throw new DiaryAccessDeniedException();
 		}
 
 		@GetMapping("/test/diary/conflict")

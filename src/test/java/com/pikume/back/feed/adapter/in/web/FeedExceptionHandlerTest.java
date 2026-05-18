@@ -9,7 +9,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
+import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.exception.GlobalExceptionHandler;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,8 +24,11 @@ class FeedExceptionHandlerTest {
 
 	@BeforeEach
 	void setUp() {
+		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		mockMvc = MockMvcBuilders.standaloneSetup(new TestController())
-				.setControllerAdvice(new FeedExceptionHandler(new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
+						new FeedExceptionHandler(problemDetailFactory))
 				.build();
 	}
 
@@ -37,11 +42,27 @@ class FeedExceptionHandlerTest {
 				.andExpect(jsonPath("$.instance").value("/test/feed/not-found"));
 	}
 
+	@Test
+	@DisplayName("InvalidFeedCursorException은 validation invalid-request Problem Details를 반환한다")
+	void handlesInvalidFeedCursorException() throws Exception {
+		mockMvc.perform(get("/test/feed/invalid-cursor").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("유효하지 않은 피드 커서입니다."))
+				.andExpect(jsonPath("$.instance").value("/test/feed/invalid-cursor"));
+	}
+
 	@RestController
 	static class TestController {
 		@GetMapping("/test/feed/not-found")
 		String notFound() {
 			throw new FeedDiaryNotFoundException();
+		}
+
+		@GetMapping("/test/feed/invalid-cursor")
+		String invalidCursor() {
+			throw new InvalidFeedCursorException();
 		}
 	}
 }

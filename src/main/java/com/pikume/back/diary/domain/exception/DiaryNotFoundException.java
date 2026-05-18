@@ -1,10 +1,9 @@
 package com.pikume.back.diary.domain.exception;
 
 import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.exception.BusinessException;
 
-public class DiaryNotFoundException extends BusinessException {
+public class DiaryNotFoundException extends RuntimeException {
 	public DiaryNotFoundException() {
-		super(ErrorCode.DIARY_NOT_FOUND);
+		super(ErrorCode.DIARY_NOT_FOUND.getMessage());
 	}
 }

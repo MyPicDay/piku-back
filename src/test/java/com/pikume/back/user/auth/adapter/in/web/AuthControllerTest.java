@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
@@ -21,6 +22,8 @@ import com.pikume.back.user.auth.dto.request.SignupRequest;
 import com.pikume.back.user.auth.exception.AuthErrorCode;
 import com.pikume.back.user.auth.exception.AuthException;
 import com.pikume.back.user.auth.exception.AuthExceptionHandler;
+
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.doNothing;
@@ -58,8 +61,11 @@ class AuthControllerTest {
 				verifyEmailUseCase,
 				resetPasswordUseCase,
 				sendVerificationEmailPort);
+		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		mockMvc = MockMvcBuilders.standaloneSetup(authController)
-				.setControllerAdvice(new AuthExceptionHandler(new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
+						new AuthExceptionHandler(problemDetailFactory))
 				.build();
 	}
 

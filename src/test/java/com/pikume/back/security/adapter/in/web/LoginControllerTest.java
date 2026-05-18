@@ -20,7 +20,7 @@ import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.global.exception.ProblemDetailFallbackExceptionResolver;
 import com.pikume.back.global.util.CookieUtils;
 import com.pikume.back.security.application.dto.LoginResult;
 import com.pikume.back.security.application.dto.ReissueResult;
@@ -30,8 +30,6 @@ import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.dto.UserInfo;
-
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -62,6 +60,7 @@ class LoginControllerTest {
 
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
@@ -69,9 +68,12 @@ class LoginControllerTest {
 				loginUseCase,
 				reissueTokenUseCase,
 				cookieUtils,
-				new ProblemDetailFactory());
+				problemDetailFactory);
 		mockMvc = MockMvcBuilders.standaloneSetup(loginController)
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new ProblemDetailFactory()))
+				.setHandlerExceptionResolvers(new ProblemDetailFallbackExceptionResolver(
+						objectMapper,
+						problemDetailFactory,
+						java.util.Optional.empty()))
 				.setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
 				.build();
 	}

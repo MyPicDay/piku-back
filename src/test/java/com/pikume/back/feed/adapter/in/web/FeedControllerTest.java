@@ -49,13 +49,14 @@ class FeedControllerTest {
 
 	private MockMvc mockMvc;
 	private RequestMetaInfo requestMetaInfo;
+	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(feedController)
 				.setControllerAdvice(
-						new FeedExceptionHandler(new ProblemDetailFactory()),
-						new GlobalExceptionHandler(java.util.Optional.empty()))
+						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
+						new FeedExceptionHandler(problemDetailFactory))
 				.build();
 		requestMetaInfo = new RequestMetaInfo(
 				"https",
