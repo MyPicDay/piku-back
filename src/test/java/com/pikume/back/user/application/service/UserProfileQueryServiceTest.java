@@ -7,11 +7,11 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
+import com.pikume.back.user.application.exception.UserErrorCode;
+import com.pikume.back.user.application.exception.UserNotFoundException;
 import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.UserDiaryPort;
 import com.pikume.back.user.application.port.out.UserFriendPort;
@@ -69,8 +69,9 @@ class UserProfileQueryServiceTest {
 	void profileNotFound() {
 		given(loadUserPort.findById("unknown")).willReturn(Optional.empty());
 
-		assertThatThrownBy(() -> service.getProfilePreview("unknown", "viewer", meta))
-				.isInstanceOf(BusinessException.class);
+			assertThatThrownBy(() -> service.getProfilePreview("unknown", "viewer", meta))
+					.isInstanceOfSatisfying(UserNotFoundException.class,
+							ex -> assertThat(ex.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
 	}
 
 	@Test

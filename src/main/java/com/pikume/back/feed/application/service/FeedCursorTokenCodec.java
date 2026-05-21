@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.feed.application.dto.FeedCursor;
-import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
+import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

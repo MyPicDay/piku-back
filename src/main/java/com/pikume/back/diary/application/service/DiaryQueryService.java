@@ -11,6 +11,7 @@ import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.VisibleDiaryView;
 import com.pikume.back.diary.application.dto.VisibleDiaryDetailView;
+import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
@@ -19,7 +20,6 @@ import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
-import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;

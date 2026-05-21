@@ -1,0 +1,41 @@
+package com.pikume.back.diary.adapter.out.crosscontext;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import com.pikume.back.user.application.exception.UserErrorCode;
+import com.pikume.back.user.application.exception.UserNotFoundException;
+import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.domain.User;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+
+@DisplayName("UserAdapterForDiary")
+class UserAdapterForDiaryTest {
+
+	private final LoadUserPort loadUserPort = mock(LoadUserPort.class);
+	private final UserAdapterForDiary adapter = new UserAdapterForDiary(loadUserPort);
+
+	@Test
+	@DisplayName("사용자가 존재하면 닉네임을 반환한다")
+	void getUserNickname() {
+		given(loadUserPort.findById("user-1"))
+				.willReturn(Optional.of(new User("user-1", "a@a.com", "pw", "피쿠", "avatar")));
+
+		assertThat(adapter.getUserNickname("user-1")).isEqualTo("피쿠");
+	}
+
+	@Test
+	@DisplayName("사용자가 없으면 UserNotFoundException을 던진다")
+	void missingUserThrowsUserNotFoundException() {
+		given(loadUserPort.findById("missing")).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> adapter.getUserNickname("missing"))
+				.isInstanceOfSatisfying(UserNotFoundException.class,
+						ex -> assertThat(ex.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
+	}
+}

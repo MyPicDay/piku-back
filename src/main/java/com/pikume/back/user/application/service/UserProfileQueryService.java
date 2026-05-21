@@ -5,11 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
+import com.pikume.back.user.application.exception.UserNotFoundException;
 import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
 import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.UserDiaryPort;
@@ -36,8 +35,8 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 	@Override
 	public ProfilePreviewResult getProfilePreview(String profileId, String currentUserId,
 			RequestMetaInfo requestMetaInfo) {
-		User profile = loadUserPort.findById(profileId)
-				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+			User profile = loadUserPort.findById(profileId)
+					.orElseThrow(UserNotFoundException::new);
 
 		String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(profile.getAvatar(), requestMetaInfo);
 		int friendCount = friendPort.countFriends(profileId);

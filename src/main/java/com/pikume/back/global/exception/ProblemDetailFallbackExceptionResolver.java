@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.handler.AbstractHandlerExceptionResolver;
 import com.pikume.back.global.error.CommonProblemType;
-import com.pikume.back.global.error.ErrorCode;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.notification.DiscordWebhookService;
 
@@ -22,6 +21,8 @@ import java.util.Optional;
 @Slf4j
 @Component
 public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExceptionResolver {
+
+	private static final String INTERNAL_SERVER_ERROR_DETAIL = "서버에 오류가 발생했습니다.";
 
 	private final ObjectMapper objectMapper;
 	private final ProblemDetailFactory problemDetailFactory;
@@ -47,10 +48,10 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 		log.error("Unhandled Exception occurred: {}", ex.getMessage(), ex);
 		discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
 
-		ProblemDetail problemDetail = problemDetailFactory.create(
-				CommonProblemType.INTERNAL_SERVER_ERROR,
-				ErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
-				request.getRequestURI());
+        ProblemDetail problemDetail = problemDetailFactory.create(
+                CommonProblemType.INTERNAL_SERVER_ERROR,
+                INTERNAL_SERVER_ERROR_DETAIL,
+                request.getRequestURI());
 
 		response.setStatus(CommonProblemType.INTERNAL_SERVER_ERROR.status().value());
 		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

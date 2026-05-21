@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.diary.application.dto.CreateDiaryCommand;
 import com.pikume.back.diary.application.dto.DiaryCreatedResult;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
+import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
+import com.pikume.back.diary.application.exception.DiaryNotFoundException;
+import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.out.*;
@@ -14,9 +17,6 @@ import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.diary.domain.exception.DiaryAccessDeniedException;
-import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
-import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
 import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
@@ -139,11 +139,11 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 
 	private void validateDiaryDate(CreateDiaryCommand diaryCommand, String userId) {
 		Optional<Diary> existingDiary = loadDiaryPort.findByUserIdAndDate(userId, diaryCommand.date());
-		if (existingDiary.isPresent()) {
-			log.info("일기 날짜 중복 요청");
-			throw new DuplicateDiaryException("이미 해당 날짜에 일기가 존재합니다: " + diaryCommand.date());
-		}
-		LocalDate localDate = LocalDate.now();
+        if (existingDiary.isPresent()) {
+            log.info("일기 날짜 중복 요청");
+            throw new DuplicateDiaryException(diaryCommand.date());
+        }
+        LocalDate localDate = LocalDate.now();
 		if (diaryCommand.date().isAfter(localDate)) {
 			log.error("미래 날짜에 일기 작성 시도: {}", diaryCommand.date());
 			throw new IllegalArgumentException("미래 날짜에 일기를 작성할 수 없습니다: " + diaryCommand.date());

@@ -1,5 +1,6 @@
 package com.pikume.back.diary.adapter.in.web.problem;
 
+import com.pikume.back.diary.application.exception.DiaryErrorCode;
 import com.pikume.back.global.error.ApiProblemType;
 import org.springframework.http.HttpStatus;
 
@@ -33,5 +34,13 @@ public enum DiaryProblemType implements ApiProblemType {
 	@Override
 	public String title() {
 		return title;
+	}
+
+	public static DiaryProblemType from(DiaryErrorCode errorCode) {
+		return switch (errorCode) {
+			case DIARY_NOT_FOUND -> NOT_FOUND;
+			case DIARY_ACCESS_DENIED -> FORBIDDEN;
+			case DUPLICATE_DIARY -> CONFLICT;
+		};
 	}
 }

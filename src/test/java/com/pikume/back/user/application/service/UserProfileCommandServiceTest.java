@@ -7,8 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.user.application.port.out.LoadCharacterPort;
 import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
@@ -17,6 +15,8 @@ import com.pikume.back.user.application.dto.UpdateProfileCommand;
 import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
+import com.pikume.back.user.application.exception.UserErrorCode;
+import com.pikume.back.user.application.exception.UserNotFoundException;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.service.NicknamePolicy;
 
@@ -78,8 +78,9 @@ class UserProfileCommandServiceTest {
 		void nonExistentUserThrows() {
 			given(loadUserPort.findById("unknown")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> service.checkAvailability("닉네임", "unknown"))
-					.isInstanceOf(BusinessException.class);
+				assertThatThrownBy(() -> service.checkAvailability("닉네임", "unknown"))
+						.isInstanceOfSatisfying(UserNotFoundException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
 		}
 	}
 
@@ -104,8 +105,9 @@ class UserProfileCommandServiceTest {
 			UpdateProfileCommand command = new UpdateProfileCommand("unknown", "새닉", null);
 			given(loadUserPort.findById("unknown")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> service.updateProfile(command))
-					.isInstanceOf(BusinessException.class);
+				assertThatThrownBy(() -> service.updateProfile(command))
+						.isInstanceOfSatisfying(UserNotFoundException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
 		}
 
 		@Test

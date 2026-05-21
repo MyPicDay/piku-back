@@ -20,12 +20,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import com.pikume.back.global.error.ApiProblemType;
 import com.pikume.back.global.error.CommonProblemType;
-import com.pikume.back.global.error.ErrorCode;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.error.ValidationProblemType;
 import com.pikume.back.global.notification.DiscordWebhookService;
 import com.pikume.back.global.util.RequestUtil;
-import com.pikume.back.user.domain.exception.UserNotFoundException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -49,12 +47,6 @@ public class GlobalExceptionHandler {
 
     public GlobalExceptionHandler(Optional<DiscordWebhookService> discordWebhookService) {
         this(discordWebhookService, new ProblemDetailFactory());
-    }
-
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ProblemDetail> handleBusinessException(BusinessException e, HttpServletRequest request) {
-        log.error("BusinessException occurred: {}", e.getMessage(), e);
-        return buildProblem(resolveLegacyProblemType(e.getErrorCode()), e.getMessage(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -144,13 +136,6 @@ public class GlobalExceptionHandler {
         return buildProblem(CommonProblemType.INTERNAL_SERVER_ERROR, "파일 처리 중 오류가 발생했습니다.", request);
     }
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ProblemDetail> handleUserNotFoundException(UserNotFoundException e,
-            HttpServletRequest request) {
-        log.error("유저를 찾을 수 없습니다: {}", e.getMessage());
-        return buildProblem(CommonProblemType.RESOURCE_NOT_FOUND, e.getMessage(), request);
-    }
-
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException e, HttpServletRequest request) {
         log.error("비동기 요청을 사용할 수 없습니다. IP: {}, User-Agent: {}, API: {} {}, 원인: {}",
@@ -178,15 +163,6 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
         ProblemDetail problemDetail = problemDetailFactory.validation(detail, request.getRequestURI(), fieldErrors);
         return ResponseEntity.status(ValidationProblemType.INVALID_REQUEST.status()).body(problemDetail);
-    }
-
-    private ApiProblemType resolveLegacyProblemType(ErrorCode errorCode) {
-        return switch (errorCode) {
-            case DIARY_NOT_FOUND -> CommonProblemType.RESOURCE_NOT_FOUND;
-            case DIARY_ACCESS_DENIED -> CommonProblemType.FORBIDDEN;
-            case INVALID_FEED_CURSOR, USER_NOT_FOUND -> ValidationProblemType.INVALID_REQUEST;
-            case INTERNAL_SERVER_ERROR -> CommonProblemType.INTERNAL_SERVER_ERROR;
-        };
     }
 
 }

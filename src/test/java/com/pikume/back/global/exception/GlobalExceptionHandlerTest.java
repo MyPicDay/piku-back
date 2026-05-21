@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import com.pikume.back.global.error.ErrorCode;
 
 import java.util.Optional;
 
@@ -37,33 +36,6 @@ class GlobalExceptionHandlerTest {
 				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new com.pikume.back.global.error.ProblemDetailFactory()))
 				.setValidator(validator)
 				.build();
-	}
-
-	@Test
-	@DisplayName("BusinessException DIARY_NOT_FOUND는 common not-found로 변환된다")
-	void businessExceptionNotFound() throws Exception {
-		mockMvc.perform(get("/test/business"))
-				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/resource-not-found"))
-				.andExpect(jsonPath("$.status").value(404));
-	}
-
-	@Test
-	@DisplayName("BusinessException DIARY_ACCESS_DENIED는 common forbidden으로 변환된다")
-	void businessExceptionForbidden() throws Exception {
-		mockMvc.perform(get("/test/forbidden"))
-				.andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/forbidden"))
-				.andExpect(jsonPath("$.status").value(403));
-	}
-
-	@Test
-	@DisplayName("BusinessException USER_NOT_FOUND는 validation invalid-request로 변환된다")
-	void businessExceptionUserNotFound() throws Exception {
-		mockMvc.perform(get("/test/user-not-found"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
-				.andExpect(jsonPath("$.status").value(400));
 	}
 
 	@Test
@@ -91,24 +63,9 @@ class GlobalExceptionHandlerTest {
 	@RestController
 	static class TestController {
 
-		@GetMapping("/test/business")
-		void business() {
-			throw new BusinessException(ErrorCode.DIARY_NOT_FOUND);
-		}
-
-		@GetMapping("/test/forbidden")
-		void forbidden() {
-			throw new BusinessException(ErrorCode.DIARY_ACCESS_DENIED);
-		}
-
-		@GetMapping("/test/user-not-found")
-		void userNotFound() {
-			throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-		}
-
-		@PostMapping("/test/validation")
-		void validation(@Valid @RequestBody TestRequest request) {
-		}
+			@PostMapping("/test/validation")
+			void validation(@Valid @RequestBody TestRequest request) {
+			}
 	}
 
 	static class TestRequest {

@@ -8,8 +8,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
-import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
+import com.pikume.back.feed.adapter.in.web.problem.FeedProblemType;
+import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
+import com.pikume.back.feed.application.exception.FeedErrorCode;
+import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 
@@ -43,13 +45,13 @@ class FeedExceptionHandlerTest {
 	}
 
 	@Test
-	@DisplayName("InvalidFeedCursorException은 validation invalid-request Problem Details를 반환한다")
+	@DisplayName("InvalidFeedCursorException은 feed invalid-cursor Problem Details를 반환한다")
 	void handlesInvalidFeedCursorException() throws Exception {
 		mockMvc.perform(get("/test/feed/invalid-cursor").accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.type").value(FeedProblemType.INVALID_CURSOR.type().toString()))
 				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.detail").value("유효하지 않은 피드 커서입니다."))
+				.andExpect(jsonPath("$.detail").value(FeedErrorCode.INVALID_CURSOR.getMessage()))
 				.andExpect(jsonPath("$.instance").value("/test/feed/invalid-cursor"));
 	}
 

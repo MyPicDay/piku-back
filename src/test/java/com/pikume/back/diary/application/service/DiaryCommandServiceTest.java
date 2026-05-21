@@ -20,9 +20,10 @@ import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
 import com.pikume.back.diary.domain.Diary;
-import com.pikume.back.diary.domain.exception.DiaryAccessDeniedException;
-import com.pikume.back.diary.domain.exception.DiaryNotFoundException;
-import com.pikume.back.diary.domain.exception.DuplicateDiaryException;
+import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
+import com.pikume.back.diary.application.exception.DiaryErrorCode;
+import com.pikume.back.diary.application.exception.DiaryNotFoundException;
+import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.dto.RequestMetaInfo;
@@ -210,8 +211,9 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, date))
 					.willReturn(Optional.of(new Diary("기존 일기", DiaryVisibility.PUBLIC, date, USER_ID)));
 
-			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
-					.isInstanceOf(DuplicateDiaryException.class);
+				assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
+						.isInstanceOfSatisfying(DuplicateDiaryException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DUPLICATE_DIARY));
 		}
 
 		@Test
@@ -314,8 +316,9 @@ class DiaryCommandServiceTest {
 		void throwsWhenDiaryNotFound() {
 			given(loadDiaryPort.findById(999L)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> diaryCommandService.deleteDiary(999L, USER_ID))
-					.isInstanceOf(DiaryNotFoundException.class);
+				assertThatThrownBy(() -> diaryCommandService.deleteDiary(999L, USER_ID))
+						.isInstanceOfSatisfying(DiaryNotFoundException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_NOT_FOUND));
 		}
 
 		@Test
@@ -324,8 +327,9 @@ class DiaryCommandServiceTest {
 			Diary diary = new Diary("남의 일기", DiaryVisibility.PUBLIC, LocalDate.now(), "other-user");
 			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
 
-			assertThatThrownBy(() -> diaryCommandService.deleteDiary(1L, USER_ID))
-					.isInstanceOf(DiaryAccessDeniedException.class);
+				assertThatThrownBy(() -> diaryCommandService.deleteDiary(1L, USER_ID))
+						.isInstanceOfSatisfying(DiaryAccessDeniedException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_ACCESS_DENIED));
 		}
 	}
 

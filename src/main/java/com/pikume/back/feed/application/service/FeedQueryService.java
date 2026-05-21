@@ -11,14 +11,14 @@ import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
+import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
+import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.feed.application.port.out.*;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
-import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 
 import java.util.*;
 

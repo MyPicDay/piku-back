@@ -18,6 +18,9 @@ import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
 import com.pikume.back.feed.application.dto.FeedVisibility;
+import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
+import com.pikume.back.feed.application.exception.FeedErrorCode;
+import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadFeedCursorCandidatesPort;
@@ -29,8 +32,6 @@ import com.pikume.back.feed.application.port.out.SaveFeedClickPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
-import com.pikume.back.feed.domain.exception.FeedDiaryNotFoundException;
-import com.pikume.back.feed.domain.exception.InvalidFeedCursorException;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
@@ -132,8 +133,9 @@ class FeedQueryServiceTest {
 		void privateDiaryHiddenFromOthers() {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id")).willReturn(java.util.Optional.empty());
 
-			assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id"))
-					.isInstanceOf(FeedDiaryNotFoundException.class);
+				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id"))
+						.isInstanceOfSatisfying(FeedDiaryNotFoundException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.DIARY_NOT_FOUND));
 		}
 
 		@Test
@@ -160,8 +162,9 @@ class FeedQueryServiceTest {
 		void friendsDiaryHiddenFromStranger() {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "stranger-id")).willReturn(java.util.Optional.empty());
 
-			assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "stranger-id"))
-					.isInstanceOf(FeedDiaryNotFoundException.class);
+				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "stranger-id"))
+						.isInstanceOfSatisfying(FeedDiaryNotFoundException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.DIARY_NOT_FOUND));
 		}
 	}
 
@@ -236,11 +239,12 @@ class FeedQueryServiceTest {
 					99L);
 			given(feedCursorTokenCodec.decode("invalid-token")).willReturn(invalidCursor);
 
-			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
-					new FeedCursorRequest("invalid-token", 20),
-					requestMetaInfo,
-					null))
-					.isInstanceOf(InvalidFeedCursorException.class);
+				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+						new FeedCursorRequest("invalid-token", 20),
+						requestMetaInfo,
+						null))
+						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
 		}
 
 		private FeedCursorCandidate candidate(FeedBucket bucket, Long diaryId, long likeCount, long commentCount) {

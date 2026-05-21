@@ -5,13 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import com.pikume.back.global.error.ErrorCode;
-import com.pikume.back.global.exception.BusinessException;
 import com.pikume.back.user.application.dto.UpdateProfileCommand;
 import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.exception.UpdateProfileFailureException;
+import com.pikume.back.user.application.exception.UserNotFoundException;
 import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
 import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
 import com.pikume.back.user.application.port.out.LoadCharacterPort;
@@ -48,8 +47,8 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	public boolean checkAvailability(String nickname, String userId) {
 		long now = System.currentTimeMillis();
 
-		User user = loadUserPort.findById(userId)
-				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = loadUserPort.findById(userId)
+                .orElseThrow(UserNotFoundException::new);
 		if (nickname.equals(user.getNickname()))
 			return true;
 
@@ -73,8 +72,8 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 			return UpdateProfileResult.failure(UpdateProfileFailureReason.INVALID_REQUEST, "변경할 닉네임이나 캐릭터 정보가 없습니다.", null);
 		}
 
-		User user = loadUserPort.findById(command.userId())
-				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+			User user = loadUserPort.findById(command.userId())
+					.orElseThrow(UserNotFoundException::new);
 		String oldNickname = user.getNickname();
 		String oldAvatar = user.getAvatar();
 
@@ -114,8 +113,8 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	@Override
 	@Transactional
 	public void updateProfileImage(String userId, Long imageId) {
-		User user = loadUserPort.findById(userId)
-				.orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+			User user = loadUserPort.findById(userId)
+					.orElseThrow(UserNotFoundException::new);
 
 		String avatarUrl = characterPort.getFixedCharacterImageUrl(imageId);
 		if (avatarUrl == null) {
