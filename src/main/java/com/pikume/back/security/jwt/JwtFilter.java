@@ -70,8 +70,8 @@ public class JwtFilter extends OncePerRequestFilter {
 					return new RuntimeException("유저 없음");
 				});
 
-		CustomUserDetails userDetails = new CustomUserDetails(
-				user.id(), user.email(), user.nickname());
+		CustomUserDetails userDetails = CustomUserDetails.withAvatarUrl(
+				user.id(), user.email(), user.nickname(), user.avatarPath());
 
 		Authentication authentication = new UsernamePasswordAuthenticationToken(
 				userDetails, null, userDetails.getAuthorities());

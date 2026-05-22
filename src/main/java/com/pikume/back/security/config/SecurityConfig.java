@@ -56,7 +56,15 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		List<String> permittedPaths = new ArrayList<>(Arrays.asList(
-				"/api/auth/**",
+				"/api/auth/login",
+				"/api/auth/reissue",
+				"/api/auth/signup",
+				"/api/auth/send-verification/sign-up",
+				"/api/auth/send-verification/password-reset",
+				"/api/auth/verify-code",
+				"/api/auth/password-reset",
+				"/api/auth/email",
+				"/api/auth/email-domains",
 				"/api/mobile/auth/**",
 				"/api/diary/images/{userId}/{fileName:.+}",
 				"/api/characters/fixed/**",
@@ -99,6 +107,7 @@ public class SecurityConfig {
 
 							return new org.springframework.security.authorization.AuthorizationDecision(false);
 						})
+						.requestMatchers("/api/auth/me").authenticated()
 						.requestMatchers("/api/diary/ai/**").authenticated()
 						.requestMatchers(HttpMethod.GET,
 								"/api/diary",
