@@ -1,10 +1,12 @@
 package com.pikume.back.diary.application.port.out;
 
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
+import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -46,4 +48,7 @@ public interface LoadDiaryPort {
 	List<Long> findRecentDiaryIdsByStatus(DiaryVisibility status, int limit);
 
 	List<Long> findRecentDiaryIdsByStatusExcludingUser(DiaryVisibility status, String excludedUserId, int limit);
+
+	List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String excludedUserId, Collection<String> friendUserIds,
+			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit);
 }

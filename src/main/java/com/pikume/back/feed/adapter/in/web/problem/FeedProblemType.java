@@ -8,7 +8,8 @@ import java.net.URI;
 
 public enum FeedProblemType implements ApiProblemType {
 	DIARY_NOT_FOUND("https://api.pikume.com/problems/feed/diary-not-found", HttpStatus.NOT_FOUND, "Not Found"),
-	INVALID_CURSOR("https://api.pikume.com/problems/feed/invalid-cursor", HttpStatus.BAD_REQUEST, "Bad Request");
+	INVALID_CURSOR("https://api.pikume.com/problems/feed/invalid-cursor", HttpStatus.BAD_REQUEST, "Bad Request"),
+	INVALID_SORT("https://api.pikume.com/problems/feed/invalid-sort", HttpStatus.BAD_REQUEST, "Bad Request");
 
 	private final URI type;
 	private final HttpStatus status;
@@ -39,6 +40,7 @@ public enum FeedProblemType implements ApiProblemType {
 		return switch (errorCode) {
 			case DIARY_NOT_FOUND -> DIARY_NOT_FOUND;
 			case INVALID_CURSOR -> INVALID_CURSOR;
+			case INVALID_SORT -> INVALID_SORT;
 		};
 	}
 }

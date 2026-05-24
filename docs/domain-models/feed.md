@@ -3,23 +3,24 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-05-23
 
 ## 도메인 개요
 
-Feed 도메인은 **여러 사용자의 일기를 정책 기반으로 정렬해 탐색하게 하고, 사용자의 열람 행위 이력을 수집·관리**하는 도메인입니다. 수집된 클릭 이력은 향후 추천 시스템의 입력 데이터로 활용됩니다.
+Feed 도메인은 **여러 사용자의 일기를 정책 기반 또는 최신순으로 탐색하게 하고, 사용자의 열람 행위 이력을 수집·관리**하는 도메인입니다. 수집된 클릭 이력은 향후 추천 시스템의 입력 데이터로 활용됩니다.
 
 ### 목적
 
-- `PUBLIC` 또는 `FRIENDS` 공개 범위 일기를 cursor 기반 정책 랭킹으로 탐색할 수 있도록 피드를 제공한다.
+- `PUBLIC` 또는 `FRIENDS` 공개 범위 일기를 cursor 기반 추천순 모드와 최신순 모드로 탐색할 수 있도록 피드를 제공한다.
 - 일기 열람 행위(`FeedClick`)를 기록함으로써 사용자 행위 기반 선호도 데이터를 수집한다.
-- 로그인 사용자 기준으로 친구/비친구, consumed/not consumed를 구분해 우선순위를 제공한다.
+- 추천순 모드는 로그인 사용자 기준으로 친구/비친구, consumed/not consumed를 구분해 우선순위를 제공한다.
 
 ### 핵심 책임
 
 - 피드 클릭 이력(`FeedClick`) 생성 및 중복 클릭 방지
 - 클릭 발생 시 일기 토픽 조회 후 사용자 선호도(`recordInteraction`) 자동 업데이트
-- 피드 목록을 `cursor -> bucket query -> read model materialize` 순서로 orchestration
+- 추천순 피드 목록을 `cursor -> bucket query -> read model materialize` 순서로 orchestration
+- 최신순 피드 목록을 `cursor -> latest diary query -> read model materialize` 순서로 orchestration
 - 피드 목록 응답 DTO에 좋아요 수, 댓글 수, 현재 사용자 좋아요 여부, 작성자 닉네임·아바타·친구 상태 포함
 - 일기 상세 조회 시 접근 권한(소유자 / 친구 / 비친구)을 `DiaryVisibility` 정책으로 검증
 
@@ -27,7 +28,9 @@ Feed 도메인은 **여러 사용자의 일기를 정책 기반으로 정렬해 
 
 - **Aggregate Root**: `FeedClick`
 - `FeedClick`은 독립적인 로그 성격의 Aggregate이며, `Diary`나 `User`의 상태에 직접 영향을 주지 않는다.
-- 현재 피드 목록은 `FeedQueryService`가 cursor 해석과 bucket 순회를 담당하고, `FeedCursorPersistenceAdapter`가 후보 조회를 담당하며, `FeedListViewPersistenceAdapter`가 read model 조립을 담당한다.
+- 현재 피드 목록은 `FeedQueryService`가 cursor 해석과 정렬 모드 선택을 담당한다.
+- 추천순 모드는 `FeedCursorPersistenceAdapter`가 bucket 후보 조회를 담당하며, 최신순 모드는 `LoadLatestFeedCandidatesPort`를 통해 Diary 도메인에 최신순 후보 조회를 위임한다.
+- 두 모드 모두 `FeedListViewPersistenceAdapter`가 read model 조립을 담당한다.
 - `Recommendation` 도메인은 현재 목록 정렬보다 클릭 후 선호도 기록(`recordInteraction`)에 가깝게 사용된다.
 
 ### 타 도메인과의 관계
@@ -39,9 +42,28 @@ Feed 도메인은 **여러 사용자의 일기를 정책 기반으로 정렬해 
 | **Social**         | 좋아요·댓글 수, 현재 사용자의 좋아요 여부, 친구 관계를 피드 응답에 포함한다.                       |
 | **Recommendation** | 클릭 후 토픽 선호도 기록과 metadata topic 조회를 위임한다. 현재 cursor 목록 정렬의 직접 주체는 아니다. |
 
-### 상세 동작 문서
+### 피드 정렬 모드
 
-- 현재 구현 기준의 상세 흐름은 [RECOMMENDATION_FLOW.md](/Users/yk/piku/piku-back/RECOMMENDATION_FLOW.md) 를 따른다.
+`GET /api/diary`는 선택 쿼리 파라미터 `sort`를 받는다.
+
+- 생략 또는 `recommended` : 추천순 모드
+- `latest` : 전역 최신순 모드
+
+클라이언트는 정렬 모드를 바꿀 때 기존 cursor를 버리고 첫 페이지부터 다시 조회해야 한다. Cursor token은 opaque 값이며, cursor 내부에는 정렬 모드 정보가 포함된다. 정렬 모드 metadata가 없는 legacy cursor는 추천순 모드에서만 유효하다. 다른 모드의 cursor를 재사용하면 `invalid-cursor` Problem Details로 거부된다.
+
+#### 추천순 모드
+
+추천순 모드는 추천 점수 기반 전역 정렬이 아니라 현재 구현 기준의 bucket 우선 추천 정책이다.
+
+- 로그인 사용자: 미소비 친구글, 미소비 공개글, 소비한 친구글, 소비한 공개글 순서
+- 비로그인 사용자: 미소비 공개글만 노출
+- 각 bucket 내부: `createdAt DESC`, 좋아요 수, 댓글 수, `diaryId DESC`
+
+#### 최신순 모드
+
+최신순 모드는 피드에 노출 가능한 모든 일기를 `createdAt DESC`, `diaryId DESC` 전역 순서로 반환한다. 소비 여부와 친구/비친구 bucket 위치는 정렬에 반영하지 않는다.
+
+최신순 후보 조회는 Feed가 Social에서 조회자의 친구 ID 목록을 받은 뒤, Diary 도메인에 viewer ID, 친구 ID 목록, cursor 기준값, limit을 전달해 수행한다. Diary 도메인은 공개 범위 필드를 기준으로 피드 노출 가능한 후보만 반환하고, Feed는 기존 materialization 경로로 응답을 조립한다.
 
 ---
 
@@ -52,10 +74,10 @@ Feed 도메인은 [`Diary` 도메인이 정의한 공개 범위 정책](DIARY.md
 
 ### 공개 범위별 후보 규칙
 
-- 현재 피드를 요청한 사용자의 일기는 공개 범위와 무관하게 피드 추천 후보에서 제외되어야 한다.
-- `PUBLIC` : 피드 추천 후보에 포함될 수 있다.
-- `FRIENDS` : 현재 조회 사용자가 작성자의 친구인 경우에만 피드 추천 후보에 포함될 수 있다.
-- `PRIVATE` : **어떠한 경우에도 피드 추천 후보에 포함되어서는 안 된다.**
+- 현재 피드를 요청한 사용자의 일기는 공개 범위와 무관하게 피드 후보에서 제외되어야 한다.
+- 피드 후보 범위는 `PUBLIC` 일기와 현재 조회 사용자의 친구가 작성한 `FRIENDS` 일기로 제한한다.
+- 친구가 아닌 사용자의 `FRIENDS` 일기는 피드 후보에 포함되면 안 된다.
+- `PRIVATE` : **어떠한 경우에도 피드 후보에 포함되어서는 안 된다.**
 
 ### PRIVATE 정책 준수 규칙
 

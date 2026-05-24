@@ -12,6 +12,7 @@ import com.pikume.back.feed.adapter.in.web.problem.FeedProblemType;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.exception.FeedErrorCode;
 import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
+import com.pikume.back.feed.application.exception.InvalidFeedSortException;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 
@@ -55,6 +56,17 @@ class FeedExceptionHandlerTest {
 				.andExpect(jsonPath("$.instance").value("/test/feed/invalid-cursor"));
 	}
 
+	@Test
+	@DisplayName("InvalidFeedSortException은 feed invalid-sort Problem Details를 반환한다")
+	void handlesInvalidFeedSortException() throws Exception {
+		mockMvc.perform(get("/test/feed/invalid-sort").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/feed/invalid-sort"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value(FeedErrorCode.INVALID_SORT.getMessage()))
+				.andExpect(jsonPath("$.instance").value("/test/feed/invalid-sort"));
+	}
+
 	@RestController
 	static class TestController {
 		@GetMapping("/test/feed/not-found")
@@ -65,6 +77,11 @@ class FeedExceptionHandlerTest {
 		@GetMapping("/test/feed/invalid-cursor")
 		String invalidCursor() {
 			throw new InvalidFeedCursorException();
+		}
+
+		@GetMapping("/test/feed/invalid-sort")
+		String invalidSort() {
+			throw new InvalidFeedSortException();
 		}
 	}
 }

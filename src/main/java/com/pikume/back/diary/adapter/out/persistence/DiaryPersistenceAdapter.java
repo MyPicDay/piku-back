@@ -2,6 +2,7 @@ package com.pikume.back.diary.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
@@ -9,6 +10,7 @@ import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -130,6 +132,25 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 				status,
 				excludedUserId,
 				org.springframework.data.domain.PageRequest.of(0, limit));
+	}
+
+	@Override
+	public List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String excludedUserId, Collection<String> friendUserIds,
+			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
+		if (friendUserIds == null || friendUserIds.isEmpty()) {
+			return diaryJpaRepository.findLatestPublicFeedCandidates(excludedUserId, cursorCreatedAt, cursorDiaryId, pageable);
+		}
+		return diaryJpaRepository.findLatestVisibleFeedCandidatesForFriends(
+				excludedUserId,
+				friendUserIds,
+				cursorCreatedAt,
+				cursorDiaryId,
+				pageable);
 	}
 
 	@Override

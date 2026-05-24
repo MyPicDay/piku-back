@@ -11,6 +11,8 @@ import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
+import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
+import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.exception.InvalidFeedCursorException;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
@@ -39,6 +41,7 @@ public class FeedQueryService implements GetFeedUseCase {
 	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
 	private final LoadFeedListViewPort loadFeedListViewPort;
 	private final LoadFeedCursorCandidatesPort loadFeedCursorCandidatesPort;
+	private final LoadLatestFeedCandidatesPort loadLatestFeedCandidatesPort;
 	private final LoadSocialForFeedPort loadSocialForFeedPort;
 	private final LoadUserForFeedPort loadUserForFeedPort;
 	private final LoadRecommendationForFeedPort loadRecommendationForFeedPort;
@@ -59,8 +62,16 @@ public class FeedQueryService implements GetFeedUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public FeedCursorPage<FeedDiaryResult> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
-		FeedCursor cursor = decodeCursor(request.cursor(), userId);
-		List<FeedCursorCandidate> candidates = loadCursorPageCandidates(userId, cursor, request.limit());
+		FeedCursor cursor = decodeCursor(request.cursor(), userId, request.sortMode());
+		if (request.sortMode() == FeedSortMode.LATEST) {
+			return getLatestDiaries(request, requestMetaInfo, userId, cursor);
+		}
+		return getRecommendedDiaries(request, requestMetaInfo, userId, cursor);
+	}
+
+	private FeedCursorPage<FeedDiaryResult> getRecommendedDiaries(FeedCursorRequest request,
+			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor) {
+		List<FeedCursorCandidate> candidates = loadRecommendedPageCandidates(userId, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedCursorCandidate::diaryId)
 				.toList();
@@ -68,7 +79,26 @@ public class FeedQueryService implements GetFeedUseCase {
 		List<FeedDiaryResult> responseList = feedItems.stream()
 				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
 				.toList();
-		boolean hasNext = hasNext(userId, candidates, request.limit());
+		boolean hasNext = hasNextRecommended(userId, candidates, request.limit());
+		String nextCursor = hasNext && !candidates.isEmpty()
+				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
+				: null;
+
+		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
+	}
+
+	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request,
+			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor) {
+		List<String> friendUserIds = resolveFriendUserIds(userId);
+		List<FeedLatestCursorCandidate> candidates = loadLatestPageCandidates(userId, friendUserIds, cursor, request.limit());
+		List<Long> diaryIds = candidates.stream()
+				.map(FeedLatestCursorCandidate::diaryId)
+				.toList();
+		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
+		List<FeedDiaryResult> responseList = feedItems.stream()
+				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
+				.toList();
+		boolean hasNext = hasNextLatest(userId, friendUserIds, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
 				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
 				: null;
@@ -92,18 +122,45 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	// ==================== Private Methods ====================
 
-	private FeedCursor decodeCursor(String cursorToken, String userId) {
+	private FeedCursor decodeCursor(String cursorToken, String userId, FeedSortMode requestedSortMode) {
 		FeedCursor cursor = feedCursorTokenCodec.decode(cursorToken);
 		if (cursor == null) {
 			return null;
 		}
+		validateCursorSortMode(cursor, requestedSortMode);
+		if (requestedSortMode == FeedSortMode.LATEST) {
+			validateLatestCursor(cursor);
+			return cursor;
+		}
 		if (!FeedBucket.orderedBuckets(userId).contains(cursor.bucket())) {
+			throw new InvalidFeedCursorException();
+		}
+		if (cursor.createdAt() == null || cursor.diaryId() <= 0) {
 			throw new InvalidFeedCursorException();
 		}
 		return cursor;
 	}
 
-	private List<FeedCursorCandidate> loadCursorPageCandidates(String userId, FeedCursor cursor, int limit) {
+	private void validateCursorSortMode(FeedCursor cursor, FeedSortMode requestedSortMode) {
+		FeedSortMode cursorSortMode = cursor.sortMode();
+		if (cursorSortMode == null) {
+			if (requestedSortMode != FeedSortMode.RECOMMENDED) {
+				throw new InvalidFeedCursorException();
+			}
+			return;
+		}
+		if (cursorSortMode != requestedSortMode) {
+			throw new InvalidFeedCursorException();
+		}
+	}
+
+	private void validateLatestCursor(FeedCursor cursor) {
+		if (cursor.createdAt() == null || cursor.diaryId() <= 0) {
+			throw new InvalidFeedCursorException();
+		}
+	}
+
+	private List<FeedCursorCandidate> loadRecommendedPageCandidates(String userId, FeedCursor cursor, int limit) {
 		List<FeedCursorCandidate> collected = new ArrayList<>();
 		FeedBucket bucket = cursor != null ? cursor.bucket() : FeedBucket.firstBucket(userId);
 		FeedCursor bucketCursor = cursor;
@@ -124,7 +181,19 @@ public class FeedQueryService implements GetFeedUseCase {
 		return collected;
 	}
 
-	private boolean hasNext(String userId, List<FeedCursorCandidate> candidates, int limit) {
+	private List<String> resolveFriendUserIds(String userId) {
+		if (!FeedBucket.hasUser(userId)) {
+			return List.of();
+		}
+		return loadSocialForFeedPort.getFriendIds(userId);
+	}
+
+	private List<FeedLatestCursorCandidate> loadLatestPageCandidates(String userId, List<String> friendUserIds,
+			FeedCursor cursor, int limit) {
+		return loadLatestFeedCandidatesPort.loadCandidates(userId, friendUserIds, cursor, limit);
+	}
+
+	private boolean hasNextRecommended(String userId, List<FeedCursorCandidate> candidates, int limit) {
 		if (candidates.size() < limit || candidates.isEmpty()) {
 			return false;
 		}
@@ -153,6 +222,20 @@ public class FeedQueryService implements GetFeedUseCase {
 		}
 
 		return false;
+	}
+
+	private boolean hasNextLatest(String userId, List<String> friendUserIds, List<FeedLatestCursorCandidate> candidates,
+			int limit) {
+		if (candidates.size() < limit || candidates.isEmpty()) {
+			return false;
+		}
+
+		FeedLatestCursorCandidate lastCandidate = candidates.get(candidates.size() - 1);
+		return !loadLatestFeedCandidatesPort.loadCandidates(
+				userId,
+				friendUserIds,
+				lastCandidate.toCursor(),
+				1).isEmpty();
 	}
 
 	private void updateUserPreferenceOnClick(String userId, Long diaryId) {

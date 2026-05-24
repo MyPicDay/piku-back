@@ -16,6 +16,7 @@ import com.pikume.back.feed.adapter.out.persistence.FeedClickJpaRepository;
 import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
+import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
 import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
@@ -79,6 +80,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	private Diary friendConsumed;
 	private Diary publicHigh;
 	private Diary publicLow;
+	private Diary nonFriendFriendsDiary;
 
 	@BeforeEach
 	void setUp() {
@@ -92,6 +94,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		User friendE = saveUser("friend-e");
 		User publicAuthor1 = saveUser("public-1");
 		User publicAuthor2 = saveUser("public-2");
+		User nonFriend = saveUser("non-friend");
 		User privateAuthor = saveUser("private");
 		User liker1 = saveUser("liker-1");
 		User liker2 = saveUser("liker-2");
@@ -112,6 +115,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		friendConsumed = saveDiary(friendE.getId(), "friend-consumed", DiaryVisibility.PUBLIC, baseTime.minusHours(5));
 		publicHigh = saveDiary(publicAuthor1.getId(), "public-high", DiaryVisibility.PUBLIC, baseTime.minusMinutes(20));
 		publicLow = saveDiary(publicAuthor2.getId(), "public-low", DiaryVisibility.PUBLIC, baseTime.minusMinutes(10));
+		nonFriendFriendsDiary = saveDiary(nonFriend.getId(), "non-friend-friends", DiaryVisibility.FRIENDS, baseTime.minusMinutes(5));
 
 		saveRepresentPhoto(ownDiary, "my-feed.jpg");
 		saveRepresentPhoto(privateDiary, "private-feed.jpg");
@@ -122,6 +126,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		saveRepresentPhoto(friendConsumed, "friend-consumed.jpg");
 		saveRepresentPhoto(publicHigh, "public-high.jpg");
 		saveRepresentPhoto(publicLow, "public-low.jpg");
+		saveRepresentPhoto(nonFriendFriendsDiary, "non-friend-friends.jpg");
 
 		addLike(friendHigh.getId(), liker1.getId());
 		addLike(friendHigh.getId(), liker2.getId());
@@ -171,7 +176,12 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.containsExactly(friendExtra.getId(), friendLow.getId(), friendMid.getId(), friendHigh.getId());
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
-				.doesNotContain(ownDiary.getId(), privateDiary.getId(), friendConsumed.getId(), publicHigh.getId());
+				.doesNotContain(
+						ownDiary.getId(),
+						privateDiary.getId(),
+						nonFriendFriendsDiary.getId(),
+						friendConsumed.getId(),
+						publicHigh.getId());
 		assertThat(page.nextCursor()).isNotBlank();
 		assertThat(page.hasNext()).isTrue();
 	}
@@ -193,6 +203,88 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 				.containsExactly(publicLow.getId(), publicHigh.getId(), friendConsumed.getId());
 		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
 				.doesNotContain(friendHigh.getId(), friendMid.getId(), friendLow.getId(), friendExtra.getId());
+	}
+
+	@Test
+	@DisplayName("최신순 첫 페이지는 공개 일기와 조회 가능한 친구공개 일기를 전역 createdAt DESC 순서로 반환한다")
+	void latestFirstPageReturnsVisibleDiariesByGlobalCreatedAtOrder() {
+		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 7, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				viewer.getId());
+
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
+				.containsExactly(
+						publicLow.getId(),
+						publicHigh.getId(),
+						friendExtra.getId(),
+						friendLow.getId(),
+						friendMid.getId(),
+						friendHigh.getId(),
+						friendConsumed.getId());
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
+				.doesNotContain(ownDiary.getId(), privateDiary.getId(), nonFriendFriendsDiary.getId());
+	}
+
+	@Test
+	@DisplayName("최신순 nextCursor는 중복 없이 다음 createdAt 구간으로 이어진다")
+	void latestNextCursorContinuesWithoutDuplicates() {
+		FeedCursorPage<FeedDiaryResult> firstPage = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 3, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				viewer.getId());
+
+		FeedCursorPage<FeedDiaryResult> secondPage = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(firstPage.nextCursor(), 3, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				viewer.getId());
+
+		assertThat(firstPage.items()).extracting(FeedDiaryResult::getDiaryId)
+				.containsExactly(publicLow.getId(), publicHigh.getId(), friendExtra.getId());
+		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
+				.containsExactly(friendLow.getId(), friendMid.getId(), friendHigh.getId());
+		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
+				.doesNotContain(publicLow.getId(), publicHigh.getId(), friendExtra.getId());
+	}
+
+	@Test
+	@DisplayName("최신순은 createdAt이 같으면 diaryId DESC로 순서를 고정한다")
+	void latestSortBreaksCreatedAtTiesByDiaryIdDescending() {
+		User publicTieA = saveUser("public-tie-a");
+		User publicTieB = saveUser("public-tie-b");
+		LocalDateTime tiedCreatedAt = LocalDateTime.of(2026, 3, 8, 11, 55);
+		Diary olderId = saveDiary(publicTieA.getId(), "public-tie-a", DiaryVisibility.PUBLIC, tiedCreatedAt);
+		Diary newerId = saveDiary(publicTieB.getId(), "public-tie-b", DiaryVisibility.PUBLIC, tiedCreatedAt);
+		saveRepresentPhoto(olderId, "public-tie-a.jpg");
+		saveRepresentPhoto(newerId, "public-tie-b.jpg");
+		flushAndClear();
+
+		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 4, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				viewer.getId());
+
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
+				.containsExactly(newerId.getId(), olderId.getId(), publicLow.getId(), publicHigh.getId());
+	}
+
+	@Test
+	@DisplayName("비로그인 최신순은 PUBLIC 일기만 반환한다")
+	void anonymousLatestFeedReturnsPublicDiariesOnly() {
+		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 5, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				null);
+
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
+				.containsExactly(
+						ownDiary.getId(),
+						publicLow.getId(),
+						publicHigh.getId(),
+						friendLow.getId(),
+						friendHigh.getId());
+		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
+				.doesNotContain(privateDiary.getId(), friendMid.getId(), friendExtra.getId(), nonFriendFriendsDiary.getId());
 	}
 
 	private User saveUser(String suffix) {

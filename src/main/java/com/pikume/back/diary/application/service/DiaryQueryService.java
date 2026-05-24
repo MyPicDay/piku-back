@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.diary.application.dto.CalendarDiaryView;
+import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
@@ -23,6 +24,7 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -156,6 +158,12 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 	@Override
 	public List<Long> findDiaryIdsByStatus(com.pikume.back.diary.domain.vo.DiaryVisibility status, String excludedUserId, int limit) {
 		return loadDiaryPort.findRecentDiaryIdsByStatusExcludingUser(status, excludedUserId, limit);
+	}
+
+	@Override
+	public List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String viewerId, List<String> friendUserIds,
+			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit) {
+		return loadDiaryPort.findLatestVisibleFeedCandidates(viewerId, friendUserIds, cursorCreatedAt, cursorDiaryId, limit);
 	}
 
 	@Override

@@ -17,6 +17,8 @@ import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
+import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
+import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.exception.FeedErrorCode;
@@ -25,6 +27,7 @@ import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickPort;
 import com.pikume.back.feed.application.port.out.LoadFeedCursorCandidatesPort;
 import com.pikume.back.feed.application.port.out.LoadFeedListViewPort;
+import com.pikume.back.feed.application.port.out.LoadLatestFeedCandidatesPort;
 import com.pikume.back.feed.application.port.out.LoadRecommendationForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadSocialForFeedPort;
 import com.pikume.back.feed.application.port.out.LoadUserForFeedPort;
@@ -41,6 +44,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -60,6 +64,8 @@ class FeedQueryServiceTest {
 	private LoadFeedListViewPort loadFeedListViewPort;
 	@Mock
 	private LoadFeedCursorCandidatesPort loadFeedCursorCandidatesPort;
+	@Mock
+	private LoadLatestFeedCandidatesPort loadLatestFeedCandidatesPort;
 	@Mock
 	private LoadSocialForFeedPort loadSocialForFeedPort;
 	@Mock
@@ -197,6 +203,7 @@ class FeedQueryServiceTest {
 			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 20L);
 			assertThat(result.hasNext()).isTrue();
 			assertThat(result.nextCursor()).isEqualTo("next-token");
+			verify(loadLatestFeedCandidatesPort, never()).loadCandidates(anyString(), any(), any(), anyInt());
 		}
 
 		@Test
@@ -247,8 +254,75 @@ class FeedQueryServiceTest {
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
 		}
 
+		@Test
+		@DisplayName("최신순 모드는 latest 후보 경로를 호출하고 materialization 순서를 보존한다")
+		void latestSortUsesLatestCandidatePathAndPreservesOrder() {
+			FeedLatestCursorCandidate first = latestCandidate(90L);
+			FeedLatestCursorCandidate second = latestCandidate(80L);
+			FeedLatestCursorCandidate next = latestCandidate(70L);
+
+			given(loadSocialForFeedPort.getFriendIds("viewer-id")).willReturn(List.of("friend-a"));
+			given(loadLatestFeedCandidatesPort.loadCandidates("viewer-id", List.of("friend-a"), null, 2))
+					.willReturn(List.of(first, second));
+			given(loadLatestFeedCandidatesPort.loadCandidates("viewer-id", List.of("friend-a"), second.toCursor(), 1))
+					.willReturn(List.of(next));
+			given(loadFeedListViewPort.loadFeedListItems(List.of(90L, 80L), "viewer-id")).willReturn(List.of(
+					feedItem(90L, "public-writer", FeedFriendStatus.NONE),
+					feedItem(80L, "friend-writer", FeedFriendStatus.FRIENDS)));
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+					.willAnswer(invocation -> invocation.getArgument(0));
+			given(feedCursorTokenCodec.encode(second.toCursor())).willReturn("latest-next-token");
+
+			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
+					new FeedCursorRequest(null, 2, FeedSortMode.LATEST),
+					requestMetaInfo,
+					"viewer-id");
+
+			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(90L, 80L);
+			assertThat(result.hasNext()).isTrue();
+			assertThat(result.nextCursor()).isEqualTo("latest-next-token");
+			verify(loadFeedCursorCandidatesPort, never()).loadCandidates(anyString(), any(), any(), anyInt());
+		}
+
+		@Test
+		@DisplayName("정렬 모드 metadata가 없는 legacy cursor는 최신순 모드에서 거부된다")
+		void legacyCursorIsRejectedForLatestSort() {
+			FeedCursor legacyCursor = new FeedCursor(
+					FeedBucket.NOT_CONSUMED_PUBLIC,
+					1L,
+					0L,
+					LocalDateTime.now(),
+					99L);
+			given(feedCursorTokenCodec.decode("legacy-token")).willReturn(legacyCursor);
+
+				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+						new FeedCursorRequest("legacy-token", 20, FeedSortMode.LATEST),
+						requestMetaInfo,
+						"viewer-id"))
+						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
+		}
+
+		@Test
+		@DisplayName("최신순 cursor는 추천순 모드에서 거부된다")
+		void latestCursorIsRejectedForRecommendedSort() {
+			FeedCursor latestCursor = FeedCursor.latest(LocalDateTime.now(), 99L);
+			given(feedCursorTokenCodec.decode("latest-token")).willReturn(latestCursor);
+
+				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+						new FeedCursorRequest("latest-token", 20),
+						requestMetaInfo,
+						"viewer-id"))
+						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
+		}
+
 		private FeedCursorCandidate candidate(FeedBucket bucket, Long diaryId, long likeCount, long commentCount) {
 			return new FeedCursorCandidate(bucket, diaryId, likeCount, commentCount, LocalDateTime.now().minusDays(diaryId));
+		}
+
+		private FeedLatestCursorCandidate latestCandidate(Long diaryId) {
+			return new FeedLatestCursorCandidate(diaryId, LocalDateTime.now().minusDays(diaryId));
 		}
 
 		private FeedListItemView feedItem(Long diaryId, String writerId, FeedFriendStatus friendStatus) {

@@ -12,3 +12,4 @@
 ## Active Documents
 
 - [Backend Client Handoff Policy](../handoffs/backend-client-handoff-policy.md): 프론트/모바일 전달 문서 작성 기준
+- [Feed Sort Mode Handoff](../handoffs/feed-sort-mode-handoff.md): 피드 `sort` 파라미터와 cursor reset 요구사항

@@ -11,6 +11,6 @@ public record FeedCursorCandidate(
 ) {
 
 	public FeedCursor toCursor() {
-		return new FeedCursor(bucket, likeCount, commentCount, createdAt, diaryId);
+		return FeedCursor.recommended(bucket, likeCount, commentCount, createdAt, diaryId);
 	}
 }

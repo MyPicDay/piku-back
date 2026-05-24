@@ -6,8 +6,11 @@ import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedCursor;
+import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadDiaryForFeedPort;
+import com.pikume.back.feed.application.port.out.LoadLatestFeedCandidatesPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
@@ -20,7 +23,7 @@ import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
-public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
+public class DiaryAdapterForFeed implements LoadDiaryForFeedPort, LoadLatestFeedCandidatesPort {
 
 	private final QueryDiaryFeedUseCase queryDiaryFeedUseCase;
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
@@ -65,6 +68,20 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort {
 								diary.diaryId(),
 								diary.userId(),
 								diary.createdAt())));
+	}
+
+	@Override
+	public List<FeedLatestCursorCandidate> loadCandidates(String currentUserId, List<String> friendUserIds,
+			FeedCursor cursor, int limit) {
+		return queryDiaryFeedUseCase.findLatestVisibleFeedCandidates(
+						currentUserId,
+						friendUserIds,
+						cursor != null ? cursor.createdAt() : null,
+						cursor != null ? cursor.diaryId() : null,
+						limit)
+				.stream()
+				.map(candidate -> new FeedLatestCursorCandidate(candidate.diaryId(), candidate.createdAt()))
+				.toList();
 	}
 
 	private FeedVisibility toFeedVisibility(DiaryVisibility visibility) {

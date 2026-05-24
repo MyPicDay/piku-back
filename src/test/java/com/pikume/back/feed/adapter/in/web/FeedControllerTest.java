@@ -15,6 +15,7 @@ import com.pikume.back.feed.application.dto.FeedCursorPage;
 import com.pikume.back.feed.application.dto.FeedCursorRequest;
 import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
+import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
@@ -105,6 +106,54 @@ class FeedControllerTest {
 				.andExpect(jsonPath("$.hasNext").value(true));
 
 		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest("cursor-token", 10), requestMetaInfo, null);
+	}
+
+	@Test
+	@DisplayName("GET /api/diary?sort=latest는 최신순 모드로 피드 목록을 요청한다")
+	void getAllDiariesPassesLatestSortMode() throws Exception {
+		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
+
+		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
+		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), requestMetaInfo, null))
+				.willReturn(page);
+
+		mockMvc.perform(get("/api/diary")
+						.param("sort", "latest")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.hasNext").value(false));
+
+		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), requestMetaInfo, null);
+	}
+
+	@Test
+	@DisplayName("GET /api/diary?sort=recommended는 추천순 모드로 피드 목록을 요청한다")
+	void getAllDiariesPassesRecommendedSortMode() throws Exception {
+		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
+
+		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
+		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), requestMetaInfo, null))
+				.willReturn(page);
+
+		mockMvc.perform(get("/api/diary")
+						.param("sort", "recommended")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.hasNext").value(false));
+
+		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), requestMetaInfo, null);
+	}
+
+	@Test
+	@DisplayName("GET /api/diary는 알 수 없는 sort 값을 Problem Details로 거부한다")
+	void getAllDiariesRejectsUnknownSortWithProblemDetails() throws Exception {
+		mockMvc.perform(get("/api/diary")
+						.param("sort", "unknown")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/feed/invalid-sort"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.instance").value("/api/diary"));
 	}
 
 	@Test
