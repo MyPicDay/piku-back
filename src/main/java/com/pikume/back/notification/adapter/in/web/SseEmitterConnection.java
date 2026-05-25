@@ -2,11 +2,15 @@ package com.pikume.back.notification.adapter.in.web;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
+import com.pikume.back.notification.application.exception.NotificationStreamSendException;
 import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
 
 import java.io.IOException;
+import java.util.function.Consumer;
 
 public class SseEmitterConnection implements NotificationStreamConnection {
+
+	private static final String COMPLETED_EMITTER_MESSAGE = "ResponseBodyEmitter has already completed";
 
 	private final SseEmitter emitter;
 
@@ -29,6 +33,11 @@ public class SseEmitterConnection implements NotificationStreamConnection {
 	}
 
 	@Override
+	public void onError(Consumer<Throwable> action) {
+		emitter.onError(action);
+	}
+
+	@Override
 	public void complete() {
 		emitter.complete();
 	}
@@ -42,7 +51,17 @@ public class SseEmitterConnection implements NotificationStreamConnection {
 			}
 			emitter.send(builder);
 		} catch (IOException e) {
-			throw new RuntimeException("SSE 전송 실패", e);
+			throw new NotificationStreamSendException("SSE 전송 실패", e);
+		} catch (IllegalStateException e) {
+			if (isCompletedEmitterFailure(e)) {
+				throw new NotificationStreamSendException("SSE 연결이 이미 종료되었습니다.", e);
+			}
+			throw e;
 		}
+	}
+
+	private boolean isCompletedEmitterFailure(IllegalStateException exception) {
+		String message = exception.getMessage();
+		return message != null && message.contains(COMPLETED_EMITTER_MESSAGE);
 	}
 }

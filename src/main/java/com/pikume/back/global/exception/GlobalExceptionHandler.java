@@ -27,6 +27,7 @@ import com.pikume.back.global.util.RequestUtil;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -124,7 +125,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleIOException(IOException ex, HttpServletRequest request) {
         String message = ex.getMessage();
 
-        if (message != null && isConnectionReset(message)) {
+        if (isClientDisconnected(ex)) {
             // 클라이언트가 스트림 중간에 연결을 끊은 케이스
             log.debug("스트림 중단: 클라이언트 연결 끊김 - {} {}", request.getMethod(), request.getRequestURI());
             return ResponseEntity.noContent().build();
@@ -138,6 +139,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException e, HttpServletRequest request) {
+        if (isClientDisconnected(e)) {
+            log.debug("비동기 스트림 중단: 클라이언트 연결 끊김 - {} {}", request.getMethod(), request.getRequestURI());
+            return;
+        }
+
         log.error("비동기 요청을 사용할 수 없습니다. IP: {}, User-Agent: {}, API: {} {}, 원인: {}",
                 RequestUtil.getClientIp(request),
                 request.getHeader("User-Agent"),
@@ -146,11 +152,30 @@ public class GlobalExceptionHandler {
                 e.getMessage());
     }
 
+    private boolean isClientDisconnected(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (isConnectionReset(current.getMessage())) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
     private boolean isConnectionReset(String message) {
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.toLowerCase(Locale.ROOT);
         // OS나 JDK에 따라 메시지가 다를 수 있으므로 유사 패턴 포함
-        return message.contains("Connection reset by peer")
-                || message.contains("Broken pipe")
-                || message.contains("An existing connection was forcibly closed");
+        return normalizedMessage.contains("connection reset by peer")
+                || normalizedMessage.contains("broken pipe")
+                || normalizedMessage.contains("an existing connection was forcibly closed")
+                || normalizedMessage.contains("connection aborted")
+                || normalizedMessage.contains("aborted by the software in your host machine")
+                || (message.contains("현재 연결은 사용자의 호스트 시스템") && message.contains("중단되었습니다"));
     }
 
     private ResponseEntity<ProblemDetail> buildProblem(ApiProblemType problemType, String detail,

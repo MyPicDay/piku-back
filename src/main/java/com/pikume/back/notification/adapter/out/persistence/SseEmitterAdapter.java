@@ -3,6 +3,7 @@ package com.pikume.back.notification.adapter.out.persistence;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
+import com.pikume.back.notification.application.exception.NotificationStreamSendException;
 import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
 import com.pikume.back.notification.application.port.out.NotificationStreamPort;
 
@@ -29,9 +30,12 @@ public class SseEmitterAdapter implements NotificationStreamPort {
 			try {
 				log.info("[SSE 알림 전송] userId: {}, emitterId: {}", userId, emitterId);
 				emitter.connection().send(message);
-			} catch (RuntimeException e) {
+			} catch (NotificationStreamSendException e) {
 				log.warn("SSE 알림 전송 실패: {}", e.getMessage());
 				deleteById(emitterId);
+			} catch (RuntimeException e) {
+				deleteById(emitterId);
+				throw e;
 			}
 		});
 	}
