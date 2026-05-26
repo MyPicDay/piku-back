@@ -13,6 +13,7 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -30,7 +31,8 @@ public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntr
 				request.getRequestURI());
 
 		response.setStatus(SecurityProblemType.UNAUTHENTICATED.status().value());
-		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE + ";charset=" + StandardCharsets.UTF_8.name());
 		objectMapper.writeValue(response.getWriter(), problemDetail);
 	}
 }

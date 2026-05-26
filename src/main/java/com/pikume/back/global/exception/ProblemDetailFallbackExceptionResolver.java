@@ -16,6 +16,7 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.notification.DiscordWebhookService;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 @Slf4j
@@ -48,13 +49,14 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 		log.error("Unhandled Exception occurred: {}", ex.getMessage(), ex);
 		discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
 
-        ProblemDetail problemDetail = problemDetailFactory.create(
-                CommonProblemType.INTERNAL_SERVER_ERROR,
-                INTERNAL_SERVER_ERROR_DETAIL,
-                request.getRequestURI());
+		ProblemDetail problemDetail = problemDetailFactory.create(
+				CommonProblemType.INTERNAL_SERVER_ERROR,
+				INTERNAL_SERVER_ERROR_DETAIL,
+				request.getRequestURI());
 
 		response.setStatus(CommonProblemType.INTERNAL_SERVER_ERROR.status().value());
-		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE + ";charset=" + StandardCharsets.UTF_8.name());
 		try {
 			objectMapper.writeValue(response.getWriter(), problemDetail);
 		} catch (IOException writeFailure) {

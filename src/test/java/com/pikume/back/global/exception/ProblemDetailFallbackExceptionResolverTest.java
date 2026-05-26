@@ -8,6 +8,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.servlet.ModelAndView;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.testsupport.NonUtf8DefaultEncodingMockHttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,7 +27,7 @@ class ProblemDetailFallbackExceptionResolverTest {
 				new ProblemDetailFactory(),
 				java.util.Optional.empty());
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test");
-		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
 
 		ModelAndView modelAndView = resolver.resolveException(
 				request,
@@ -35,6 +38,8 @@ class ProblemDetailFallbackExceptionResolverTest {
 		assertThat(modelAndView).isNotNull();
 		assertThat(response.getStatus()).isEqualTo(500);
 		assertThat(response.getContentType()).startsWith("application/problem+json");
+		assertThat(response.getContentType()).contains("charset=UTF-8");
+		assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
 
 		JsonNode body = objectMapper.readTree(response.getContentAsString());
 		assertThat(body.get("type").asText()).isEqualTo("https://api.pikume.com/problems/common/internal-server-error");

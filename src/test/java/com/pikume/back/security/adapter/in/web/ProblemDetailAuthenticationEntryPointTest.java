@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.BadCredentialsException;
+import com.pikume.back.testsupport.NonUtf8DefaultEncodingMockHttpServletResponse;
+
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -21,12 +24,14 @@ class ProblemDetailAuthenticationEntryPointTest {
 				new ObjectMapper(),
 				new com.pikume.back.global.error.ProblemDetailFactory());
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protected");
-		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
 
 		entryPoint.commence(request, response, new BadCredentialsException("인증이 필요합니다."));
 
 		assertThat(response.getStatus()).isEqualTo(401);
 		assertThat(response.getContentType()).startsWith("application/problem+json");
+		assertThat(response.getContentType()).contains("charset=UTF-8");
+		assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("type").asText())
 				.isEqualTo("https://api.pikume.com/problems/security/unauthenticated");
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("instance").asText())
