@@ -12,5 +12,6 @@
 - Standards and engineering policies live under `docs/standards/`.
 - Product and feature design docs live under `docs/product-specs/`.
 - Frontend/mobile handoff docs live under `docs/handoffs/`.
-- Operational procedures and incident analysis live under `docs/runbooks/`.
+- Operational procedures and incident response runbooks live under `docs/runbooks/`.
+- Incident retrospectives live under `docs/incident-retrospectives/`.
 - `docs/superpowers/` contains local-only working docs and is not part of the official documentation system.

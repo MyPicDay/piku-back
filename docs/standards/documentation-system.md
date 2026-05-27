@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-05-28
 
 ## 목적
 
@@ -16,10 +16,16 @@
 - `docs/product-specs/`
 - `docs/handoffs/`
 - `docs/runbooks/`
+- `docs/incident-retrospectives/`
 - `docs/domain-models/`
 - `docs/references/`
 - `docs/generated/`
 - `docs/archive/`
+
+## 카테고리 경계
+
+- `docs/runbooks/`는 장애 또는 운영 이슈가 발생했을 때 따라야 하는 단계별 대응 절차서를 보관한다.
+- `docs/incident-retrospectives/`는 실제 발생한 장애의 상황, 원인, 해결 방안 검토, 선정 근거, 회고를 기록한 장애 회고 문서를 보관한다.
 
 ## 운영 원칙
 

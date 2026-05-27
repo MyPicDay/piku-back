@@ -8,6 +8,7 @@ declare -a REQUIRED_DIRS=(
   "product-specs"
   "handoffs"
   "runbooks"
+  "incident-retrospectives"
   "domain-models"
   "references"
   "generated"
@@ -21,6 +22,7 @@ declare -a REQUIRED_INDEXES=(
   "product-specs-index.md"
   "handoffs-index.md"
   "runbooks-index.md"
+  "incident-retrospectives-index.md"
   "domain-models-index.md"
   "references-index.md"
 )
@@ -46,7 +48,7 @@ while IFS= read -r file; do
   fail "stray root docs file: $file"
 done < <(find "${ROOT_DOCS}" -maxdepth 1 -type f | sort)
 
-for file in docs/README.md $(find docs/indexes docs/architecture docs/standards docs/product-specs docs/handoffs docs/runbooks docs/domain-models docs/references docs/archive -type f | sort); do
+for file in docs/README.md $(find docs/indexes docs/architecture docs/standards docs/product-specs docs/handoffs docs/runbooks docs/incident-retrospectives docs/domain-models docs/references docs/archive -type f | sort); do
   [[ -f "$file" ]] || continue
   [[ "$(basename "$file")" == ".gitkeep" ]] && continue
   grep -q "Status:" "$file" || fail "missing Status metadata: $file"
@@ -60,6 +62,7 @@ grep -q "indexes/standards-index.md" docs/README.md || fail "docs/README.md miss
 grep -q "indexes/product-specs-index.md" docs/README.md || fail "docs/README.md missing product specs index link"
 grep -q "indexes/handoffs-index.md" docs/README.md || fail "docs/README.md missing handoffs index link"
 grep -q "indexes/runbooks-index.md" docs/README.md || fail "docs/README.md missing runbooks index link"
+grep -q "indexes/incident-retrospectives-index.md" docs/README.md || fail "docs/README.md missing incident retrospectives index link"
 grep -q "indexes/domain-models-index.md" docs/README.md || fail "docs/README.md missing domain-models index link"
 grep -q "indexes/references-index.md" docs/README.md || fail "docs/README.md missing references index link"
 
