@@ -46,7 +46,7 @@ public class S3Config {
      */
     private S3Client createMinioClient() {
         return S3Client.builder()
-                .endpointOverride(URI.create(storageProperties.getEndpoint())) // MinIO 서버 주소
+                .endpointOverride(URI.create(storageProperties.serverToS3BaseUrl())) // 서버 -> S3 API 경로
                 .region(Region.of(storageProperties.getRegion()))
                 .credentialsProvider(
                         StaticCredentialsProvider.create(

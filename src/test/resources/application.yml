@@ -36,7 +36,8 @@ jwt:
   secret: LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=
 
 storage:
-  endpoint: http://localhost:9000
+  server-to-s3-url: http://localhost:9000
+  client-to-s3-url: http://localhost:9000
   region: ap-northeast-2
   access-key: minioadmin
   secret-key: minioadmin
