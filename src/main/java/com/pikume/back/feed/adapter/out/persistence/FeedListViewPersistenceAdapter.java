@@ -1,7 +1,6 @@
 package com.pikume.back.feed.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
@@ -19,12 +18,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
@@ -34,96 +31,30 @@ public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 
 	@Override
 	public List<FeedListItemView> loadFeedListItems(List<Long> diaryIds, String currentUserId) {
-		long totalStartedAt = System.nanoTime();
 		if (diaryIds.isEmpty()) {
-			log.info("event=feed_materialize_completed outcome=success userId={} diaryCount=0 itemCount=0 totalDurationMs={}",
-					currentUserId,
-					elapsedMillis(totalStartedAt));
 			return List.of();
 		}
 
-		long stageStartedAt = System.nanoTime();
 		Map<Long, DiarySummaryView> diariesById = queryDiaryReadUseCase.getDiarySummaries(Set.copyOf(diaryIds));
-		log.info("event=feed_materialize_stage outcome=success stage=load_diary_summaries userId={} diaryCount={} summaryCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				diariesById.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Map<Long, List<String>> photosByDiaryId = loadPhotoUrls(Set.copyOf(diaryIds));
-		log.info("event=feed_materialize_stage outcome=success stage=load_photo_urls userId={} diaryCount={} photoOwnerCount={} photoCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				photosByDiaryId.size(),
-				photosByDiaryId.values().stream().mapToInt(List::size).sum(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Map<String, UserSummaryView> usersById = loadUsers(diariesById.values());
-		log.info("event=feed_materialize_stage outcome=success stage=load_users userId={} authorCount={} loadedUserCount={} durationMs={}",
-				currentUserId,
-				diariesById.values().stream().map(DiarySummaryView::userId).collect(Collectors.toSet()).size(),
-				usersById.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Map<String, FeedFriendStatus> friendStatusesByUserId = loadSocialForFeedPort.getFriendStatuses(currentUserId, usersById.keySet());
-		log.info("event=feed_materialize_stage outcome=success stage=load_friend_statuses userId={} targetUserCount={} statusCount={} durationMs={}",
-				currentUserId,
-				usersById.size(),
-				friendStatusesByUserId.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Map<Long, Long> commentCountsByDiaryId = loadSocialForFeedPort.getCommentCountsForDiaries(diaryIds);
-		log.info("event=feed_materialize_stage outcome=success stage=load_comment_counts userId={} diaryCount={} countedDiaryCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				commentCountsByDiaryId.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Map<Long, Long> likeCountsByDiaryId = loadSocialForFeedPort.getLikeCountsForDiaries(diaryIds);
-		log.info("event=feed_materialize_stage outcome=success stage=load_like_counts userId={} diaryCount={} countedDiaryCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				likeCountsByDiaryId.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		Set<Long> likedDiaryIds = loadSocialForFeedPort.getLikedDiaryIds(currentUserId, diaryIds);
-		log.info("event=feed_materialize_stage outcome=success stage=load_liked_statuses userId={} diaryCount={} likedDiaryCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				likedDiaryIds.size(),
-				elapsedMillis(stageStartedAt));
 
-		stageStartedAt = System.nanoTime();
-		List<FeedListItemView> items = diaryIds.stream()
+		return diaryIds.stream()
 				.map(diariesById::get)
 				.filter(java.util.Objects::nonNull)
-					.map(diary -> toFeedListItemView(
-							diary,
-							photosByDiaryId,
-							usersById,
-							friendStatusesByUserId,
-							commentCountsByDiaryId,
-							likeCountsByDiaryId,
-							likedDiaryIds))
+				.map(diary -> toFeedListItemView(
+						diary,
+						photosByDiaryId,
+						usersById,
+						friendStatusesByUserId,
+						commentCountsByDiaryId,
+						likeCountsByDiaryId,
+						likedDiaryIds))
 				.toList();
-		log.info("event=feed_materialize_stage outcome=success stage=build_items userId={} diaryCount={} itemCount={} durationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				items.size(),
-				elapsedMillis(stageStartedAt));
-		log.info("event=feed_materialize_completed outcome=success userId={} diaryCount={} itemCount={} totalDurationMs={}",
-				currentUserId,
-				diaryIds.size(),
-				items.size(),
-				elapsedMillis(totalStartedAt));
-
-		return items;
 	}
 
 	private Map<Long, List<String>> loadPhotoUrls(Set<Long> diaryIds) {
@@ -174,9 +105,5 @@ public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 			case FRIENDS -> FeedVisibility.FRIENDS;
 			case PRIVATE -> FeedVisibility.PRIVATE;
 		};
-	}
-
-	private long elapsedMillis(long startedAtNanos) {
-		return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos);
 	}
 }

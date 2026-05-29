@@ -23,7 +23,6 @@ import com.pikume.back.feed.domain.FeedClick;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 피드 조회 서비스
@@ -63,16 +62,9 @@ public class FeedQueryService implements GetFeedUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public FeedCursorPage<FeedDiaryResult> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
-		long requestStartedAt = System.nanoTime();
-		long decodeStartedAt = System.nanoTime();
 		FeedCursor cursor = decodeCursor(request.cursor(), userId, request.sortMode());
 		if (request.sortMode() == FeedSortMode.LATEST) {
-			log.info("event=feed_latest_stage outcome=success stage=decode_cursor userId={} limit={} cursorPresent={} durationMs={}",
-					userId,
-					request.limit(),
-					hasCursor(request.cursor()),
-					elapsedMillis(decodeStartedAt));
-			return getLatestDiaries(request, requestMetaInfo, userId, cursor, requestStartedAt);
+			return getLatestDiaries(request, requestMetaInfo, userId, cursor);
 		}
 		return getRecommendedDiaries(request, requestMetaInfo, userId, cursor);
 	}
@@ -96,79 +88,20 @@ public class FeedQueryService implements GetFeedUseCase {
 	}
 
 	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request,
-			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor, long requestStartedAt) {
-		log.info("event=feed_latest_started outcome=started userId={} limit={} cursorPresent={}",
-				userId,
-				request.limit(),
-				cursor != null);
-
-		long stageStartedAt = System.nanoTime();
+			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor) {
 		List<String> friendUserIds = resolveFriendUserIds(userId);
-		log.info("event=feed_latest_stage outcome=success stage=resolve_friends userId={} friendCount={} durationMs={}",
-				userId,
-				friendUserIds.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		List<FeedLatestCursorCandidate> candidates = loadLatestPageCandidates(userId, friendUserIds, cursor, request.limit());
-		log.info("event=feed_latest_stage outcome=success stage=load_candidates userId={} limit={} cursorPresent={} friendCount={} candidateCount={} durationMs={}",
-				userId,
-				request.limit(),
-				cursor != null,
-				friendUserIds.size(),
-				candidates.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedLatestCursorCandidate::diaryId)
 				.toList();
-		log.info("event=feed_latest_stage outcome=success stage=extract_candidate_ids userId={} candidateCount={} durationMs={}",
-				userId,
-				candidates.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
-		log.info("event=feed_latest_stage outcome=success stage=materialize_feed_items userId={} candidateCount={} itemCount={} durationMs={}",
-				userId,
-				diaryIds.size(),
-				feedItems.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		List<FeedDiaryResult> responseList = feedItems.stream()
 				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
 				.toList();
-		log.info("event=feed_latest_stage outcome=success stage=build_response_dtos userId={} itemCount={} durationMs={}",
-				userId,
-				responseList.size(),
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		boolean hasNext = hasNextLatest(userId, friendUserIds, candidates, request.limit());
-		log.info("event=feed_latest_stage outcome=success stage=resolve_has_next userId={} candidateCount={} limit={} hasNext={} durationMs={}",
-				userId,
-				candidates.size(),
-				request.limit(),
-				hasNext,
-				elapsedMillis(stageStartedAt));
-
-		stageStartedAt = System.nanoTime();
 		String nextCursor = hasNext && !candidates.isEmpty()
 				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
 				: null;
-		log.info("event=feed_latest_stage outcome=success stage=encode_next_cursor userId={} nextCursorPresent={} durationMs={}",
-				userId,
-				nextCursor != null,
-				elapsedMillis(stageStartedAt));
-		log.info("event=feed_latest_completed outcome=success userId={} limit={} candidateCount={} itemCount={} hasNext={} totalDurationMs={}",
-				userId,
-				request.limit(),
-				candidates.size(),
-				responseList.size(),
-				hasNext,
-				elapsedMillis(requestStartedAt));
 
 		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
 	}
@@ -303,14 +236,6 @@ public class FeedQueryService implements GetFeedUseCase {
 				friendUserIds,
 				lastCandidate.toCursor(),
 				1).isEmpty();
-	}
-
-	private boolean hasCursor(String cursorToken) {
-		return cursorToken != null && !cursorToken.isBlank();
-	}
-
-	private long elapsedMillis(long startedAtNanos) {
-		return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAtNanos);
 	}
 
 	private void updateUserPreferenceOnClick(String userId, Long diaryId) {
