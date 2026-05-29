@@ -1,13 +1,13 @@
 package com.pikume.back.diary.adapter.out.storage;
 
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.MinioClient;
-import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -23,8 +23,8 @@ import com.pikume.back.global.util.FileUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PREFIX;
 
@@ -129,22 +129,37 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 	}
 
 	public String getMinIOStoragePhotoUrl(String objectName, boolean isPublic) throws Exception {
-		MinioClient minioClient = MinioClient.builder()
-				.endpoint(storageProperties.getEndpoint())
-				.credentials(storageProperties.getAccessKey(), storageProperties.getSecretKey())
-				.build();
+		String clientToS3BaseUrl = storageProperties.clientToS3BaseUrl();
 		if (isPublic) {
-			return storageProperties.getEndpoint() + "/" + storageProperties.getBucket() + "/" + objectName;
+			return clientToS3BaseUrl + "/" + storageProperties.getBucket() + "/" + objectName;
 		}
 
-		String url = minioClient.getPresignedObjectUrl(
-				GetPresignedObjectUrlArgs.builder()
-						.method(Method.GET)
-						.bucket(storageProperties.getBucket())
-						.object(objectName)
-						.expiry(30, TimeUnit.MINUTES)
-						.build());
-		return url;
+		S3Presigner.Builder presignerBuilder = S3Presigner.builder()
+				.endpointOverride(URI.create(clientToS3BaseUrl))
+				.region(Region.of(storageProperties.getRegion()))
+				.credentialsProvider(
+						StaticCredentialsProvider.create(
+								AwsBasicCredentials.create(
+										storageProperties.getAccessKey(),
+										storageProperties.getSecretKey())))
+				.serviceConfiguration(
+						S3Configuration.builder()
+								.pathStyleAccessEnabled(true)
+								.build());
+
+		try (S3Presigner presigner = presignerBuilder.build()) {
+			GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+					.bucket(storageProperties.getBucket())
+					.key(objectName)
+					.build();
+
+			GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+					.signatureDuration(Duration.ofMinutes(30))
+					.getObjectRequest(getObjectRequest)
+					.build();
+
+			return presigner.presignGetObject(presignRequest).url().toString();
+		}
 	}
 
 	@Override
@@ -261,8 +276,11 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 		} catch (S3Exception e) {
 			log.error("S3 파일 이동 실패: {} → {}, 오류: {}", sourceKey, targetKey, e.getMessage(), e);
 
-			if (fileCopied && objectExists(targetKey)) {
+			if (fileCopied) {
 				try {
+					if (!objectExists(targetKey)) {
+						throw new RuntimeException("복사된 파일을 확인할 수 없습니다: " + targetKey);
+					}
 					deleteObject(targetKey);
 					log.info("롤백: 복사된 파일 삭제 완료: {}", targetKey);
 				} catch (Exception rollbackException) {
@@ -274,8 +292,11 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 		} catch (Exception e) {
 			log.error("파일 이동 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
 
-			if (fileCopied && objectExists(targetKey)) {
+			if (fileCopied) {
 				try {
+					if (!objectExists(targetKey)) {
+						throw new RuntimeException("복사된 파일을 확인할 수 없습니다: " + targetKey);
+					}
 					deleteObject(targetKey);
 					log.info("롤백: 복사된 파일 삭제 완료: {}", targetKey);
 				} catch (Exception rollbackException) {
@@ -298,9 +319,15 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 			return true;
 		} catch (NoSuchKeyException e) {
 			return false;
-		} catch (Exception e) {
-			log.warn("객체 존재 확인 중 오류: {}", e.getMessage());
-			return false;
+		} catch (S3Exception e) {
+			if (e.statusCode() == 404) {
+				return false;
+			}
+			log.warn("event=storage_object_exists_failed outcome=failed key={} status={} reason={}",
+					key,
+					e.statusCode(),
+					e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage());
+			throw e;
 		}
 	}
 

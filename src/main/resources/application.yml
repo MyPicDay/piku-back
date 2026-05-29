@@ -58,10 +58,10 @@ monitoring:
   allowed-ips: ${MONITORING_ALLOWED_IPS:172.18.0.0/16,192.168.0.0/16}
 
 storage:
-  endpoint: ${STORAGE_URL:http://localhost:9000}
+  server-to-s3-url: ${SERVER_TO_S3_URL:http://localhost:9000}
+  client-to-s3-url: ${CLIENT_TO_S3_URL:http://localhost:9000}
   region: ap-northeast-2
   access-key: ${STORAGE_ACCESS_KEY:minioadmin}
   secret-key: ${STORAGE_SECRET_KEY:minioadmin}
   bucket: ${STORAGE_BUCKET:piku}
   type: ${STORAGE_TYPE:minio} # minio or s3
-
