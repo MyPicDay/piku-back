@@ -48,6 +48,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@MockitoBean
 	private PublishEventPort publishEventPort;
 
+	private String ownerId;
 	private String likerId;
 	private String friendId;
 	private String strangerId;
@@ -68,6 +69,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 		Diary friendsDiary = diaryJpaRepository.save(new Diary("friends", DiaryVisibility.FRIENDS, LocalDate.now(), owner.getId()));
 		friendJpaRepository.save(new Friend(owner.getId(), friend.getId()));
 
+		ownerId = owner.getId();
 		likerId = liker.getId();
 		friendId = friend.getId();
 		strangerId = stranger.getId();
@@ -124,6 +126,18 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 		assertThatThrownBy(() -> likeService.addLike(strangerId, friendsDiaryId, requestMetaInfo))
 				.isInstanceOf(LikeException.class)
 				.satisfies(e -> assertThat(((LikeException) e).getErrorCode()).isEqualTo(LikeErrorCode.DIARY_NOT_FOUND));
+	}
+
+	@Test
+	@DisplayName("작성자는 본인 일기에 좋아요를 누를 수 있고 알림 이벤트는 발행되지 않는다")
+	void ownerCanLikeOwnDiaryWithoutNotificationEvent() {
+		var response = likeService.addLike(ownerId, diaryId, requestMetaInfo);
+
+		assertThat(response.diaryId()).isEqualTo(diaryId);
+		assertThat(response.likeCount()).isEqualTo(1L);
+		assertThat(response.liked()).isTrue();
+		assertThat(likeJpaRepository.findByUserIdAndDiaryId(ownerId, diaryId)).isPresent();
+		then(publishEventPort).shouldHaveNoInteractions();
 	}
 
 	@Test

@@ -85,14 +85,19 @@ class LikeServiceTest {
 		}
 
 		@Test
-		@DisplayName("본인 일기에 좋아요하면 예외 발생")
-		void failsOwnDiary() {
+		@DisplayName("본인 일기에 좋아요하면 좋아요는 추가하고 이벤트를 발행하지 않는다")
+		void addLikeToOwnDiaryWithoutPublishingEvent() {
 			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "owner-id")).willReturn(Optional.of("owner-id"));
+			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("owner-id", 1L)).willReturn(Optional.empty());
+			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			assertThatThrownBy(() -> likeService.addLike("owner-id", 1L, requestMetaInfo))
-					.isInstanceOf(LikeException.class)
-					.satisfies(e -> assertThat(((LikeException) e).getErrorCode())
-							.isEqualTo(LikeErrorCode.CANNOT_LIKE_OWN_DIARY));
+			LikeResult response = likeService.addLike("owner-id", 1L, requestMetaInfo);
+
+			assertThat(response.diaryId()).isEqualTo(1L);
+			assertThat(response.likeCount()).isEqualTo(1L);
+			assertThat(response.liked()).isTrue();
+			then(saveLikePort).should().saveAndFlush(any(Like.class));
+			then(publishEventPort).shouldHaveNoInteractions();
 		}
 
 		@Test

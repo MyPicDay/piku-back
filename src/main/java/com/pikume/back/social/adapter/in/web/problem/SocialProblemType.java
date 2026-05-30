@@ -17,7 +17,6 @@ public enum SocialProblemType implements ApiProblemType {
 	INVALID_COMMENT_REQUEST("https://api.pikume.com/problems/social/invalid-comment-request", HttpStatus.BAD_REQUEST, "Bad Request"),
 	PARENT_COMMENT_NOT_IN_SAME_DIARY("https://api.pikume.com/problems/social/parent-comment-not-in-same-diary", HttpStatus.BAD_REQUEST, "Bad Request"),
 	ALREADY_LIKED("https://api.pikume.com/problems/social/already-liked", HttpStatus.CONFLICT, "Conflict"),
-	CANNOT_LIKE_OWN_DIARY("https://api.pikume.com/problems/social/cannot-like-own-diary", HttpStatus.BAD_REQUEST, "Bad Request"),
 	DUPLICATE_LIKE("https://api.pikume.com/problems/social/duplicate-like", HttpStatus.CONFLICT, "Conflict"),
 	INVALID_FRIEND_REQUEST("https://api.pikume.com/problems/social/invalid-friend-request", HttpStatus.BAD_REQUEST,
 			"Bad Request"),
@@ -57,7 +56,6 @@ public enum SocialProblemType implements ApiProblemType {
 			case DIARY_NOT_FOUND -> DIARY_NOT_FOUND;
 			case ALREADY_LIKED -> ALREADY_LIKED;
 			case LIKE_NOT_FOUND -> LIKE_NOT_FOUND;
-			case CANNOT_LIKE_OWN_DIARY -> CANNOT_LIKE_OWN_DIARY;
 		};
 	}
 

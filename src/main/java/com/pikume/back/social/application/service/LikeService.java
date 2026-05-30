@@ -39,10 +39,6 @@ public class LikeService implements LikeUseCase {
 		String diaryOwnerId = loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(diaryId, userId)
 				.orElseThrow(() -> new LikeException(LikeErrorCode.DIARY_NOT_FOUND));
 
-		if (diaryOwnerId.equals(userId)) {
-			throw new LikeException(LikeErrorCode.CANNOT_LIKE_OWN_DIARY);
-		}
-
 		Optional<Like> existingLike = loadLikePort.findAnyByUserIdAndDiaryIdForUpdate(userId, diaryId);
 		boolean shouldPublishLikeCreatedEvent = false;
 		if (existingLike.isPresent()) {
@@ -59,7 +55,7 @@ public class LikeService implements LikeUseCase {
 					.build();
 			try {
 				saveLikePort.saveAndFlush(like);
-				shouldPublishLikeCreatedEvent = true;
+				shouldPublishLikeCreatedEvent = !diaryOwnerId.equals(userId);
 			} catch (DataIntegrityViolationException e) {
 				throw new DuplicateLikeException("좋아요 중복 저장이 감지되었습니다.", e);
 			}
