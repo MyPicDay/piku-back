@@ -72,10 +72,10 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 			return UpdateProfileResult.failure(UpdateProfileFailureReason.INVALID_REQUEST, "변경할 닉네임이나 캐릭터 정보가 없습니다.", null);
 		}
 
-			User user = loadUserPort.findById(command.userId())
-					.orElseThrow(UserNotFoundException::new);
+		User user = loadUserPort.findById(command.userId())
+				.orElseThrow(UserNotFoundException::new);
 		String oldNickname = user.getNickname();
-		String oldAvatar = user.getAvatar();
+		String oldAvatarObjectKey = user.getAvatar();
 
 		String targetNickname;
 		try {
@@ -84,25 +84,30 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
-		String targetAvatar;
+		String targetAvatarObjectKey;
 		try {
-			targetAvatar = getUpdatedAvatar(command.characterId(), oldAvatar);
+			targetAvatarObjectKey = getUpdatedAvatarObjectKey(command.characterId(), oldAvatarObjectKey);
 		} catch (UpdateProfileFailureException e) {
 			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
 		boolean nicknameChanged = !targetNickname.equals(oldNickname);
-		boolean characterChanged = !targetAvatar.equals(oldAvatar);
+		boolean characterChanged = !targetAvatarObjectKey.equals(oldAvatarObjectKey);
 
 		if (!nicknameChanged && !characterChanged) {
-			return UpdateProfileResult.success("변경 사항이 없습니다.", oldNickname, targetAvatar);
+			return UpdateProfileResult.success("변경 사항이 없습니다.", oldNickname, targetAvatarObjectKey);
 		}
 
 		try {
-			User updatedUser = new User(user.getId(), user.getEmail(), user.getPassword(), targetNickname, targetAvatar);
+			User updatedUser = new User(
+					user.getId(),
+					user.getEmail(),
+					user.getPassword(),
+					targetNickname,
+					targetAvatarObjectKey);
 			saveUserPort.save(updatedUser);
 
-			return buildSuccessResult(nicknameChanged, characterChanged, targetNickname, targetAvatar);
+			return buildSuccessResult(nicknameChanged, characterChanged, targetNickname, targetAvatarObjectKey);
 		} finally {
 			if (nicknameChanged) {
 				nicknameHoldMap.remove(command.newNickname());
@@ -113,16 +118,16 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	@Override
 	@Transactional
 	public void updateProfileImage(String userId, Long imageId) {
-			User user = loadUserPort.findById(userId)
-					.orElseThrow(UserNotFoundException::new);
+		User user = loadUserPort.findById(userId)
+				.orElseThrow(UserNotFoundException::new);
 
-		String avatarUrl = characterPort.getFixedCharacterImageUrl(imageId);
-		if (avatarUrl == null) {
+		String avatarObjectKey = characterPort.getFixedCharacterObjectKey(imageId);
+		if (avatarObjectKey == null) {
 			log.warn("고정 캐릭터 이미지를 찾을 수 없습니다. imageId: {}", imageId);
 			throw new ProfileImageNotFoundException(imageId);
 		}
 
-		user.changeAvatar(avatarUrl);
+		user.changeAvatar(avatarObjectKey);
 		saveUserPort.save(user);
 	}
 
@@ -147,9 +152,9 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		return newNickname;
 	}
 
-	private String getUpdatedAvatar(Long characterId, String oldAvatar) {
+	private String getUpdatedAvatarObjectKey(Long characterId, String oldAvatarObjectKey) {
 		if (characterId == null) {
-			return oldAvatar;
+			return oldAvatarObjectKey;
 		}
 		if (characterId <= 0) {
 			log.warn("Invalid character ID value: {}", characterId);
@@ -157,14 +162,14 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 					UpdateProfileFailureReason.INVALID_REQUEST,
 					"유효하지 않은 캐릭터 ID입니다.");
 		}
-		String newCharacter = characterPort.getFixedCharacterImageUrl(characterId);
-		if (newCharacter == null) {
+		String newAvatarObjectKey = characterPort.getFixedCharacterObjectKey(characterId);
+		if (newAvatarObjectKey == null) {
 			log.warn("Character not found for ID: {}", characterId);
 			throw new UpdateProfileFailureException(
 					UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
 					"존재하지 않는 캐릭터입니다.");
 		}
-		return newCharacter.equals(oldAvatar) ? oldAvatar : newCharacter;
+		return newAvatarObjectKey.equals(oldAvatarObjectKey) ? oldAvatarObjectKey : newAvatarObjectKey;
 	}
 
 	private UpdateProfileResult buildSuccessResult(boolean nicknameChanged, boolean characterChanged, String nickname,

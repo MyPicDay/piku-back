@@ -113,8 +113,8 @@ class CharacterServiceTest {
 	}
 
 	@Nested
-	@DisplayName("getFixedCharacterImageUrl")
-	class GetFixedCharacterImageUrl {
+		@DisplayName("getFixedCharacterObjectKey")
+		class GetFixedCharacterObjectKey {
 
 		@Test
 		@DisplayName("파일명만 저장된 고정 캐릭터는 canonical object key로 반환한다")
@@ -122,9 +122,9 @@ class CharacterServiceTest {
 			Character character = new Character("base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String url = characterService.getFixedCharacterImageUrl(1L);
+			String objectKey = characterService.getFixedCharacterObjectKey(1L);
 
-			assertThat(url).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
@@ -133,9 +133,9 @@ class CharacterServiceTest {
 			Character character = new Character("characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String url = characterService.getFixedCharacterImageUrl(1L);
+			String objectKey = characterService.getFixedCharacterObjectKey(1L);
 
-			assertThat(url).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
@@ -144,9 +144,9 @@ class CharacterServiceTest {
 			Character character = new Character("public/characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String url = characterService.getFixedCharacterImageUrl(1L);
+			String objectKey = characterService.getFixedCharacterObjectKey(1L);
 
-			assertThat(url).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
@@ -155,9 +155,9 @@ class CharacterServiceTest {
 			Character aiCharacter = new Character("user-1", "ai_image.png");
 			given(loadCharacterPort.findById(2L)).willReturn(Optional.of(aiCharacter));
 
-			String url = characterService.getFixedCharacterImageUrl(2L);
+			String objectKey = characterService.getFixedCharacterObjectKey(2L);
 
-			assertThat(url).isNull();
+			assertThat(objectKey).isNull();
 		}
 
 		@Test
@@ -165,9 +165,9 @@ class CharacterServiceTest {
 		void returnsNullWhenNotFound() {
 			given(loadCharacterPort.findById(999L)).willReturn(Optional.empty());
 
-			String url = characterService.getFixedCharacterImageUrl(999L);
+			String objectKey = characterService.getFixedCharacterObjectKey(999L);
 
-			assertThat(url).isNull();
+			assertThat(objectKey).isNull();
 		}
 	}
 

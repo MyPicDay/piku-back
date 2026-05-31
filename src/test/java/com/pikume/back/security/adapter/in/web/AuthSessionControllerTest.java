@@ -3,6 +3,7 @@ package com.pikume.back.security.adapter.in.web;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
+import com.pikume.back.security.dto.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -22,15 +23,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthSessionControllerTest {
 
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
+	private final AuthUserResponseMapper authUserResponseMapper = org.mockito.Mockito.mock(AuthUserResponseMapper.class);
 
 	@Test
 	@DisplayName("GET /api/auth/me는 인증 사용자를 LoginResponse 형태로 반환한다")
 	void getCurrentUserReturnsLoginResponseShape() throws Exception {
-		CustomUserDetails userDetails = CustomUserDetails.withAvatarUrl(
+		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				"user-1",
 				"user@example.com",
 				"pikume",
-				"/avatars/user-1.png");
+				"public/characters/fixed/base_image_1.png");
+		UserInfo displayUserInfo = new UserInfo(
+				"user-1",
+				"user@example.com",
+				"pikume",
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		org.mockito.BDDMockito.given(authUserResponseMapper.toDisplayUserInfo(userDetails)).willReturn(displayUserInfo);
 		MockMvc mockMvc = mockMvcWith(userDetails);
 
 		mockMvc.perform(get("/api/auth/me")
@@ -40,7 +48,8 @@ class AuthSessionControllerTest {
 				.andExpect(jsonPath("$.user.id").value("user-1"))
 				.andExpect(jsonPath("$.user.email").value("user@example.com"))
 				.andExpect(jsonPath("$.user.nickname").value("pikume"))
-				.andExpect(jsonPath("$.user.avatarUrl").value("/avatars/user-1.png"));
+				.andExpect(jsonPath("$.user.avatarUrl")
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));
 	}
 
 	@Test
@@ -59,7 +68,7 @@ class AuthSessionControllerTest {
 	}
 
 	private MockMvc mockMvcWith(CustomUserDetails userDetails) {
-		AuthSessionController authSessionController = new AuthSessionController(problemDetailFactory);
+		AuthSessionController authSessionController = new AuthSessionController(problemDetailFactory, authUserResponseMapper);
 		return MockMvcBuilders.standaloneSetup(authSessionController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
 				.build();

@@ -20,9 +20,9 @@ public interface GetCharacterUseCase {
 	CharacterResult getCharacterById(Long id);
 
 	/**
-	 * 고정 캐릭터 이미지 URL을 조회합니다.
+	 * 고정 캐릭터 이미지 object key를 조회합니다.
 	 */
-	String getFixedCharacterImageUrl(Long characterId);
+	String getFixedCharacterObjectKey(Long characterId);
 
 	/**
 	 * 고정 캐릭터 이미지가 존재하는지 확인합니다.

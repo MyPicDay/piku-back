@@ -25,7 +25,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -75,7 +74,7 @@ class AuthServiceTest {
 					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
 			given(passwordEncoder.encode("abc@123")).willReturn("encodedPw");
-			given(getCharacterUseCase.getFixedCharacterImageUrl(1L))
+			given(getCharacterUseCase.getFixedCharacterObjectKey(1L))
 					.willReturn("public/characters/fixed/base_image_1.png");
 			given(loadUserForSignUpPort.save(any(User.class))).willReturn(null);
 

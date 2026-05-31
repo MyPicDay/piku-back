@@ -32,6 +32,7 @@ public class MobileAuthController {
 	private final LoginUseCase loginUseCase;
 	private final ReissueTokenUseCase reissueTokenUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
+	private final AuthUserResponseMapper authUserResponseMapper;
 
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
@@ -41,7 +42,7 @@ public class MobileAuthController {
 			LoginResult loginResult = loginUseCase.login(dto, deviceId);
 			return ResponseEntity.ok(new MobileLoginResponse(
 					"로그인 성공",
-					loginResult.userInfo(),
+					authUserResponseMapper.toDisplayUserInfo(loginResult.userInfo()),
 					new MobileTokenBundle(
 							"Bearer",
 							loginResult.tokens().getAccessToken(),

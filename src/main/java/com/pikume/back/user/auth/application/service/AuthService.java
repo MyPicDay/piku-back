@@ -59,8 +59,8 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 				dto.getEmail(),
 				passwordEncoder.encode(dto.getPassword()),
 				dto.getNickname());
-		String avatarUrl = getCharacterUseCase.getFixedCharacterImageUrl(dto.getFixedCharacterId());
-		user.changeAvatar(avatarUrl);
+		String avatarObjectKey = getCharacterUseCase.getFixedCharacterObjectKey(dto.getFixedCharacterId());
+		user.changeAvatar(avatarObjectKey);
 		loadUserForSignUpPort.save(user);
 		log.info("[회원 가입] 완료 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
 	}

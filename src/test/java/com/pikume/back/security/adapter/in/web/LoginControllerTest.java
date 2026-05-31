@@ -9,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,6 +21,7 @@ import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.ProblemDetailFallbackExceptionResolver;
 import com.pikume.back.global.util.CookieUtils;
+import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
 import com.pikume.back.security.application.dto.LoginResult;
 import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
@@ -58,6 +58,9 @@ class LoginControllerTest {
 	@Mock
 	private CookieUtils cookieUtils;
 
+	@Mock
+	private AuthUserResponseMapper authUserResponseMapper;
+
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
@@ -68,7 +71,8 @@ class LoginControllerTest {
 				loginUseCase,
 				reissueTokenUseCase,
 				cookieUtils,
-				problemDetailFactory);
+				problemDetailFactory,
+				authUserResponseMapper);
 		mockMvc = MockMvcBuilders.standaloneSetup(loginController)
 				.setHandlerExceptionResolvers(new ProblemDetailFallbackExceptionResolver(
 						objectMapper,
@@ -118,10 +122,20 @@ class LoginControllerTest {
 		LoginRequest request = new LoginRequest("user@example.com", "password");
 		LoginResult loginResult = new LoginResult(
 				new TokenDto("access-token", "refresh-token"),
-				new UserInfo("user-1", "user@example.com", "pikume", "avatar.png"));
+				new AuthenticatedUserInfo(
+						"user-1",
+						"user@example.com",
+						"pikume",
+						"public/characters/fixed/base_image_1.png"));
+		UserInfo displayUserInfo = new UserInfo(
+				"user-1",
+				"user@example.com",
+				"pikume",
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		CookieSpec cookieSpec = new CookieSpec("refreshToken", "refresh-token", true, true, "/", 3600, "Lax");
 		given(loginUseCase.login(any(LoginRequest.class), nullable(String.class))).willReturn(loginResult);
 		given(loginUseCase.newCookieRefreshToken("refresh-token")).willReturn(cookieSpec);
+		given(authUserResponseMapper.toDisplayUserInfo(loginResult.userInfo())).willReturn(displayUserInfo);
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -130,7 +144,9 @@ class LoginControllerTest {
 				.andExpect(header().string("Authorization", "Bearer access-token"))
 				.andExpect(jsonPath("$.message").value("로그인 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
-				.andExpect(jsonPath("$.user.email").value("user@example.com"));
+				.andExpect(jsonPath("$.user.email").value("user@example.com"))
+				.andExpect(jsonPath("$.user.avatarUrl")
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));
 	}
 
 	@Test

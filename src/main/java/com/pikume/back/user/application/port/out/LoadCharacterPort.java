@@ -6,12 +6,12 @@ package com.pikume.back.user.application.port.out;
 public interface LoadCharacterPort {
 
 	/**
-	 * 캐릭터 ID로 고정 캐릭터 이미지 URL을 조회합니다.
+	 * 캐릭터 ID로 고정 캐릭터 이미지 object key를 조회합니다.
 	 *
 	 * @param characterId 캐릭터 ID
-	 * @return 고정 캐릭터 이미지 URL (null 가능)
+	 * @return 고정 캐릭터 이미지 object key (null 가능)
 	 */
-	String getFixedCharacterImageUrl(Long characterId);
+	String getFixedCharacterObjectKey(Long characterId);
 
 	/**
 	 * 캐릭터 ID로 캐릭터 존재 여부를 확인합니다.

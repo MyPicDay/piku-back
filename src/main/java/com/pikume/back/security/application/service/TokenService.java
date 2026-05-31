@@ -9,11 +9,11 @@ import org.springframework.util.StringUtils;
 import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.security.application.dto.AuthUserView;
+import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
 import com.pikume.back.security.application.dto.LoginResult;
 import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.dto.TokenDto;
-import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.security.application.port.in.LoginUseCase;
@@ -50,7 +50,11 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
 		return new LoginResult(
 				new TokenDto(accessToken, refreshToken),
-				new UserInfo(user.id(), user.email(), user.nickname(), user.avatarPath()));
+				new AuthenticatedUserInfo(
+						user.id(),
+						user.email(),
+						user.nickname(),
+						user.avatarPath()));
 	}
 
 	@Override

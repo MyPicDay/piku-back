@@ -2,12 +2,11 @@ package com.pikume.back.security.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.PikuBackApplication;
+import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
 import com.pikume.back.security.application.dto.LoginResult;
 import com.pikume.back.security.application.port.in.LoginUseCase;
 import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
 import com.pikume.back.security.dto.TokenDto;
-import com.pikume.back.security.dto.UserInfo;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +44,11 @@ class MobileAuthSecurityConfigTest {
 	void mobileLoginIsPermittedWithoutAuthentication() throws Exception {
 		LoginResult result = new LoginResult(
 				new TokenDto("access-token", "refresh-token"),
-				new UserInfo("user-1", "user@example.com", "pikume", "/avatar.png"));
+				new AuthenticatedUserInfo(
+						"user-1",
+						"user@example.com",
+						"pikume",
+						"https://assets.example.com/avatar.png"));
 		given(loginUseCase.login(any(), anyString())).willReturn(result);
 
 		mockMvc.perform(post("/api/mobile/auth/login")

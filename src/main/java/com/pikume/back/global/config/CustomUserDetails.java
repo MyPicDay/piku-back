@@ -13,21 +13,21 @@ public class CustomUserDetails implements UserDetails {
     private final String id;
     private final String email;
     private final String nickname;
-    private final String avatarUrl;
+    private final String avatarPath;
 
     public CustomUserDetails(String id, String email, String nickname) {
         this(id, email, nickname, null);
     }
 
-    public static CustomUserDetails withAvatarUrl(String id, String email, String nickname, String avatarUrl) {
-        return new CustomUserDetails(id, email, nickname, avatarUrl);
+    public static CustomUserDetails withAvatarPath(String id, String email, String nickname, String avatarPath) {
+        return new CustomUserDetails(id, email, nickname, avatarPath);
     }
 
-    private CustomUserDetails(String id, String email, String nickname, String avatarUrl) {
+    private CustomUserDetails(String id, String email, String nickname, String avatarPath) {
         this.id = id;
         this.email = email;
         this.nickname = nickname;
-        this.avatarUrl = avatarUrl;
+        this.avatarPath = avatarPath;
     }
 
     @Override

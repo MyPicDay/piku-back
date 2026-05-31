@@ -16,8 +16,8 @@ public class CharacterAdapterForUser implements LoadCharacterPort {
 	private final GetCharacterUseCase getCharacterUseCase;
 
 	@Override
-	public String getFixedCharacterImageUrl(Long characterId) {
-		return getCharacterUseCase.getFixedCharacterImageUrl(characterId);
+	public String getFixedCharacterObjectKey(Long characterId) {
+		return getCharacterUseCase.getFixedCharacterObjectKey(characterId);
 	}
 
 	@Override

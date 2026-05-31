@@ -43,6 +43,7 @@ public class LoginController {
 	private final ReissueTokenUseCase reissueTokenUseCase;
 	private final CookieUtils cookieUtils;
 	private final ProblemDetailFactory problemDetailFactory;
+	private final AuthUserResponseMapper authUserResponseMapper;
 
 	@Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인을 진행하고 Access/Refresh 토큰을 발급합니다.")
 	@ApiResponses(value = {
@@ -61,7 +62,9 @@ public class LoginController {
 			ResponseCookie responseCookie = toResponseCookie(
 					loginUseCase.newCookieRefreshToken(loginResult.tokens().getRefreshToken()));
 
-			LoginResponse loginResponse = new LoginResponse("로그인 성공", loginResult.userInfo());
+			LoginResponse loginResponse = new LoginResponse(
+					"로그인 성공",
+					authUserResponseMapper.toDisplayUserInfo(loginResult.userInfo()));
 
 			return ResponseEntity.ok()
 					.header(HttpHeaders.AUTHORIZATION,

@@ -25,7 +25,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -68,7 +67,8 @@ class TokenServiceTest {
 
 			assertThat(result.tokens().getAccessToken()).isEqualTo("access-token");
 			assertThat(result.tokens().getRefreshToken()).isEqualTo("refresh-token");
-			assertThat(result.userInfo().getEmail()).isEqualTo("test@piku.store");
+			assertThat(result.userInfo().email()).isEqualTo("test@piku.store");
+			assertThat(result.userInfo().avatarPath()).isEqualTo("avatar.png");
 			then(saveRefreshTokenPort).should().save(any(RefreshToken.class));
 		}
 

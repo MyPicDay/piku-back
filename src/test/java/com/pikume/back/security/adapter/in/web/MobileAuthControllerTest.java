@@ -1,10 +1,9 @@
 package com.pikume.back.security.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pikume.back.global.dto.MessageResponse;
-import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
 import com.pikume.back.security.application.dto.LoginResult;
 import com.pikume.back.security.application.dto.ReissueResult;
 import com.pikume.back.security.application.exception.InvalidCredentialsException;
@@ -46,6 +45,9 @@ class MobileAuthControllerTest {
 	@Mock
 	private ReissueTokenUseCase reissueTokenUseCase;
 
+	@Mock
+	private AuthUserResponseMapper authUserResponseMapper;
+
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -54,7 +56,8 @@ class MobileAuthControllerTest {
 		mobileAuthController = new MobileAuthController(
 				loginUseCase,
 				reissueTokenUseCase,
-				new ProblemDetailFactory());
+				new ProblemDetailFactory(),
+				authUserResponseMapper);
 		mockMvc = MockMvcBuilders.standaloneSetup(mobileAuthController)
 				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new ProblemDetailFactory()))
 				.build();
@@ -65,8 +68,18 @@ class MobileAuthControllerTest {
 	void loginReturnsBodyTokensWhenSuccessful() throws Exception {
 		LoginResult result = new LoginResult(
 				new TokenDto("access-token", "refresh-token"),
-				new UserInfo("user-1", "user@example.com", "pikume", "/avatar.png"));
+				new AuthenticatedUserInfo(
+						"user-1",
+						"user@example.com",
+						"pikume",
+						"public/characters/fixed/base_image_1.png"));
+		UserInfo displayUserInfo = new UserInfo(
+				"user-1",
+				"user@example.com",
+				"pikume",
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		given(loginUseCase.login(any(LoginRequest.class), anyString())).willReturn(result);
+		given(authUserResponseMapper.toDisplayUserInfo(result.userInfo())).willReturn(displayUserInfo);
 
 		mockMvc.perform(post("/api/mobile/auth/login")
 						.header("Device-Id", "device-1")
@@ -77,6 +90,8 @@ class MobileAuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("로그인 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
+				.andExpect(jsonPath("$.user.avatarUrl")
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"))
 				.andExpect(jsonPath("$.tokens.accessToken").value("access-token"))
 				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"));
 	}

@@ -59,7 +59,7 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 	}
 
 	@Override
-	public String getFixedCharacterImageUrl(Long characterId) {
+	public String getFixedCharacterObjectKey(Long characterId) {
 		Optional<Character> character = loadCharacterPort.findById(characterId);
 		if (character.isPresent() && character.get().getType() == CharacterCreationType.FIXED) {
 			return CharacterAvatarPathNormalizer.normalizeFixedCharacterObjectKey(character.get().getImageUrl());

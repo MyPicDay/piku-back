@@ -81,6 +81,10 @@ public class ImagePathToUrlConverter {
         return resolveImageUrlPort.getPhotoUrl(objectKey, true);
     }
 
+    public String userAvatarImageUrl(String imagePath) {
+        return userAvatarImageUrl(imagePath, null);
+    }
+
     /**
      * Character 이미지 경로를 storage public URL로 변환합니다.
      *

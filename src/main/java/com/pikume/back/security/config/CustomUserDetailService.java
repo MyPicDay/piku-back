@@ -21,7 +21,7 @@ public class CustomUserDetailService implements UserDetailsService {
 		AuthUserView user = loadUserForAuthPort.findByEmail(email)
 				.orElseThrow(() -> new UsernameNotFoundException("이메일 없음"));
 
-		return CustomUserDetails.withAvatarUrl(
+		return CustomUserDetails.withAvatarPath(
 				user.id(),
 				user.email(),
 				user.nickname(),
