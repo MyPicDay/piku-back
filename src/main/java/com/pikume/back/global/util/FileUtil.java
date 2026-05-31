@@ -181,29 +181,6 @@ public class FileUtil {
 	}
 
 	/**
-	 * 이미지를 Base64로 인코딩하여 반환
-	 * 
-	 * @param filePathWithUser "userId/실제파일명" 형태의 파일 경로
-	 * @return Base64 인코딩된 문자열
-	 */
-	public String getImageAsBase64(String filePathWithUser) {
-		try {
-			Path path = Paths.get(filePathWithUser);
-			if (!Files.exists(path)) {
-				log.warn("파일이 존재하지 않습니다 - 경로: {}", filePathWithUser);
-				return null;
-			}
-
-			byte[] bytes = Files.readAllBytes(path);
-			return java.util.Base64.getEncoder().encodeToString(bytes);
-
-		} catch (IOException e) {
-			log.error("파일 읽기 실패 - 경로: {}, 오류: {}", filePathWithUser, e.getMessage());
-			return null;
-		}
-	}
-
-	/**
 	 * 파일 크기 반환
 	 * 
 	 * @param filePathWithUser "userId/실제파일명" 형태의 파일 경로
@@ -317,26 +294,6 @@ public class FileUtil {
 		} catch (IOException e) {
 			log.error("캐릭터 이미지 저장 실패 - 타입: {}, 사용자ID: {}, 오류: {}", type, userId, e.getMessage());
 			throw new RuntimeException("캐릭터 이미지 저장에 실패했습니다.", e);
-		}
-	}
-
-	/**
-	 * 캐릭터 이미지 파일을 Resource로 로드합니다.
-	 * 
-	 * @param type     캐릭터 생성 타입
-	 * @param userId   사용자 ID (AI_GENERATED 타입에 필요, FIXED 타입이면 null 또는 무시)
-	 * @param fileName 로드할 순수 파일명 (예: "image.png")
-	 * @return Resource 객체
-	 */
-	public Resource loadCharacterImageAsResource(CharacterCreationType type, String userId, String fileName) {
-		try {
-			Path characterStorageDir = getCharacterUploadDir(type, userId);
-			Path filePath = characterStorageDir.resolve(fileName).normalize();
-			return new UrlResource(filePath.toUri());
-		} catch (MalformedURLException e) {
-			log.error("캐릭터 이미지 로드 실패 - 경로 조합 중 오류: type={}, userId={}, fileName={}, 오류: {}", type, userId, fileName,
-					e.getMessage());
-			throw new RuntimeException("캐릭터 이미지 로드에 실패했습니다: " + fileName, e);
 		}
 	}
 

@@ -10,7 +10,7 @@ import java.util.List;
 public interface GetCharacterUseCase {
 
 	/**
-	 * 고정 캐릭터 목록을 조회합니다.
+	 * 고정 캐릭터 목록을 조회합니다. 응답의 imageUrl은 클라이언트 표시용 URL입니다.
 	 */
 	List<CharacterResult> getFixedCharacters();
 

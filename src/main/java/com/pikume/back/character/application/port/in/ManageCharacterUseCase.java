@@ -1,6 +1,5 @@
 package com.pikume.back.character.application.port.in;
 
-import com.pikume.back.character.application.dto.CharacterImageContent;
 import com.pikume.back.character.application.dto.CharacterResult;
 import com.pikume.back.global.dto.UploadedFileData;
 
@@ -20,7 +19,7 @@ public interface ManageCharacterUseCase {
 	CharacterResult saveFixedCharacter(String imageUrl);
 
 	/**
-	 * 고정 캐릭터 이미지를 애플리케이션 이미지 콘텐츠로 로드합니다.
+	 * MinIO fixed character catalog와 DB를 동기화합니다.
 	 */
-	CharacterImageContent getFixedCharacterImage(String fileName);
+	int synchronizeFixedCharactersFromStorageCatalog();
 }

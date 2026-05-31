@@ -52,7 +52,7 @@ class UserSearchServiceTest {
 
 			given(userQueryPort.searchByName("%피쿠%", pageQuery)).willReturn(userPage);
 			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.png", requestMetaInfo))
-					.willReturn("http://localhost:8080/api/characters/fixed/base_image_1.png");
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 
 			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
@@ -60,7 +60,7 @@ class UserSearchServiceTest {
 			UserSearchResult searchResult = result.getContent().get(0);
 			assertThat(searchResult.id()).isEqualTo("user-1");
 			assertThat(searchResult.nickname()).isEqualTo("피쿠유저");
-			assertThat(searchResult.avatar()).isEqualTo("http://localhost:8080/api/characters/fixed/base_image_1.png");
+			assertThat(searchResult.avatar()).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		}
 
 		@Test

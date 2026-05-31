@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -17,8 +18,10 @@ import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.global.dto.UploadedFileData;
+import com.pikume.back.global.port.out.LoadObjectPort;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import com.pikume.back.global.port.out.StoreObjectPort;
+import com.pikume.back.global.storage.StorageProperties;
 import com.pikume.back.global.util.FileUtil;
 
 import java.io.ByteArrayInputStream;
@@ -30,7 +33,7 @@ import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PR
 
 @Slf4j
 @Component
-public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageUrlPort, CreativeImageStoragePort, StoreObjectPort {
+public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageUrlPort, CreativeImageStoragePort, StoreObjectPort, LoadObjectPort {
 
 	private final S3Client s3Client;
 	private final PhotoUtil photoUtil;
@@ -105,6 +108,30 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 			return objectKey;
 		} catch (Exception e) {
 			throw new RuntimeException("이미지 업로드 중 오류 발생", e);
+		}
+	}
+
+	@Override
+	public byte[] loadObject(String objectKey) {
+		try {
+			GetObjectRequest request = GetObjectRequest.builder()
+					.bucket(storageProperties.getBucket())
+					.key(objectKey)
+					.build();
+
+			ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(request);
+			return objectBytes.asByteArray();
+		} catch (NoSuchKeyException e) {
+			throw new RuntimeException("스토리지 객체를 찾을 수 없습니다: " + objectKey, e);
+		} catch (S3Exception e) {
+			if (e.statusCode() == 404) {
+				throw new RuntimeException("스토리지 객체를 찾을 수 없습니다: " + objectKey, e);
+			}
+			log.warn("event=storage_object_load_failed outcome=failed key={} status={} reason={}",
+					objectKey,
+					e.statusCode(),
+					e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage());
+			throw new RuntimeException("스토리지 객체를 읽는 중 오류가 발생했습니다.", e);
 		}
 	}
 

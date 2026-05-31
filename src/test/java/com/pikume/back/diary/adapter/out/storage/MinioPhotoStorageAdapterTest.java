@@ -1,6 +1,7 @@
 package com.pikume.back.diary.adapter.out.storage;
 
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
+import com.pikume.back.global.storage.StorageProperties;
 import com.pikume.back.global.util.FileUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,11 +11,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.core.ResponseBytes;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -95,6 +100,36 @@ class MinioPhotoStorageAdapterTest {
 		assertThat(URI.create(url).getPort()).isEqualTo(19000);
 		assertThat(url).contains("/piku/user-1/generated.png");
 		assertThat(url).contains("X-Amz-Signature=");
+	}
+
+	@Test
+	@DisplayName("object key로 storage object bytes를 읽는다")
+	void loadsObjectBytesByObjectKey() {
+		MinioPhotoStorageAdapter adapter = adapterWith(
+				"http://minio:9000",
+				"https://assets.example.com");
+		byte[] bytes = "fixed-character".getBytes(StandardCharsets.UTF_8);
+		given(s3Client.getObjectAsBytes(getObjectWithKey("public/characters/fixed/base_image_1.png")))
+				.willReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), bytes));
+
+		byte[] result = adapter.loadObject("public/characters/fixed/base_image_1.png");
+
+		assertThat(result).isEqualTo(bytes);
+	}
+
+	@Test
+	@DisplayName("object read 중 S3 404는 객체 없음으로 처리한다")
+	void treatsS3NotFoundAsMissingObjectWhenLoadingObject() {
+		MinioPhotoStorageAdapter adapter = adapterWith(
+				"http://minio:9000",
+				"https://assets.example.com");
+		given(s3Client.getObjectAsBytes(getObjectWithKey("public/characters/fixed/missing.png")))
+				.willThrow(S3Exception.builder().statusCode(404).message("Not Found").build());
+
+		assertThatThrownBy(() -> adapter.loadObject("public/characters/fixed/missing.png"))
+				.isInstanceOf(RuntimeException.class)
+				.hasMessageContaining("스토리지 객체를 찾을 수 없습니다")
+				.hasCauseInstanceOf(S3Exception.class);
 	}
 
 	@Test
@@ -201,6 +236,10 @@ class MinioPhotoStorageAdapterTest {
 		return argThat((CopyObjectRequest request) -> request != null
 				&& sourceKey.equals(request.sourceKey())
 				&& destinationKey.equals(request.destinationKey()));
+	}
+
+	private GetObjectRequest getObjectWithKey(String key) {
+		return argThat((GetObjectRequest request) -> request != null && key.equals(request.key()));
 	}
 
 	private DeleteObjectRequest deleteObjectWithKey(String key) {

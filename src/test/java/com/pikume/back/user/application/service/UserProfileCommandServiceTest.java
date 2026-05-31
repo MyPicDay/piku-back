@@ -124,6 +124,23 @@ class UserProfileCommandServiceTest {
 			assertThat(result.failureReason()).isEqualTo(UpdateProfileFailureReason.RESOURCE_NOT_FOUND);
 			assertThat(result.message()).isEqualTo("존재하지 않는 캐릭터입니다.");
 		}
+
+		@Test
+		@DisplayName("캐릭터 변경 시 canonical object key를 아바타로 저장한다")
+		void storesCanonicalObjectKeyWhenCharacterChanges() {
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
+			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 1L);
+			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
+			given(characterPort.getFixedCharacterImageUrl(1L)).willReturn("public/characters/fixed/base_image_1.png");
+			given(saveUserPort.save(any(User.class))).willReturn(user);
+
+			UpdateProfileResult result = service.updateProfile(command);
+
+			assertThat(result.success()).isTrue();
+			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_1.png");
+			verify(saveUserPort).save(argThat(savedUser ->
+					"public/characters/fixed/base_image_1.png".equals(savedUser.getAvatar())));
+		}
 	}
 
 	@Nested
@@ -135,12 +152,13 @@ class UserProfileCommandServiceTest {
 		void validCharacterIdUpdatesImage() {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
-			given(characterPort.getFixedCharacterImageUrl(1L)).willReturn("new-avatar-url");
+			given(characterPort.getFixedCharacterImageUrl(1L)).willReturn("public/characters/fixed/base_image_1.png");
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
 			service.updateProfileImage("user-1", 1L);
 
-			verify(saveUserPort).save(any(User.class));
+			verify(saveUserPort).save(argThat(savedUser ->
+					"public/characters/fixed/base_image_1.png".equals(savedUser.getAvatar())));
 		}
 
 		@Test

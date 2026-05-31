@@ -1,4 +1,4 @@
-package com.pikume.back.diary.adapter.out.storage;
+package com.pikume.back.global.storage;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

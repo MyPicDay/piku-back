@@ -1,9 +1,9 @@
 package com.pikume.back.character.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pikume.back.character.application.exception.FixedCharacterImageNotFoundException;
+import com.pikume.back.character.application.dto.CharacterResult;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
-import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
+import com.pikume.back.character.domain.vo.CharacterCreationType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.ProblemDetailFallbackExceptionResolver;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,10 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -30,19 +33,12 @@ class CharacterControllerTest {
 	@Mock
 	private GetCharacterUseCase getCharacterUseCase;
 
-	@Mock
-	private ManageCharacterUseCase manageCharacterUseCase;
-
-	private CharacterController characterController;
 	private MockMvc mockMvc;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
-		characterController = new CharacterController(
-				getCharacterUseCase,
-				manageCharacterUseCase,
-				problemDetailFactory);
+		CharacterController characterController = new CharacterController(getCharacterUseCase);
 		mockMvc = MockMvcBuilders.standaloneSetup(characterController)
 				.setHandlerExceptionResolvers(new ProblemDetailFallbackExceptionResolver(
 						new ObjectMapper(),
@@ -52,31 +48,32 @@ class CharacterControllerTest {
 	}
 
 	@Test
-	@DisplayName("GET /api/characters/fixed/{fileName}는 이미지가 없으면 404 Problem Details를 반환한다")
-	void getFixedCharacterImageReturnsProblemDetailWhenImageDoesNotExist() {
-		given(manageCharacterUseCase.getFixedCharacterImage("missing.png"))
-				.willThrow(new FixedCharacterImageNotFoundException("missing.png"));
+	@DisplayName("GET /api/characters/fixed는 MinIO public URL을 displayImageUrl로 반환한다")
+	void getFixedCharactersReturnsStoragePublicUrl() throws Exception {
+		given(getCharacterUseCase.getFixedCharacters())
+				.willReturn(List.of(new CharacterResult(
+						1L,
+						null,
+						"https://assets.example.com/piku/public/characters/fixed/base_image_1.png",
+						CharacterCreationType.FIXED)));
 
-		ResponseEntity<?> response = characterController.getFixedCharacterImage("missing.png");
-
-		assertThat(response.getStatusCode().value()).isEqualTo(404);
-		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
-		ProblemDetail problemDetail = (ProblemDetail) response.getBody();
-		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/resource-not-found");
-		assertThat(problemDetail.getStatus()).isEqualTo(404);
-		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/characters/fixed/missing.png");
+		mockMvc.perform(get("/api/characters/fixed"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].id").value(1))
+				.andExpect(jsonPath("$[0].displayImageUrl")
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"))
+				.andExpect(jsonPath("$[0].type").value("FIXED"));
 	}
 
 	@Test
-	@DisplayName("GET /api/characters/fixed/{fileName}는 읽기 실패면 500 Problem Details를 반환한다")
-	void getFixedCharacterImageReturnsInternalServerErrorWhenReadFails() throws Exception {
-		given(manageCharacterUseCase.getFixedCharacterImage("broken.png"))
-				.willThrow(new RuntimeException("storage failure"));
+	@DisplayName("GET /api/characters/fixed/{fileName} 이미지 bytes endpoint는 제공하지 않는다")
+	void fixedCharacterImageEndpointIsRemoved() {
+		boolean hasFixedImageMapping = Arrays.stream(CharacterController.class.getDeclaredMethods())
+				.map(method -> method.getAnnotation(GetMapping.class))
+				.filter(Objects::nonNull)
+				.flatMap(mapping -> Arrays.stream(mapping.value()))
+				.anyMatch(value -> value.startsWith("/fixed/"));
 
-		mockMvc.perform(get("/api/characters/fixed/broken.png"))
-				.andExpect(status().isInternalServerError())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/internal-server-error"))
-				.andExpect(jsonPath("$.status").value(500))
-				.andExpect(jsonPath("$.instance").value("/api/characters/fixed/broken.png"));
+		assertThat(hasFixedImageMapping).isFalse();
 	}
 }

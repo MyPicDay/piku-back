@@ -7,7 +7,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import com.pikume.back.diary.adapter.out.storage.StorageProperties;
+import com.pikume.back.global.storage.StorageProperties;
 
 import java.net.URI;
 
