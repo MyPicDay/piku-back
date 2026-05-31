@@ -135,6 +135,7 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	}
 
 	@Override
+    @Transactional
 	public void logoutByRefreshToken(String refreshToken) {
 		if (!StringUtils.hasText(refreshToken)) {
 			return;
