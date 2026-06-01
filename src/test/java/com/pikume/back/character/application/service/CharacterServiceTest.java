@@ -113,8 +113,8 @@ class CharacterServiceTest {
 	}
 
 	@Nested
-		@DisplayName("getFixedCharacterObjectKey")
-		class GetFixedCharacterObjectKey {
+	@DisplayName("findFixedCharacterObjectKey")
+	class FindFixedCharacterObjectKey {
 
 		@Test
 		@DisplayName("파일명만 저장된 고정 캐릭터는 canonical object key로 반환한다")
@@ -122,9 +122,9 @@ class CharacterServiceTest {
 			Character character = new Character("base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String objectKey = characterService.getFixedCharacterObjectKey(1L);
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
@@ -133,9 +133,9 @@ class CharacterServiceTest {
 			Character character = new Character("characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String objectKey = characterService.getFixedCharacterObjectKey(1L);
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
@@ -144,30 +144,70 @@ class CharacterServiceTest {
 			Character character = new Character("public/characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
-			String objectKey = characterService.getFixedCharacterObjectKey(1L);
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
 		}
 
 		@Test
-		@DisplayName("AI 생성 캐릭터 ID로 조회 시 null을 반환한다")
-		void returnsNullForAiCharacter() {
+		@DisplayName("잘못된 고정 캐릭터 object key는 empty를 반환한다")
+		void returnsEmptyForInvalidFixedCharacterObjectKey() {
+			Character character = new Character("public/characters/fixed/group/../bad.png", CharacterCreationType.FIXED);
+			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
+
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
+
+			assertThat(objectKey).isEmpty();
+		}
+
+		@Test
+		@DisplayName("빈 고정 캐릭터 object key는 empty를 반환한다")
+		void returnsEmptyForBlankFixedCharacterObjectKey() {
+			Character character = new Character(" ", CharacterCreationType.FIXED);
+			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
+
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
+
+			assertThat(objectKey).isEmpty();
+		}
+
+		@Test
+		@DisplayName("AI 생성 캐릭터 ID로 조회 시 empty를 반환한다")
+		void returnsEmptyForAiCharacter() {
 			Character aiCharacter = new Character("user-1", "ai_image.png");
 			given(loadCharacterPort.findById(2L)).willReturn(Optional.of(aiCharacter));
 
-			String objectKey = characterService.getFixedCharacterObjectKey(2L);
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(2L);
 
-			assertThat(objectKey).isNull();
+			assertThat(objectKey).isEmpty();
 		}
 
 		@Test
-		@DisplayName("존재하지 않는 캐릭터 ID로 조회 시 null을 반환한다")
-		void returnsNullWhenNotFound() {
+		@DisplayName("존재하지 않는 캐릭터 ID로 조회 시 empty를 반환한다")
+		void returnsEmptyWhenNotFound() {
 			given(loadCharacterPort.findById(999L)).willReturn(Optional.empty());
 
-			String objectKey = characterService.getFixedCharacterObjectKey(999L);
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(999L);
 
-			assertThat(objectKey).isNull();
+			assertThat(objectKey).isEmpty();
+		}
+
+		@Test
+		@DisplayName("캐릭터 ID가 null이면 조회하지 않고 empty를 반환한다")
+		void returnsEmptyWhenCharacterIdIsNull() {
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(null);
+
+			assertThat(objectKey).isEmpty();
+			then(loadCharacterPort).should(never()).findById(any());
+		}
+
+		@Test
+		@DisplayName("캐릭터 ID가 0 이하이면 조회하지 않고 empty를 반환한다")
+		void returnsEmptyWhenCharacterIdIsNotPositive() {
+			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(0L);
+
+			assertThat(objectKey).isEmpty();
+			then(loadCharacterPort).should(never()).findById(any());
 		}
 	}
 

@@ -47,8 +47,8 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	public boolean checkAvailability(String nickname, String userId) {
 		long now = System.currentTimeMillis();
 
-        User user = loadUserPort.findById(userId)
-                .orElseThrow(UserNotFoundException::new);
+		User user = loadUserPort.findById(userId)
+				.orElseThrow(UserNotFoundException::new);
 		if (nickname.equals(user.getNickname()))
 			return true;
 
@@ -121,11 +121,11 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		User user = loadUserPort.findById(userId)
 				.orElseThrow(UserNotFoundException::new);
 
-		String avatarObjectKey = characterPort.getFixedCharacterObjectKey(imageId);
-		if (avatarObjectKey == null) {
-			log.warn("고정 캐릭터 이미지를 찾을 수 없습니다. imageId: {}", imageId);
-			throw new ProfileImageNotFoundException(imageId);
-		}
+		String avatarObjectKey = characterPort.findFixedCharacterObjectKey(imageId)
+				.orElseThrow(() -> {
+					log.warn("고정 캐릭터 이미지를 찾을 수 없습니다. imageId: {}", imageId);
+					return new ProfileImageNotFoundException(imageId);
+				});
 
 		user.changeAvatar(avatarObjectKey);
 		saveUserPort.save(user);
@@ -162,13 +162,13 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 					UpdateProfileFailureReason.INVALID_REQUEST,
 					"유효하지 않은 캐릭터 ID입니다.");
 		}
-		String newAvatarObjectKey = characterPort.getFixedCharacterObjectKey(characterId);
-		if (newAvatarObjectKey == null) {
-			log.warn("Character not found for ID: {}", characterId);
-			throw new UpdateProfileFailureException(
-					UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
-					"존재하지 않는 캐릭터입니다.");
-		}
+		String newAvatarObjectKey = characterPort.findFixedCharacterObjectKey(characterId)
+				.orElseThrow(() -> {
+					log.warn("Character not found for ID: {}", characterId);
+					return new UpdateProfileFailureException(
+							UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
+							"존재하지 않는 캐릭터입니다.");
+				});
 		return newAvatarObjectKey.equals(oldAvatarObjectKey) ? oldAvatarObjectKey : newAvatarObjectKey;
 	}
 

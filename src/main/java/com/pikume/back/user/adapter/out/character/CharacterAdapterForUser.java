@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.user.application.port.out.LoadCharacterPort;
 
+import java.util.Optional;
+
 /**
  * 캐릭터 도메인 어댑터
  * User 도메인에서 캐릭터 정보를 조회하기 위한 Anti-Corruption Layer입니다.
@@ -16,8 +18,8 @@ public class CharacterAdapterForUser implements LoadCharacterPort {
 	private final GetCharacterUseCase getCharacterUseCase;
 
 	@Override
-	public String getFixedCharacterObjectKey(Long characterId) {
-		return getCharacterUseCase.getFixedCharacterObjectKey(characterId);
+	public Optional<String> findFixedCharacterObjectKey(Long characterId) {
+		return getCharacterUseCase.findFixedCharacterObjectKey(characterId);
 	}
 
 	@Override

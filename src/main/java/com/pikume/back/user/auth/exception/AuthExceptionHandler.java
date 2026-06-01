@@ -25,6 +25,7 @@ public class AuthExceptionHandler {
 	private AuthProblemType mapProblemType(AuthErrorCode errorCode) {
 		return switch (errorCode) {
 			case USER_NOT_FOUND, VERIFICATION_NOT_FOUND -> AuthProblemType.USER_NOT_FOUND;
+			case FIXED_CHARACTER_NOT_FOUND -> AuthProblemType.FIXED_CHARACTER_NOT_FOUND;
 			case EMAIL_ALREADY_EXISTS -> AuthProblemType.EMAIL_ALREADY_EXISTS;
 			case EMAIL_VERIFICATION_NOT_FOUND -> AuthProblemType.EMAIL_VERIFICATION_REQUIRED;
 			case EMAIL_SEND_FAILURE -> AuthProblemType.EMAIL_SEND_FAILURE;

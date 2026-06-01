@@ -8,7 +8,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.user.auth.application.port.out.*;
 import com.pikume.back.user.auth.domain.Verification;
 import com.pikume.back.user.auth.domain.VerifiedEmail;
@@ -16,6 +15,7 @@ import com.pikume.back.user.auth.domain.vo.VerificationType;
 import com.pikume.back.user.auth.dto.request.EmailValidRequest;
 import com.pikume.back.user.auth.dto.request.PwdResetRequest;
 import com.pikume.back.user.auth.dto.request.SignupRequest;
+import com.pikume.back.user.auth.exception.AuthErrorCode;
 import com.pikume.back.user.auth.exception.AuthException;
 import com.pikume.back.user.domain.User;
 
@@ -23,6 +23,7 @@ import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -52,7 +53,7 @@ class AuthServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 	@Mock
-	private GetCharacterUseCase getCharacterUseCase;
+	private LoadFixedCharacterForSignUpPort loadFixedCharacterForSignUpPort;
 
 	@Nested
 	@DisplayName("signup")
@@ -74,8 +75,8 @@ class AuthServiceTest {
 					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
 			given(passwordEncoder.encode("abc@123")).willReturn("encodedPw");
-			given(getCharacterUseCase.getFixedCharacterObjectKey(1L))
-					.willReturn("public/characters/fixed/base_image_1.png");
+			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(1L))
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
 			given(loadUserForSignUpPort.save(any(User.class))).willReturn(null);
 
 			authService.signup(dto);
@@ -83,6 +84,30 @@ class AuthServiceTest {
 			then(loadUserForSignUpPort).should().save(argThat(user ->
 					"public/characters/fixed/base_image_1.png".equals(user.getAvatar())));
 			then(saveVerifiedEmailPort).should().save(verified);
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 고정 캐릭터로 회원가입 시 예외가 발생하고 저장하지 않는다")
+		void signupFailFixedCharacterNotFound() throws Exception {
+			SignupRequest dto = new SignupRequest("test@piku.store", "abc@123", "테스트", 999L);
+			given(loadUserForSignUpPort.findByEmail("test@piku.store")).willReturn(Optional.empty());
+
+			VerifiedEmail verified = new VerifiedEmail("test@piku.store", VerificationType.SIGN_UP);
+			Field idField = VerifiedEmail.class.getDeclaredField("id");
+			idField.setAccessible(true);
+			idField.set(verified, 1L);
+
+			given(
+					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
+					.willReturn(Optional.of(verified));
+			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> authService.signup(dto))
+					.isInstanceOfSatisfying(AuthException.class,
+							ex -> assertThat(ex.getErrorCode()).isEqualTo(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND));
+
+			then(saveVerifiedEmailPort).should(never()).save(any());
+			then(loadUserForSignUpPort).should(never()).save(any());
 		}
 
 		@Test

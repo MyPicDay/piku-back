@@ -3,6 +3,7 @@ package com.pikume.back.character.application.port.in;
 import com.pikume.back.character.application.dto.CharacterResult;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 캐릭터 조회 유스케이스 (Inbound Port)
@@ -20,9 +21,9 @@ public interface GetCharacterUseCase {
 	CharacterResult getCharacterById(Long id);
 
 	/**
-	 * 고정 캐릭터 이미지 object key를 조회합니다.
+	 * 고정 캐릭터 이미지 object key를 조회합니다. 없거나 유효하지 않으면 Optional.empty()를 반환합니다.
 	 */
-	String getFixedCharacterObjectKey(Long characterId);
+	Optional<String> findFixedCharacterObjectKey(Long characterId);
 
 	/**
 	 * 고정 캐릭터 이미지가 존재하는지 확인합니다.

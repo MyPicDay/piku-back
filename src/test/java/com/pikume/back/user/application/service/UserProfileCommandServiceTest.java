@@ -116,7 +116,7 @@ class UserProfileCommandServiceTest {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 999L);
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
-			given(characterPort.getFixedCharacterObjectKey(999L)).willReturn(null);
+			given(characterPort.findFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
 
 			UpdateProfileResult result = service.updateProfile(command);
 
@@ -131,7 +131,8 @@ class UserProfileCommandServiceTest {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 1L);
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
-			given(characterPort.getFixedCharacterObjectKey(1L)).willReturn("public/characters/fixed/base_image_1.png");
+			given(characterPort.findFixedCharacterObjectKey(1L))
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
 			UpdateProfileResult result = service.updateProfile(command);
@@ -152,7 +153,8 @@ class UserProfileCommandServiceTest {
 		void validCharacterIdUpdatesImage() {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
-			given(characterPort.getFixedCharacterObjectKey(1L)).willReturn("public/characters/fixed/base_image_1.png");
+			given(characterPort.findFixedCharacterObjectKey(1L))
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
 			service.updateProfileImage("user-1", 1L);
@@ -166,7 +168,7 @@ class UserProfileCommandServiceTest {
 		void nonExistentCharacterThrowsNotFound() {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "avatar");
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
-			given(characterPort.getFixedCharacterObjectKey(999L)).willReturn(null);
+			given(characterPort.findFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> service.updateProfileImage("user-1", 999L))
 					.isInstanceOf(ProfileImageNotFoundException.class);

@@ -10,6 +10,7 @@ public enum AuthErrorCode {
 
 	USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "가입되지 않은 이메일입니다."),
 	VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "VERIFICATION_NOT_FOUND", "인증 요청을 찾을 수 없습니다."),
+	FIXED_CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "FIXED_CHARACTER_NOT_FOUND", "존재하지 않는 캐릭터입니다."),
 
 	EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "EMAIL_ALREADY_EXISTS", "이미 가입된 이메일입니다."),
 

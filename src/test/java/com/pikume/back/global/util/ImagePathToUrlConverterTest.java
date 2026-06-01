@@ -60,11 +60,11 @@ class ImagePathToUrlConverterTest {
 	}
 
 	@Test
-	@DisplayName("absolute avatar URL은 migration 호환을 위해 그대로 반환한다")
+	@DisplayName("absolute avatar URL 입력값은 그대로 반환한다")
 	void returnsAbsoluteAvatarUrlAsIs() {
-		String result = converter.userAvatarImageUrl("https://legacy.example.com/avatar.png", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("https://cdn.example.com/avatar.png", requestMetaInfo);
 
-		assertThat(result).isEqualTo("https://legacy.example.com/avatar.png");
+		assertThat(result).isEqualTo("https://cdn.example.com/avatar.png");
 		then(resolveImageUrlPort).shouldHaveNoInteractions();
 	}
 

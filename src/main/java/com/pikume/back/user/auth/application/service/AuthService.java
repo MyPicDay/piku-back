@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.character.application.port.in.GetCharacterUseCase;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
@@ -36,7 +35,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	private final SaveVerifiedEmailPort saveVerifiedEmailPort;
 	private final SendVerificationEmailPort sendVerificationEmailPort;
 	private final PasswordEncoder passwordEncoder;
-	private final GetCharacterUseCase getCharacterUseCase;
+	private final LoadFixedCharacterForSignUpPort loadFixedCharacterForSignUpPort;
 
 	@Override
 	@Transactional
@@ -51,6 +50,8 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		VerifiedEmail verified = getValidVerifiedEmail(dto.getEmail(), VerificationType.SIGN_UP);
 		log.info("[회원가입] 이메일 인증 정보 확인 완료. verifiedId={}", verified.getId());
 
+		String avatarObjectKey = requireFixedCharacterObjectKey(dto.getFixedCharacterId());
+
 		verified.markUsed();
 		saveVerifiedEmailPort.save(verified);
 		log.info("[회원가입] 이메일 인증 정보 사용 처리 완료.");
@@ -59,7 +60,6 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 				dto.getEmail(),
 				passwordEncoder.encode(dto.getPassword()),
 				dto.getNickname());
-		String avatarObjectKey = getCharacterUseCase.getFixedCharacterObjectKey(dto.getFixedCharacterId());
 		user.changeAvatar(avatarObjectKey);
 		loadUserForSignUpPort.save(user);
 		log.info("[회원 가입] 완료 : 이메일={}, 닉네임={}", dto.getEmail(), dto.getNickname());
@@ -183,5 +183,13 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		}
 
 		return latest;
+	}
+
+	private String requireFixedCharacterObjectKey(Long fixedCharacterId) {
+		if (fixedCharacterId == null || fixedCharacterId <= 0) {
+			throw new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND);
+		}
+		return loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(fixedCharacterId)
+				.orElseThrow(() -> new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND));
 	}
 }

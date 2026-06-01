@@ -100,4 +100,23 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.detail").value("이미 가입된 이메일입니다."))
 				.andExpect(jsonPath("$.instance").value("/api/auth/signup"));
 	}
+
+	@Test
+	@DisplayName("POST /api/auth/signup은 존재하지 않는 고정 캐릭터면 Problem Details를 반환한다")
+	void signupReturnsProblemDetailWhenFixedCharacterNotFound() throws Exception {
+		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 999L);
+		willThrow(new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND))
+				.given(signUpUseCase)
+				.signup(any(SignupRequest.class));
+
+		mockMvc.perform(post("/api/auth/signup")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/auth/fixed-character-not-found"))
+				.andExpect(jsonPath("$.title").value("Not Found"))
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.detail").value("존재하지 않는 캐릭터입니다."))
+				.andExpect(jsonPath("$.instance").value("/api/auth/signup"));
+	}
 }

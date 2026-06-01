@@ -59,14 +59,32 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 	}
 
 	@Override
-	public String getFixedCharacterObjectKey(Long characterId) {
+	public Optional<String> findFixedCharacterObjectKey(Long characterId) {
+		if (characterId == null || characterId <= 0) {
+			log.warn("유효하지 않은 고정 캐릭터 ID입니다: {}", characterId);
+			return Optional.empty();
+		}
 		Optional<Character> character = loadCharacterPort.findById(characterId);
 		if (character.isPresent() && character.get().getType() == CharacterCreationType.FIXED) {
-			return CharacterAvatarPathNormalizer.normalizeFixedCharacterObjectKey(character.get().getImageUrl());
-		} else {
-			log.warn("고정 캐릭터 이미지가 존재하지 않거나 잘못된 캐릭터 ID입니다: {}", characterId);
-			return null;
+			try {
+				String objectKey = CharacterAvatarPathNormalizer.normalizeFixedCharacterObjectKey(character.get().getImageUrl());
+				if (objectKey.isBlank()) {
+					log.warn("빈 fixed character object key입니다. characterId={} imageUrl={}",
+							characterId,
+							character.get().getImageUrl());
+					return Optional.empty();
+				}
+				return Optional.of(objectKey);
+			} catch (IllegalArgumentException e) {
+				log.warn("잘못된 fixed character object key입니다. characterId={} imageUrl={} reason={}",
+						characterId,
+						character.get().getImageUrl(),
+						e.getMessage());
+				return Optional.empty();
+			}
 		}
+		log.warn("고정 캐릭터 이미지가 존재하지 않거나 잘못된 캐릭터 ID입니다: {}", characterId);
+		return Optional.empty();
 	}
 
 	@Override
