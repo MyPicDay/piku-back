@@ -2,6 +2,7 @@ package com.pikume.back.diary.application.port.out;
 
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
+import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
@@ -24,6 +25,12 @@ public interface LoadDiaryPort {
 	List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end);
 
 	List<Diary> findByUserIdAndStatusesAndDateBetween(String userId, Collection<DiaryVisibility> statuses, LocalDate start, LocalDate end);
+
+	List<DiaryGalleryRow> findGalleryRowsByUserIdAndStatuses(String userId,
+			Collection<DiaryVisibility> statuses,
+			LocalDate cursorDate,
+			Long cursorDiaryId,
+			int limit);
 
 	Optional<Diary> findByUserIdAndDate(String userId, LocalDate date);
 

@@ -7,11 +7,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ProblemDetail;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -20,6 +22,11 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
+import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
+import com.pikume.back.diary.application.dto.DiaryGalleryPage;
+import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorException;
+import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
@@ -28,8 +35,14 @@ import com.pikume.back.global.util.RequestMetaMapper;
 
 import java.util.Optional;
 
+import java.time.LocalDate;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +61,9 @@ class DiaryControllerTest {
 	private GetCalendarUseCase getCalendarUseCase;
 
 	@Mock
+	private GetDiaryGalleryUseCase getDiaryGalleryUseCase;
+
+	@Mock
 	private FileUtil fileUtil;
 
 	@Mock
@@ -61,16 +77,23 @@ class DiaryControllerTest {
 
 	@BeforeEach
 	void setUp() {
+		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
+		LocalValidatorFactoryBean mvcValidator = new LocalValidatorFactoryBean();
+		mvcValidator.afterPropertiesSet();
 		diaryController = new DiaryController(
 				createDiaryUseCase,
 				deleteDiaryUseCase,
 				getCalendarUseCase,
+				getDiaryGalleryUseCase,
 				fileUtil,
 				requestMetaMapper,
 				validator,
-				new ProblemDetailFactory());
+				problemDetailFactory);
 		mockMvc = MockMvcBuilders.standaloneSetup(diaryController)
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
+						new DiaryExceptionHandler(problemDetailFactory))
+				.setValidator(mvcValidator)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver())
 				.build();
 	}
@@ -106,6 +129,66 @@ class DiaryControllerTest {
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("요청 본문을 해석할 수 없습니다."))
 				.andExpect(jsonPath("$.instance").value("/api/diary"));
+	}
+
+	@Test
+	@DisplayName("GET /api/diary/user/{userId}/gallery는 사용자 사진 갤러리 page shape를 반환한다")
+	void getUserDiaryGalleryReturnsCursorPage() throws Exception {
+		DiaryGalleryPage<DiaryGalleryItemView> page = new DiaryGalleryPage<>(
+				List.of(new DiaryGalleryItemView(
+						10L,
+						"https://cdn.example/cover.jpg",
+						LocalDate.of(2026, 5, 31),
+						3L,
+						DiaryVisibility.FRIENDS)),
+				"opaque-next-cursor",
+				true);
+		given(getDiaryGalleryUseCase.findGallery("profile-1", "user1", null, 10))
+				.willReturn(page);
+
+		mockMvc.perform(get("/api/diary/user/profile-1/gallery")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].diaryId").value(10L))
+				.andExpect(jsonPath("$.items[0].coverPhotoUrl").value("https://cdn.example/cover.jpg"))
+				.andExpect(jsonPath("$.items[0].date").value("2026-05-31"))
+				.andExpect(jsonPath("$.items[0].imageCount").value(3L))
+				.andExpect(jsonPath("$.items[0].status").value("FRIENDS"))
+				.andExpect(jsonPath("$.nextCursor").value("opaque-next-cursor"))
+				.andExpect(jsonPath("$.hasNext").value(true));
+
+		then(getDiaryGalleryUseCase).should()
+				.findGallery("profile-1", "user1", null, 10);
+	}
+
+	@Test
+	@DisplayName("GET /api/diary/user/{userId}/gallery는 limit 10 초과를 validation Problem Details로 거부한다")
+	void getUserDiaryGalleryRejectsTooLargeLimit() throws Exception {
+		mockMvc.perform(get("/api/diary/user/profile-1/gallery")
+						.param("limit", "11")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.fieldErrors.limit").exists());
+
+		then(getDiaryGalleryUseCase).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("GET /api/diary/user/{userId}/gallery는 잘못된 cursor를 validation Problem Details로 반환한다")
+	void getUserDiaryGalleryRejectsInvalidCursorWithProblemDetails() throws Exception {
+		given(getDiaryGalleryUseCase.findGallery("profile-1", "user1", "bad", 10))
+				.willThrow(new InvalidDiaryGalleryCursorException());
+
+		mockMvc.perform(get("/api/diary/user/profile-1/gallery")
+						.param("cursor", "bad")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.fieldErrors.cursor").value("유효하지 않은 갤러리 커서입니다."))
+				.andExpect(jsonPath("$.instance").value("/api/diary/user/profile-1/gallery"));
 	}
 
 	private static class AuthenticationPrincipalResolver implements HandlerMethodArgumentResolver {

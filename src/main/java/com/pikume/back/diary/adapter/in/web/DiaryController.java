@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -21,14 +23,19 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.pikume.back.diary.adapter.in.web.dto.CalendarDiaryResponseDTO;
 import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
+import com.pikume.back.diary.adapter.in.web.dto.DiaryGalleryItemResponse;
+import com.pikume.back.diary.adapter.in.web.dto.DiaryGalleryPageResponse;
 import com.pikume.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
 import com.pikume.back.diary.application.dto.CalendarDiaryView;
 import com.pikume.back.diary.application.dto.CreateDiaryCommand;
 import com.pikume.back.diary.application.dto.DiaryCreatedResult;
+import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
+import com.pikume.back.diary.application.dto.DiaryGalleryPage;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
+import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
 import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
@@ -52,6 +59,7 @@ public class DiaryController {
 	private final CreateDiaryUseCase createDiaryUseCase;
 	private final DeleteDiaryUseCase deleteDiaryUseCase;
 	private final GetCalendarUseCase getCalendarUseCase;
+	private final GetDiaryGalleryUseCase getDiaryGalleryUseCase;
 	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
 	private final Validator validator;
@@ -168,8 +176,49 @@ public class DiaryController {
 				.body(diaries);
 	}
 
+	@Operation(summary = "사용자 일기 사진 갤러리 조회", description = "특정 사용자가 등록한 일기 대표 사진을 cursor 기반으로 조회합니다.")
+	@Parameters({
+			@Parameter(name = "userId", description = "사용자 ID", required = true),
+			@Parameter(name = "cursor", description = "다음 페이지 조회용 opaque cursor"),
+			@Parameter(name = "limit", description = "페이지 크기. 1~10 사이 정수이며 기본값은 10입니다.")
+	})
+	@GetMapping("/user/{userId}/gallery")
+	public ResponseEntity<DiaryGalleryPageResponse<DiaryGalleryItemResponse>> getUserDiaryGallery(
+			@PathVariable String userId,
+			@RequestParam(required = false) String cursor,
+			@RequestParam(defaultValue = "10") @Min(1) @Max(10) int limit,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		String viewerId = userDetails != null ? userDetails.getId() : null;
+		DiaryGalleryPage<DiaryGalleryItemView> page = getDiaryGalleryUseCase.findGallery(
+				userId,
+				viewerId,
+				cursor,
+				limit);
+
+		return ResponseEntity.ok(toDiaryGalleryPageResponse(page));
+	}
+
 	private CalendarDiaryResponseDTO toCalendarDiaryResponse(CalendarDiaryView diary) {
 		return new CalendarDiaryResponseDTO(diary.diaryId(), diary.coverPhotoUrl(), diary.date());
+	}
+
+	private DiaryGalleryPageResponse<DiaryGalleryItemResponse> toDiaryGalleryPageResponse(
+			DiaryGalleryPage<DiaryGalleryItemView> page) {
+		return new DiaryGalleryPageResponse<>(
+				page.items().stream()
+						.map(this::toDiaryGalleryItemResponse)
+						.toList(),
+				page.nextCursor(),
+				page.hasNext());
+	}
+
+	private DiaryGalleryItemResponse toDiaryGalleryItemResponse(DiaryGalleryItemView item) {
+		return new DiaryGalleryItemResponse(
+				item.diaryId(),
+				item.coverPhotoUrl(),
+				item.date().toString(),
+				item.imageCount(),
+				item.status());
 	}
 
 	private CreateDiaryCommand toCreateDiaryCommand(DiaryDTO diary) {
