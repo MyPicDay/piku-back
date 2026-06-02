@@ -5,12 +5,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import com.pikume.back.diary.application.service.PhotoOptimizationProperties;
 import com.pikume.back.global.storage.StorageProperties;
 
 @SpringBootApplication
 @EnableJpaAuditing
 @EnableScheduling
-@EnableConfigurationProperties(StorageProperties.class)
+@EnableConfigurationProperties({StorageProperties.class, PhotoOptimizationProperties.class})
 public class PikuBackApplication {
 
 	public static void main(String[] args) {

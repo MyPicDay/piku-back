@@ -89,7 +89,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 		return diaries.stream()
 				.map(diary -> {
 			String coverPhotoUrl = loadDiaryPort.findRepresentPhotoByDiaryId(diary.getId())
-					.map(Photo::getUrl)
+					.map(Photo::getDisplayUrl)
 					.map(url -> photoStoragePort.getPhotoUrl(url, true))
 					.orElse(null);
 			return new CalendarDiaryView(diary.getId(), coverPhotoUrl, diary.getDate());
@@ -124,7 +124,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 		return loadDiaryPort.findPhotoRowsByDiaryIds(diaryIds).stream()
 				.map(photo -> new DiaryPhotoView(
 						photo.diaryId(),
-						photo.url(),
+						photo.displayUrl(),
 						photo.represent()))
 				.toList();
 	}
@@ -176,7 +176,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 				.filter(LoadDiaryPort.PhotoRow::represent)
 				.collect(Collectors.toMap(
 						LoadDiaryPort.PhotoRow::diaryId,
-						LoadDiaryPort.PhotoRow::url,
+						LoadDiaryPort.PhotoRow::displayUrl,
 						(left, right) -> left));
 	}
 
@@ -208,13 +208,13 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 		}
 
 		return photos.stream()
-				.map(photo -> photoStoragePort.getPhotoUrl(photo.getUrl(), photo.getRepresent()))
+				.map(photo -> photoStoragePort.getPhotoUrl(photo.getDisplayUrl(), photo.getRepresent()))
 				.toList();
 	}
 
 	private List<DiaryPhotoView> sortPhotoViews(List<LoadDiaryPort.PhotoRow> photoRows) {
 		return photoRows.stream()
-				.map(row -> new DiaryPhotoView(row.diaryId(), row.url(), row.represent()))
+				.map(row -> new DiaryPhotoView(row.diaryId(), row.displayUrl(), row.represent()))
 				.sorted(java.util.Comparator.comparing(DiaryPhotoView::represent).reversed())
 				.toList();
 	}

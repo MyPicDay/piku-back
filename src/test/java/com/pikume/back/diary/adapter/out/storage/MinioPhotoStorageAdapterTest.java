@@ -1,6 +1,7 @@
 package com.pikume.back.diary.adapter.out.storage;
 
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
+import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.storage.StorageProperties;
 import com.pikume.back.global.util.FileUtil;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.core.ResponseBytes;
 
@@ -133,6 +135,26 @@ class MinioPhotoStorageAdapterTest {
 	}
 
 	@Test
+	@DisplayName("public WebP 객체 저장 시 cache-control을 지정한다")
+	void storesPublicWebpObjectWithCacheControl() {
+		MinioPhotoStorageAdapter adapter = adapterWith(
+				"http://minio:9000",
+				"https://assets.example.com");
+		UploadedFileData webp = new UploadedFileData("photo.webp", "image/webp", "webp".getBytes(StandardCharsets.UTF_8));
+
+		String storedKey = adapter.storeObject(
+				webp,
+				"public/user-1/photo.webp",
+				"public, max-age=31536000, immutable");
+
+		assertThat(storedKey).isEqualTo("public/user-1/photo.webp");
+		then(s3Client).should().putObject(putObjectWithKeyAndCacheControl(
+				"public/user-1/photo.webp",
+				"image/webp",
+				"public, max-age=31536000, immutable"), any(software.amazon.awssdk.core.sync.RequestBody.class));
+	}
+
+	@Test
 	@DisplayName("대표 AI 이미지를 public 경로로 복사한 뒤 원본을 삭제한다")
 	void movesSourceObjectToPublicPath() {
 		MinioPhotoStorageAdapter adapter = adapterWith(
@@ -244,5 +266,12 @@ class MinioPhotoStorageAdapterTest {
 
 	private DeleteObjectRequest deleteObjectWithKey(String key) {
 		return argThat((DeleteObjectRequest request) -> request != null && key.equals(request.key()));
+	}
+
+	private PutObjectRequest putObjectWithKeyAndCacheControl(String key, String contentType, String cacheControl) {
+		return argThat((PutObjectRequest request) -> request != null
+				&& key.equals(request.key())
+				&& contentType.equals(request.contentType())
+				&& cacheControl.equals(request.cacheControl()));
 	}
 }

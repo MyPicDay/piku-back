@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.diary.application.dto.CalendarDiaryView;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
+import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.dto.VisibleDiaryView;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
@@ -21,6 +22,7 @@ import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -121,7 +123,7 @@ class DiaryQueryServiceTest {
 			Diary diary = new Diary("일기", DiaryVisibility.PUBLIC, date, USER_ID);
 
 			Photo representPhoto = mock(Photo.class);
-			given(representPhoto.getUrl()).willReturn("public/cover.jpg");
+			given(representPhoto.getDisplayUrl()).willReturn("public/cover.webp");
 
 			given(diaryVisibilityPolicy.visibleStatusesForOwner(USER_ID, "viewer-id"))
 					.willReturn(List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS));
@@ -133,12 +135,12 @@ class DiaryQueryServiceTest {
 					.willReturn(List.of(diary));
 			given(loadDiaryPort.findRepresentPhotoByDiaryId(any()))
 					.willReturn(Optional.of(representPhoto));
-			given(photoStoragePort.getPhotoUrl("public/cover.jpg", true))
-					.willReturn("https://minio.example.com/public/cover.jpg");
+			given(photoStoragePort.getPhotoUrl("public/cover.webp", true))
+					.willReturn("https://minio.example.com/public/cover.webp");
 
 			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
 
-			assertThat(result.get(0).coverPhotoUrl()).isEqualTo("https://minio.example.com/public/cover.jpg");
+			assertThat(result.get(0).coverPhotoUrl()).isEqualTo("https://minio.example.com/public/cover.webp");
 		}
 
 		@Test
@@ -220,6 +222,35 @@ class DiaryQueryServiceTest {
 	}
 
 	@Nested
+	@DisplayName("photo row query")
+	class PhotoRowQuery {
+
+		@Test
+		@DisplayName("일기 사진 조회는 optimizedUrl이 있으면 optimizedUrl을 path로 반환한다")
+		void diaryPhotosPreferOptimizedUrl() {
+			given(loadDiaryPort.findPhotoRowsByDiaryIds(Set.of(1L)))
+					.willReturn(List.of(new LoadDiaryPort.PhotoRow(1L, "user-1/photo.png", "user-1/photo.webp", true)));
+
+			List<DiaryPhotoView> result = diaryQueryService.getDiaryPhotos(Set.of(1L));
+
+			assertThat(result).singleElement()
+					.extracting(DiaryPhotoView::path)
+					.isEqualTo("user-1/photo.webp");
+		}
+
+		@Test
+		@DisplayName("대표 사진 경로 조회는 optimizedUrl이 없으면 원본 url을 반환한다")
+		void representPhotoPathsFallBackToOriginalUrl() {
+			given(loadDiaryPort.findPhotoRowsByDiaryIds(Set.of(1L)))
+					.willReturn(List.of(new LoadDiaryPort.PhotoRow(1L, "user-1/photo.png", null, true)));
+
+			Map<Long, String> result = diaryQueryService.getRepresentPhotoPaths(Set.of(1L));
+
+			assertThat(result).containsEntry(1L, "user-1/photo.png");
+		}
+	}
+
+	@Nested
 	@DisplayName("countDiariesByUserId")
 	class CountDiariesByUserId {
 
@@ -283,13 +314,13 @@ class DiaryQueryServiceTest {
 		void sortsRepresentPhotoFirst() {
 			Photo photo1 = mock(Photo.class);
 			given(photo1.getRepresent()).willReturn(false);
-			given(photo1.getUrl()).willReturn("img1.jpg");
+			given(photo1.getDisplayUrl()).willReturn("img1.jpg");
 
 			Photo photo2 = mock(Photo.class);
 			given(photo2.getRepresent()).willReturn(true);
-			given(photo2.getUrl()).willReturn("img2.jpg");
+			given(photo2.getDisplayUrl()).willReturn("img2.webp");
 
-			given(photoStoragePort.getPhotoUrl("img2.jpg", true)).willReturn("url2");
+			given(photoStoragePort.getPhotoUrl("img2.webp", true)).willReturn("url2");
 			given(photoStoragePort.getPhotoUrl("img1.jpg", false)).willReturn("url1");
 
 			List<Photo> photos = new java.util.ArrayList<>(List.of(photo1, photo2));
