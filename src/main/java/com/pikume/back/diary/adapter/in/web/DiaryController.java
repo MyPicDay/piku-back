@@ -37,6 +37,7 @@ import com.pikume.back.diary.application.dto.DiaryGalleryPage;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
 import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
@@ -100,7 +101,7 @@ public class DiaryController {
 							CommonProblemType.UNPROCESSABLE_CONTENT,
 							"일기를 저장할 수 없습니다.",
 							"/api/diary"));
-		} catch (IllegalArgumentException e) {
+		} catch (DiaryInvalidRequestException | IllegalArgumentException e) {
 			log.error("일기 생성 중 오류 발생: {}", e.getMessage());
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 					.body(problemDetailFactory.create(
