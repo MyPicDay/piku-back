@@ -86,7 +86,6 @@ class DiaryControllerTest {
 				deleteDiaryUseCase,
 				getCalendarUseCase,
 				updateDiaryUseCase,
-				updateDiaryUseCase,
 				getDiaryGalleryUseCase,
 				fileUtil,
 				requestMetaMapper,
