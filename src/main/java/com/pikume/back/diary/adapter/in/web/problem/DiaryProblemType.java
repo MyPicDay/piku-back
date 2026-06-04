@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import java.net.URI;
 
 public enum DiaryProblemType implements ApiProblemType {
+	INVALID_REQUEST("https://api.pikume.com/problems/diary/invalid-request", HttpStatus.BAD_REQUEST, "Bad Request"),
 	NOT_FOUND("https://api.pikume.com/problems/diary/not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	FORBIDDEN("https://api.pikume.com/problems/diary/forbidden", HttpStatus.FORBIDDEN, "Forbidden"),
 	CONFLICT("https://api.pikume.com/problems/diary/conflict", HttpStatus.CONFLICT, "Conflict");
@@ -38,6 +39,7 @@ public enum DiaryProblemType implements ApiProblemType {
 
 	public static DiaryProblemType from(DiaryErrorCode errorCode) {
 		return switch (errorCode) {
+			case DIARY_INVALID_REQUEST -> INVALID_REQUEST;
 			case DIARY_NOT_FOUND -> NOT_FOUND;
 			case DIARY_ACCESS_DENIED -> FORBIDDEN;
 			case DUPLICATE_DIARY -> CONFLICT;

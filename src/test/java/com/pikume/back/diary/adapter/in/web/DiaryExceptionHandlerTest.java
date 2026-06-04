@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.application.exception.DiaryErrorCode;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -79,6 +80,16 @@ class DiaryExceptionHandlerTest {
 	}
 
 	@Test
+	@DisplayName("DiaryInvalidRequestException은 diary invalid-request Problem Details를 반환한다")
+	void handlesDiaryInvalidRequestException() throws Exception {
+		mockMvc.perform(get("/test/diary/invalid-request").accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("일기 내용은 비어 있을 수 없습니다."));
+	}
+
+	@Test
 	@DisplayName("EntityNotFoundException은 diary not-found Problem Details를 반환한다")
 	void handlesEntityNotFoundException() throws Exception {
 		mockMvc.perform(get("/test/diary/entity-not-found").accept(MediaType.APPLICATION_JSON))
@@ -105,10 +116,15 @@ class DiaryExceptionHandlerTest {
 			throw new DiaryAccessDeniedException();
 		}
 
-        @GetMapping("/test/diary/conflict")
-        String conflict() {
-            throw new DuplicateDiaryException(LocalDate.of(2026, 5, 21));
-        }
+		@GetMapping("/test/diary/conflict")
+		String conflict() {
+			throw new DuplicateDiaryException(LocalDate.of(2026, 5, 21));
+		}
+
+		@GetMapping("/test/diary/invalid-request")
+		String invalidRequest() {
+			throw new DiaryInvalidRequestException("일기 내용은 비어 있을 수 없습니다.");
+		}
 
 		@GetMapping("/test/diary/entity-not-found")
 		String entityNotFound() {

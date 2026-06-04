@@ -40,6 +40,11 @@ public class Diary extends BaseEntity {
 		this.inactive();
 	}
 
+	public void updateContentAndStatus(String content, DiaryVisibility status) {
+		this.content = content;
+		this.status = status;
+	}
+
 	public boolean isOwner(String userId) {
 		return this.userId.equals(userId);
 	}

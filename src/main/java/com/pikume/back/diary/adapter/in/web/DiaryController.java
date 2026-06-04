@@ -1,49 +1,39 @@
 package com.pikume.back.diary.adapter.in.web;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.Parameters;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Validator;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import com.pikume.back.diary.adapter.in.web.dto.CalendarDiaryResponseDTO;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryGalleryItemResponse;
-import com.pikume.back.diary.adapter.in.web.dto.DiaryGalleryPageResponse;
-import com.pikume.back.diary.adapter.in.web.dto.ResponseDiaryDTO;
-import com.pikume.back.diary.application.dto.CalendarDiaryView;
-import com.pikume.back.diary.application.dto.CreateDiaryCommand;
-import com.pikume.back.diary.application.dto.DiaryCreatedResult;
-import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
-import com.pikume.back.diary.application.dto.DiaryGalleryPage;
-import com.pikume.back.diary.application.dto.DiaryImageCommand;
-import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
-import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
-import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
-import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
-import com.pikume.back.global.util.FileUtil;
+
+import com.pikume.back.diary.adapter.in.web.dto.*;
+import com.pikume.back.diary.application.dto.*;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
+import com.pikume.back.diary.application.port.in.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.error.ValidationProblemType;
+import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.util.RequestMetaMapper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Valid;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -59,6 +49,7 @@ public class DiaryController {
 	private final CreateDiaryUseCase createDiaryUseCase;
 	private final DeleteDiaryUseCase deleteDiaryUseCase;
 	private final GetCalendarUseCase getCalendarUseCase;
+	private final UpdateDiaryUseCase updateDiaryUseCase;
 	private final GetDiaryGalleryUseCase getDiaryGalleryUseCase;
 	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
@@ -93,7 +84,7 @@ public class DiaryController {
 							CommonProblemType.UNPROCESSABLE_CONTENT,
 							"일기를 저장할 수 없습니다.",
 							"/api/diary"));
-		} catch (IllegalArgumentException e) {
+		} catch (DiaryInvalidRequestException | IllegalArgumentException e) {
 			log.error("일기 생성 중 오류 발생: {}", e.getMessage());
 			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 					.body(problemDetailFactory.create(
@@ -147,6 +138,20 @@ public class DiaryController {
 		log.info("{}님 일기 ID [{}] 삭제 요청", userDetails.getId(), diaryId);
 		deleteDiaryUseCase.deleteDiary(diaryId, userDetails.getId());
 		return ResponseEntity.noContent().build();
+	}
+
+	@Operation(summary = "일기 수정", description = "일기의 내용과 공개범위를 수정합니다. 본인의 일기만 수정할 수 있습니다.")
+	@PatchMapping(value = "/{diaryId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<UpdateDiaryResponse> updateDiary(
+			@Parameter(description = "일기 ID") @PathVariable Long diaryId,
+			@Valid @RequestBody UpdateDiaryRequest request,
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		log.info("{}님 일기 ID [{}] 수정 요청", userDetails.getId(), diaryId);
+		DiaryUpdatedResult result = updateDiaryUseCase.updateDiary(
+				diaryId,
+				toUpdateDiaryCommand(request),
+				userDetails.getId());
+		return ResponseEntity.ok(new UpdateDiaryResponse(result.diaryId(), result.status(), result.content()));
 	}
 
 	@Operation(summary = "월별 일기 목록 조회", description = "특정 사용자의 월별 일기 목록을 조회합니다. (캘린더용)")
@@ -229,6 +234,10 @@ public class DiaryController {
 						.map(info -> new DiaryImageCommand(info.getType(), info.getOrder(), info.getAiPhotoId(), info.getPhotoIndex()))
 						.toList(),
 				diary.getDate());
+	}
+
+	private UpdateDiaryCommand toUpdateDiaryCommand(UpdateDiaryRequest request) {
+		return new UpdateDiaryCommand(request.getStatus(), request.getContent());
 	}
 
 	private List<UploadedFileData> toUploadedFiles(List<MultipartFile> photos) throws IOException {
