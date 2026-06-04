@@ -4,14 +4,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.pikume.back.diary.application.dto.CreateDiaryCommand;
 import com.pikume.back.diary.application.dto.DiaryCreatedResult;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
+import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
+import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
+import com.pikume.back.diary.application.port.in.UpdateDiaryUseCase;
 import com.pikume.back.diary.application.port.out.*;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
@@ -35,7 +40,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCase {
+public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCase, UpdateDiaryUseCase {
 
 	private final LoadDiaryPort loadDiaryPort;
 	private final SaveDiaryPort saveDiaryPort;
@@ -64,6 +69,32 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		diary.delete();
 		saveDiaryPort.save(diary);
 		log.info("사용자 [{}] - 일기 ID [{}] 삭제 완료", userId, diaryId);
+	}
+
+	@Override
+	@Transactional
+	public DiaryUpdatedResult updateDiary(Long diaryId, UpdateDiaryCommand command, String userId) {
+		if (command == null) {
+			throw new IllegalArgumentException("일기 수정 요청은 필수입니다.");
+		}
+
+		Diary diary = loadDiaryPort.findById(diaryId)
+				.orElseThrow(() -> {
+					log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
+					return new DiaryNotFoundException();
+				});
+
+		if (!diary.isOwner(userId)) {
+			log.error("사용자 [{}]는 일기 ID [{}]의 소유자가 아닙니다.", userId, diaryId);
+			throw new DiaryAccessDeniedException();
+		}
+
+		diary.updateContentAndStatus(command.content(), command.status());
+		Diary savedDiary = saveDiaryPort.save(diary);
+		log.info("사용자 [{}] - 일기 ID [{}] 수정 완료", userId, diaryId);
+		analyzeDiaryMetadataAfterCommit(savedDiary);
+
+		return new DiaryUpdatedResult(savedDiary.getId(), savedDiary.getStatus(), savedDiary.getContent());
 	}
 
 	@Override
@@ -97,14 +128,34 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			log.info("친구에게 새 일기 공개 알림 전송 완료. 친구 수: {}", friends.size());
 		}
 
-		try {
-			analyzeDiaryContentUseCase.analyzeAndSave(diary.getId(), diary.getContent());
-			log.debug("일기 메타데이터 분석 완료 - diaryId: {}", diary.getId());
-		} catch (Exception e) {
-			log.warn("일기 메타데이터 분석 실패 - diaryId: {}, error: {}", diary.getId(), e.getMessage());
-		}
+		analyzeDiaryMetadataAfterCommit(diary);
 
 		return new DiaryCreatedResult(diary.getId(), diary.getContent());
+	}
+
+	private void analyzeDiaryMetadataAfterCommit(Diary diary) {
+		Long diaryId = diary.getId();
+		String content = diary.getContent();
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			analyzeDiaryMetadata(diaryId, content);
+			return;
+		}
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				analyzeDiaryMetadata(diaryId, content);
+			}
+		});
+	}
+
+	private void analyzeDiaryMetadata(Long diaryId, String content) {
+		try {
+			analyzeDiaryContentUseCase.analyzeAndSave(diaryId, content);
+			log.debug("일기 메타데이터 분석 완료 - diaryId: {}", diaryId);
+		} catch (Exception e) {
+			log.warn("일기 메타데이터 분석 실패 - diaryId: {}, error: {}", diaryId, e.getMessage());
+		}
 	}
 
 	public void saveAiPhoto(Diary diary, Long aiPhoto, String userId, Integer order) {

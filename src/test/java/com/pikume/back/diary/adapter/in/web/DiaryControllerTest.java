@@ -1,6 +1,5 @@
 package com.pikume.back.diary.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,11 +21,13 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
 import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
+import com.pikume.back.diary.application.port.in.UpdateDiaryUseCase;
+import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
 import com.pikume.back.diary.application.dto.DiaryGalleryPage;
 import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorException;
 import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
@@ -41,8 +42,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -62,6 +66,9 @@ class DiaryControllerTest {
 
 	@Mock
 	private GetDiaryGalleryUseCase getDiaryGalleryUseCase;
+
+	@Mock
+	private UpdateDiaryUseCase updateDiaryUseCase;
 
 	@Mock
 	private FileUtil fileUtil;
@@ -85,6 +92,7 @@ class DiaryControllerTest {
 				deleteDiaryUseCase,
 				getCalendarUseCase,
 				getDiaryGalleryUseCase,
+				updateDiaryUseCase,
 				fileUtil,
 				requestMetaMapper,
 				validator,
@@ -189,6 +197,114 @@ class DiaryControllerTest {
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.fieldErrors.cursor").value("유효하지 않은 갤러리 커서입니다."))
 				.andExpect(jsonPath("$.instance").value("/api/diary/user/profile-1/gallery"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 JSON body로 일기를 수정하고 결과를 반환한다")
+	void updateDiaryReturnsUpdatedResult() throws Exception {
+		given(updateDiaryUseCase.updateDiary(
+				eq(1L),
+				argThat(command -> command != null
+						&& command.status() == DiaryVisibility.PUBLIC
+						&& command.content().equals("수정 후")),
+				eq("user1")))
+				.willReturn(new DiaryUpdatedResult(1L, DiaryVisibility.PUBLIC, "수정 후"));
+
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"status":"PUBLIC","content":"수정 후"}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.diaryId").value(1))
+				.andExpect(jsonPath("$.status").value("PUBLIC"))
+				.andExpect(jsonPath("$.content").value("수정 후"));
+
+		then(updateDiaryUseCase).should().updateDiary(
+				eq(1L),
+				argThat(command -> command != null
+						&& command.status() == DiaryVisibility.PUBLIC
+						&& command.content().equals("수정 후")),
+				eq("user1"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 DTO에 없는 필드를 무시하고 수정 대상 필드만 전달한다")
+	void updateDiaryIgnoresFieldsThatAreNotUpdatable() throws Exception {
+		given(updateDiaryUseCase.updateDiary(
+				eq(1L),
+				argThat(command -> command != null
+						&& command.status() == DiaryVisibility.FRIENDS
+						&& command.content().equals("수정 후")),
+				eq("user1")))
+				.willReturn(new DiaryUpdatedResult(1L, DiaryVisibility.FRIENDS, "수정 후"));
+
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "status":"FRIENDS",
+								  "content":"수정 후",
+								  "date":"2099-01-01",
+								  "imageInfos":[{"type":"USER_IMAGE","order":0,"photoIndex":0}]
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.diaryId").value(1))
+				.andExpect(jsonPath("$.status").value("FRIENDS"))
+				.andExpect(jsonPath("$.content").value("수정 후"));
+
+		then(updateDiaryUseCase).should().updateDiary(
+				eq(1L),
+				argThat(command -> command != null
+						&& command.status() == DiaryVisibility.FRIENDS
+						&& command.content().equals("수정 후")),
+				eq("user1"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 blank content를 validation/invalid-request로 처리한다")
+	void updateDiaryRejectsBlankContent() throws Exception {
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"status":"PUBLIC","content":" "}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.fieldErrors.content").exists())
+				.andExpect(jsonPath("$.instance").value("/api/diary/1"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 null status를 validation/invalid-request로 처리한다")
+	void updateDiaryRejectsNullStatus() throws Exception {
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"status":null,"content":"수정 후"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.fieldErrors.status").exists())
+				.andExpect(jsonPath("$.instance").value("/api/diary/1"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 invalid status를 common/malformed-request로 처리한다")
+	void updateDiaryRejectsInvalidStatus() throws Exception {
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"status":"UNKNOWN","content":"수정 후"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/malformed-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("요청 본문을 해석할 수 없습니다."))
+				.andExpect(jsonPath("$.instance").value("/api/diary/1"));
 	}
 
 	private static class AuthenticationPrincipalResolver implements HandlerMethodArgumentResolver {
