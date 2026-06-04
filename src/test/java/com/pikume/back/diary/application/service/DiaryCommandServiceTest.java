@@ -26,6 +26,7 @@ import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.application.exception.DiaryErrorCode;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
@@ -235,8 +236,10 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, futureDate)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("미래 날짜");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("미래 날짜");
+					});
 		}
 
 		@Test
@@ -257,8 +260,10 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(eq(USER_ID), any())).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo1, photo2), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("중복");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("중복");
+					});
 		}
 
 		@Test
@@ -274,8 +279,10 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.pdf")).willReturn("application/pdf");
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("허용되지 않는");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("허용되지 않는");
+					});
 		}
 
 		@Test
@@ -436,6 +443,16 @@ class DiaryCommandServiceTest {
 							ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_ACCESS_DENIED));
 			then(saveDiaryPort).should(never()).save(any(Diary.class));
 		}
+
+		@Test
+		@DisplayName("수정 요청 커맨드가 null이면 일기 요청 검증 예외를 던진다")
+		void throwsWhenCommandIsNull() {
+			assertThatThrownBy(() -> diaryCommandService.updateDiary(1L, null, USER_ID))
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("일기 수정 요청");
+					});
+		}
 	}
 
 	@Nested
@@ -446,24 +463,30 @@ class DiaryCommandServiceTest {
 		@DisplayName("공개범위가 null이면 예외를 던진다")
 		void rejectsNullStatus() {
 			assertThatThrownBy(() -> new UpdateDiaryCommand(null, "수정 후"))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("공개범위");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("공개범위");
+					});
 		}
 
 		@Test
 		@DisplayName("내용이 비어 있으면 예외를 던진다")
 		void rejectsBlankContent() {
 			assertThatThrownBy(() -> new UpdateDiaryCommand(DiaryVisibility.PUBLIC, " "))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("일기 내용");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("일기 내용");
+					});
 		}
 
 		@Test
 		@DisplayName("내용이 500자를 초과하면 예외를 던진다")
 		void rejectsTooLongContent() {
 			assertThatThrownBy(() -> new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "a".repeat(501)))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("500자");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("500자");
+					});
 		}
 	}
 

@@ -23,8 +23,11 @@ import com.pikume.back.diary.application.port.in.DeleteDiaryUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
 import com.pikume.back.diary.application.port.in.UpdateDiaryUseCase;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
+import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.global.util.FileUtil;
@@ -33,6 +36,7 @@ import com.pikume.back.global.util.RequestMetaMapper;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.willThrow;
@@ -73,6 +77,7 @@ class DiaryControllerTest {
 
 	@BeforeEach
 	void setUp() {
+		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		diaryController = new DiaryController(
 				createDiaryUseCase,
 				deleteDiaryUseCase,
@@ -81,9 +86,11 @@ class DiaryControllerTest {
 				fileUtil,
 				requestMetaMapper,
 				validator,
-				new ProblemDetailFactory());
+				problemDetailFactory);
 		mockMvc = MockMvcBuilders.standaloneSetup(diaryController)
-				.setControllerAdvice(new GlobalExceptionHandler(Optional.empty(), new ProblemDetailFactory()))
+				.setControllerAdvice(
+						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
+						new DiaryExceptionHandler(problemDetailFactory))
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver())
 				.build();
 	}
@@ -118,6 +125,31 @@ class DiaryControllerTest {
 				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/malformed-request"))
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("요청 본문을 해석할 수 없습니다."))
+				.andExpect(jsonPath("$.instance").value("/api/diary"));
+	}
+
+	@Test
+	@DisplayName("POST /api/diary는 일기 요청 검증 예외를 기존 validation/invalid-request로 처리한다")
+	void createDiaryReturnsValidationProblemDetailWhenUseCaseRejectsCommand() throws Exception {
+		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class)))
+				.willReturn(new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
+						"https://localhost:8080/api/diary", "test-agent", "127.0.0.1"));
+		willThrow(new DiaryInvalidRequestException("미래 날짜에 일기를 작성할 수 없습니다: 2099-01-01"))
+				.given(createDiaryUseCase).createDiary(any(), any(), eq("user1"), any());
+		MockMultipartFile diary = new MockMultipartFile(
+				"diary",
+				"",
+				"application/json",
+				"""
+						{"status":"PUBLIC","content":"생성 요청","imageInfos":[],"date":"2099-01-01"}
+						""".getBytes());
+
+		mockMvc.perform(multipart("/api/diary")
+						.file(diary))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("미래 날짜에 일기를 작성할 수 없습니다: 2099-01-01"))
 				.andExpect(jsonPath("$.instance").value("/api/diary"));
 	}
 
@@ -226,6 +258,24 @@ class DiaryControllerTest {
 				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/common/malformed-request"))
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("요청 본문을 해석할 수 없습니다."))
+				.andExpect(jsonPath("$.instance").value("/api/diary/1"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/diary/{diaryId}는 일기 요청 검증 예외를 diary invalid-request로 처리한다")
+	void updateDiaryReturnsDiaryInvalidRequestWhenUseCaseRejectsCommand() throws Exception {
+		willThrow(new DiaryInvalidRequestException("일기 수정 요청은 필수입니다."))
+				.given(updateDiaryUseCase).updateDiary(eq(1L), any(UpdateDiaryCommand.class), eq("user1"));
+
+		mockMvc.perform(patch("/api/diary/{diaryId}", 1L)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"status":"PUBLIC","content":"수정 후"}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("일기 수정 요청은 필수입니다."))
 				.andExpect(jsonPath("$.instance").value("/api/diary/1"));
 	}
 

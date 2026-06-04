@@ -12,6 +12,7 @@ import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
 import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.application.port.in.CreateDiaryUseCase;
@@ -55,17 +56,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 	@Override
 	@Transactional
 	public void deleteDiary(Long diaryId, String userId) {
-		Diary diary = loadDiaryPort.findById(diaryId)
-				.orElseThrow(() -> {
-					log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
-					return new DiaryNotFoundException();
-				});
-
-		if (!diary.isOwner(userId)) {
-			log.error("사용자 [{}]는 일기 ID [{}]의 소유자가 아닙니다.", userId, diaryId);
-			throw new DiaryAccessDeniedException();
-		}
-
+		Diary diary = loadOwnedDiary(diaryId, userId);
 		diary.delete();
 		saveDiaryPort.save(diary);
 		log.info("사용자 [{}] - 일기 ID [{}] 삭제 완료", userId, diaryId);
@@ -75,9 +66,19 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 	@Transactional
 	public DiaryUpdatedResult updateDiary(Long diaryId, UpdateDiaryCommand command, String userId) {
 		if (command == null) {
-			throw new IllegalArgumentException("일기 수정 요청은 필수입니다.");
+			throw new DiaryInvalidRequestException("일기 수정 요청은 필수입니다.");
 		}
 
+		Diary diary = loadOwnedDiary(diaryId, userId);
+		diary.updateContentAndStatus(command.content(), command.status());
+		Diary savedDiary = saveDiaryPort.save(diary);
+		log.info("사용자 [{}] - 일기 ID [{}] 수정 완료", userId, diaryId);
+		analyzeDiaryMetadataAfterCommit(savedDiary);
+
+		return new DiaryUpdatedResult(savedDiary.getId(), savedDiary.getStatus(), savedDiary.getContent());
+	}
+
+	private Diary loadOwnedDiary(Long diaryId, String userId) {
 		Diary diary = loadDiaryPort.findById(diaryId)
 				.orElseThrow(() -> {
 					log.error("일기 ID [{}]에 해당하는 일기를 찾을 수 없습니다.", diaryId);
@@ -89,12 +90,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			throw new DiaryAccessDeniedException();
 		}
 
-		diary.updateContentAndStatus(command.content(), command.status());
-		Diary savedDiary = saveDiaryPort.save(diary);
-		log.info("사용자 [{}] - 일기 ID [{}] 수정 완료", userId, diaryId);
-		analyzeDiaryMetadataAfterCommit(savedDiary);
-
-		return new DiaryUpdatedResult(savedDiary.getId(), savedDiary.getStatus(), savedDiary.getContent());
+		return diary;
 	}
 
 	@Override
@@ -190,14 +186,14 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 
 	private void validateDiaryDate(CreateDiaryCommand diaryCommand, String userId) {
 		Optional<Diary> existingDiary = loadDiaryPort.findByUserIdAndDate(userId, diaryCommand.date());
-        if (existingDiary.isPresent()) {
-            log.info("일기 날짜 중복 요청");
-            throw new DuplicateDiaryException(diaryCommand.date());
-        }
-        LocalDate localDate = LocalDate.now();
+		if (existingDiary.isPresent()) {
+			log.info("일기 날짜 중복 요청");
+			throw new DuplicateDiaryException(diaryCommand.date());
+		}
+		LocalDate localDate = LocalDate.now();
 		if (diaryCommand.date().isAfter(localDate)) {
 			log.error("미래 날짜에 일기 작성 시도: {}", diaryCommand.date());
-			throw new IllegalArgumentException("미래 날짜에 일기를 작성할 수 없습니다: " + diaryCommand.date());
+			throw new DiaryInvalidRequestException("미래 날짜에 일기를 작성할 수 없습니다: " + diaryCommand.date());
 		}
 	}
 
@@ -211,24 +207,24 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 				.map(DiaryImageCommand::order)
 				.collect(Collectors.toSet());
 		if (uniqueOrders.size() != infos.size()) {
-			throw new IllegalArgumentException("이미지 순서가 중복되었습니다.");
+			throw new DiaryInvalidRequestException("이미지 순서가 중복되었습니다.");
 		}
 		int userImageCount = 0;
 		for (DiaryImageCommand info : infos) {
 			if (info.type() == DiaryPhotoType.AI_IMAGE) {
 				if (!loadCreativePort.existsByIdAndUserId(info.aiPhotoId(), userId)) {
-					throw new IllegalArgumentException("유효하지 않은 AI 사진 ID: " + info.aiPhotoId());
+					throw new DiaryInvalidRequestException("유효하지 않은 AI 사진 ID: " + info.aiPhotoId());
 				}
 			}
 			if (info.type() == DiaryPhotoType.USER_IMAGE) {
 				if (info.photoIndex() == null) {
-					throw new IllegalArgumentException("유효하지 않은 사용자 사진 인덱스: null");
+					throw new DiaryInvalidRequestException("유효하지 않은 사용자 사진 인덱스: null");
 				}
 				userImageCount++;
 			}
 		}
 		if (userImageCount != (photos == null ? 0 : photos.size())) {
-			throw new IllegalArgumentException("사용자 사진 개수와 이미지 정보 개수가 일치하지 않습니다.");
+			throw new DiaryInvalidRequestException("사용자 사진 개수와 이미지 정보 개수가 일치하지 않습니다.");
 		}
 	}
 
@@ -240,7 +236,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			String originalFilename = file.originalFilename();
 
 			if (originalFilename == null || !originalFilename.contains(".")) {
-				throw new IllegalArgumentException("유효하지 않은 파일 이름입니다: " + originalFilename);
+				throw new DiaryInvalidRequestException("유효하지 않은 파일 이름입니다: " + originalFilename);
 			}
 
 			String contentType = fileUtil.getContentType(originalFilename);
@@ -254,7 +250,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 					"image/svg+xml");
 
 			if (!allowedImageTypes.contains(contentType)) {
-				throw new IllegalArgumentException("허용되지 않는 이미지 확장자입니다: " + originalFilename);
+				throw new DiaryInvalidRequestException("허용되지 않는 이미지 확장자입니다: " + originalFilename);
 			}
 		}
 	}
