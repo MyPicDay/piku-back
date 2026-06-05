@@ -5,11 +5,16 @@ import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
+import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.out.LoadPhotoOptimizationPort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
+import com.pikume.back.diary.application.port.out.SavePhotoOptimizationPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
+import com.pikume.back.diary.domain.PhotoOptimizationStatus;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -19,7 +24,8 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
+public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, LoadPhotoOptimizationPort,
+		SavePhotoOptimizationPort {
 
 	private final DiaryJpaRepository diaryJpaRepository;
 	private final PhotoJpaRepository photoJpaRepository;
@@ -117,6 +123,7 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 				.map(row -> new LoadDiaryPort.PhotoRow(
 						row.getDiaryId(),
 						row.getUrl(),
+						row.getOptimizedUrl(),
 						Boolean.TRUE.equals(row.getRepresent())))
 				.toList();
 	}
@@ -179,5 +186,48 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort {
 	@Override
 	public Photo savePhoto(Photo photo) {
 		return photoJpaRepository.save(photo);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<PhotoOptimizationTarget> findPendingPhotoOptimizationTargets(int limit) {
+		if (limit <= 0) {
+			return List.of();
+		}
+		return photoJpaRepository.findPendingPhotoOptimizationTargets(
+				PhotoOptimizationStatus.PENDING,
+				org.springframework.data.domain.PageRequest.of(0, limit));
+	}
+
+	@Override
+	@Transactional
+	public boolean claimPhotoOptimization(Integer photoId, LocalDateTime attemptedAt) {
+		return photoJpaRepository.claimPhotoOptimization(
+				photoId,
+				PhotoOptimizationStatus.PENDING,
+				PhotoOptimizationStatus.PROCESSING,
+				attemptedAt) == 1;
+	}
+
+	@Override
+	@Transactional
+	public void markPhotoOptimizationSucceeded(Integer photoId, String optimizedUrl, LocalDateTime optimizedAt) {
+		photoJpaRepository.markPhotoOptimizationSucceeded(
+				photoId,
+				optimizedUrl,
+				optimizedAt,
+				PhotoOptimizationStatus.SUCCEEDED);
+	}
+
+	@Override
+	@Transactional
+	public void markPhotoOptimizationFailed(Integer photoId, PhotoOptimizationStatus nextStatus, LocalDateTime attemptedAt) {
+		photoJpaRepository.markPhotoOptimizationFailed(photoId, nextStatus, attemptedAt);
+	}
+
+	@Override
+	@Transactional
+	public void markPhotoOptimizationSkipped(Integer photoId, LocalDateTime attemptedAt) {
+		photoJpaRepository.markPhotoOptimizationSkipped(photoId, PhotoOptimizationStatus.SKIPPED, attemptedAt);
 	}
 }
