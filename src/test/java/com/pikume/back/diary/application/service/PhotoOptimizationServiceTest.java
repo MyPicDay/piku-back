@@ -53,15 +53,16 @@ class PhotoOptimizationServiceTest {
 				.willReturn(true);
 		given(loadObjectPort.loadObject("public/user-1/photo.png")).willReturn(originalBytes);
 		given(webpImageConversionPort.convertToWebp(originalBytes, 0.82f)).willReturn(webpBytes);
-		given(storeObjectPort.storeObject(any(UploadedFileData.class), eq("public/user-1/photo.webp"),
-				eq("public, max-age=31536000, immutable"))).willReturn("public/user-1/photo.webp");
+		given(storeObjectPort.storeObject(any(UploadedFileData.class), eq("public/user-1/photo.webp")))
+				.willReturn("public/user-1/photo.webp");
 
 		int optimizedCount = service.optimizePendingPhotos();
 
 		assertThat(optimizedCount).isEqualTo(1);
 		ArgumentCaptor<UploadedFileData> storedFile = ArgumentCaptor.forClass(UploadedFileData.class);
-		then(storeObjectPort).should().storeObject(storedFile.capture(), eq("public/user-1/photo.webp"),
-				eq("public, max-age=31536000, immutable"));
+		then(storeObjectPort).should().storeObject(storedFile.capture(), eq("public/user-1/photo.webp"));
+		then(storeObjectPort).should(never())
+				.storeObject(any(UploadedFileData.class), eq("public/user-1/photo.webp"), any());
 		assertThat(storedFile.getValue().contentType()).isEqualTo("image/webp");
 		assertThat(storedFile.getValue().bytes()).isEqualTo(webpBytes);
 		then(savePhotoOptimizationPort).should()

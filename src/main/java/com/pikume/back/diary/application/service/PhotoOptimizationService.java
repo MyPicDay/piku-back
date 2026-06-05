@@ -21,8 +21,6 @@ import java.util.List;
 public class PhotoOptimizationService {
 
 	private static final String WEBP_CONTENT_TYPE = "image/webp";
-	private static final String PUBLIC_PREFIX = "public/";
-	private static final String PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 	private final LoadPhotoOptimizationPort loadPhotoOptimizationPort;
 	private final SavePhotoOptimizationPort savePhotoOptimizationPort;
@@ -66,12 +64,10 @@ public class PhotoOptimizationService {
 			}
 			byte[] originalBytes = loadObjectPort.loadObject(target.originalUrl());
 			byte[] webpBytes = webpImageConversionPort.convertToWebp(originalBytes, properties.getQuality());
-			String cacheControl = optimizedKey.startsWith(PUBLIC_PREFIX) ? PUBLIC_CACHE_CONTROL : null;
 
 			storeObjectPort.storeObject(
 					new UploadedFileData(fileName(optimizedKey), WEBP_CONTENT_TYPE, webpBytes),
-					optimizedKey,
-					cacheControl);
+					optimizedKey);
 			savePhotoOptimizationPort.markPhotoOptimizationSucceeded(target.photoId(), optimizedKey, LocalDateTime.now());
 			log.info("event=photo_optimization outcome=succeeded photoId={} diaryId={} objectKey={} optimizedKey={}",
 					target.photoId(),
