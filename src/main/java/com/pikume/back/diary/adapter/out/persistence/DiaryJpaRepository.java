@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
+import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
@@ -37,6 +38,26 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			Collection<DiaryVisibility> statuses,
 			LocalDate start,
 			LocalDate end);
+
+	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryGalleryRow(" +
+			"d.id, cover.url, d.date, COUNT(p.id), d.status) " +
+			"FROM Diary d " +
+			"JOIN Photo cover ON cover.diary = d AND cover.represent = true " +
+			"JOIN Photo p ON p.diary = d " +
+			"WHERE d.userId = :userId " +
+			"AND d.status IN :statuses " +
+			"AND d.deletedAt IS NULL " +
+			"AND (:cursorDate IS NULL " +
+			"OR d.date < :cursorDate " +
+			"OR (d.date = :cursorDate AND d.id < :cursorDiaryId)) " +
+			"GROUP BY d.id, cover.url, d.date, d.status " +
+			"ORDER BY d.date DESC, d.id DESC")
+	List<DiaryGalleryRow> findGalleryRowsByUserIdAndStatuses(
+			@Param("userId") String userId,
+			@Param("statuses") Collection<DiaryVisibility> statuses,
+			@Param("cursorDate") LocalDate cursorDate,
+			@Param("cursorDiaryId") Long cursorDiaryId,
+			Pageable pageable);
 
 	Optional<Diary> findByUserIdAndDateAndDeletedAtIsNull(String userId, LocalDate date);
 

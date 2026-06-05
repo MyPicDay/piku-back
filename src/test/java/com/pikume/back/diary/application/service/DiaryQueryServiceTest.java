@@ -9,9 +9,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.diary.application.dto.CalendarDiaryView;
+import com.pikume.back.diary.application.dto.DiaryGalleryCursor;
+import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
+import com.pikume.back.diary.application.dto.DiaryGalleryPage;
+import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.dto.VisibleDiaryView;
+import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorException;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
@@ -44,6 +49,8 @@ class DiaryQueryServiceTest {
 	private PhotoStoragePort photoStoragePort;
 	@Mock
 	private DiaryVisibilityPolicy diaryVisibilityPolicy;
+	@Mock
+	private DiaryGalleryCursorTokenCodec diaryGalleryCursorTokenCodec;
 
 	private static final String USER_ID = "user-1";
 
@@ -218,6 +225,110 @@ class DiaryQueryServiceTest {
 
 			then(diaryVisibilityPolicy).should().visibleStatusesForOwner(USER_ID, "viewer-id");
 			then(diaryVisibilityPolicy).should(never()).isHiddenFromViewer(any(Diary.class), eq("viewer-id"));
+		}
+	}
+
+	@Nested
+	@DisplayName("findGallery")
+	class FindGallery {
+
+		@Test
+		@DisplayName("사용자 사진 갤러리는 limit+1로 조회하고 다음 cursor를 마지막 반환 item 기준으로 만든다")
+		void returnsGalleryPageWithNextCursor() {
+			DiaryGalleryRow first = new DiaryGalleryRow(
+					31L,
+					"public/user-1/31.jpg",
+					LocalDate.of(2026, 6, 1),
+					2L,
+					DiaryVisibility.PUBLIC);
+			DiaryGalleryRow second = new DiaryGalleryRow(
+					20L,
+					"public/user-1/20.jpg",
+					LocalDate.of(2026, 5, 30),
+					1L,
+					DiaryVisibility.FRIENDS);
+			DiaryGalleryRow extra = new DiaryGalleryRow(
+					10L,
+					"public/user-1/10.jpg",
+					LocalDate.of(2026, 5, 29),
+					1L,
+					DiaryVisibility.PUBLIC);
+
+			given(diaryVisibilityPolicy.visibleStatusesForOwner(USER_ID, "viewer-id"))
+					.willReturn(List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS));
+			given(loadDiaryPort.findGalleryRowsByUserIdAndStatuses(
+					eq(USER_ID),
+					eq(Set.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS)),
+					isNull(),
+					isNull(),
+					eq(3)))
+					.willReturn(List.of(first, second, extra));
+			given(photoStoragePort.getPhotoUrl("public/user-1/31.jpg", true))
+					.willReturn("https://cdn.example/31.jpg");
+			given(photoStoragePort.getPhotoUrl("public/user-1/20.jpg", true))
+					.willReturn("https://cdn.example/20.jpg");
+			given(diaryGalleryCursorTokenCodec.encode(new DiaryGalleryCursor(LocalDate.of(2026, 5, 30), 20L)))
+					.willReturn("opaque-next-cursor");
+
+			DiaryGalleryPage<DiaryGalleryItemView> result = diaryQueryService.findGallery(
+					USER_ID,
+					"viewer-id",
+					null,
+					2);
+
+			assertThat(result.items()).hasSize(2);
+			assertThat(result.items()).extracting(DiaryGalleryItemView::diaryId)
+					.containsExactly(31L, 20L);
+			assertThat(result.items().get(0).coverPhotoUrl()).isEqualTo("https://cdn.example/31.jpg");
+			assertThat(result.items().get(0).imageCount()).isEqualTo(2L);
+			assertThat(result.items().get(0).status()).isEqualTo(DiaryVisibility.PUBLIC);
+			assertThat(result.items().get(1).date()).isEqualTo(LocalDate.of(2026, 5, 30));
+			assertThat(result.nextCursor()).isEqualTo("opaque-next-cursor");
+			assertThat(result.hasNext()).isTrue();
+			then(photoStoragePort).should(never()).getPhotoUrl("public/user-1/10.jpg", true);
+		}
+
+		@Test
+		@DisplayName("cursor가 있으면 디코딩한 date/diaryId 이후의 사진 row만 요청한다")
+		void passesDecodedCursorToGalleryQuery() {
+			DiaryGalleryCursor cursor = new DiaryGalleryCursor(LocalDate.of(2026, 5, 30), 20L);
+			given(diaryGalleryCursorTokenCodec.decode("opaque-cursor")).willReturn(cursor);
+			given(diaryVisibilityPolicy.visibleStatusesForOwner(USER_ID, null))
+					.willReturn(List.of(DiaryVisibility.PUBLIC));
+			given(loadDiaryPort.findGalleryRowsByUserIdAndStatuses(
+					eq(USER_ID),
+					eq(Set.of(DiaryVisibility.PUBLIC)),
+					eq(LocalDate.of(2026, 5, 30)),
+					eq(20L),
+					eq(31)))
+					.willReturn(List.of());
+
+			DiaryGalleryPage<DiaryGalleryItemView> result = diaryQueryService.findGallery(
+					USER_ID,
+					null,
+					"opaque-cursor",
+					30);
+
+			assertThat(result.items()).isEmpty();
+			assertThat(result.nextCursor()).isNull();
+			assertThat(result.hasNext()).isFalse();
+			then(photoStoragePort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("잘못된 cursor는 저장소 조회 전에 갤러리 cursor 예외로 거부한다")
+		void rejectsInvalidCursorBeforeLoadingRows() {
+			given(diaryGalleryCursorTokenCodec.decode("bad-cursor"))
+					.willThrow(new InvalidDiaryGalleryCursorException());
+
+			assertThatThrownBy(() -> diaryQueryService.findGallery(
+					USER_ID,
+					"viewer-id",
+					"bad-cursor",
+					30))
+					.isInstanceOf(InvalidDiaryGalleryCursorException.class);
+
+			then(loadDiaryPort).shouldHaveNoInteractions();
 		}
 	}
 

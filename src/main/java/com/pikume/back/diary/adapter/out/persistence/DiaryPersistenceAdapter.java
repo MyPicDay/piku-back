@@ -3,6 +3,7 @@ package com.pikume.back.diary.adapter.out.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
+import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
@@ -51,6 +52,23 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	public List<Diary> findByUserIdAndStatusesAndDateBetween(String userId, Collection<DiaryVisibility> statuses, LocalDate start,
 			LocalDate end) {
 		return diaryJpaRepository.findByUserIdAndStatusInAndDeletedAtIsNullAndDateBetween(userId, statuses, start, end);
+	}
+
+	@Override
+	public List<DiaryGalleryRow> findGalleryRowsByUserIdAndStatuses(String userId,
+			Collection<DiaryVisibility> statuses,
+			LocalDate cursorDate,
+			Long cursorDiaryId,
+			int limit) {
+		if (statuses == null || statuses.isEmpty() || limit <= 0) {
+			return List.of();
+		}
+		return diaryJpaRepository.findGalleryRowsByUserIdAndStatuses(
+				userId,
+				statuses,
+				cursorDate,
+				cursorDiaryId,
+				org.springframework.data.domain.PageRequest.of(0, limit));
 	}
 
 	@Override

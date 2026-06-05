@@ -9,10 +9,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.diary.application.dto.CreateDiaryCommand;
 import com.pikume.back.diary.application.dto.DiaryCreatedResult;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
+import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
+import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
 import com.pikume.back.diary.application.port.out.LoadCreativePort;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.LoadUserForDiaryPort;
@@ -22,6 +26,7 @@ import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.application.exception.DiaryErrorCode;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
@@ -231,8 +236,10 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, futureDate)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("미래 날짜");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("미래 날짜");
+					});
 		}
 
 		@Test
@@ -253,8 +260,10 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(eq(USER_ID), any())).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo1, photo2), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("중복");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("중복");
+					});
 		}
 
 		@Test
@@ -270,8 +279,10 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.pdf")).willReturn("application/pdf");
 
 			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
-					.isInstanceOf(IllegalArgumentException.class)
-					.hasMessageContaining("허용되지 않는");
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("허용되지 않는");
+					});
 		}
 
 		@Test
@@ -330,6 +341,152 @@ class DiaryCommandServiceTest {
 				assertThatThrownBy(() -> diaryCommandService.deleteDiary(1L, USER_ID))
 						.isInstanceOfSatisfying(DiaryAccessDeniedException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_ACCESS_DENIED));
+		}
+	}
+
+	@Nested
+	@DisplayName("updateDiary")
+	class UpdateDiary {
+
+		@Test
+		@DisplayName("본인의 일기 수정 시 내용과 공개범위를 변경하고 저장 결과를 반환한다")
+		void updatesOwnDiaryContentAndStatus() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+
+			DiaryUpdatedResult result = diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID);
+
+			assertThat(diary.getContent()).isEqualTo("수정 후");
+			assertThat(diary.getStatus()).isEqualTo(DiaryVisibility.PUBLIC);
+			assertThat(result.diaryId()).isEqualTo(1L);
+			assertThat(result.status()).isEqualTo(DiaryVisibility.PUBLIC);
+			assertThat(result.content()).isEqualTo("수정 후");
+			then(saveDiaryPort).should().save(diary);
+			then(analyzeDiaryContentUseCase).should().analyzeAndSave(1L, "수정 후");
+		}
+
+		@Test
+		@DisplayName("메타데이터 분석 실패해도 일기 수정은 성공한다")
+		void succeedsEvenIfAnalysisFails() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+			willThrow(new RuntimeException("분석 오류"))
+					.given(analyzeDiaryContentUseCase).analyzeAndSave(1L, "수정 후");
+
+			DiaryUpdatedResult result = diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID);
+
+			assertThat(result.diaryId()).isEqualTo(1L);
+			assertThat(result.content()).isEqualTo("수정 후");
+			then(saveDiaryPort).should().save(diary);
+		}
+
+		@Test
+		@DisplayName("트랜잭션 동기화가 활성화되어 있으면 메타데이터 분석은 커밋 이후 실행한다")
+		void analyzesMetadataAfterCommitWhenTransactionSynchronizationIsActive() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+
+			TransactionSynchronizationManager.initSynchronization();
+			try {
+				diaryCommandService.updateDiary(
+						1L,
+						new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+						USER_ID);
+
+				then(analyzeDiaryContentUseCase).shouldHaveNoInteractions();
+				assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
+
+				TransactionSynchronizationManager.getSynchronizations().get(0).afterCommit();
+
+				then(analyzeDiaryContentUseCase).should().analyzeAndSave(1L, "수정 후");
+			} finally {
+				TransactionSynchronizationManager.clearSynchronization();
+			}
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 일기 수정 시 예외를 던진다")
+		void throwsWhenDiaryNotFound() {
+			given(loadDiaryPort.findById(999L)).willReturn(Optional.empty());
+
+			assertThatThrownBy(() -> diaryCommandService.updateDiary(
+					999L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID))
+					.isInstanceOfSatisfying(DiaryNotFoundException.class,
+							ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_NOT_FOUND));
+		}
+
+		@Test
+		@DisplayName("타인의 일기 수정 시 예외를 던지고 저장하지 않는다")
+		void throwsWhenNotOwner() {
+			Diary diary = new Diary("남의 일기", DiaryVisibility.PRIVATE, LocalDate.now(), "other-user");
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+
+			assertThatThrownBy(() -> diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID))
+					.isInstanceOfSatisfying(DiaryAccessDeniedException.class,
+							ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_ACCESS_DENIED));
+			then(saveDiaryPort).should(never()).save(any(Diary.class));
+		}
+
+		@Test
+		@DisplayName("수정 요청 커맨드가 null이면 일기 요청 검증 예외를 던진다")
+		void throwsWhenCommandIsNull() {
+			assertThatThrownBy(() -> diaryCommandService.updateDiary(1L, null, USER_ID))
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("일기 수정 요청");
+					});
+		}
+	}
+
+	@Nested
+	@DisplayName("UpdateDiaryCommand")
+	class UpdateDiaryCommandValidation {
+
+		@Test
+		@DisplayName("공개범위가 null이면 예외를 던진다")
+		void rejectsNullStatus() {
+			assertThatThrownBy(() -> new UpdateDiaryCommand(null, "수정 후"))
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("공개범위");
+					});
+		}
+
+		@Test
+		@DisplayName("내용이 비어 있으면 예외를 던진다")
+		void rejectsBlankContent() {
+			assertThatThrownBy(() -> new UpdateDiaryCommand(DiaryVisibility.PUBLIC, " "))
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("일기 내용");
+					});
+		}
+
+		@Test
+		@DisplayName("내용이 500자를 초과하면 예외를 던진다")
+		void rejectsTooLongContent() {
+			assertThatThrownBy(() -> new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "a".repeat(501)))
+					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
+						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
+						assertThat(ex).hasMessageContaining("500자");
+					});
 		}
 	}
 

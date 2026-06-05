@@ -10,7 +10,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.pikume.back.diary.adapter.in.web.problem.DiaryProblemType;
 import com.pikume.back.diary.application.exception.DiaryException;
+import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorException;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.error.ValidationProblemType;
+
+import java.util.Map;
 
 @RestControllerAdvice(basePackages = { "com.pikume.back.diary", "com.pikume.back.comment" })
 @RequiredArgsConstructor
@@ -27,6 +31,16 @@ public class DiaryExceptionHandler {
 	@ExceptionHandler(DiaryException.class)
 	public ResponseEntity<ProblemDetail> handleDiaryException(DiaryException ex, HttpServletRequest request) {
 		return problem(DiaryProblemType.from(ex.getErrorCode()), ex.getMessage(), request);
+	}
+
+	@ExceptionHandler(InvalidDiaryGalleryCursorException.class)
+	public ResponseEntity<ProblemDetail> handleInvalidDiaryGalleryCursorException(InvalidDiaryGalleryCursorException ex,
+			HttpServletRequest request) {
+		ProblemDetail problemDetail = problemDetailFactory.validation(
+				"요청 값이 올바르지 않습니다.",
+				request.getRequestURI(),
+				Map.of("cursor", ex.getMessage()));
+		return ResponseEntity.status(ValidationProblemType.INVALID_REQUEST.status()).body(problemDetail);
 	}
 
 	@ExceptionHandler(EntityNotFoundException.class)

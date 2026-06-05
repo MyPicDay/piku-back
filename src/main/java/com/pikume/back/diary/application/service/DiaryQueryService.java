@@ -6,6 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.diary.application.dto.CalendarDiaryView;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
+import com.pikume.back.diary.application.dto.DiaryGalleryCursor;
+import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
+import com.pikume.back.diary.application.dto.DiaryGalleryPage;
+import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
@@ -15,6 +19,7 @@ import com.pikume.back.diary.application.dto.VisibleDiaryDetailView;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
+import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryVisibilityUseCase;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
@@ -36,11 +41,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibilityUseCase, QueryDiaryReadUseCase,
-		QueryDiaryFeedUseCase {
+		QueryDiaryFeedUseCase, GetDiaryGalleryUseCase {
 
 	private final LoadDiaryPort loadDiaryPort;
 	private final PhotoStoragePort photoStoragePort;
 	private final DiaryVisibilityPolicy diaryVisibilityPolicy;
+	private final DiaryGalleryCursorTokenCodec diaryGalleryCursorTokenCodec;
 
 	@Override
 	public Optional<VisibleDiaryView> findVisibleDiaryById(Long diaryId, String viewerId) {
@@ -94,6 +100,33 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 					.orElse(null);
 			return new CalendarDiaryView(diary.getId(), coverPhotoUrl, diary.getDate());
 		}).collect(Collectors.toList());
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public DiaryGalleryPage<DiaryGalleryItemView> findGallery(String userId, String viewerId, String cursorToken, int limit) {
+		DiaryGalleryCursor cursor = diaryGalleryCursorTokenCodec.decode(cursorToken);
+		Set<com.pikume.back.diary.domain.vo.DiaryVisibility> visibleStatuses = Set.copyOf(
+				diaryVisibilityPolicy.visibleStatusesForOwner(userId, viewerId));
+
+		int fetchLimit = limit + 1;
+		List<DiaryGalleryRow> rows = loadDiaryPort.findGalleryRowsByUserIdAndStatuses(
+				userId,
+				visibleStatuses,
+				cursor != null ? cursor.date() : null,
+				cursor != null ? cursor.diaryId() : null,
+				fetchLimit);
+
+		boolean hasNext = rows.size() > limit;
+		List<DiaryGalleryRow> pageRows = hasNext ? rows.subList(0, limit) : rows;
+		List<DiaryGalleryItemView> items = pageRows.stream()
+				.map(this::toDiaryGalleryItemView)
+				.toList();
+		String nextCursor = hasNext && !pageRows.isEmpty()
+				? diaryGalleryCursorTokenCodec.encode(toGalleryCursor(pageRows.get(pageRows.size() - 1)))
+				: null;
+
+		return new DiaryGalleryPage<>(items, nextCursor, hasNext);
 	}
 
 	@Override
@@ -227,5 +260,18 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 				diary.getContent(),
 				diary.getDate(),
 				diary.getCreatedAt());
+	}
+
+	private DiaryGalleryItemView toDiaryGalleryItemView(DiaryGalleryRow row) {
+		return new DiaryGalleryItemView(
+				row.diaryId(),
+				photoStoragePort.getPhotoUrl(row.coverPhotoPath(), true),
+				row.date(),
+				row.imageCount(),
+				row.status());
+	}
+
+	private DiaryGalleryCursor toGalleryCursor(DiaryGalleryRow row) {
+		return new DiaryGalleryCursor(row.date(), row.diaryId());
 	}
 }
