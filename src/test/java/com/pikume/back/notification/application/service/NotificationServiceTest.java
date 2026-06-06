@@ -8,6 +8,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
@@ -29,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -71,7 +74,7 @@ class NotificationServiceTest {
 	class SendNotification {
 
 		@Test
-		@DisplayName("알림을 저장하고 SSE 및 FCM을 통해 전송한다")
+		@DisplayName("알림을 저장하고 트랜잭션 커밋 후 SSE 및 FCM을 통해 전송한다")
 		void savesAndSendsNotification() throws Exception {
 			given(saveNotificationPort.save(any(Notification.class))).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
@@ -80,21 +83,33 @@ class NotificationServiceTest {
 			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 
-			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
+			TransactionSynchronizationManager.initSynchronization();
+			try {
+				notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
 
-			ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
-			ArgumentCaptor<NotificationStreamMessage> messageCaptor = ArgumentCaptor.forClass(NotificationStreamMessage.class);
-			then(saveNotificationPort).should().save(notificationCaptor.capture());
-			then(notificationStreamPort).should().sendToUser(eq("receiver-id"), messageCaptor.capture());
-			then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("보낸이"));
+				ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+				then(saveNotificationPort).should().save(notificationCaptor.capture());
+				then(notificationStreamPort).should(never()).sendToUser(any(), any());
+				then(pushNotificationPort).should(never()).sendMessage(any(), any());
 
-			Notification saved = notificationCaptor.getValue();
-			assertThat(saved.getReceiverId()).isEqualTo("receiver-id");
-			assertThat(saved.getSenderId()).isEqualTo("sender-id");
-			assertThat(saved.getType()).isEqualTo(NotificationType.COMMENT);
-			assertThat(saved.getDiaryId()).isEqualTo(1L);
-			assertThat(saved.getIsRead()).isFalse();
-			assertThat(messageCaptor.getValue().data()).isNotNull();
+				Notification saved = notificationCaptor.getValue();
+				assertThat(saved.getReceiverId()).isEqualTo("receiver-id");
+				assertThat(saved.getSenderId()).isEqualTo("sender-id");
+				assertThat(saved.getType()).isEqualTo(NotificationType.COMMENT);
+				assertThat(saved.getDiaryId()).isEqualTo(1L);
+				assertThat(saved.getIsRead()).isFalse();
+
+				TransactionSynchronization afterCommitSynchronization =
+						TransactionSynchronizationManager.getSynchronizations().get(0);
+				afterCommitSynchronization.afterCommit();
+
+				ArgumentCaptor<NotificationStreamMessage> messageCaptor = ArgumentCaptor.forClass(NotificationStreamMessage.class);
+				then(notificationStreamPort).should().sendToUser(eq("receiver-id"), messageCaptor.capture());
+				then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("보낸이"));
+				assertThat(messageCaptor.getValue().data()).isNotNull();
+			} finally {
+				TransactionSynchronizationManager.clearSynchronization();
+			}
 		}
 
 		@Test
@@ -140,6 +155,33 @@ class NotificationServiceTest {
 			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
 
 			then(pushNotificationPort).should().deleteToken("bad-token");
+		}
+
+		@Test
+		@DisplayName("커밋 후 SSE 전송 실패가 FCM 전송을 막지 않는다")
+		void sendsPushEvenWhenStreamFailsAfterCommit() throws Exception {
+			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
+			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
+			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
+			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
+			doThrow(new IllegalStateException("SSE fail"))
+					.when(notificationStreamPort).sendToUser(eq("receiver-id"), any());
+
+			TransactionSynchronizationManager.initSynchronization();
+			try {
+				notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
+
+				TransactionSynchronization afterCommitSynchronization =
+						TransactionSynchronizationManager.getSynchronizations().get(0);
+				assertThatCode(afterCommitSynchronization::afterCommit)
+						.doesNotThrowAnyException();
+
+				then(notificationStreamPort).should().sendToUser(eq("receiver-id"), any());
+				then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("보낸이"));
+			} finally {
+				TransactionSynchronizationManager.clearSynchronization();
+			}
 		}
 
 		@Test

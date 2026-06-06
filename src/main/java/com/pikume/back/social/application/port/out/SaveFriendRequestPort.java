@@ -5,7 +5,7 @@ import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 
 public interface SaveFriendRequestPort {
 
-	FriendRequest save(FriendRequest friendRequest);
+	boolean saveIfAbsent(FriendRequest friendRequest);
 
 	void delete(FriendRequest friendRequest);
 

@@ -1,6 +1,7 @@
 package com.pikume.back.social.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import com.pikume.back.social.application.port.out.LoadFriendPort;
 import com.pikume.back.social.application.port.out.LoadFriendRequestPort;
@@ -86,8 +87,13 @@ public class FriendPersistenceAdapter implements LoadFriendPort, SaveFriendPort,
 	// --- SaveFriendRequestPort ---
 
 	@Override
-	public FriendRequest save(FriendRequest friendRequest) {
-		return friendRequestJpaRepository.save(friendRequest);
+	public boolean saveIfAbsent(FriendRequest friendRequest) {
+		try {
+			friendRequestJpaRepository.insert(friendRequest.getFromUserId(), friendRequest.getToUserId());
+			return true;
+		} catch (DataIntegrityViolationException e) {
+			return false;
+		}
 	}
 
 	@Override

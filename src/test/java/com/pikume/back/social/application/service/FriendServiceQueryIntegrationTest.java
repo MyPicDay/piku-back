@@ -3,11 +3,15 @@ package com.pikume.back.social.application.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.transaction.TestTransaction;
 import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.notification.adapter.out.persistence.NotificationJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendRequestJpaRepository;
+import com.pikume.back.social.application.port.out.SaveFriendRequestPort;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
+import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
@@ -24,6 +28,12 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 
 	@Autowired
 	private FriendRequestJpaRepository friendRequestJpaRepository;
+
+	@Autowired
+	private SaveFriendRequestPort saveFriendRequestPort;
+
+	@Autowired
+	private NotificationJpaRepository notificationJpaRepository;
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
@@ -70,6 +80,55 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		assertThat(threeItemQueries)
 				.as("친구 요청 row 수가 늘어도 사용자 조회를 배치로 제한해야 한다")
 				.isEqualTo(oneItemQueries);
+	}
+
+	@Test
+	@DisplayName("친구 요청 저장 포트는 DB 중복 요청을 예외 대신 false로 반환한다")
+	void friendRequestSaveIfAbsentReturnsFalseOnDuplicate() {
+		FriendRequestID id = new FriendRequestID("duplicate-from", "duplicate-to");
+
+		boolean firstSaved = saveFriendRequestPort.saveIfAbsent(new FriendRequest("duplicate-from", "duplicate-to"));
+		boolean duplicateSaved = saveFriendRequestPort.saveIfAbsent(new FriendRequest("duplicate-from", "duplicate-to"));
+
+		assertThat(firstSaved).isTrue();
+		assertThat(duplicateSaved).isFalse();
+		assertThat(friendRequestJpaRepository.findById(id)).isPresent();
+	}
+
+	@Test
+	@DisplayName("친구 요청 저장 포트는 호출한 트랜잭션에 참여한다")
+	void friendRequestSaveIfAbsentParticipatesInCurrentTransaction() {
+		FriendRequestID id = new FriendRequestID("tx-from", "tx-to");
+
+		boolean saved = saveFriendRequestPort.saveIfAbsent(new FriendRequest("tx-from", "tx-to"));
+		assertThat(saved).isTrue();
+
+		TestTransaction.flagForRollback();
+		TestTransaction.end();
+		TestTransaction.start();
+
+		assertThat(friendRequestJpaRepository.findById(id)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("친구 요청과 알림 이력 저장은 같은 트랜잭션에 참여한다")
+	void friendRequestAndNotificationParticipateInCurrentTransaction() {
+		User fromUser = saveUser("tx-flow-from");
+		User toUser = saveUser("tx-flow-to");
+		FriendRequestID id = new FriendRequestID(fromUser.getId(), toUser.getId());
+
+		var result = friendService.sendFriendRequest(fromUser.getId(), toUser.getId(), REQUEST_META_INFO);
+
+		assertThat(result.accepted()).isFalse();
+		assertThat(friendRequestJpaRepository.findById(id)).isPresent();
+		assertThat(notificationJpaRepository.existsFriendRequestByReceiverId(toUser.getId())).isTrue();
+
+		TestTransaction.flagForRollback();
+		TestTransaction.end();
+		TestTransaction.start();
+
+		assertThat(friendRequestJpaRepository.findById(id)).isEmpty();
+		assertThat(notificationJpaRepository.existsFriendRequestByReceiverId(toUser.getId())).isFalse();
 	}
 
 	private User saveUser(String suffix) {

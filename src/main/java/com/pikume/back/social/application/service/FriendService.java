@@ -79,16 +79,18 @@ public class FriendService implements FriendUseCase {
 
 			publishEventPort.publish(new SocialEvent.FriendAcceptedEvent(toUserId, fromUserId));
 			return new FriendRequestResult(true, "친구 요청을 수락했습니다.");
-
-		} else {
-			log.info("{},{} 사용자 친구 요청 테이블 추가 요청", toUserId, fromUserId);
-
-			FriendRequest request = new FriendRequest(fromUserId, toUserId);
-			saveFriendRequestPort.save(request);
-
-			publishEventPort.publish(new SocialEvent.FriendRequestEvent(toUserId, fromUserId));
-			return new FriendRequestResult(false, "친구 요청을 보냈습니다.");
 		}
+
+		log.debug("{} -> {} 사용자 친구 요청", toUserId, fromUserId);
+		FriendRequest request = new FriendRequest(fromUserId, toUserId);
+		boolean saved = saveFriendRequestPort.saveIfAbsent(request);
+		if (!saved) {
+			log.debug("{}에서 {}로 보낸 친구 요청 중복 저장이 감지되었습니다.", fromUserId, toUserId);
+			return friendRequestSentResult();
+		}
+
+		publishEventPort.publish(new SocialEvent.FriendRequestEvent(toUserId, fromUserId));
+		return friendRequestSentResult();
 	}
 
 	@Override
@@ -219,5 +221,9 @@ public class FriendService implements FriendUseCase {
 				? imagePathToUrlConverter.userAvatarImageUrl(friend.avatarPath(), requestMetaInfo)
 				: null;
 		return new FriendSummaryResult(friend.userId(), friend.nickname(), avatarUrl);
+	}
+
+	private FriendRequestResult friendRequestSentResult() {
+		return new FriendRequestResult(false, "친구 요청을 보냈습니다.");
 	}
 }

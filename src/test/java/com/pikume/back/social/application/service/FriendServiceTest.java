@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 
 @ExtendWith(MockitoExtension.class)
 class FriendServiceTest {
@@ -103,13 +105,15 @@ class FriendServiceTest {
 			given(loadFriendPort.existsFriendship("to-user", "from-user")).willReturn(false);
 			given(loadFriendRequestPort.findById(new FriendRequestID("to-user", "from-user")))
 					.willReturn(Optional.empty());
+			given(saveFriendRequestPort.saveIfAbsent(any(FriendRequest.class))).willReturn(true);
 
 			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
 
 			assertThat(response.accepted()).isFalse();
 			assertThat(response.message()).contains("보냈습니다");
-			then(saveFriendRequestPort).should().save(any(FriendRequest.class));
-			then(publishEventPort).should().publish(any(SocialEvent.FriendRequestEvent.class));
+			InOrder inOrder = inOrder(saveFriendRequestPort, publishEventPort);
+			inOrder.verify(saveFriendRequestPort).saveIfAbsent(any(FriendRequest.class));
+			inOrder.verify(publishEventPort).publish(any(SocialEvent.FriendRequestEvent.class));
 		}
 
 		@Test
@@ -132,6 +136,28 @@ class FriendServiceTest {
 			then(saveFriendRequestPort).should().delete(existingRequest);
 			then(saveFriendPort).should().save(any());
 			then(publishEventPort).should().publish(any(SocialEvent.FriendAcceptedEvent.class));
+		}
+
+		@Test
+		@DisplayName("친구 요청 저장이 중복으로 처리되면 추가 조회와 알림 없이 요청 완료 응답을 반환한다")
+		void returnsRequestSentWhenDuplicateSaveIsDetected() {
+			given(loadUserInfoPort.findUserInfoById("from-user"))
+					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("from-user", "발신자", null)));
+			given(loadUserInfoPort.findUserInfoById("to-user"))
+					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("to-user", "수신자", null)));
+			given(loadFriendPort.existsFriendship("from-user", "to-user")).willReturn(false);
+			given(loadFriendPort.existsFriendship("to-user", "from-user")).willReturn(false);
+			given(loadFriendRequestPort.findById(new FriendRequestID("to-user", "from-user")))
+					.willReturn(Optional.empty());
+			given(saveFriendRequestPort.saveIfAbsent(any(FriendRequest.class))).willReturn(false);
+
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+
+			assertThat(response.accepted()).isFalse();
+			assertThat(response.message()).contains("보냈습니다");
+			then(saveFriendRequestPort).should().saveIfAbsent(any(FriendRequest.class));
+			then(loadFriendRequestPort).should().findById(new FriendRequestID("to-user", "from-user"));
+			then(publishEventPort).shouldHaveNoInteractions();
 		}
 
 		@Test

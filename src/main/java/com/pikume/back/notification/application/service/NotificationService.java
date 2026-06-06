@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
@@ -58,9 +60,10 @@ public class NotificationService implements NotificationUseCase {
 				senderNickname, senderAvatarUrl, thumbnailUrl);
 
 		String eventName = (type == NotificationType.FRIEND_REQUEST) ? "FriendRequest" : null;
-		notificationStreamPort.sendToUser(receiverId, new NotificationStreamMessage(eventId, eventName, notificationDTO));
+		NotificationStreamMessage streamMessage = new NotificationStreamMessage(eventId, eventName, notificationDTO);
+		String pushBody = senderNickname + message;
 
-		sendPushNotification(receiverId, senderNickname + message);
+		sendAfterCommit(receiverId, streamMessage, pushBody);
 	}
 
 	@Override
@@ -119,6 +122,33 @@ public class NotificationService implements NotificationUseCase {
 			case FRIEND_DIARY -> "님이 새 일기를 작성하였습니다.";
 			case LIKE -> "님이 회원님의 일기를 좋아합니다.";
 		};
+	}
+
+	private void sendAfterCommit(String receiverId, NotificationStreamMessage streamMessage, String pushBody) {
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			sendNotificationMessage(receiverId, streamMessage, pushBody);
+			return;
+		}
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				sendNotificationMessage(receiverId, streamMessage, pushBody);
+			}
+		});
+	}
+
+	private void sendNotificationMessage(String receiverId, NotificationStreamMessage streamMessage, String pushBody) {
+		sendStreamNotification(receiverId, streamMessage);
+		sendPushNotification(receiverId, pushBody);
+	}
+
+	private void sendStreamNotification(String receiverId, NotificationStreamMessage streamMessage) {
+		try {
+			notificationStreamPort.sendToUser(receiverId, streamMessage);
+		} catch (RuntimeException e) {
+			log.warn("SSE 알림 전송 실패: {}", e.getMessage());
+		}
 	}
 
 	private void sendPushNotification(String receiverId, String body) {
