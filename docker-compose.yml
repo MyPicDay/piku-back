@@ -40,6 +40,7 @@ services:
       - "9915:3306"
     profiles:
       - "dev"
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DEV_DB_PASSWORD:-1234}
       MYSQL_DATABASE: piku
