@@ -92,16 +92,21 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 	}
 
 	@Override
-	public String storeObject(UploadedFileData image, String objectKey) {
+	public String storeObject(UploadedFileData image, String objectKey, String cacheControl) {
 		try {
 			ensureBucketExists(storageProperties.getBucket());
 
-			PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+			PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
 					.bucket(storageProperties.getBucket())
 					.key(objectKey)
 					.contentType(image.contentType())
-					.contentLength(image.size())
-					.build();
+					.contentLength(image.size());
+
+			if (cacheControl != null && !cacheControl.isBlank()) {
+				requestBuilder.cacheControl(cacheControl);
+			}
+
+			PutObjectRequest putObjectRequest = requestBuilder.build();
 
 			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(image.inputStream(), image.size()));
 

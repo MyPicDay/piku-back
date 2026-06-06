@@ -65,3 +65,11 @@ storage:
   secret-key: ${STORAGE_SECRET_KEY:minioadmin}
   bucket: ${STORAGE_BUCKET:piku}
   type: ${STORAGE_TYPE:minio} # minio or s3
+
+photo:
+  optimization:
+    enabled: ${PHOTO_OPTIMIZATION_ENABLED:false}
+    fixed-delay-ms: ${PHOTO_OPTIMIZATION_FIXED_DELAY_MS:300000}
+    batch-size: ${PHOTO_OPTIMIZATION_BATCH_SIZE:10}
+    max-attempts: ${PHOTO_OPTIMIZATION_MAX_ATTEMPTS:3}
+    quality: ${PHOTO_OPTIMIZATION_QUALITY:0.82}

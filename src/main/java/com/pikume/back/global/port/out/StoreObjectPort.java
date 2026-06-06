@@ -4,5 +4,9 @@ import com.pikume.back.global.dto.UploadedFileData;
 
 public interface StoreObjectPort {
 
-	String storeObject(UploadedFileData file, String objectKey);
+	default String storeObject(UploadedFileData file, String objectKey) {
+		return storeObject(file, objectKey, null);
+	}
+
+	String storeObject(UploadedFileData file, String objectKey, String cacheControl);
 }

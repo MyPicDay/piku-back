@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-06-05
 
 ## 도메인 개요
 
@@ -95,6 +95,26 @@ _Enum_
 
 ---
 
+## 사진 최적화 상태(PhotoOptimizationStatus)
+
+_Enum_
+
+### 상수
+
+- `PENDING` : WebP 변환 대상이며 아직 처리되지 않은 상태
+- `PROCESSING` : 백그라운드 최적화 작업이 처리권을 획득한 상태
+- `SUCCEEDED` : WebP 최적화가 완료되어 `optimizedUrl`을 사용할 수 있는 상태
+- `FAILED` : 최대 시도 횟수에 도달하여 더 이상 자동 재시도하지 않는 상태
+- `SKIPPED` : 확장자가 없거나 지원하지 않는 형식이라 최적화 대상에서 제외된 상태
+
+### 규칙
+
+- `PhotoOptimizationStatus`는 `Photo`의 WebP 최적화 생명주기를 표현한다.
+- 상태 전이는 도메인 생성 규칙과 백그라운드 최적화 작업에 의해 변경된다.
+- 조회 응답은 상태 값 자체가 아니라 `Photo.getDisplayUrl()` 결과를 통해 최적화된 이미지 경로를 우선 사용한다.
+
+---
+
 ## 일기(Diary)
 
 _Entity_
@@ -167,7 +187,12 @@ _Entity_
 ### 속성
 
 - `id` : int. 사진의 고유 식별자
-- `url` : String. 사진 이미지가 저장소에 위치한 경로(URL)
+- `url` : String. 원본 사진 이미지가 저장소에 위치한 object key
+- `optimizedUrl` : String. WebP 최적화가 완료된 사진의 object key
+- `optimizationStatus` : PhotoOptimizationStatus. 사진의 WebP 최적화 상태
+- `optimizedAt` : LocalDateTime. WebP 최적화 완료 시각
+- `optimizationAttemptCount` : Integer. WebP 최적화 실패 시도 횟수
+- `optimizationLastAttemptAt` : LocalDateTime. 마지막 WebP 최적화 시도 시각
 - `represent` : Boolean. 해당 일기의 대표(썸네일) 사진 여부
 - `photoOrder` : Integer. 일기 내에서 여러 장의 사진이 위치하는 순서
 - `diary` : Diary. 이 사진이 첨부된 부모 일기 엔티티
@@ -175,9 +200,17 @@ _Entity_
 ### 행위
 
 - `updateRepresent(Boolean represent)` : 이 사진이 대표 사진인지 여부를 수정한다.
+- `getDisplayUrl()` : `optimizedUrl`이 있으면 최적화된 object key를 반환하고, 없으면 원본 `url`을 반환한다.
+- `markOptimizationSucceeded(String optimizedUrl)` : WebP 최적화 완료 object key를 저장하고 상태를 `SUCCEEDED`로 변경한다.
 
 ### 규칙
 
 - 하나의 일기(`Diary`)에 여러 장의 사진(`Photo`)이 종속될 수 있다.
 - 사진 생성 시 기본적으로 대표 사진 여부(`represent`)는 `false`로 설정된다.
+- 사진 생성 시 기본적으로 `optimizationAttemptCount`는 `0`으로 설정된다.
 - 일기별 사진 정렬을 위해 `photoOrder`를 기준으로 순서를 보장한다.
+- 사진 생성 시 원본 `url`의 확장자를 기준으로 최적화 상태를 초기화한다.
+- `jpg`, `jpeg`, `png`, `bmp` 확장자는 `PENDING`으로 초기화되어 WebP 최적화 스케줄링 대상이 된다.
+- `webp` 확장자는 이미 최적화된 것으로 보고 `optimizedUrl = url`, `optimizationStatus = SUCCEEDED`, `optimizedAt = 현재 시각`으로 초기화한다.
+- 확장자가 없거나 지원하지 않는 확장자는 `SKIPPED`로 초기화한다.
+- 일기 상세, 캘린더 커버, 피드 후보 등 사진 경로를 노출하는 조회 흐름은 가능한 경우 `optimizedUrl`을 우선 사용해야 한다.

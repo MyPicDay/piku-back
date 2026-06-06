@@ -15,7 +15,14 @@ import java.util.Optional;
 
 public interface LoadDiaryPort {
 
-	record PhotoRow(Long diaryId, String url, boolean represent) {
+	record PhotoRow(Long diaryId, String url, String optimizedUrl, boolean represent) {
+
+		public String displayUrl() {
+			if (optimizedUrl != null && !optimizedUrl.isBlank()) {
+				return optimizedUrl;
+			}
+			return url;
+		}
 	}
 
 	Optional<Diary> findById(Long diaryId);
