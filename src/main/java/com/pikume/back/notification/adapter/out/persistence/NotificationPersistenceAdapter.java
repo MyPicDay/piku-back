@@ -2,6 +2,7 @@ package com.pikume.back.notification.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import com.pikume.back.notification.application.port.out.DeleteNotificationPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
 import com.pikume.back.notification.application.port.out.SaveNotificationPort;
 import com.pikume.back.notification.domain.Notification;
@@ -9,7 +10,7 @@ import com.pikume.back.notification.domain.exception.NotificationNotFoundExcepti
 
 @Component
 @RequiredArgsConstructor
-public class NotificationPersistenceAdapter implements LoadNotificationPort, SaveNotificationPort {
+public class NotificationPersistenceAdapter implements LoadNotificationPort, SaveNotificationPort, DeleteNotificationPort {
 
 	private final NotificationJpaRepository notificationJpaRepository;
 
@@ -37,5 +38,10 @@ public class NotificationPersistenceAdapter implements LoadNotificationPort, Sav
 	@Override
 	public Notification save(Notification notification) {
 		return notificationJpaRepository.save(notification);
+	}
+
+	@Override
+	public int deleteByDiaryId(Long diaryId) {
+		return notificationJpaRepository.deleteByDiaryId(diaryId);
 	}
 }

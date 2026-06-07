@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Mobile Engineers, Frontend Engineers, Backend Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-05-23
+- Last Reviewed: 2026-06-08
 
 ## 변경점
 
@@ -23,7 +23,9 @@
 - `recommended`: 추천순. 로그인 사용자는 미소비 친구글, 미소비 공개글, 소비한 친구글, 소비한 공개글 순서로 노출된다.
 - `latest`: 피드에 노출 가능한 일기를 `createdAt DESC`, `diaryId DESC` 전역 최신순으로 노출한다.
 
-두 모드 모두 기존 공개 범위 규칙을 유지한다. 피드 후보 범위는 `PUBLIC` 일기와 현재 조회 사용자의 친구가 작성한 `FRIENDS` 일기로 제한된다. 요청 사용자의 자기 일기, 친구가 아닌 사용자의 `FRIENDS` 일기, `PRIVATE` 일기는 피드 목록에서 제외된다. 비로그인 사용자는 `PUBLIC` 일기만 받는다.
+두 모드 모두 기존 공개 범위 규칙을 유지한다. 피드 후보 범위는 `PUBLIC`, `ANONYMOUS` 일기와 현재 조회 사용자의 친구가 작성한 `FRIENDS` 일기로 제한된다. 요청 사용자의 자기 일기, 친구가 아닌 사용자의 `FRIENDS` 일기, `PRIVATE` 일기는 피드 목록에서 제외된다. 비로그인 사용자는 `PUBLIC`과 `ANONYMOUS` 일기를 받을 수 있다.
+
+`ANONYMOUS` 일기는 피드 정렬에서는 공개 피드 후보처럼 취급되지만, 응답에서는 작성자 닉네임, 아바타, 사용자 ID, 친구 상태가 익명 전용 값으로 마스킹된다. 클라이언트는 익명 일기 작성자 여부를 `userId` 비교가 아니라 `isOwner`로 판단한다.
 
 ## 에러
 

@@ -12,8 +12,6 @@ public interface QueryDiaryFeedUseCase {
 
 	Optional<VisibleDiaryDetailView> findVisibleDiaryDetailById(Long diaryId, String viewerId);
 
-	List<Long> findRestorableDiaryIds(List<Long> diaryIds, String viewerId, List<String> friendUserIds);
-
 	List<Long> findDiaryIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds, int limit);
 
 	List<Long> findDiaryIdsByStatus(DiaryVisibility status, String excludedUserId, int limit);

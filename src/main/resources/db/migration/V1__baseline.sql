@@ -161,7 +161,7 @@ CREATE TABLE diary (
   updated_at datetime(6) DEFAULT NULL,
   content varchar(500) DEFAULT NULL,
   date date DEFAULT NULL,
-  status enum('FRIENDS','PRIVATE','PUBLIC') DEFAULT NULL,
+  status enum('ANONYMOUS','FRIENDS','PRIVATE','PUBLIC') DEFAULT NULL,
   user_id varchar(36) DEFAULT NULL,
   PRIMARY KEY (id),
   KEY FK74rd0bn5raxejw2ukenelbdmt (user_id),

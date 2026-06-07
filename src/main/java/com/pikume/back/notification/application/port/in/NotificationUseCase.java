@@ -19,4 +19,6 @@ public interface NotificationUseCase {
 	void markAllAsRead(String userId);
 
 	boolean deleteNotification(Long notificationId, String userId);
+
+	void deleteNotificationsByDiaryId(Long diaryId);
 }

@@ -57,10 +57,13 @@ class CommentLazyLoadingIntegrationTest extends AbstractJpaQueryCountIntegration
 						"nickname",
 						null,
 						comment.getContent(),
-						comment.getParent() != null ? comment.getParent().getId() : null,
-						comment.getCreatedAt(),
-						comment.getUpdatedAt(),
-						0))
+							comment.getParent() != null ? comment.getParent().getId() : null,
+							comment.getCreatedAt(),
+							comment.getUpdatedAt(),
+							0,
+							false,
+							false,
+							false))
 				.toList();
 
 		assertThat(response).hasSize(3);

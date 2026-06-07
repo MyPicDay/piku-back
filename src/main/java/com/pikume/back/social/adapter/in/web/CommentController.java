@@ -140,6 +140,9 @@ public class CommentController {
 				result.parentId(),
 				result.createdAt(),
 				result.updatedAt(),
-				result.replyCount());
+				result.replyCount(),
+				result.canReply(),
+				result.canEdit(),
+				result.canDelete());
 	}
 }

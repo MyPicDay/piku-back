@@ -172,6 +172,49 @@ class FeedQueryServiceTest {
 						.isInstanceOfSatisfying(FeedDiaryNotFoundException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.DIARY_NOT_FOUND));
 		}
+
+		@Test
+		@DisplayName("익명 일기 상세는 작성자 정보를 마스킹하고 작성자 여부를 내려준다")
+		void anonymousDiaryMasksAuthorProfileAndIncludesOwnerFlag() {
+			Diary anonymousDiary = new Diary("익명 일기", DiaryVisibility.valueOf("ANONYMOUS"),
+					LocalDate.now(), "owner-id");
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id"))
+					.willReturn(java.util.Optional.of(detailView(anonymousDiary, List.of("photo1.jpg"))));
+			given(loadSocialForFeedPort.getLikeCount(1L)).willReturn(7L);
+			given(loadSocialForFeedPort.isLikedByUser("viewer-id", 1L)).willReturn(false);
+			given(loadSocialForFeedPort.countComments("viewer-id", 1L)).willReturn(4L);
+
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
+
+			assertThat(result.getStatus()).isEqualTo(FeedVisibility.valueOf("ANONYMOUS"));
+			assertThat(result.getNickname()).isEqualTo("익명");
+			assertThat(result.getAvatar()).isNull();
+			assertThat(result.getUserId()).isNull();
+			assertThat(result.getFriendStatus()).isEqualTo(FeedFriendStatus.valueOf("ANONYMOUS"));
+			assertThat(result.getIsOwner()).isFalse();
+			verify(loadUserForFeedPort, never()).getUserNickname(anyString());
+			verify(loadUserForFeedPort, never()).getUserAvatar(anyString());
+		}
+
+		@Test
+		@DisplayName("익명 일기 작성자가 상세 조회해도 작성자 정보는 마스킹하고 작성자 여부만 true로 내려준다")
+		void anonymousDiaryOwnerStillReceivesMaskedProfileWithOwnerFlag() {
+			Diary anonymousDiary = new Diary("내 익명 일기", DiaryVisibility.valueOf("ANONYMOUS"),
+					LocalDate.now(), "owner-id");
+			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "owner-id"))
+					.willReturn(java.util.Optional.of(detailView(anonymousDiary, List.of("photo1.jpg"))));
+			given(loadSocialForFeedPort.getLikeCount(1L)).willReturn(0L);
+			given(loadSocialForFeedPort.isLikedByUser("owner-id", 1L)).willReturn(false);
+			given(loadSocialForFeedPort.countComments("owner-id", 1L)).willReturn(0L);
+
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
+
+			assertThat(result.getNickname()).isEqualTo("익명");
+			assertThat(result.getAvatar()).isNull();
+			assertThat(result.getUserId()).isNull();
+			assertThat(result.getFriendStatus()).isEqualTo(FeedFriendStatus.valueOf("ANONYMOUS"));
+			assertThat(result.getIsOwner()).isTrue();
+		}
 	}
 
 	@Nested
@@ -233,6 +276,49 @@ class FeedQueryServiceTest {
 			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 10L);
 			assertThat(result.hasNext()).isTrue();
 			assertThat(result.nextCursor()).isEqualTo("next-public-token");
+		}
+
+		@Test
+		@DisplayName("익명 피드 항목은 작성자 정보를 마스킹하고 friendStatus를 ANONYMOUS로 고정한다")
+		void anonymousFeedItemMasksAuthorProfile() {
+			FeedCursorCandidate anonymousCandidate = candidate(FeedBucket.NOT_CONSUMED_PUBLIC, 40L, 1L, 2L);
+			FeedVisibility anonymousVisibility = FeedVisibility.valueOf("ANONYMOUS");
+
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_FRIEND, null, 1))
+					.willReturn(List.of());
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_PUBLIC, null, 1))
+					.willReturn(List.of(anonymousCandidate));
+			given(loadFeedCursorCandidatesPort.loadCandidates("viewer-id", FeedBucket.NOT_CONSUMED_PUBLIC, anonymousCandidate.toCursor(), 1))
+					.willReturn(List.of());
+			given(loadFeedListViewPort.loadFeedListItems(List.of(40L), "viewer-id"))
+					.willReturn(List.of(new FeedListItemView(
+							40L,
+							anonymousVisibility,
+							"anonymous content",
+							List.of("photo-40.jpg"),
+							LocalDate.now(),
+							"real-nick",
+							"real-avatar.png",
+							"writer-id",
+							LocalDateTime.now(),
+							FeedFriendStatus.FRIENDS,
+							3L,
+							4L,
+							false)));
+
+			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
+					new FeedCursorRequest(null, 1),
+					requestMetaInfo,
+					"viewer-id");
+
+			assertThat(result.items()).hasSize(1);
+			FeedDiaryResult item = result.items().get(0);
+			assertThat(item.getStatus()).isEqualTo(anonymousVisibility);
+			assertThat(item.getNickname()).isEqualTo("익명");
+			assertThat(item.getAvatar()).isNull();
+			assertThat(item.getUserId()).isNull();
+			assertThat(item.getFriendStatus()).isEqualTo(FeedFriendStatus.valueOf("ANONYMOUS"));
+			assertThat(item.getIsOwner()).isFalse();
 		}
 
 		@Test

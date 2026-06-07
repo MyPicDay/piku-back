@@ -26,8 +26,11 @@ import java.util.Set;
 @Slf4j
 public class NotificationService implements NotificationUseCase {
 
+	private static final String ANONYMOUS_NICKNAME = "익명";
+
 	private final LoadNotificationPort loadNotificationPort;
 	private final SaveNotificationPort saveNotificationPort;
+	private final DeleteNotificationPort deleteNotificationPort;
 	private final LoadUserForNotificationPort loadUserForNotificationPort;
 	private final LoadDiaryForNotificationPort loadDiaryForNotificationPort;
 	private final LoadNotificationListViewPort loadNotificationListViewPort;
@@ -40,24 +43,32 @@ public class NotificationService implements NotificationUseCase {
 	public void sendNotification(String receiverId, NotificationType type, String senderId,
 			Long diaryId, RequestMetaInfo requestMetaInfo) {
 		log.info("알림 저장 요청");
+		LoadDiaryForNotificationPort.DiaryNotificationInfo diaryInfo = loadDiaryNotificationInfo(diaryId);
+		if (diaryId != null && diaryInfo == null) {
+			log.info("알림 생성 생략 - 일기를 찾을 수 없습니다. diaryId: {}", diaryId);
+			return;
+		}
 		Notification notification = new Notification(receiverId, senderId, type, diaryId);
 		saveNotificationPort.save(notification);
 
 		String eventId = receiverId + "_" + System.currentTimeMillis();
 		String message = generateMessage(type);
 
-		String senderNickname = loadUserForNotificationPort.getUserNickname(senderId);
-		String senderAvatar = loadUserForNotificationPort.getUserAvatar(senderId);
-		String senderAvatarUrl = loadUserForNotificationPort.getUserAvatarUrl(senderAvatar, requestMetaInfo);
+		boolean anonymousDiary = diaryInfo != null && diaryInfo.anonymous();
+		String senderNickname = ANONYMOUS_NICKNAME;
+		String senderAvatarUrl = null;
+		String responseSenderId = null;
 
-		String thumbnailUrl = null;
-		if (diaryId != null) {
-			thumbnailUrl = loadDiaryForNotificationPort.getDiaryThumbnailUrl(diaryId);
+		if (!anonymousDiary) {
+			senderNickname = loadUserForNotificationPort.getUserNickname(senderId);
+			String senderAvatar = loadUserForNotificationPort.getUserAvatar(senderId);
+			senderAvatarUrl = loadUserForNotificationPort.getUserAvatarUrl(senderAvatar, requestMetaInfo);
+			responseSenderId = senderId;
 		}
 
 		NotificationSsePayload notificationDTO = new NotificationSsePayload(
-				type, message, diaryId, senderId,
-				senderNickname, senderAvatarUrl, thumbnailUrl);
+				type, message, diaryId, responseSenderId,
+				senderNickname, senderAvatarUrl, diaryInfo != null ? diaryInfo.thumbnailUrl() : null);
 
 		String eventName = (type == NotificationType.FRIEND_REQUEST) ? "FriendRequest" : null;
 		NotificationStreamMessage streamMessage = new NotificationStreamMessage(eventId, eventName, notificationDTO);
@@ -109,6 +120,16 @@ public class NotificationService implements NotificationUseCase {
 
 		notification.inactive();
 		return true;
+	}
+
+	@Override
+	@Transactional
+	public void deleteNotificationsByDiaryId(Long diaryId) {
+		if (diaryId == null) {
+			return;
+		}
+		int deletedCount = deleteNotificationPort.deleteByDiaryId(diaryId);
+		log.info("일기 {} 관련 알림 삭제 완료 - count: {}", diaryId, deletedCount);
 	}
 
 	// ─── Private Helpers ───
@@ -173,14 +194,14 @@ public class NotificationService implements NotificationUseCase {
 	}
 
 	private NotificationResult toNotificationResponse(NotificationListView notification, RequestMetaInfo requestMetaInfo) {
-		String senderAvatarUrl = notification.senderAvatarPath() != null
+		String senderAvatarUrl = !notification.anonymousDiary() && notification.senderAvatarPath() != null
 				? imagePathToUrlConverter.userAvatarImageUrl(notification.senderAvatarPath(), requestMetaInfo)
 				: null;
 
 		return new NotificationResult(
 				notification.notificationId(),
 				generateMessage(notification.type()),
-				notification.senderNickname(),
+				notification.anonymousDiary() ? ANONYMOUS_NICKNAME : notification.senderNickname(),
 				senderAvatarUrl,
 				notification.type(),
 				notification.diaryId(),
@@ -188,6 +209,18 @@ public class NotificationService implements NotificationUseCase {
 				notification.isRead(),
 				notification.createdAt(),
 				notification.diaryDate(),
-				notification.diaryUserId());
+				notification.anonymousDiary() ? null : notification.diaryUserId());
+	}
+
+	private LoadDiaryForNotificationPort.DiaryNotificationInfo loadDiaryNotificationInfo(Long diaryId) {
+		if (diaryId == null) {
+			return null;
+		}
+		LoadDiaryForNotificationPort.DiaryNotificationInfo diaryInfo =
+				loadDiaryForNotificationPort.getDiaryNotificationInfo(diaryId);
+		if (diaryInfo != null) {
+			return diaryInfo;
+		}
+		return null;
 	}
 }

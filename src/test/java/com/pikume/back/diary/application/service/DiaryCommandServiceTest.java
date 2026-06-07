@@ -17,9 +17,9 @@ import com.pikume.back.diary.application.dto.DiaryCreatedResult;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
 import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
+import com.pikume.back.diary.application.port.out.DeleteDiaryNotificationPort;
 import com.pikume.back.diary.application.port.out.LoadCreativePort;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
-import com.pikume.back.diary.application.port.out.LoadUserForDiaryPort;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
@@ -70,7 +70,7 @@ class DiaryCommandServiceTest {
 	@Mock
 	private LoadCreativePort loadCreativePort;
 	@Mock
-	private LoadUserForDiaryPort loadUserForDiaryPort;
+	private DeleteDiaryNotificationPort deleteDiaryNotificationPort;
 	@Mock
 	private SendDiaryNotificationPort sendDiaryNotificationPort;
 	@Mock
@@ -320,6 +320,7 @@ class DiaryCommandServiceTest {
 
 			assertThat(diary.getDeletedAt()).isNotNull();
 			then(saveDiaryPort).should().save(diary);
+			then(deleteDiaryNotificationPort).should().deleteNotificationsByDiaryId(1L);
 		}
 
 		@Test

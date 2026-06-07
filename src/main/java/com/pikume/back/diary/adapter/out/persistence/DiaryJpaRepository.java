@@ -22,16 +22,6 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 
 	List<Diary> findByIdInAndDeletedAtIsNull(List<Long> ids);
 
-	@Query("SELECT d.id FROM Diary d " +
-			"WHERE d.id IN :ids " +
-			"AND d.deletedAt IS NULL " +
-			"AND (:currentUserId IS NULL OR d.userId <> :currentUserId) " +
-			"AND (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
-			"OR (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.FRIENDS AND d.userId IN :friendIds))")
-	List<Long> findRestorableFeedIds(@Param("ids") Collection<Long> ids,
-			@Param("currentUserId") String currentUserId,
-			@Param("friendIds") Collection<String> friendIds);
-
 	List<Diary> findByUserIdAndDeletedAtIsNullAndDateBetween(String userId, LocalDate start, LocalDate end);
 
 	List<Diary> findByUserIdAndStatusInAndDeletedAtIsNullAndDateBetween(String userId,
@@ -117,7 +107,8 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 
 	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryFeedCandidateView(d.id, d.createdAt) " +
 			"FROM Diary d " +
-			"WHERE d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
+			"WHERE (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
+			"OR d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.ANONYMOUS) " +
 			"AND d.deletedAt IS NULL " +
 			"AND (:excludedUserId IS NULL OR d.userId <> :excludedUserId) " +
 			"AND (:cursorCreatedAt IS NULL " +
@@ -135,6 +126,7 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"WHERE d.deletedAt IS NULL " +
 			"AND (:excludedUserId IS NULL OR d.userId <> :excludedUserId) " +
 			"AND (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
+			"OR d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.ANONYMOUS " +
 			"OR (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.FRIENDS AND d.userId IN :friendUserIds)) " +
 			"AND (:cursorCreatedAt IS NULL " +
 			"OR d.createdAt < :cursorCreatedAt " +

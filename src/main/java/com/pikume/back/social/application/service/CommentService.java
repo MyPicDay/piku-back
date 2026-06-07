@@ -20,10 +20,17 @@ import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
 import com.pikume.back.social.domain.event.SocialEvent;
 
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CommentService implements CommentUseCase {
+
+	private static final String ANONYMOUS_NICKNAME = "익명";
+	private static final String PRIVATE_ROOT_COMMENT_CONTENT = "비공개 댓글";
+	private static final String PRIVATE_REPLY_CONTENT = "비공개 답글";
+	private static final String DELETED_COMMENT_CONTENT = "삭제된 댓글입니다.";
 
 	private final LoadCommentPort loadCommentPort;
 	private final SaveCommentPort saveCommentPort;
@@ -41,13 +48,13 @@ public class CommentService implements CommentUseCase {
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
 
-		String diaryOwnerId = loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(diaryId, userId)
-				.orElseThrow(() -> new CommentException(CommentErrorCode.DIARY_NOT_FOUND));
+		LoadDiaryInfoPort.DiaryInfo diaryInfo = loadVisibleDiaryInfo(diaryId, userId);
 
 		Comment comment = new Comment(content, userId, diaryId);
+		Comment parentComment = null;
 
 		if (parentId != null) {
-			Comment parentComment = validateCommentExists(parentId);
+			parentComment = validateCommentExists(parentId);
 			validateCommentNotDeleted(parentComment);
 
 			if (parentComment.getParent() != null) {
@@ -57,6 +64,7 @@ public class CommentService implements CommentUseCase {
 			if (!parentComment.getDiaryId().equals(diaryId)) {
 				throw new CommentException(CommentErrorCode.PARENT_COMMENT_NOT_IN_SAME_DIARY);
 			}
+			validateAnonymousReplyPermission(diaryInfo, parentComment, userId);
 			comment.connectParent(parentComment);
 		}
 
@@ -64,11 +72,10 @@ public class CommentService implements CommentUseCase {
 		log.info("사용자 {}님이 {} 일기에 댓글 등록 완료", userId, diaryId);
 
 		// 알림 이벤트 발행
-		String receiverId = diaryOwnerId;
+		String receiverId = diaryInfo.ownerUserId();
 		boolean isReply = false;
 
-		if (parentId != null) {
-			Comment parentComment = validateCommentExists(parentId);
+		if (parentComment != null) {
 			receiverId = parentComment.getUserId();
 			isReply = true;
 		}
@@ -118,13 +125,11 @@ public class CommentService implements CommentUseCase {
 	@Transactional(readOnly = true)
 	public PageResult<CommentListItemResult> getRootCommentsByDiaryId(Long diaryId, PageQuery pageQuery,
 			RequestMetaInfo requestMetaInfo, String viewerId) {
-		if (!loadDiaryInfoPort.existsVisibleById(diaryId, viewerId)) {
-			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
-		}
+		LoadDiaryInfoPort.DiaryInfo diaryInfo = loadVisibleDiaryInfo(diaryId, viewerId);
 		PageResult<CommentListView> rootCommentsPage = loadCommentListViewPort.loadRootCommentsByDiaryId(diaryId, pageQuery);
 		log.info("일기 ID {}에 대한 루트 댓글 {}개 조회 완료.", diaryId, rootCommentsPage.getTotalElements());
 
-		return rootCommentsPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
+		return rootCommentsPage.map(comment -> toCommentListResponse(comment, requestMetaInfo, diaryInfo, viewerId, null));
 	}
 
 	@Override
@@ -132,13 +137,11 @@ public class CommentService implements CommentUseCase {
 	public PageResult<CommentListItemResult> getRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery,
 			RequestMetaInfo requestMetaInfo, String viewerId) {
 		Comment parentComment = validateCommentExists(parentCommentId);
-		if (!loadDiaryInfoPort.existsVisibleById(parentComment.getDiaryId(), viewerId)) {
-			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
-		}
+		LoadDiaryInfoPort.DiaryInfo diaryInfo = loadVisibleDiaryInfo(parentComment.getDiaryId(), viewerId);
 		PageResult<CommentListView> repliesPage = loadCommentListViewPort.loadRepliesByParentCommentId(parentCommentId, pageQuery);
 		log.info("부모 댓글 ID {}에 대한 대댓글 {}개 조회 완료.", parentCommentId, repliesPage.getTotalElements());
 
-		return repliesPage.map(comment -> toCommentListResponse(comment, requestMetaInfo));
+		return repliesPage.map(comment -> toCommentListResponse(comment, requestMetaInfo, diaryInfo, viewerId, parentComment));
 	}
 
 	@Override
@@ -199,7 +202,26 @@ public class CommentService implements CommentUseCase {
 		}
 	}
 
-	private CommentListItemResult toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo) {
+	private LoadDiaryInfoPort.DiaryInfo loadVisibleDiaryInfo(Long diaryId, String viewerId) {
+		return loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(diaryId, viewerId)
+				.orElseThrow(() -> new CommentException(CommentErrorCode.DIARY_NOT_FOUND));
+	}
+
+	private void validateAnonymousReplyPermission(LoadDiaryInfoPort.DiaryInfo diaryInfo, Comment parentComment, String userId) {
+		if (!diaryInfo.anonymous()) {
+			return;
+		}
+		if (diaryInfo.viewerOwner() || Objects.equals(parentComment.getUserId(), userId)) {
+			return;
+		}
+		throw new CommentException(CommentErrorCode.UNAUTHORIZED_ACCESS);
+	}
+
+	private CommentListItemResult toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo,
+			LoadDiaryInfoPort.DiaryInfo diaryInfo, String viewerId, Comment parentComment) {
+		if (diaryInfo.anonymous()) {
+			return toAnonymousCommentListResponse(comment, diaryInfo, viewerId, parentComment);
+		}
 		if (comment.deleted()) {
 			return new CommentListItemResult(
 					comment.commentId(),
@@ -207,11 +229,14 @@ public class CommentService implements CommentUseCase {
 					null,
 					null,
 					null,
-					"삭제된 댓글입니다.",
+					DELETED_COMMENT_CONTENT,
 					comment.parentId(),
 					comment.createdAt(),
 					comment.updatedAt(),
-					comment.replyCount());
+					comment.replyCount(),
+					false,
+					false,
+					false);
 		}
 
 		String nickname = comment.nickname() != null ? comment.nickname() : "me";
@@ -229,7 +254,62 @@ public class CommentService implements CommentUseCase {
 				comment.parentId(),
 				comment.createdAt(),
 				comment.updatedAt(),
-				comment.replyCount());
+				comment.replyCount(),
+				viewerId != null && comment.parentId() == null,
+				isCommentAuthor(comment, viewerId),
+				isCommentAuthor(comment, viewerId));
+	}
+
+	private CommentListItemResult toAnonymousCommentListResponse(CommentListView comment,
+			LoadDiaryInfoPort.DiaryInfo diaryInfo, String viewerId, Comment parentComment) {
+		boolean canViewContent = canViewAnonymousContent(comment, diaryInfo, viewerId, parentComment);
+		boolean ownComment = isCommentAuthor(comment, viewerId);
+		boolean canReply = viewerId != null
+				&& !comment.deleted()
+				&& comment.parentId() == null
+				&& canViewContent
+				&& (diaryInfo.viewerOwner() || ownComment);
+		boolean canEditOrDelete = !comment.deleted() && ownComment;
+		String content = resolveAnonymousCommentContent(comment, canViewContent);
+
+		return new CommentListItemResult(
+				comment.commentId(),
+				comment.diaryId(),
+				null,
+				ANONYMOUS_NICKNAME,
+				null,
+				content,
+				comment.parentId(),
+				comment.createdAt(),
+				comment.updatedAt(),
+				comment.replyCount(),
+				canReply,
+				canEditOrDelete,
+				canEditOrDelete);
+	}
+
+	private boolean canViewAnonymousContent(CommentListView comment, LoadDiaryInfoPort.DiaryInfo diaryInfo,
+			String viewerId, Comment parentComment) {
+		if (viewerId == null) {
+			return false;
+		}
+		if (diaryInfo.viewerOwner() || isCommentAuthor(comment, viewerId)) {
+			return true;
+		}
+		return parentComment != null
+				&& Objects.equals(parentComment.getUserId(), viewerId)
+				&& Objects.equals(comment.userId(), diaryInfo.ownerUserId());
+	}
+
+	private String resolveAnonymousCommentContent(CommentListView comment, boolean canViewContent) {
+		if (!canViewContent) {
+			return comment.parentId() == null ? PRIVATE_ROOT_COMMENT_CONTENT : PRIVATE_REPLY_CONTENT;
+		}
+		return comment.deleted() ? DELETED_COMMENT_CONTENT : comment.content();
+	}
+
+	private boolean isCommentAuthor(CommentListView comment, String viewerId) {
+		return viewerId != null && Objects.equals(comment.userId(), viewerId);
 	}
 
 	private Comment validateCommentForEditOrDelete(Long commentId, String userId) {

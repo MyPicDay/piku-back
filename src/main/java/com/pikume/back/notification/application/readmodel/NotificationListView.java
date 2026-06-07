@@ -15,6 +15,7 @@ public record NotificationListView(
 		Boolean isRead,
 		LocalDateTime createdAt,
 		LocalDate diaryDate,
-		String diaryUserId
+		String diaryUserId,
+		boolean anonymousDiary
 ) {
 }

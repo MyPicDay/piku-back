@@ -15,8 +15,10 @@ import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.notification.application.dto.NotificationResult;
+import com.pikume.back.notification.application.dto.NotificationSsePayload;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.port.out.LoadDiaryForNotificationPort;
+import com.pikume.back.notification.application.port.out.DeleteNotificationPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationListViewPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
 import com.pikume.back.notification.application.port.out.LoadUserForNotificationPort;
@@ -57,6 +59,8 @@ class NotificationServiceTest {
 	@Mock
 	private LoadDiaryForNotificationPort loadDiaryForNotificationPort;
 	@Mock
+	private DeleteNotificationPort deleteNotificationPort;
+	@Mock
 	private LoadNotificationListViewPort loadNotificationListViewPort;
 	@Mock
 	private PushNotificationPort pushNotificationPort;
@@ -80,7 +84,8 @@ class NotificationServiceTest {
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("avatar-url");
-			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
+			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
+					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 
 			TransactionSynchronizationManager.initSynchronization();
@@ -123,7 +128,7 @@ class NotificationServiceTest {
 
 			notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
 
-			then(loadDiaryForNotificationPort).should(never()).getDiaryThumbnailUrl(any());
+			then(loadDiaryForNotificationPort).should(never()).getDiaryNotificationInfo(any());
 		}
 
 		@Test
@@ -133,12 +138,48 @@ class NotificationServiceTest {
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
-			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
+			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
+					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of());
 
 			notificationService.sendNotification("receiver-id", NotificationType.LIKE, "sender-id", 1L, null);
 
 			then(pushNotificationPort).should(never()).sendMessage(any(), any());
+		}
+
+		@Test
+		@DisplayName("익명 일기 알림은 표시용 발신자 정보를 익명으로 마스킹한다")
+		void masksSenderProfileForAnonymousDiaryNotification() throws Exception {
+			given(saveNotificationPort.save(any(Notification.class))).willAnswer(inv -> inv.getArgument(0));
+			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
+					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", true));
+			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
+
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, requestMetaInfo);
+
+			ArgumentCaptor<NotificationStreamMessage> messageCaptor = ArgumentCaptor.forClass(NotificationStreamMessage.class);
+			then(notificationStreamPort).should().sendToUser(eq("receiver-id"), messageCaptor.capture());
+			then(pushNotificationPort).should().sendMessage(eq("fcm-token"), contains("익명"));
+			then(loadUserForNotificationPort).shouldHaveNoInteractions();
+
+			NotificationSsePayload payload = (NotificationSsePayload) messageCaptor.getValue().data();
+			assertThat(payload.senderId()).isNull();
+			assertThat(payload.senderNickname()).isEqualTo("익명");
+			assertThat(payload.senderAvatarUrl()).isNull();
+			assertThat(payload.thumbnailUrl()).isEqualTo("thumb.jpg");
+		}
+
+		@Test
+		@DisplayName("diaryId가 있지만 일기 정보를 찾지 못하면 알림을 생성하지 않는다")
+		void skipsNotificationWhenDiaryInfoIsMissing() {
+			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L)).willReturn(null);
+
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, requestMetaInfo);
+
+			then(saveNotificationPort).shouldHaveNoInteractions();
+			then(loadUserForNotificationPort).shouldHaveNoInteractions();
+			then(notificationStreamPort).shouldHaveNoInteractions();
+			then(pushNotificationPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -148,7 +189,8 @@ class NotificationServiceTest {
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
 			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
-			given(loadDiaryForNotificationPort.getDiaryThumbnailUrl(1L)).willReturn("thumb.jpg");
+			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
+					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("bad-token"));
 			doThrow(new RuntimeException("FCM fail")).when(pushNotificationPort).sendMessage(eq("bad-token"), any());
 
@@ -214,7 +256,8 @@ class NotificationServiceTest {
 					false,
 					LocalDateTime.of(2026, 3, 8, 12, 0),
 					null,
-					null);
+					null,
+					false);
 			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
@@ -255,7 +298,8 @@ class NotificationServiceTest {
 					false,
 					LocalDateTime.of(2026, 3, 8, 12, 10),
 					null,
-					null);
+					null,
+					false);
 			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
@@ -268,6 +312,50 @@ class NotificationServiceTest {
 			then(loadNotificationPort).shouldHaveNoInteractions();
 			then(loadUserForNotificationPort).shouldHaveNoInteractions();
 			then(loadDiaryForNotificationPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("익명 일기 알림 목록은 발신자와 일기 작성자 식별값을 마스킹한다")
+		void masksAnonymousDiaryNotificationListItem() {
+			PageQuery pageQuery = PageQuery.of(0, 10);
+			NotificationListView notification = new NotificationListView(
+					1L,
+					"보낸이",
+					"avatar.jpg",
+					NotificationType.COMMENT,
+					1L,
+					"thumb.jpg",
+					false,
+					LocalDateTime.of(2026, 3, 8, 12, 0),
+					null,
+					"owner-id",
+					true);
+			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
+
+			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
+
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
+
+			NotificationResult dto = result.getContent().get(0);
+			assertThat(dto.nickname()).isEqualTo("익명");
+			assertThat(dto.avatarUrl()).isNull();
+			assertThat(dto.diaryUserId()).isNull();
+			then(imagePathToUrlConverter).shouldHaveNoInteractions();
+		}
+	}
+
+	@Nested
+	@DisplayName("deleteNotificationsByDiaryId - 일기 관련 알림 삭제")
+	class DeleteNotificationsByDiaryId {
+
+		@Test
+		@DisplayName("일기 ID로 관련 알림을 삭제한다")
+		void deletesNotificationsByDiaryId() {
+			given(deleteNotificationPort.deleteByDiaryId(1L)).willReturn(2);
+
+			notificationService.deleteNotificationsByDiaryId(1L);
+
+			then(deleteNotificationPort).should().deleteByDiaryId(1L);
 		}
 	}
 }

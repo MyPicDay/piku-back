@@ -6,5 +6,5 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Getter
 public enum DiaryVisibility {
-	PUBLIC, PRIVATE, FRIENDS
+	PUBLIC, PRIVATE, FRIENDS, ANONYMOUS
 }

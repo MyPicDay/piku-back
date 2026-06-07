@@ -45,6 +45,8 @@ class FeedCandidateCollectorTest {
 				.willReturn(List.of(3L));
 		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, "viewer", 10))
 				.willReturn(List.of(3L, 4L, 5L));
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.ANONYMOUS, "viewer", 10))
+				.willReturn(List.of());
 
 		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 5);
 
@@ -66,6 +68,8 @@ class FeedCandidateCollectorTest {
 				.willReturn(List.of(4L, 5L));
 		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, "viewer", 6))
 				.willReturn(List.of(4L, 5L, 6L, 7L));
+		given(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.ANONYMOUS, "viewer", 6))
+				.willReturn(List.of());
 
 		FeedCandidateCollector.FeedCandidates result = feedCandidateCollector.collect("viewer", 3);
 

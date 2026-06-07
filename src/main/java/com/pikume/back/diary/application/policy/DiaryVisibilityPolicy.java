@@ -25,7 +25,8 @@ public class DiaryVisibilityPolicy {
 
 	public List<DiaryVisibility> visibleStatusesForOwner(String ownerUserId, String viewerId) {
 		return switch (resolveRelation(ownerUserId, viewerId)) {
-			case OWNER -> List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS, DiaryVisibility.PRIVATE);
+			case OWNER -> List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS, DiaryVisibility.PRIVATE,
+					DiaryVisibility.ANONYMOUS);
 			case FRIEND -> List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS);
 			case STRANGER -> List.of(DiaryVisibility.PUBLIC);
 		};
@@ -39,6 +40,7 @@ public class DiaryVisibilityPolicy {
 		return switch (visibility) {
 			case PUBLIC -> true;
 			case PRIVATE -> isOwner(ownerUserId, viewerId);
+			case ANONYMOUS -> true;
 			case FRIENDS -> switch (resolveRelation(ownerUserId, viewerId)) {
 				case OWNER, FRIEND -> true;
 				case STRANGER -> false;

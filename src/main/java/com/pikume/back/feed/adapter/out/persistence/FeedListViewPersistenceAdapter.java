@@ -69,6 +69,7 @@ public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 
 	private Map<String, UserSummaryView> loadUsers(java.util.Collection<DiarySummaryView> diaries) {
 		Set<String> userIds = diaries.stream()
+				.filter(diary -> diary.status() != DiaryVisibility.ANONYMOUS)
 				.map(DiarySummaryView::userId)
 				.collect(Collectors.toSet());
 		return queryUserSummaryUseCase.getUserSummaries(userIds);
@@ -104,6 +105,7 @@ public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 			case PUBLIC -> FeedVisibility.PUBLIC;
 			case FRIENDS -> FeedVisibility.FRIENDS;
 			case PRIVATE -> FeedVisibility.PRIVATE;
+			case ANONYMOUS -> FeedVisibility.ANONYMOUS;
 		};
 	}
 }
