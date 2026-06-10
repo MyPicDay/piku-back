@@ -16,4 +16,9 @@ public class DiaryException extends RuntimeException {
 		super(message);
 		this.errorCode = errorCode;
 	}
+
+	public DiaryException(DiaryErrorCode errorCode, String message, Throwable cause) {
+		super(message, cause);
+		this.errorCode = errorCode;
+	}
 }

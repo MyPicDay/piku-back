@@ -60,8 +60,9 @@ class ImageGenerationServiceTest {
 			given(generateDiaryIllustrationPort.generate(any()))
 					.willReturn(new GeneratedIllustrationPayload("base64_generated_image", "png"));
 
-			given(creativeImageStoragePort.saveAIPhoto("base64_generated_image", userId, "png")).willReturn("user-1/generated.png");
-			given(creativeImageStoragePort.getPhotoUrl("user-1/generated.png", false)).willReturn("http://url/generated.png");
+			String privateObjectKey = "private/diary-images/ai/ab/cd/generated.png";
+			given(creativeImageStoragePort.saveAIPhoto("base64_generated_image", userId, "png")).willReturn(privateObjectKey);
+			given(creativeImageStoragePort.getPhotoUrl(privateObjectKey, false)).willReturn("http://url/generated.png");
 
 			given(saveGenerationPort.save(any(DiaryImageGeneration.class))).willAnswer(inv -> {
 				DiaryImageGeneration generation = inv.getArgument(0);
@@ -70,7 +71,7 @@ class ImageGenerationServiceTest {
 
 			GeneratedImageResult result = imageGenerationService.generateDiaryImage(content, userId);
 
-			assertThat(result.filePath()).isEqualTo("user-1/generated.png");
+			assertThat(result.filePath()).isEqualTo(privateObjectKey);
 			assertThat(result.imageUrl()).isEqualTo("http://url/generated.png");
 			then(saveGenerationPort).should().save(any(DiaryImageGeneration.class));
 		}

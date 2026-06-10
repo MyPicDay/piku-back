@@ -66,6 +66,11 @@ storage:
   bucket: ${STORAGE_BUCKET:piku}
   type: ${STORAGE_TYPE:minio} # minio or s3
 
+image:
+  cache:
+    public-cache-control: ${IMAGE_PUBLIC_CACHE_CONTROL:public, max-age=300, s-maxage=1200}
+    private-cache-control: ${IMAGE_PRIVATE_CACHE_CONTROL:private, no-store, max-age=0}
+
 photo:
   optimization:
     enabled: ${PHOTO_OPTIMIZATION_ENABLED:false}

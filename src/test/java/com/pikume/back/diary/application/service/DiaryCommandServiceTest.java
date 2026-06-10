@@ -24,8 +24,10 @@ import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
 import com.pikume.back.diary.domain.Diary;
+import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
 import com.pikume.back.diary.application.exception.DiaryErrorCode;
+import com.pikume.back.diary.application.exception.DiaryImageRelocationException;
 import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
@@ -42,12 +44,14 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.never;
@@ -151,8 +155,9 @@ class DiaryCommandServiceTest {
 			given(loadCreativePort.existsByIdAndUserId(100L, USER_ID)).willReturn(true);
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 			given(loadCreativePort.findById(100L))
-					.willReturn(new DiaryImageGenerationView(100L, USER_ID, "prompt", "ai/image.png", null));
-			given(photoStoragePort.moveToPublic("ai/image.png")).willReturn("public/image.png");
+					.willReturn(new DiaryImageGenerationView(100L, USER_ID, "prompt", "private/diary-images/ai/ab/cd/image.png", null));
+			given(photoStoragePort.moveToPublic("private/diary-images/ai/ab/cd/image.png"))
+					.willReturn("public/diary-images/ai/ab/cd/image.png");
 
 			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, null, USER_ID, requestMetaInfo);
 
@@ -372,6 +377,96 @@ class DiaryCommandServiceTest {
 		}
 
 		@Test
+		@DisplayName("private에서 public으로 변경하면 사진을 public scope로 복제하고 DB key를 갱신한다")
+		void relocatesPhotosWhenChangingFromPrivateToPublic() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			Photo photo = new Photo(diary, "private/diary-images/user/aa/bb/photo.jpg", 0, DiaryPhotoType.USER_IMAGE);
+			photo.markOptimizationSucceeded("private/diary-images/user/aa/bb/photo.webp");
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(loadDiaryPort.findPhotosByDiaryIds(Set.of(1L))).willReturn(List.of(photo));
+			given(photoStoragePort.copyToVisibilityScope(
+					"private/diary-images/user/aa/bb/photo.jpg",
+					DiaryVisibility.PUBLIC,
+					DiaryPhotoType.USER_IMAGE))
+					.willReturn("public/diary-images/user/aa/bb/photo.jpg");
+			given(photoStoragePort.copyToVisibilityScope(
+					"private/diary-images/user/aa/bb/photo.webp",
+					DiaryVisibility.PUBLIC,
+					DiaryPhotoType.USER_IMAGE))
+					.willReturn("public/diary-images/user/aa/bb/photo.webp");
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+
+			DiaryUpdatedResult result = diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID);
+
+			assertThat(result.status()).isEqualTo(DiaryVisibility.PUBLIC);
+			assertThat(photo.getUrl()).isEqualTo("public/diary-images/user/aa/bb/photo.jpg");
+			assertThat(photo.getOptimizedUrl()).isEqualTo("public/diary-images/user/aa/bb/photo.webp");
+			then(saveDiaryPort).should().savePhoto(photo);
+			then(photoStoragePort).should().deleteObject("private/diary-images/user/aa/bb/photo.jpg");
+			then(photoStoragePort).should().deleteObject("private/diary-images/user/aa/bb/photo.webp");
+		}
+
+		@Test
+		@DisplayName("public에서 private으로 변경하면 private object로 복제하고 DB 갱신 후 old public object를 삭제한다")
+		void relocatesPhotosWhenChangingFromPublicToPrivate() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			Photo photo = new Photo(diary, "public/diary-images/user/aa/bb/photo.jpg", 0, DiaryPhotoType.USER_IMAGE);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(loadDiaryPort.findPhotosByDiaryIds(Set.of(1L))).willReturn(List.of(photo));
+			given(photoStoragePort.copyToVisibilityScope(
+					"public/diary-images/user/aa/bb/photo.jpg",
+					DiaryVisibility.PRIVATE,
+					DiaryPhotoType.USER_IMAGE))
+					.willReturn("private/diary-images/user/aa/bb/photo.jpg");
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+
+			DiaryUpdatedResult result = diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PRIVATE, "수정 후"),
+					USER_ID);
+
+			assertThat(result.status()).isEqualTo(DiaryVisibility.PRIVATE);
+			assertThat(diary.getStatus()).isEqualTo(DiaryVisibility.PRIVATE);
+			assertThat(photo.getUrl()).isEqualTo("private/diary-images/user/aa/bb/photo.jpg");
+			then(saveDiaryPort).should().savePhoto(photo);
+			then(saveDiaryPort).should().save(diary);
+			then(photoStoragePort).should().deleteObject("public/diary-images/user/aa/bb/photo.jpg");
+		}
+
+		@Test
+		@DisplayName("DB 갱신 후 old object 삭제에 실패해도 공개범위 변경 결과는 반환한다")
+		void succeedsWhenOldObjectCleanupFailsAfterDbUpdate() {
+			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
+			ReflectionTestUtils.setField(diary, "id", 1L);
+			Photo photo = new Photo(diary, "private/diary-images/user/aa/bb/photo.jpg", 0, DiaryPhotoType.USER_IMAGE);
+			given(loadDiaryPort.findById(1L)).willReturn(Optional.of(diary));
+			given(loadDiaryPort.findPhotosByDiaryIds(Set.of(1L))).willReturn(List.of(photo));
+			given(photoStoragePort.copyToVisibilityScope(
+					"private/diary-images/user/aa/bb/photo.jpg",
+					DiaryVisibility.PUBLIC,
+					DiaryPhotoType.USER_IMAGE))
+					.willReturn("public/diary-images/user/aa/bb/photo.jpg");
+			willThrow(new RuntimeException("delete failed"))
+					.given(photoStoragePort)
+					.deleteObject("private/diary-images/user/aa/bb/photo.jpg");
+			given(saveDiaryPort.save(diary)).willReturn(diary);
+
+			DiaryUpdatedResult result = diaryCommandService.updateDiary(
+					1L,
+					new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "수정 후"),
+					USER_ID);
+
+			assertThat(result.status()).isEqualTo(DiaryVisibility.PUBLIC);
+			assertThat(photo.getUrl()).isEqualTo("public/diary-images/user/aa/bb/photo.jpg");
+			then(saveDiaryPort).should().save(diary);
+		}
+
+		@Test
 		@DisplayName("메타데이터 분석 실패해도 일기 수정은 성공한다")
 		void succeedsEvenIfAnalysisFails() {
 			Diary diary = new Diary("수정 전", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
@@ -496,8 +591,8 @@ class DiaryCommandServiceTest {
 	class SaveAiPhoto {
 
 		@Test
-		@DisplayName("대표 사진(order=0)이면 public으로 이동한다")
-		void movesToPublicWhenRepresent() {
+		@DisplayName("공개 일기이면 AI 사진을 public으로 이동한다")
+		void movesToPublicWhenDiaryIsPublic() {
 			Diary diary = new Diary("내용", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
 			given(loadCreativePort.findById(1L))
 					.willReturn(new DiaryImageGenerationView(1L, USER_ID, "prompt", "private/ai.png", null));
@@ -507,19 +602,19 @@ class DiaryCommandServiceTest {
 
 			then(photoStoragePort).should().moveToPublic("private/ai.png");
 			then(loadCreativePort).should().updateFilePath(1L, "public/ai.png");
-			then(saveDiaryPort).should().savePhoto(any());
+			then(saveDiaryPort).should().savePhoto(argThat(photo -> photo.getSourceType() == DiaryPhotoType.AI_IMAGE));
 		}
 
 		@Test
-		@DisplayName("대표 사진이 아니면 public으로 이동하지 않는다")
-		void doesNotMoveWhenNotRepresent() {
-			Diary diary = new Diary("내용", DiaryVisibility.PUBLIC, LocalDate.now(), USER_ID);
+		@DisplayName("비공개 일기이면 AI 사진을 private 경로로 유지한다")
+		void keepsPrivateWhenDiaryIsPrivate() {
+			Diary diary = new Diary("내용", DiaryVisibility.PRIVATE, LocalDate.now(), USER_ID);
 			given(loadCreativePort.findById(1L))
 					.willReturn(new DiaryImageGenerationView(1L, USER_ID, "prompt", "private/ai.png", null));
 			diaryCommandService.saveAiPhoto(diary, 1L, USER_ID, 1);
 
 			then(photoStoragePort).should(never()).moveToPublic(any());
-			then(saveDiaryPort).should().savePhoto(any());
+			then(saveDiaryPort).should().savePhoto(argThat(photo -> photo.getSourceType() == DiaryPhotoType.AI_IMAGE));
 		}
 
 		@Test

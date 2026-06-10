@@ -13,10 +13,13 @@ import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
+import com.pikume.back.diary.adapter.out.cache.ImageCacheProperties;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
+import com.pikume.back.diary.domain.vo.DiaryPhotoType;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.port.out.LoadObjectPort;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
@@ -28,6 +31,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Optional;
 
 import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PREFIX;
 
@@ -39,14 +43,16 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 	private final PhotoUtil photoUtil;
 	private final SaveDiaryPort saveDiaryPort;
 	private final StorageProperties storageProperties;
+	private final ImageCacheProperties imageCacheProperties;
 	private final FileUtil fileUtil;
 
 	public MinioPhotoStorageAdapter(S3Client s3Client, PhotoUtil photoUtil, SaveDiaryPort saveDiaryPort,
-			StorageProperties storageProperties, FileUtil fileUtil) {
+			StorageProperties storageProperties, ImageCacheProperties imageCacheProperties, FileUtil fileUtil) {
 		this.s3Client = s3Client;
 		this.photoUtil = photoUtil;
 		this.saveDiaryPort = saveDiaryPort;
 		this.storageProperties = storageProperties;
+		this.imageCacheProperties = imageCacheProperties;
 		this.fileUtil = fileUtil;
 	}
 
@@ -57,28 +63,23 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 		try {
 			if (!photo.isEmpty()) {
 				String originalFilename = photo.originalFilename();
-				String filename = photoUtil.generateFileName(diary.getDate(), originalFilename);
-				boolean isPublic = (order != null && order == 0);
-				String objectName = isPublic ? PUBLIC_PREFIX + userId + "/" + filename : userId + "/" + filename;
+				boolean isPublic = isPublicDiary(diary.getStatus());
+				String objectName = photoUtil.generateDiaryUserImageObjectKey(isPublic, originalFilename);
 
 				ensureBucketExists(storageProperties.getBucket());
 
-				PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
+				PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 						.bucket(storageProperties.getBucket())
 						.key(objectName)
 						.contentType(photo.contentType())
-						.contentLength(photo.size());
-
-				if (isPublic) {
-					requestBuilder.cacheControl("public, max-age=31536000, immutable");
-				}
-
-				PutObjectRequest putObjectRequest = requestBuilder.build();
+						.cacheControl(cacheControlFor(objectName))
+						.contentLength(photo.size())
+						.build();
 
 				s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(photo.inputStream(), photo.size()));
 
-				Photo savePhoto = new Photo(diary, objectName, order);
-				if (isPublic) {
+				Photo savePhoto = new Photo(diary, objectName, order, DiaryPhotoType.USER_IMAGE);
+				if (isRepresent(order)) {
 					savePhoto.updateRepresent(true);
 				}
 				saveDiaryPort.savePhoto(savePhoto);
@@ -102,8 +103,9 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 					.contentType(image.contentType())
 					.contentLength(image.size());
 
-			if (cacheControl != null && !cacheControl.isBlank()) {
-				requestBuilder.cacheControl(cacheControl);
+			String effectiveCacheControl = hasText(cacheControl) ? cacheControl : cacheControlFor(objectKey);
+			if (hasText(effectiveCacheControl)) {
+				requestBuilder.cacheControl(effectiveCacheControl);
 			}
 
 			PutObjectRequest putObjectRequest = requestBuilder.build();
@@ -196,10 +198,14 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 
 	@Override
 	public String getPhotoUrl(String objectName, boolean isPublic) {
+		if (objectName == null || objectName.isBlank()) {
+			return null;
+		}
+		boolean publicObject = isPublicObjectKey(objectName);
 		String storageType = storageProperties.getType();
 		if ("minio".equalsIgnoreCase(storageType)) {
 			try {
-				return getMinIOStoragePhotoUrl(objectName, isPublic);
+				return getMinIOStoragePhotoUrl(objectName, publicObject);
 			} catch (Exception e) {
 				log.error("MinIO에서 미리 서명된 URL 생성 실패: {}", e.getMessage(), e);
 				return null;
@@ -235,11 +241,10 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 			}
 
 			String cleanExtension = fileUtil.cleanExtension(fileExtension);
-			String fileName = fileUtil.generateUniqueFileNameWithExtension(cleanExtension);
 			byte[] imageBytes = fileUtil.decodeBase64(base64Data);
 			ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
 
-			String objectName = userId + "/" + fileName;
+			String objectName = photoUtil.generateDiaryAiImageObjectKey(cleanExtension);
 
 			ensureBucketExists(storageProperties.getBucket());
 
@@ -247,11 +252,12 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 					.bucket(storageProperties.getBucket())
 					.key(objectName)
 					.contentType(fileUtil.getContentType(cleanExtension))
+					.cacheControl(cacheControlFor(objectName))
 					.build();
 
 			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, imageBytes.length));
 
-			log.info("Base64 이미지 저장 완료 - 사용자: {}, 파일: {}, 크기: {} bytes", userId, fileName, imageBytes.length);
+			log.info("Base64 이미지 저장 완료 - 사용자: {}, objectKey: {}, 크기: {} bytes", userId, objectName, imageBytes.length);
 			return objectName;
 
 		} catch (IllegalArgumentException e) {
@@ -265,48 +271,70 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 
 	@Override
 	public String moveToPublic(String sourceKey) {
-		String targetKey = PUBLIC_PREFIX + sourceKey;
+		String targetKey = photoUtil.publicObjectKeyFor(sourceKey);
+		return copyObject(sourceKey, targetKey, true);
+	}
+
+	@Override
+	public String copyToVisibilityScope(String sourceKey, DiaryVisibility visibility, DiaryPhotoType sourceType) {
+		String targetKey = photoUtil.visibilityObjectKeyFor(sourceKey, isPublicDiary(visibility), sourceType);
+		return copyObject(sourceKey, targetKey, false);
+	}
+
+	private String copyObject(String sourceKey, String targetKey, boolean deleteSource) {
 		boolean fileCopied = false;
 
 		try {
-			if (sourceKey.startsWith(PUBLIC_PREFIX)) {
-				log.info("이미 public 경로입니다: {}", sourceKey);
+			if (sourceKey.equals(targetKey)) {
+				log.info("이미 대상 경로입니다: {}", sourceKey);
 				return sourceKey;
 			}
 
-			if (objectExists(targetKey)) {
-				log.info("public 경로에 이미 파일이 존재합니다. 원본 삭제: {}", sourceKey);
-				deleteObject(sourceKey);
+			if (objectHead(targetKey).isPresent()) {
+				log.info("대상 경로에 이미 파일이 존재합니다. sourceKey: {}, targetKey: {}", sourceKey, targetKey);
+				if (deleteSource) {
+					deleteObject(sourceKey);
+				}
 				return targetKey;
 			}
 
-			if (!objectExists(sourceKey)) {
-				log.error("소스 파일이 존재하지 않습니다: {}", sourceKey);
-				throw new RuntimeException("소스 파일을 찾을 수 없습니다: " + sourceKey);
-			}
+			HeadObjectResponse sourceHead = objectHead(sourceKey)
+					.orElseThrow(() -> {
+						log.error("소스 파일이 존재하지 않습니다: {}", sourceKey);
+						return new RuntimeException("소스 파일을 찾을 수 없습니다: " + sourceKey);
+					});
 
-			CopyObjectRequest copyRequest = CopyObjectRequest.builder()
+			CopyObjectRequest.Builder copyRequestBuilder = CopyObjectRequest.builder()
 					.sourceBucket(storageProperties.getBucket())
 					.sourceKey(sourceKey)
 					.destinationBucket(storageProperties.getBucket())
 					.destinationKey(targetKey)
-					.cacheControl("public, max-age=31536000, immutable")
-					.build();
+					.metadataDirective(MetadataDirective.REPLACE)
+					.cacheControl(cacheControlFor(targetKey));
 
-			s3Client.copyObject(copyRequest);
+			if (hasText(sourceHead.contentType())) {
+				copyRequestBuilder.contentType(sourceHead.contentType());
+			}
+			if (sourceHead.metadata() != null && !sourceHead.metadata().isEmpty()) {
+				copyRequestBuilder.metadata(sourceHead.metadata());
+			}
+
+			s3Client.copyObject(copyRequestBuilder.build());
 			fileCopied = true;
 
 			if (!objectExists(targetKey)) {
 				throw new RuntimeException("파일 복사 후 확인 실패: " + targetKey);
 			}
 
-			deleteObject(sourceKey);
+			if (deleteSource) {
+				deleteObject(sourceKey);
+			}
 
-			log.info("파일 이동 완료: {} → {} (원본 삭제됨)", sourceKey, targetKey);
+			log.info("파일 복제 완료: {} → {} (원본 삭제 여부: {})", sourceKey, targetKey, deleteSource);
 			return targetKey;
 
 		} catch (S3Exception e) {
-			log.error("S3 파일 이동 실패: {} → {}, 오류: {}", sourceKey, targetKey, e.getMessage(), e);
+			log.error("S3 파일 복제 실패: {} → {}, 오류: {}", sourceKey, targetKey, e.getMessage(), e);
 
 			if (fileCopied) {
 				try {
@@ -320,9 +348,9 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 				}
 			}
 
-			throw new RuntimeException("파일 이동 중 오류가 발생했습니다.", e);
+			throw new RuntimeException("파일 복제 중 오류가 발생했습니다.", e);
 		} catch (Exception e) {
-			log.error("파일 이동 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
+			log.error("파일 복제 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
 
 			if (fileCopied) {
 				try {
@@ -336,24 +364,39 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 				}
 			}
 
-			throw new RuntimeException("파일 이동 중 오류가 발생했습니다.", e);
+			throw new RuntimeException("파일 복제 중 오류가 발생했습니다.", e);
 		}
 	}
 
+	private boolean isPublicDiary(DiaryVisibility visibility) {
+		return visibility == DiaryVisibility.PUBLIC || visibility == DiaryVisibility.ANONYMOUS;
+	}
+
+	private boolean isRepresent(Integer order) {
+		return order != null && order == 0;
+	}
+
+	private boolean isPublicObjectKey(String objectName) {
+		return objectName.startsWith(PUBLIC_PREFIX);
+	}
+
 	private boolean objectExists(String key) {
+		return objectHead(key).isPresent();
+	}
+
+	private Optional<HeadObjectResponse> objectHead(String key) {
 		try {
 			HeadObjectRequest request = HeadObjectRequest.builder()
 					.bucket(storageProperties.getBucket())
 					.key(key)
 					.build();
 
-			s3Client.headObject(request);
-			return true;
+			return Optional.of(s3Client.headObject(request));
 		} catch (NoSuchKeyException e) {
-			return false;
+			return Optional.empty();
 		} catch (S3Exception e) {
 			if (e.statusCode() == 404) {
-				return false;
+				return Optional.empty();
 			}
 			log.warn("event=storage_object_exists_failed outcome=failed key={} status={} reason={}",
 					key,
@@ -363,7 +406,16 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 		}
 	}
 
-	private void deleteObject(String key) {
+	private String cacheControlFor(String objectKey) {
+		return imageCacheProperties.cacheControlForObjectKey(objectKey);
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.isBlank();
+	}
+
+	@Override
+	public void deleteObject(String key) {
 		try {
 			DeleteObjectRequest request = DeleteObjectRequest.builder()
 					.bucket(storageProperties.getBucket())

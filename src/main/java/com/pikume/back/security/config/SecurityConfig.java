@@ -66,7 +66,6 @@ public class SecurityConfig {
 				"/api/auth/email",
 				"/api/auth/email-domains",
 				"/api/mobile/auth/**",
-				"/api/diary/images/{userId}/{fileName:.+}",
 				"/api/characters/fixed",
 				"/api/search"));
 
