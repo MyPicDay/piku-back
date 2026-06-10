@@ -1,5 +1,7 @@
 # Anonymous Diary Frontend Handoff
 
+- Status: Active
+- Audience: Mobile Engineers, Frontend Engineers, Backend Engineers
 - Source of Truth: Yes
 - Last Reviewed: 2026-06-08
 
