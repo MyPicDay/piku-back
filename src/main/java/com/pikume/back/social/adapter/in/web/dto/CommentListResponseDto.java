@@ -21,6 +21,9 @@ public class CommentListResponseDto {
 	private LocalDateTime updatedAt;
 
 	private int replyCount;
+	private boolean canReply;
+	private boolean canEdit;
+	private boolean canDelete;
 
 	public static CommentListResponseDto fromEntity(Comment comment, String nickname, String avatarUrl, int replyCount) {
 		return CommentListResponseDto.builder()
@@ -34,6 +37,9 @@ public class CommentListResponseDto {
 				.createdAt(comment.getCreatedAt())
 				.updatedAt(comment.getUpdatedAt())
 				.replyCount(replyCount)
+				.canReply(false)
+				.canEdit(false)
+				.canDelete(false)
 				.build();
 	}
 }

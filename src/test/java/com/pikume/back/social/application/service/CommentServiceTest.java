@@ -72,7 +72,8 @@ class CommentServiceTest {
 			Comment savedComment = new Comment("댓글 내용", "user-id", 1L);
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
 			CommentResult response = commentService.createComment(1L, "댓글 내용", null, "user-id", requestMetaInfo);
@@ -87,7 +88,8 @@ class CommentServiceTest {
 			Comment savedComment = new Comment("댓글 내용", "owner-id", 1L);
 			given(loadUserInfoPort.findUserInfoById("owner-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("owner-id", "주인", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "owner-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "owner-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, true)));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
 			commentService.createComment(1L, "댓글 내용", null, "owner-id", requestMetaInfo);
@@ -111,7 +113,7 @@ class CommentServiceTest {
 		void failsDiaryNotFound() {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(999L, "user-id")).willReturn(Optional.empty());
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(999L, "user-id")).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> commentService.createComment(999L, "댓글", null, "user-id", requestMetaInfo))
 					.isInstanceOf(CommentException.class)
@@ -124,7 +126,8 @@ class CommentServiceTest {
 		void failsParentNotFound() {
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(99L)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 99L, "user-id", requestMetaInfo))
@@ -141,7 +144,8 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(10L)).willReturn(Optional.of(deletedParent));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 10L, "user-id", requestMetaInfo))
@@ -159,7 +163,8 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(20L)).willReturn(Optional.of(replyComment));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대대댓글", 20L, "user-id", requestMetaInfo))
@@ -175,13 +180,31 @@ class CommentServiceTest {
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
-			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "user-id")).willReturn(Optional.of("owner-id"));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(30L)).willReturn(Optional.of(parentInOtherDiary));
 
 			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id", requestMetaInfo))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.PARENT_COMMENT_NOT_IN_SAME_DIARY));
+		}
+
+		@Test
+		@DisplayName("익명 일기에서는 타인의 루트 댓글에 대댓글을 달 수 없다")
+		void failsReplyToOthersRootCommentOnAnonymousDiary() {
+			Comment othersRootComment = new Comment("타인 댓글", "other-id", 1L);
+
+			given(loadUserInfoPort.findUserInfoById("user-id"))
+					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(1L, "user-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", true, false)));
+			given(loadCommentPort.findById(30L)).willReturn(Optional.of(othersRootComment));
+
+			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id", requestMetaInfo))
+					.isInstanceOf(CommentException.class)
+					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
+							.isEqualTo(CommentErrorCode.UNAUTHORIZED_ACCESS));
 		}
 	}
 
@@ -276,7 +299,8 @@ class CommentServiceTest {
 					false);
 			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(comment), 0, 3, 1);
 
-			given(loadDiaryInfoPort.existsVisibleById(10L, "viewer-id")).willReturn(true);
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(10L, "viewer-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", false, false)));
 			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
 			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png", requestMetaInfo))
 					.willReturn("https://localhost:8080/api/avatars/user.png");
@@ -310,7 +334,8 @@ class CommentServiceTest {
 			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(reply), 0, 2, 1);
 
 			given(loadCommentPort.findById(1L)).willReturn(Optional.of(parentComment));
-			given(loadDiaryInfoPort.existsVisibleById(11L, "viewer-id")).willReturn(true);
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(11L, "viewer-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(11L, "owner-id", false, false)));
 			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageQuery)).willReturn(page);
 
 			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, requestMetaInfo, "viewer-id");
@@ -320,6 +345,185 @@ class CommentServiceTest {
 			assertThat(response.getContent().get(0).parentId()).isEqualTo(1L);
 			then(loadCommentListViewPort).should().loadRepliesByParentCommentId(1L, pageQuery);
 			then(loadUserInfoPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("비로그인 사용자는 익명 일기의 댓글 내용을 비공개 댓글로만 본다")
+		void anonymousDiaryRootCommentsArePrivateForGuest() {
+			PageQuery pageQuery = PageQuery.of(0, 3);
+			CommentListView comment = new CommentListView(
+					1L,
+					10L,
+					"comment-user",
+					"실명",
+					"avatars/user.png",
+					"댓글 내용",
+					null,
+					2,
+					LocalDateTime.of(2026, 3, 8, 10, 0),
+					LocalDateTime.of(2026, 3, 8, 10, 30),
+					false);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(comment), 0, 3, 1);
+
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(10L, null))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, false)));
+			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
+
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, null);
+
+			CommentListItemResult result = response.getContent().get(0);
+			assertThat(result.userId()).isNull();
+			assertThat(result.nickname()).isEqualTo("익명");
+			assertThat(result.avatar()).isNull();
+			assertThat(result.content()).isEqualTo("비공개 댓글");
+			assertThat(result.replyCount()).isEqualTo(2);
+			assertThat(result.canReply()).isFalse();
+			assertThat(result.canEdit()).isFalse();
+			assertThat(result.canDelete()).isFalse();
+			then(imagePathToUrlConverter).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("익명 일기 작성자는 모든 댓글 내용을 익명 프로필로 본다")
+		void anonymousDiaryOwnerSeesAllRootCommentContent() {
+			PageQuery pageQuery = PageQuery.of(0, 3);
+			CommentListView comment = new CommentListView(
+					1L,
+					10L,
+					"comment-user",
+					"실명",
+					"avatars/user.png",
+					"댓글 내용",
+					null,
+					2,
+					LocalDateTime.of(2026, 3, 8, 10, 0),
+					LocalDateTime.of(2026, 3, 8, 10, 30),
+					false);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(comment), 0, 3, 1);
+
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(10L, "owner-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, true)));
+			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
+
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "owner-id");
+
+			CommentListItemResult result = response.getContent().get(0);
+			assertThat(result.userId()).isNull();
+			assertThat(result.nickname()).isEqualTo("익명");
+			assertThat(result.avatar()).isNull();
+			assertThat(result.content()).isEqualTo("댓글 내용");
+			assertThat(result.canReply()).isTrue();
+			assertThat(result.canEdit()).isFalse();
+			assertThat(result.canDelete()).isFalse();
+			then(imagePathToUrlConverter).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("익명 일기 댓글 작성자는 본인 댓글만 내용과 수정 권한을 본다")
+		void anonymousDiaryCommentAuthorSeesOnlyOwnRootCommentContent() {
+			PageQuery pageQuery = PageQuery.of(0, 3);
+			CommentListView myComment = new CommentListView(
+					1L,
+					10L,
+					"viewer-id",
+					"나",
+					null,
+					"내 댓글",
+					null,
+					1,
+					LocalDateTime.of(2026, 3, 8, 10, 0),
+					LocalDateTime.of(2026, 3, 8, 10, 30),
+					false);
+			CommentListView othersComment = new CommentListView(
+					2L,
+					10L,
+					"other-id",
+					"타인",
+					null,
+					"타인 댓글",
+					null,
+					0,
+					LocalDateTime.of(2026, 3, 8, 11, 0),
+					LocalDateTime.of(2026, 3, 8, 11, 30),
+					false);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(myComment, othersComment), 0, 3, 2);
+
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(10L, "viewer-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, false)));
+			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
+
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "viewer-id");
+
+			assertThat(response.getContent()).hasSize(2);
+			CommentListItemResult visible = response.getContent().get(0);
+			CommentListItemResult hidden = response.getContent().get(1);
+			assertThat(visible.content()).isEqualTo("내 댓글");
+			assertThat(visible.nickname()).isEqualTo("익명");
+			assertThat(visible.userId()).isNull();
+			assertThat(visible.canReply()).isTrue();
+			assertThat(visible.canEdit()).isTrue();
+			assertThat(visible.canDelete()).isTrue();
+			assertThat(hidden.content()).isEqualTo("비공개 댓글");
+			assertThat(hidden.nickname()).isEqualTo("익명");
+			assertThat(hidden.userId()).isNull();
+			assertThat(hidden.canReply()).isFalse();
+			assertThat(hidden.canEdit()).isFalse();
+			assertThat(hidden.canDelete()).isFalse();
+		}
+
+		@Test
+		@DisplayName("익명 일기 대댓글은 부모 댓글 작성자에게 본인 댓글과 작성자 답글만 보여준다")
+		void anonymousDiaryRepliesShowOwnAndOwnerReplyToParentAuthor() {
+			PageQuery pageQuery = PageQuery.of(0, 3);
+			Comment parentComment = new Comment("부모", "viewer-id", 11L);
+			CommentListView ownerReply = new CommentListView(
+					2L,
+					11L,
+					"owner-id",
+					null,
+					null,
+					"작성자 답글",
+					1L,
+					0,
+					LocalDateTime.of(2026, 3, 8, 11, 0),
+					LocalDateTime.of(2026, 3, 8, 11, 5),
+					false);
+			CommentListView othersReply = new CommentListView(
+					3L,
+					11L,
+					"other-id",
+					null,
+					null,
+					"타인 답글",
+					1L,
+					0,
+					LocalDateTime.of(2026, 3, 8, 12, 0),
+					LocalDateTime.of(2026, 3, 8, 12, 5),
+					false);
+			PageResult<CommentListView> page = new PageResult<>(java.util.List.of(ownerReply, othersReply), 0, 3, 2);
+
+			given(loadCommentPort.findById(1L)).willReturn(Optional.of(parentComment));
+			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(11L, "viewer-id"))
+					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(11L, "owner-id", true, false)));
+			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageQuery)).willReturn(page);
+
+			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, requestMetaInfo, "viewer-id");
+
+			assertThat(response.getContent()).hasSize(2);
+			CommentListItemResult visible = response.getContent().get(0);
+			CommentListItemResult hidden = response.getContent().get(1);
+			assertThat(visible.content()).isEqualTo("작성자 답글");
+			assertThat(visible.nickname()).isEqualTo("익명");
+			assertThat(visible.userId()).isNull();
+			assertThat(visible.canReply()).isFalse();
+			assertThat(visible.canEdit()).isFalse();
+			assertThat(visible.canDelete()).isFalse();
+			assertThat(hidden.content()).isEqualTo("비공개 답글");
+			assertThat(hidden.nickname()).isEqualTo("익명");
+			assertThat(hidden.userId()).isNull();
+			assertThat(hidden.canReply()).isFalse();
+			assertThat(hidden.canEdit()).isFalse();
+			assertThat(hidden.canDelete()).isFalse();
 		}
 	}
 

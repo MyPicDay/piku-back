@@ -4,5 +4,6 @@ public enum FeedFriendStatus {
 	NONE,
 	REQUESTED,
 	RECEIVED,
-	FRIENDS
+	FRIENDS,
+	ANONYMOUS
 }

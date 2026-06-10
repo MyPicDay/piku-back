@@ -38,6 +38,8 @@ import java.util.*;
 @RequiredArgsConstructor
 public class FeedQueryService implements GetFeedUseCase {
 
+	private static final String ANONYMOUS_NICKNAME = "익명";
+
 	private final LoadDiaryForFeedPort loadDiaryForFeedPort;
 	private final LoadFeedListViewPort loadFeedListViewPort;
 	private final LoadFeedCursorCandidatesPort loadFeedCursorCandidatesPort;
@@ -77,7 +79,7 @@ public class FeedQueryService implements GetFeedUseCase {
 				.toList();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
-				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
+				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo, userId))
 				.toList();
 		boolean hasNext = hasNextRecommended(userId, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
@@ -96,7 +98,7 @@ public class FeedQueryService implements GetFeedUseCase {
 				.toList();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
-				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo))
+				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo, userId))
 				.toList();
 		boolean hasNext = hasNextLatest(userId, friendUserIds, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
@@ -253,10 +255,22 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	private FeedDiaryResult buildResponseDTO(FeedDiaryDetailView diary, RequestMetaInfo requestMetaInfo,
 			String userId, FeedFriendStatus friendStatus) {
-		String avatar = loadUserForFeedPort.getUserAvatar(diary.userId());
-		String avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar, requestMetaInfo);
 		long likeCount = loadSocialForFeedPort.getLikeCount(diary.diaryId());
 		boolean isLiked = loadSocialForFeedPort.isLikedByUser(userId, diary.diaryId());
+		boolean isOwner = Objects.equals(diary.userId(), userId);
+		boolean anonymous = isAnonymous(diary.status());
+		String avatarUrl = null;
+		String nickname = ANONYMOUS_NICKNAME;
+		String responseUserId = null;
+		FeedFriendStatus responseFriendStatus = FeedFriendStatus.ANONYMOUS;
+
+		if (!anonymous) {
+			String avatar = loadUserForFeedPort.getUserAvatar(diary.userId());
+			avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar, requestMetaInfo);
+			nickname = loadUserForFeedPort.getUserNickname(diary.userId());
+			responseUserId = diary.userId();
+			responseFriendStatus = friendStatus;
+		}
 
 		return FeedDiaryResult.builder()
 				.diaryId(diary.diaryId())
@@ -264,19 +278,22 @@ public class FeedQueryService implements GetFeedUseCase {
 				.content(diary.content())
 				.imgUrls(diary.imageUrls())
 				.date(diary.date())
-				.nickname(loadUserForFeedPort.getUserNickname(diary.userId()))
+				.nickname(nickname)
 				.avatar(avatarUrl)
-				.userId(diary.userId())
+				.userId(responseUserId)
 				.createdAt(diary.createdAt())
-				.friendStatus(friendStatus)
+				.friendStatus(responseFriendStatus)
 				.commentCount(loadSocialForFeedPort.countComments(userId, diary.diaryId()))
 				.likeCount(likeCount)
 				.isLiked(isLiked)
+				.isOwner(isOwner)
 				.build();
 	}
 
-	private FeedDiaryResult toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo) {
-		String avatarUrl = feedItem.avatarPath() != null
+	private FeedDiaryResult toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo, String currentUserId) {
+		boolean anonymous = isAnonymous(feedItem.status());
+		boolean isOwner = Objects.equals(feedItem.userId(), currentUserId);
+		String avatarUrl = !anonymous && feedItem.avatarPath() != null
 				? loadUserForFeedPort.getUserAvatarUrl(feedItem.avatarPath(), requestMetaInfo)
 				: null;
 
@@ -286,14 +303,19 @@ public class FeedQueryService implements GetFeedUseCase {
 				.content(feedItem.content())
 				.imgUrls(feedItem.imageUrls())
 				.date(feedItem.date())
-				.nickname(feedItem.nickname())
+				.nickname(anonymous ? ANONYMOUS_NICKNAME : feedItem.nickname())
 				.avatar(avatarUrl)
-				.userId(feedItem.userId())
+				.userId(anonymous ? null : feedItem.userId())
 				.createdAt(feedItem.createdAt())
-				.friendStatus(feedItem.friendStatus())
+				.friendStatus(anonymous ? FeedFriendStatus.ANONYMOUS : feedItem.friendStatus())
 				.commentCount(feedItem.commentCount())
 				.likeCount(feedItem.likeCount())
 				.isLiked(feedItem.liked())
+				.isOwner(isOwner)
 				.build();
+	}
+
+	private boolean isAnonymous(com.pikume.back.feed.application.dto.FeedVisibility visibility) {
+		return visibility == com.pikume.back.feed.application.dto.FeedVisibility.ANONYMOUS;
 	}
 }

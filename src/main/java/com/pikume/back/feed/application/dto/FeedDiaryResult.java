@@ -43,4 +43,7 @@ public class FeedDiaryResult {
 
 	@Schema(description = "현재 사용자의 좋아요 여부")
 	private Boolean isLiked;
+
+	@Schema(description = "현재 사용자의 일기 작성자 여부")
+	private Boolean isOwner;
 }

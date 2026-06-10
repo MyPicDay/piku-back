@@ -12,5 +12,8 @@ public record CommentListItemResult(
 		Long parentId,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,
-		int replyCount) {
+		int replyCount,
+		boolean canReply,
+		boolean canEdit,
+		boolean canDelete) {
 }

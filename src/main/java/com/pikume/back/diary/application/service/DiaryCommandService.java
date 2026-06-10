@@ -47,7 +47,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 	private final SaveDiaryPort saveDiaryPort;
 	private final PhotoStoragePort photoStoragePort;
 	private final LoadCreativePort loadCreativePort;
-	private final LoadUserForDiaryPort loadUserForDiaryPort;
+	private final DeleteDiaryNotificationPort deleteDiaryNotificationPort;
 	private final SendDiaryNotificationPort sendDiaryNotificationPort;
 	private final FriendUseCase friendUseCase;
 	private final AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
@@ -59,6 +59,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		Diary diary = loadOwnedDiary(diaryId, userId);
 		diary.delete();
 		saveDiaryPort.save(diary);
+		deleteDiaryNotificationPort.deleteNotificationsByDiaryId(diaryId);
 		log.info("사용자 [{}] - 일기 ID [{}] 삭제 완료", userId, diaryId);
 	}
 

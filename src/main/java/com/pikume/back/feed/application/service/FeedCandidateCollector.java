@@ -90,7 +90,10 @@ public class FeedCandidateCollector {
 	}
 
 	private List<Long> getPublicFeedIds(String userId, int limit) {
-		return loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, userId, limit);
+		LinkedHashSet<Long> diaryIds = new LinkedHashSet<>();
+		diaryIds.addAll(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.PUBLIC, userId, limit));
+		diaryIds.addAll(loadDiaryForFeedPort.findFeedIdsByStatus(FeedVisibility.ANONYMOUS, userId, limit));
+		return List.copyOf(diaryIds);
 	}
 
 	private List<Long> combineFeedIdsByPriority(List<Long> friendFeedIds, List<Long> publicFeedIds,

@@ -45,11 +45,6 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort, LoadLatestFeed
 	}
 
 	@Override
-	public List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds) {
-		return queryDiaryFeedUseCase.findRestorableDiaryIds(ids, currentUserId, friendIds);
-	}
-
-	@Override
 	public List<Long> findFeedIdsByStatusAndUserIds(FeedVisibility status, List<String> userIds, int limit) {
 		return queryDiaryFeedUseCase.findDiaryIdsByStatusAndUserIds(toDiaryVisibility(status), userIds, limit);
 	}
@@ -89,6 +84,7 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort, LoadLatestFeed
 			case PUBLIC -> FeedVisibility.PUBLIC;
 			case FRIENDS -> FeedVisibility.FRIENDS;
 			case PRIVATE -> FeedVisibility.PRIVATE;
+			case ANONYMOUS -> FeedVisibility.ANONYMOUS;
 		};
 	}
 
@@ -97,6 +93,7 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort, LoadLatestFeed
 			case PUBLIC -> DiaryVisibility.PUBLIC;
 			case FRIENDS -> DiaryVisibility.FRIENDS;
 			case PRIVATE -> DiaryVisibility.PRIVATE;
+			case ANONYMOUS -> DiaryVisibility.ANONYMOUS;
 		};
 	}
 }

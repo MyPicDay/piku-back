@@ -1,5 +1,6 @@
 package com.pikume.back.diary.application.service;
 
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,6 @@ import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.VisibleDiaryView;
 import com.pikume.back.diary.application.dto.VisibleDiaryDetailView;
-import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.GetCalendarUseCase;
 import com.pikume.back.diary.application.port.in.GetDiaryGalleryUseCase;
@@ -86,7 +86,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 		YearMonth yearMonth = YearMonth.of(year, month);
 		LocalDate startOfMonth = yearMonth.atDay(1);
 		LocalDate endOfMonth = yearMonth.atEndOfMonth();
-		Set<com.pikume.back.diary.domain.vo.DiaryVisibility> visibleStatuses = Set.copyOf(
+		Set<DiaryVisibility> visibleStatuses = Set.copyOf(
 				diaryVisibilityPolicy.visibleStatusesForOwner(userId, viewerId));
 
 		List<Diary> diaries = loadDiaryPort.findByUserIdAndStatusesAndDateBetween(userId, visibleStatuses, startOfMonth,
@@ -106,7 +106,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 	@Transactional(readOnly = true)
 	public DiaryGalleryPage<DiaryGalleryItemView> findGallery(String userId, String viewerId, String cursorToken, int limit) {
 		DiaryGalleryCursor cursor = diaryGalleryCursorTokenCodec.decode(cursorToken);
-		Set<com.pikume.back.diary.domain.vo.DiaryVisibility> visibleStatuses = Set.copyOf(
+		Set<DiaryVisibility> visibleStatuses = Set.copyOf(
 				diaryVisibilityPolicy.visibleStatusesForOwner(userId, viewerId));
 
 		int fetchLimit = limit + 1;
@@ -163,33 +163,13 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 	}
 
 	@Override
-	public List<Long> findRestorableDiaryIds(List<Long> diaryIds, String viewerId, List<String> friendUserIds) {
-		if (diaryIds == null || diaryIds.isEmpty()) {
-			return List.of();
-		}
-
-		Set<String> friendUserIdSet = friendUserIds == null ? Set.of() : Set.copyOf(friendUserIds);
-		java.util.Set<Long> restorableIdSet = loadDiaryPort.findByIds(diaryIds).stream()
-				.filter(diary -> viewerId == null || !viewerId.equals(diary.getUserId()))
-				.filter(diary -> diary.getStatus() == com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC
-						|| (diary.getStatus() == com.pikume.back.diary.domain.vo.DiaryVisibility.FRIENDS
-						&& friendUserIdSet.contains(diary.getUserId())))
-				.map(Diary::getId)
-				.collect(Collectors.toSet());
-
-		return diaryIds.stream()
-				.filter(restorableIdSet::contains)
-				.toList();
-	}
-
-	@Override
-	public List<Long> findDiaryIdsByStatusAndUserIds(com.pikume.back.diary.domain.vo.DiaryVisibility status, List<String> userIds,
+	public List<Long> findDiaryIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds,
 			int limit) {
 		return loadDiaryPort.findRecentDiaryIdsByStatusAndUserIds(status, userIds, limit);
 	}
 
 	@Override
-	public List<Long> findDiaryIdsByStatus(com.pikume.back.diary.domain.vo.DiaryVisibility status, String excludedUserId, int limit) {
+	public List<Long> findDiaryIdsByStatus(DiaryVisibility status, String excludedUserId, int limit) {
 		return loadDiaryPort.findRecentDiaryIdsByStatusExcludingUser(status, excludedUserId, limit);
 	}
 

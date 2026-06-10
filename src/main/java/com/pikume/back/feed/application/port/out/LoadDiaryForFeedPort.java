@@ -13,8 +13,6 @@ public interface LoadDiaryForFeedPort {
 
 	Optional<FeedDiaryDetailView> findVisibleDiaryById(Long diaryId, String viewerId);
 
-	List<Long> findRestorableFeedIds(List<Long> ids, String currentUserId, List<String> friendIds);
-
 	List<Long> findFeedIdsByStatusAndUserIds(FeedVisibility status, List<String> userIds, int limit);
 
 	List<Long> findFeedIdsByStatus(FeedVisibility status, String excludedUserId, int limit);

@@ -133,17 +133,27 @@ public class FeedCursorPersistenceAdapter implements LoadFeedCursorCandidatesPor
 				com.pikume.back.feed.application.dto.FeedVisibility.PUBLIC,
 				currentUserId,
 				sourceQueryLimit);
-		if (publicDiaryIds.isEmpty() || friendUserIds.isEmpty()) {
-			return publicDiaryIds;
+		List<Long> anonymousDiaryIds = loadDiaryForFeedPort.findFeedIdsByStatus(
+				com.pikume.back.feed.application.dto.FeedVisibility.ANONYMOUS,
+				currentUserId,
+				sourceQueryLimit);
+		LinkedHashSet<Long> publicBucketDiaryIds = new LinkedHashSet<>();
+		publicBucketDiaryIds.addAll(publicDiaryIds);
+		publicBucketDiaryIds.addAll(anonymousDiaryIds);
+		List<Long> diaryIds = List.copyOf(publicBucketDiaryIds);
+		if (diaryIds.isEmpty() || friendUserIds.isEmpty()) {
+			return diaryIds;
 		}
 
 		Map<Long, FeedDiaryCandidateView> diariesById = loadDiaryForFeedPort.getFeedDiaryCandidates(Set.copyOf(publicDiaryIds));
-		return publicDiaryIds.stream()
+		LinkedHashSet<Long> filtered = publicDiaryIds.stream()
 				.filter(diaryId -> {
 					FeedDiaryCandidateView diary = diariesById.get(diaryId);
 					return diary != null && !friendUserIds.contains(diary.userId());
 				})
-				.toList();
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+		filtered.addAll(anonymousDiaryIds);
+		return List.copyOf(filtered);
 	}
 
 	private Set<Long> resolveConsumedDiaryIds(String currentUserId, Collection<Long> diaryIds) {

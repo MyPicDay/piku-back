@@ -2,7 +2,9 @@ package com.pikume.back.notification.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
@@ -31,24 +33,45 @@ public class NotificationListViewPersistenceAdapter implements LoadNotificationL
 	public PageResult<NotificationListView> loadNotifications(String receiverId, PageQuery pageQuery) {
 		org.springframework.data.domain.Page<Notification> notifications =
 				notificationJpaRepository.findAllByReceiverIdAndDeletedAtIsNull(receiverId, SpringPageMapper.toPageable(pageQuery));
-		Map<String, UserSummaryView> usersById = loadUsers(notifications.getContent());
-		Map<Long, String> thumbnailsByDiaryId = loadThumbnails(notifications.getContent());
-
-		List<NotificationListView> content = notifications.getContent().stream()
-				.map(notification -> toNotificationListView(notification, usersById, thumbnailsByDiaryId))
+		Map<Long, NotificationDiaryInfo> diariesById = loadDiaryInfos(notifications.getContent());
+		List<Notification> visibleNotifications = notifications.getContent().stream()
+				.filter(notification -> isVisibleNotification(notification, diariesById))
 				.toList();
-		return new PageResult<>(content, notifications.getNumber(), notifications.getSize(), notifications.getTotalElements());
+		Map<String, UserSummaryView> usersById = loadUsers(visibleNotifications, diariesById);
+
+		List<NotificationListView> content = visibleNotifications.stream()
+				.map(notification -> toNotificationListView(notification, usersById, diariesById))
+				.toList();
+		long filteredCount = notifications.getContent().size() - visibleNotifications.size();
+		return new PageResult<>(
+				content,
+				notifications.getNumber(),
+				notifications.getSize(),
+				Math.max(0, notifications.getTotalElements() - filteredCount));
 	}
 
-	private Map<String, UserSummaryView> loadUsers(List<Notification> notifications) {
+	private boolean isVisibleNotification(Notification notification, Map<Long, NotificationDiaryInfo> diariesById) {
+		return notification.getDiaryId() == null || diariesById.containsKey(notification.getDiaryId());
+	}
+
+	private Map<String, UserSummaryView> loadUsers(List<Notification> notifications, Map<Long, NotificationDiaryInfo> diariesById) {
 		Set<String> senderIds = notifications.stream()
+				.filter(notification -> !isAnonymousDiaryNotification(notification, diariesById))
 				.map(Notification::getSenderId)
 				.filter(senderId -> senderId != null && !senderId.isBlank())
 				.collect(Collectors.toSet());
 		return queryUserSummaryUseCase.getUserSummaries(senderIds);
 	}
 
-	private Map<Long, String> loadThumbnails(List<Notification> notifications) {
+	private boolean isAnonymousDiaryNotification(Notification notification, Map<Long, NotificationDiaryInfo> diariesById) {
+		if (notification.getDiaryId() == null) {
+			return false;
+		}
+		NotificationDiaryInfo diaryInfo = diariesById.get(notification.getDiaryId());
+		return diaryInfo != null && diaryInfo.anonymous();
+	}
+
+	private Map<Long, NotificationDiaryInfo> loadDiaryInfos(List<Notification> notifications) {
 		Set<Long> diaryIds = notifications.stream()
 				.map(Notification::getDiaryId)
 				.filter(java.util.Objects::nonNull)
@@ -57,15 +80,29 @@ public class NotificationListViewPersistenceAdapter implements LoadNotificationL
 			return Map.of();
 		}
 
-		return queryDiaryReadUseCase.getRepresentPhotoPaths(diaryIds).entrySet().stream()
+		Map<Long, DiarySummaryView> summariesById = queryDiaryReadUseCase.getDiarySummaries(diaryIds);
+		Map<Long, String> thumbnailsByDiaryId = queryDiaryReadUseCase.getRepresentPhotoPaths(diaryIds).entrySet().stream()
 				.collect(Collectors.toMap(
 						Map.Entry::getKey,
 						entry -> resolveImageUrlPort.getPhotoUrl(entry.getValue(), true)));
+
+		return summariesById.entrySet().stream()
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> {
+							Long diaryId = entry.getKey();
+							DiarySummaryView diary = entry.getValue();
+							return new NotificationDiaryInfo(
+									thumbnailsByDiaryId.get(diaryId),
+									diary.userId(),
+									diary.status() == DiaryVisibility.ANONYMOUS);
+						}));
 	}
 
 	private NotificationListView toNotificationListView(Notification notification, Map<String, UserSummaryView> usersById,
-			Map<Long, String> thumbnailsByDiaryId) {
+			Map<Long, NotificationDiaryInfo> diariesById) {
 		UserSummaryView sender = notification.getSenderId() != null ? usersById.get(notification.getSenderId()) : null;
+		NotificationDiaryInfo diaryInfo = notification.getDiaryId() != null ? diariesById.get(notification.getDiaryId()) : null;
 
 		return new NotificationListView(
 				notification.getId(),
@@ -73,10 +110,18 @@ public class NotificationListViewPersistenceAdapter implements LoadNotificationL
 				sender != null ? sender.avatarPath() : null,
 				notification.getType(),
 				notification.getDiaryId(),
-				notification.getDiaryId() != null ? thumbnailsByDiaryId.get(notification.getDiaryId()) : null,
+				diaryInfo != null ? diaryInfo.thumbnailUrl() : null,
 				notification.getIsRead(),
 				notification.getCreatedAt(),
 				null,
-				null);
+				diaryInfo != null ? diaryInfo.diaryUserId() : null,
+				diaryInfo != null && diaryInfo.anonymous());
+	}
+
+	private record NotificationDiaryInfo(
+			String thumbnailUrl,
+			String diaryUserId,
+			boolean anonymous
+	) {
 	}
 }
