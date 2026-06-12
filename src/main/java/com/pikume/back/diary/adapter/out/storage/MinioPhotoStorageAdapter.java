@@ -1,17 +1,5 @@
 package com.pikume.back.diary.adapter.out.storage;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.*;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.diary.adapter.out.cache.ImageCacheProperties;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
@@ -26,9 +14,20 @@ import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import com.pikume.back.global.port.out.StoreObjectPort;
 import com.pikume.back.global.storage.StorageProperties;
 import com.pikume.back.global.util.FileUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
@@ -57,7 +56,7 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 	}
 
 	@Override
-	public void savePhoto(Diary diary, UploadedFileData photo, String userId, Integer order) throws IOException {
+	public void savePhoto(Diary diary, UploadedFileData photo, String userId, Integer order) {
 		log.info("사진 S3 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
 
 		try {
@@ -162,7 +161,7 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 		}
 	}
 
-	public String getMinIOStoragePhotoUrl(String objectName, boolean isPublic) throws Exception {
+	public String getMinIOStoragePhotoUrl(String objectName, boolean isPublic) {
 		String clientToS3BaseUrl = storageProperties.clientToS3BaseUrl();
 		if (isPublic) {
 			return clientToS3BaseUrl + "/" + storageProperties.getBucket() + "/" + objectName;

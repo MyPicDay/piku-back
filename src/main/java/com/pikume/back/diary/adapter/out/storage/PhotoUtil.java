@@ -4,9 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -21,27 +18,6 @@ public class PhotoUtil {
 	private static final String USER_IMAGE_SEGMENT = "user";
 	private static final String AI_IMAGE_SEGMENT = "ai";
 
-	public String generateFileName(LocalDate diaryDate, String originalFilename) {
-		String date = diaryDate
-				.atStartOfDay(ZoneId.systemDefault())
-				.toLocalDate()
-				.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-		log.info("파일명 생성 - 현재 등록하는 일기날짜: {}", diaryDate);
-
-		String uuid = UUID.randomUUID().toString().substring(0, 8);
-
-		String extension = "";
-
-		int dotIndex = originalFilename.lastIndexOf(".");
-		if (dotIndex > 0) {
-			extension = originalFilename.substring(dotIndex);
-		}
-
-		String fileName = date + "_" + uuid + extension;
-		log.info("파일명 생성완료  - 생성명:{} ", fileName);
-		return fileName;
-	}
-
 	public String generateDiaryUserImageObjectKey(boolean publicAccess, String originalFilename) {
 		return generateDiaryImageObjectKey(publicAccess, USER_IMAGE_SEGMENT, extensionFromOriginalFilename(originalFilename));
 	}
@@ -53,10 +29,6 @@ public class PhotoUtil {
 
 	public String publicObjectKeyFor(String objectKey) {
 		return objectKeyForPrefix(objectKey, PUBLIC_PREFIX);
-	}
-
-	public String privateObjectKeyFor(String objectKey) {
-		return objectKeyForPrefix(objectKey, PRIVATE_PREFIX);
 	}
 
 	public String visibilityObjectKeyFor(String objectKey, boolean publicAccess, DiaryPhotoType sourceType) {
