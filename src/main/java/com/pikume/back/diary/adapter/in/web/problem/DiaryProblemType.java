@@ -10,7 +10,11 @@ public enum DiaryProblemType implements ApiProblemType {
 	INVALID_REQUEST("https://api.pikume.com/problems/diary/invalid-request", HttpStatus.BAD_REQUEST, "Bad Request"),
 	NOT_FOUND("https://api.pikume.com/problems/diary/not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	FORBIDDEN("https://api.pikume.com/problems/diary/forbidden", HttpStatus.FORBIDDEN, "Forbidden"),
-	CONFLICT("https://api.pikume.com/problems/diary/conflict", HttpStatus.CONFLICT, "Conflict");
+	CONFLICT("https://api.pikume.com/problems/diary/conflict", HttpStatus.CONFLICT, "Conflict"),
+	IMAGE_RELOCATION_FAILED(
+			"https://api.pikume.com/problems/diary/image-relocation-failed",
+			HttpStatus.INTERNAL_SERVER_ERROR,
+			"Image Relocation Failed");
 
 	private final URI type;
 	private final HttpStatus status;
@@ -42,6 +46,7 @@ public enum DiaryProblemType implements ApiProblemType {
 			case DIARY_INVALID_REQUEST -> INVALID_REQUEST;
 			case DIARY_NOT_FOUND -> NOT_FOUND;
 			case DIARY_ACCESS_DENIED -> FORBIDDEN;
+			case DIARY_IMAGE_RELOCATION_FAILED -> IMAGE_RELOCATION_FAILED;
 			case DUPLICATE_DIARY -> CONFLICT;
 		};
 	}

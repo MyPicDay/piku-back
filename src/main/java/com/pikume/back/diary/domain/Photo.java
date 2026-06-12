@@ -1,6 +1,7 @@
 package com.pikume.back.diary.domain;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -37,22 +38,36 @@ public class Photo {
 
 	private Integer photoOrder;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "source_type", nullable = false)
+	private DiaryPhotoType sourceType;
+
 	@ManyToOne
 	@JoinColumn(name = "diary_id")
 	@JsonBackReference
 	private Diary diary;
 
 	public Photo(Diary diary, String url, Integer photoOrder) {
+		this(diary, url, photoOrder, DiaryPhotoType.USER_IMAGE);
+	}
+
+	public Photo(Diary diary, String url, Integer photoOrder, DiaryPhotoType sourceType) {
 		this.diary = diary;
 		this.url = url;
 		this.represent = false;
 		this.photoOrder = photoOrder;
+		this.sourceType = sourceType == null ? DiaryPhotoType.USER_IMAGE : sourceType;
 		this.optimizationAttemptCount = 0;
 		initializeOptimizationStatus(url);
 	}
 
 	public void updateRepresent(Boolean represent) {
 		this.represent = represent;
+	}
+
+	public void updateObjectKeys(String url, String optimizedUrl) {
+		this.url = url;
+		this.optimizedUrl = optimizedUrl;
 	}
 
 	public String getDisplayUrl() {

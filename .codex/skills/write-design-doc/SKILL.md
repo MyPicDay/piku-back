@@ -19,6 +19,7 @@ Use this skill for `piku-back` design documentation work only.
 - Place official documents under the appropriate `docs/` category and update the matching index when creating a new official document.
 - Include a required `Commit Message` section in every completed design document.
 - Write the commit message in Korean and follow `docs/standards/engineering-workflow.md`: `<type>: <description>`, no scope, no file-name list, no internal phase labels.
+- Base the `Commit Message` on the intended product or engineering work described by the document, not on the act of creating or editing the document. Use `docs:` only when the actual work is documentation-only maintenance.
 
 ## Document Shape
 
@@ -51,4 +52,4 @@ Before presenting or saving the design document, verify:
 - The document explains feature and architecture flow clearly enough for implementation planning.
 - DDD + hexagonal architecture boundaries are explicit where relevant.
 - A Korean `Commit Message` section is present.
-- The design document is placed under `docs/superpowers/plan`.
+- The design document is placed under `docs/superpowers/plans`.

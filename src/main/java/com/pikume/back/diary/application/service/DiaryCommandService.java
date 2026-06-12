@@ -12,6 +12,7 @@ import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
 import com.pikume.back.diary.application.dto.UpdateDiaryCommand;
 import com.pikume.back.diary.application.exception.DiaryAccessDeniedException;
+import com.pikume.back.diary.application.exception.DiaryImageRelocationException;
 import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
@@ -33,7 +34,9 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -71,12 +74,175 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		}
 
 		Diary diary = loadOwnedDiary(diaryId, userId);
-		diary.updateContentAndStatus(command.content(), command.status());
-		Diary savedDiary = saveDiaryPort.save(diary);
-		log.info("사용자 [{}] - 일기 ID [{}] 수정 완료", userId, diaryId);
-		analyzeDiaryMetadataAfterCommit(savedDiary);
+		ImageRelocationResult relocationResult = ImageRelocationResult.empty();
+		try {
+			relocationResult = relocatePhotosForVisibilityChange(diary, command.status());
+			diary.updateContentAndStatus(command.content(), command.status());
+			Diary savedDiary = saveDiaryPort.save(diary);
+			registerImageRelocationCleanup(relocationResult);
+			log.info("사용자 [{}] - 일기 ID [{}] 수정 완료", userId, diaryId);
+			analyzeDiaryMetadataAfterCommit(savedDiary);
 
-		return new DiaryUpdatedResult(savedDiary.getId(), savedDiary.getStatus(), savedDiary.getContent());
+			return new DiaryUpdatedResult(savedDiary.getId(), savedDiary.getStatus(), savedDiary.getContent());
+		} catch (RuntimeException e) {
+			deleteCopiedObjectsForRollback(relocationResult.copiedObjectKeys());
+			throw e;
+		}
+	}
+
+	private ImageRelocationResult relocatePhotosForVisibilityChange(Diary diary, DiaryVisibility targetVisibility) {
+		if (isPublicDiary(diary.getStatus()) == isPublicDiary(targetVisibility)) {
+			return ImageRelocationResult.empty();
+		}
+
+		List<Photo> photos = loadDiaryPort.findPhotosByDiaryIds(Set.of(diary.getId()));
+		if (photos.isEmpty()) {
+			return ImageRelocationResult.empty();
+		}
+
+		List<PhotoScopeTransition> transitions = new ArrayList<>();
+		List<String> copiedObjectKeys = new ArrayList<>();
+		try {
+			for (Photo photo : photos) {
+				PhotoScopeTransition transition = copyPhotoToVisibilityScope(photo, targetVisibility, copiedObjectKeys);
+				if (transition.hasChanged()) {
+					transitions.add(transition);
+				}
+			}
+
+			for (PhotoScopeTransition transition : transitions) {
+				transition.apply();
+				saveDiaryPort.savePhoto(transition.photo());
+			}
+
+			return new ImageRelocationResult(
+					List.copyOf(new LinkedHashSet<>(copiedObjectKeys)),
+					oldObjectKeysToDelete(transitions));
+		} catch (DiaryImageRelocationException e) {
+			deleteCopiedObjectsForRollback(copiedObjectKeys);
+			throw e;
+		} catch (RuntimeException e) {
+			deleteCopiedObjectsForRollback(copiedObjectKeys);
+			throw new DiaryImageRelocationException("일기 이미지 공개범위 변경 중 오류가 발생했습니다.", e);
+		}
+	}
+
+	private PhotoScopeTransition copyPhotoToVisibilityScope(
+			Photo photo,
+			DiaryVisibility targetVisibility,
+			List<String> copiedObjectKeys) {
+		String oldUrl = photo.getUrl();
+		String newUrl = copyObjectToVisibilityScope(oldUrl, targetVisibility, photo.getSourceType(), copiedObjectKeys);
+
+		String oldOptimizedUrl = photo.getOptimizedUrl();
+		String newOptimizedUrl = oldOptimizedUrl;
+		if (hasText(oldOptimizedUrl)) {
+			if (Objects.equals(oldOptimizedUrl, oldUrl)) {
+				newOptimizedUrl = newUrl;
+			} else {
+				newOptimizedUrl = copyObjectToVisibilityScope(
+						oldOptimizedUrl,
+						targetVisibility,
+						photo.getSourceType(),
+						copiedObjectKeys);
+			}
+		}
+
+		return new PhotoScopeTransition(photo, oldUrl, newUrl, oldOptimizedUrl, newOptimizedUrl);
+	}
+
+	private String copyObjectToVisibilityScope(
+			String objectKey,
+			DiaryVisibility targetVisibility,
+			DiaryPhotoType sourceType,
+			List<String> copiedObjectKeys) {
+		if (!hasText(objectKey)) {
+			return objectKey;
+		}
+
+		String copiedObjectKey = photoStoragePort.copyToVisibilityScope(objectKey, targetVisibility, sourceType);
+		if (!Objects.equals(objectKey, copiedObjectKey)) {
+			copiedObjectKeys.add(copiedObjectKey);
+		}
+		return copiedObjectKey;
+	}
+
+	private List<String> oldObjectKeysToDelete(List<PhotoScopeTransition> transitions) {
+		LinkedHashSet<String> objectKeys = new LinkedHashSet<>();
+		for (PhotoScopeTransition transition : transitions) {
+			for (String oldObjectKey : transition.oldObjectKeys()) {
+				if (hasText(oldObjectKey) && !transition.newObjectKeys().contains(oldObjectKey)) {
+					objectKeys.add(oldObjectKey);
+				}
+			}
+		}
+		return List.copyOf(objectKeys);
+	}
+
+	private void registerImageRelocationCleanup(ImageRelocationResult relocationResult) {
+		if (relocationResult.isEmpty()) {
+			return;
+		}
+
+		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+			deleteOldObjectsForAdminCleanup(relocationResult.oldObjectKeys());
+			return;
+		}
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				deleteOldObjectsForAdminCleanup(relocationResult.oldObjectKeys());
+			}
+
+			@Override
+			public void afterCompletion(int status) {
+				if (status != STATUS_COMMITTED) {
+					deleteCopiedObjectsForRollback(relocationResult.copiedObjectKeys());
+				}
+			}
+		});
+	}
+
+	private void deleteCopiedObjectsForRollback(List<String> objectKeys) {
+		deleteObjects(objectKeys, "image_relocation_copied_object_cleanup_failed");
+	}
+
+	private void deleteOldObjectsForAdminCleanup(List<String> objectKeys) {
+		deleteObjects(objectKeys, "image_relocation_old_object_cleanup_failed");
+	}
+
+	private void deleteObjects(List<String> objectKeys, String eventName) {
+		if (objectKeys == null || objectKeys.isEmpty()) {
+			return;
+		}
+		for (String objectKey : new LinkedHashSet<>(objectKeys)) {
+			try {
+				photoStoragePort.deleteObject(objectKey);
+			} catch (RuntimeException e) {
+				log.error("event={} outcome=failed objectKey={} fileName={} reason={}",
+						eventName,
+						objectKey,
+						fileNameFromObjectKey(objectKey),
+						e.getMessage(),
+						e);
+			}
+		}
+	}
+
+	private String fileNameFromObjectKey(String objectKey) {
+		if (!hasText(objectKey)) {
+			return "";
+		}
+		int slashIndex = objectKey.lastIndexOf('/');
+		if (slashIndex < 0 || slashIndex == objectKey.length() - 1) {
+			return objectKey;
+		}
+		return objectKey.substring(slashIndex + 1);
+	}
+
+	private boolean hasText(String value) {
+		return value != null && !value.isBlank();
 	}
 
 	private Diary loadOwnedDiary(Long diaryId, String userId) {
@@ -162,17 +328,17 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			var diaryImageGeneration = loadCreativePort.findById(aiPhoto);
 			String filePath = diaryImageGeneration.filePath();
 
-			boolean isRepresent = (order != null && order == 0);
-			if (isRepresent) {
+			if (isPublicDiary(diary.getStatus())) {
 				String oldPath = filePath;
 				filePath = photoStoragePort.moveToPublic(filePath);
-				log.info("대표 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
+				log.info("공개 일기 AI 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
 
 				loadCreativePort.updateFilePath(aiPhoto, filePath);
 				log.info("DiaryImageGeneration filePath 업데이트 완료 (ID: {})", aiPhoto);
 			}
 
-			Photo savePhoto = new Photo(diary, filePath, order);
+			boolean isRepresent = (order != null && order == 0);
+			Photo savePhoto = new Photo(diary, filePath, order, DiaryPhotoType.AI_IMAGE);
 			if (isRepresent) {
 				savePhoto.updateRepresent(true);
 			}
@@ -182,6 +348,59 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 			log.info("AI 사진 저장 완료 - 경로: {}, 대표사진: {}", filePath, isRepresent);
 		} else {
 			log.warn("빈 AI 사진 ID 발견 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
+		}
+	}
+
+	private boolean isPublicDiary(DiaryVisibility visibility) {
+		return visibility == DiaryVisibility.PUBLIC || visibility == DiaryVisibility.ANONYMOUS;
+	}
+
+	private record ImageRelocationResult(List<String> copiedObjectKeys, List<String> oldObjectKeys) {
+
+		private static ImageRelocationResult empty() {
+			return new ImageRelocationResult(List.of(), List.of());
+		}
+
+		private boolean isEmpty() {
+			return copiedObjectKeys.isEmpty() && oldObjectKeys.isEmpty();
+		}
+	}
+
+	private record PhotoScopeTransition(
+			Photo photo,
+			String oldUrl,
+			String newUrl,
+			String oldOptimizedUrl,
+			String newOptimizedUrl) {
+
+		private boolean hasChanged() {
+			return !Objects.equals(oldUrl, newUrl) || !Objects.equals(oldOptimizedUrl, newOptimizedUrl);
+		}
+
+		private void apply() {
+			photo.updateObjectKeys(newUrl, newOptimizedUrl);
+		}
+
+		private List<String> oldObjectKeys() {
+			LinkedHashSet<String> objectKeys = new LinkedHashSet<>();
+			if (oldUrl != null && !oldUrl.isBlank()) {
+				objectKeys.add(oldUrl);
+			}
+			if (oldOptimizedUrl != null && !oldOptimizedUrl.isBlank()) {
+				objectKeys.add(oldOptimizedUrl);
+			}
+			return List.copyOf(objectKeys);
+		}
+
+		private List<String> newObjectKeys() {
+			LinkedHashSet<String> objectKeys = new LinkedHashSet<>();
+			if (newUrl != null && !newUrl.isBlank()) {
+				objectKeys.add(newUrl);
+			}
+			if (newOptimizedUrl != null && !newOptimizedUrl.isBlank()) {
+				objectKeys.add(newOptimizedUrl);
+			}
+			return List.copyOf(objectKeys);
 		}
 	}
 

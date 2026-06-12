@@ -12,7 +12,6 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.util.RequestMetaMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,8 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -38,7 +35,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -65,9 +61,6 @@ class DiaryControllerTest {
 	private GetDiaryGalleryUseCase getDiaryGalleryUseCase;
 
 	@Mock
-	private FileUtil fileUtil;
-
-	@Mock
 	private RequestMetaMapper requestMetaMapper;
 
 	@Mock
@@ -87,7 +80,6 @@ class DiaryControllerTest {
 				getCalendarUseCase,
 				updateDiaryUseCase,
 				getDiaryGalleryUseCase,
-				fileUtil,
 				requestMetaMapper,
 				validator,
 				problemDetailFactory);
@@ -104,21 +96,6 @@ class DiaryControllerTest {
 				.setValidator(mvcValidator)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver())
 				.build();
-	}
-
-	@Test
-	@DisplayName("GET /api/diary/images/{userId}/{filename}는 파일이 없으면 Problem Details를 반환한다")
-	void getFileReturnsProblemDetailWhenImageDoesNotExist() {
-		willThrow(new RuntimeException("missing")).given(fileUtil).loadFileAsResource("user1/missing.png");
-
-		ResponseEntity<?> response = diaryController.getFile("user1", "missing.png");
-
-		assertThat(response.getStatusCode().value()).isEqualTo(404);
-		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
-		ProblemDetail problemDetail = (ProblemDetail) response.getBody();
-		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/resource-not-found");
-		assertThat(problemDetail.getStatus()).isEqualTo(404);
-		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/diary/images/user1/missing.png");
 	}
 
 	@Test

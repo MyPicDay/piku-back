@@ -49,9 +49,11 @@
 
 ## 저장 및 캐시 정책
 
-WebP 객체 저장은 `StoreObjectPort.storeObject(file, objectKey)` 경로를 사용한다. 백엔드는 WebP 최적화 작업에서 S3/MinIO `Cache-Control` metadata를 지정하지 않는다.
+WebP 객체 저장은 `StoreObjectPort.storeObject(file, objectKey)` 경로를 사용한다. 백엔드는 object key prefix를 기준으로 S3/MinIO `Cache-Control` metadata를 지정한다.
 
-이미지 캐시 조절은 앞단에서 수행한다. WebP 최적화 작업을 변경할 때도 cache-control 값을 서비스나 저장 요청에 다시 추가하지 않는다.
+`public/` object는 브라우저 캐시 5분, CDN/shared cache 20분 정책을 사용한다. `private/` object는 `no-store` 정책을 사용한다.
+
+WebP object key는 원본 object key와 같은 public/private scope를 유지해야 한다.
 
 ## 운영 확인
 

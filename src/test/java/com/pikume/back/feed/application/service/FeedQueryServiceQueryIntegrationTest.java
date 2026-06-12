@@ -1,14 +1,7 @@
 package com.pikume.back.feed.application.service;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import jakarta.persistence.EntityManager;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
-import com.pikume.back.diary.adapter.out.storage.PhotoConstants;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
@@ -29,6 +22,12 @@ import com.pikume.back.social.domain.like.Like;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
+import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -82,7 +81,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	private Diary publicLow;
 	private Diary nonFriendFriendsDiary;
 
-	@BeforeEach
+    @BeforeEach
 	void setUp() {
 		LocalDateTime baseTime = LocalDateTime.of(2026, 3, 8, 12, 0);
 
@@ -305,7 +304,8 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	}
 
 	private void saveRepresentPhoto(Diary diary, String fileName) {
-		Photo photo = new Photo(diary, PhotoConstants.PUBLIC_PREFIX + diary.getUserId() + "/" + fileName, 0);
+        String PUBLIC_PREFIX = "public/";
+        Photo photo = new Photo(diary, PUBLIC_PREFIX + diary.getUserId() + "/" + fileName, 0);
 		photo.updateRepresent(true);
 		photoJpaRepository.save(photo);
 	}

@@ -10,7 +10,6 @@ import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.error.ValidationProblemType;
-import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.global.util.RequestMetaMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,8 +25,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -51,7 +48,6 @@ public class DiaryController {
 	private final GetCalendarUseCase getCalendarUseCase;
 	private final UpdateDiaryUseCase updateDiaryUseCase;
 	private final GetDiaryGalleryUseCase getDiaryGalleryUseCase;
-	private final FileUtil fileUtil;
 	private final RequestMetaMapper requestMetaMapper;
 	private final Validator validator;
 	private final ProblemDetailFactory problemDetailFactory;
@@ -98,35 +94,6 @@ public class DiaryController {
 							CommonProblemType.INTERNAL_SERVER_ERROR,
 							"일기 저장 중 오류가 발생했습니다.",
 							"/api/diary"));
-		}
-	}
-
-	@Operation(summary = "일기 이미지 조회", description = "일기에 첨부된 이미지를 조회합니다.")
-	@GetMapping("/images/{userId}/{filename:.+}")
-	public ResponseEntity<?> getFile(@Parameter(description = "사용자 ID") @PathVariable String userId,
-			@Parameter(description = "이미지 파일명") @PathVariable String filename) {
-		log.info("이미지 파일 요청 - userId: {}, filename: {}", userId, filename);
-		try {
-			Resource resource = fileUtil.loadFileAsResource(userId + "/" + filename);
-			String contentType = fileUtil.getContentType(filename);
-
-			return ResponseEntity.ok()
-					.contentType(MediaType.parseMediaType(contentType))
-					.header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-					.cacheControl(org.springframework.http.CacheControl
-							.maxAge(1, java.util.concurrent.TimeUnit.DAYS)
-							.cachePublic()
-							.immutable())
-					.body(resource);
-
-		} catch (Exception e) {
-			log.error("이미지 파일 로드 실패 - userId: {}, filename: {}, error: {}", userId, filename, e.getMessage(), e);
-			return ResponseEntity.status(HttpStatus.NOT_FOUND)
-					.contentType(MediaType.APPLICATION_PROBLEM_JSON)
-					.body(problemDetailFactory.create(
-							CommonProblemType.RESOURCE_NOT_FOUND,
-							"이미지 파일을 찾을 수 없습니다.",
-							"/api/diary/images/" + userId + "/" + filename));
 		}
 	}
 
