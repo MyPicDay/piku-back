@@ -161,19 +161,19 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 
 	@Override
 	public List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String excludedUserId, Collection<String> friendUserIds,
-			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit) {
+			LocalDate cursorDate, Long cursorDiaryId, int limit) {
 		if (limit <= 0) {
 			return List.of();
 		}
 
 		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
 		if (friendUserIds == null || friendUserIds.isEmpty()) {
-			return diaryJpaRepository.findLatestPublicFeedCandidates(excludedUserId, cursorCreatedAt, cursorDiaryId, pageable);
+			return diaryJpaRepository.findLatestPublicFeedCandidates(excludedUserId, cursorDate, cursorDiaryId, pageable);
 		}
 		return diaryJpaRepository.findLatestVisibleFeedCandidatesForFriends(
 				excludedUserId,
 				friendUserIds,
-				cursorCreatedAt,
+				cursorDate,
 				cursorDiaryId,
 				pageable);
 	}

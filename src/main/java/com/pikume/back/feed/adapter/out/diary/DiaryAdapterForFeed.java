@@ -71,11 +71,11 @@ public class DiaryAdapterForFeed implements LoadDiaryForFeedPort, LoadLatestFeed
 		return queryDiaryFeedUseCase.findLatestVisibleFeedCandidates(
 						currentUserId,
 						friendUserIds,
-						cursor != null ? cursor.createdAt() : null,
+						cursor != null ? cursor.date() : null,
 						cursor != null ? cursor.diaryId() : null,
 						limit)
 				.stream()
-				.map(candidate -> new FeedLatestCursorCandidate(candidate.diaryId(), candidate.createdAt()))
+				.map(candidate -> new FeedLatestCursorCandidate(candidate.diaryId(), candidate.date()))
 				.toList();
 	}
 

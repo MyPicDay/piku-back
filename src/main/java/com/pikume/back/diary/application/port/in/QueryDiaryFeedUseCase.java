@@ -4,7 +4,7 @@ import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.VisibleDiaryDetailView;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,5 +17,5 @@ public interface QueryDiaryFeedUseCase {
 	List<Long> findDiaryIdsByStatus(DiaryVisibility status, String excludedUserId, int limit);
 
 	List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String viewerId, List<String> friendUserIds,
-			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit);
+			LocalDate cursorDate, Long cursorDiaryId, int limit);
 }

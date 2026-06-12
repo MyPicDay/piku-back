@@ -392,11 +392,32 @@ class FeedQueryServiceTest {
 		@Test
 		@DisplayName("최신순 cursor는 추천순 모드에서 거부된다")
 		void latestCursorIsRejectedForRecommendedSort() {
-			FeedCursor latestCursor = FeedCursor.latest(LocalDateTime.now(), 99L);
+			FeedCursor latestCursor = FeedCursor.latest(LocalDate.now(), 99L);
 			given(feedCursorTokenCodec.decode("latest-token")).willReturn(latestCursor);
 
 				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
 						new FeedCursorRequest("latest-token", 20),
+						requestMetaInfo,
+						"viewer-id"))
+						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
+								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
+		}
+
+		@Test
+		@DisplayName("createdAt 기준으로 발급된 기존 최신순 cursor는 최신순 모드에서 거부된다")
+		void createdAtLatestCursorIsRejectedForLatestSort() {
+			FeedCursor legacyLatestCursor = new FeedCursor(
+					FeedSortMode.LATEST,
+					null,
+					0L,
+					0L,
+					LocalDateTime.now(),
+					null,
+					99L);
+			given(feedCursorTokenCodec.decode("legacy-latest-token")).willReturn(legacyLatestCursor);
+
+				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+						new FeedCursorRequest("legacy-latest-token", 20, FeedSortMode.LATEST),
 						requestMetaInfo,
 						"viewer-id"))
 						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
@@ -408,7 +429,7 @@ class FeedQueryServiceTest {
 		}
 
 		private FeedLatestCursorCandidate latestCandidate(Long diaryId) {
-			return new FeedLatestCursorCandidate(diaryId, LocalDateTime.now().minusDays(diaryId));
+			return new FeedLatestCursorCandidate(diaryId, LocalDate.now().minusDays(diaryId));
 		}
 
 		private FeedListItemView feedItem(Long diaryId, String writerId, FeedFriendStatus friendStatus) {

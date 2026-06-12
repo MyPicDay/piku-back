@@ -105,37 +105,37 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			@Param("excludedUserId") String excludedUserId,
 			Pageable pageable);
 
-	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryFeedCandidateView(d.id, d.createdAt) " +
+	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryFeedCandidateView(d.id, d.date) " +
 			"FROM Diary d " +
 			"WHERE (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
 			"OR d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.ANONYMOUS) " +
 			"AND d.deletedAt IS NULL " +
 			"AND (:excludedUserId IS NULL OR d.userId <> :excludedUserId) " +
-			"AND (:cursorCreatedAt IS NULL " +
-			"OR d.createdAt < :cursorCreatedAt " +
-			"OR (d.createdAt = :cursorCreatedAt AND d.id < :cursorDiaryId)) " +
-			"ORDER BY d.createdAt DESC, d.id DESC")
+			"AND (:cursorDate IS NULL " +
+			"OR d.date < :cursorDate " +
+			"OR (d.date = :cursorDate AND d.id < :cursorDiaryId)) " +
+			"ORDER BY d.date DESC, d.id DESC")
 	List<com.pikume.back.diary.application.dto.DiaryFeedCandidateView> findLatestPublicFeedCandidates(
 			@Param("excludedUserId") String excludedUserId,
-			@Param("cursorCreatedAt") java.time.LocalDateTime cursorCreatedAt,
+			@Param("cursorDate") LocalDate cursorDate,
 			@Param("cursorDiaryId") Long cursorDiaryId,
 			Pageable pageable);
 
-	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryFeedCandidateView(d.id, d.createdAt) " +
+	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryFeedCandidateView(d.id, d.date) " +
 			"FROM Diary d " +
 			"WHERE d.deletedAt IS NULL " +
 			"AND (:excludedUserId IS NULL OR d.userId <> :excludedUserId) " +
 			"AND (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.PUBLIC " +
 			"OR d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.ANONYMOUS " +
 			"OR (d.status = com.pikume.back.diary.domain.vo.DiaryVisibility.FRIENDS AND d.userId IN :friendUserIds)) " +
-			"AND (:cursorCreatedAt IS NULL " +
-			"OR d.createdAt < :cursorCreatedAt " +
-			"OR (d.createdAt = :cursorCreatedAt AND d.id < :cursorDiaryId)) " +
-			"ORDER BY d.createdAt DESC, d.id DESC")
+			"AND (:cursorDate IS NULL " +
+			"OR d.date < :cursorDate " +
+			"OR (d.date = :cursorDate AND d.id < :cursorDiaryId)) " +
+			"ORDER BY d.date DESC, d.id DESC")
 	List<com.pikume.back.diary.application.dto.DiaryFeedCandidateView> findLatestVisibleFeedCandidatesForFriends(
 			@Param("excludedUserId") String excludedUserId,
 			@Param("friendUserIds") Collection<String> friendUserIds,
-			@Param("cursorCreatedAt") java.time.LocalDateTime cursorCreatedAt,
+			@Param("cursorDate") LocalDate cursorDate,
 			@Param("cursorDiaryId") Long cursorDiaryId,
 			Pageable pageable);
 }

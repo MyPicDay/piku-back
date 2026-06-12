@@ -1,9 +1,9 @@
 package com.pikume.back.diary.application.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public record DiaryFeedCandidateView(
 		Long diaryId,
-		LocalDateTime createdAt
+		LocalDate date
 ) {
 }

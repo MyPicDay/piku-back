@@ -157,7 +157,7 @@ public class FeedQueryService implements GetFeedUseCase {
 	}
 
 	private void validateLatestCursor(FeedCursor cursor) {
-		if (cursor.createdAt() == null || cursor.diaryId() <= 0) {
+		if (cursor.date() == null || cursor.diaryId() <= 0) {
 			throw new InvalidFeedCursorException();
 		}
 	}

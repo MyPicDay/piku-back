@@ -47,7 +47,7 @@ Feed 도메인은 **여러 사용자의 일기를 정책 기반 또는 최신순
 `GET /api/diary`는 선택 쿼리 파라미터 `sort`를 받는다.
 
 - 생략 또는 `recommended` : 추천순 모드
-- `latest` : 전역 최신순 모드
+- `latest` : 기록일 최신순 모드
 
 클라이언트는 정렬 모드를 바꿀 때 기존 cursor를 버리고 첫 페이지부터 다시 조회해야 한다. Cursor token은 opaque 값이며, cursor 내부에는 정렬 모드 정보가 포함된다. 정렬 모드 metadata가 없는 legacy cursor는 추천순 모드에서만 유효하다. 다른 모드의 cursor를 재사용하면 `invalid-cursor` Problem Details로 거부된다.
 
@@ -61,7 +61,7 @@ Feed 도메인은 **여러 사용자의 일기를 정책 기반 또는 최신순
 
 #### 최신순 모드
 
-최신순 모드는 피드에 노출 가능한 모든 일기를 `createdAt DESC`, `diaryId DESC` 전역 순서로 반환한다. 소비 여부와 친구/비친구 bucket 위치는 정렬에 반영하지 않는다.
+최신순 모드는 피드에 노출 가능한 모든 일기를 `date DESC`, `diaryId DESC` 전역 순서로 반환한다. 소비 여부와 친구/비친구 bucket 위치는 정렬에 반영하지 않는다.
 
 최신순 후보 조회는 Feed가 Social에서 조회자의 친구 ID 목록을 받은 뒤, Diary 도메인에 viewer ID, 친구 ID 목록, cursor 기준값, limit을 전달해 수행한다. Diary 도메인은 공개 범위 필드를 기준으로 피드 노출 가능한 후보만 반환하고, Feed는 기존 materialization 경로로 응답을 조립한다.
 

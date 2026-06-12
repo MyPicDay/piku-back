@@ -21,7 +21,7 @@
 ## 정렬 의미
 
 - `recommended`: 추천순. 로그인 사용자는 미소비 친구글, 미소비 공개글, 소비한 친구글, 소비한 공개글 순서로 노출된다.
-- `latest`: 피드에 노출 가능한 일기를 `createdAt DESC`, `diaryId DESC` 전역 최신순으로 노출한다.
+- `latest`: 피드에 노출 가능한 일기를 `date DESC`, `diaryId DESC` 기록일 최신순으로 노출한다.
 
 두 모드 모두 기존 공개 범위 규칙을 유지한다. 피드 후보 범위는 `PUBLIC`, `ANONYMOUS` 일기와 현재 조회 사용자의 친구가 작성한 `FRIENDS` 일기로 제한된다. 요청 사용자의 자기 일기, 친구가 아닌 사용자의 `FRIENDS` 일기, `PRIVATE` 일기는 피드 목록에서 제외된다. 비로그인 사용자는 `PUBLIC`과 `ANONYMOUS` 일기를 받을 수 있다.
 
@@ -36,3 +36,5 @@
 다른 정렬 모드에서 발급된 cursor를 재사용하거나 깨진 cursor를 보내면 기존 invalid cursor Problem Details가 반환된다.
 
 - `type`: `https://api.pikume.com/problems/feed/invalid-cursor`
+
+`createdAt` 기준 latest cursor는 `date` 기준 latest cursor로 변환하지 않는다. 이전 버전에서 발급된 latest cursor를 재사용하면 invalid cursor가 반환되며, 클라이언트는 latest 첫 페이지를 다시 요청한다.

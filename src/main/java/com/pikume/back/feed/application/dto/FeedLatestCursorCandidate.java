@@ -1,13 +1,13 @@
 package com.pikume.back.feed.application.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public record FeedLatestCursorCandidate(
 		long diaryId,
-		LocalDateTime createdAt
+		LocalDate date
 ) {
 
 	public FeedCursor toCursor() {
-		return FeedCursor.latest(createdAt, diaryId);
+		return FeedCursor.latest(date, diaryId);
 	}
 }

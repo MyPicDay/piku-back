@@ -84,6 +84,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
     @BeforeEach
 	void setUp() {
 		LocalDateTime baseTime = LocalDateTime.of(2026, 3, 8, 12, 0);
+		LocalDate baseDate = LocalDate.of(2026, 3, 8);
 
 		viewer = saveUser("viewer");
 		User friendA = saveUser("friend-a");
@@ -105,16 +106,16 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		friendJpaRepository.save(new Friend(viewer.getId(), friendD.getId()));
 		friendJpaRepository.save(new Friend(viewer.getId(), friendE.getId()));
 
-		ownDiary = saveDiary(viewer.getId(), "my-feed", DiaryVisibility.PUBLIC, baseTime.minusMinutes(1));
-		privateDiary = saveDiary(privateAuthor.getId(), "private-feed", DiaryVisibility.PRIVATE, baseTime.minusMinutes(2));
-		friendHigh = saveDiary(friendA.getId(), "friend-high", DiaryVisibility.PUBLIC, baseTime.minusHours(4));
-		friendMid = saveDiary(friendB.getId(), "friend-mid", DiaryVisibility.FRIENDS, baseTime.minusHours(3));
-		friendLow = saveDiary(friendC.getId(), "friend-low", DiaryVisibility.PUBLIC, baseTime.minusHours(2));
-		friendExtra = saveDiary(friendD.getId(), "friend-extra", DiaryVisibility.FRIENDS, baseTime.minusHours(1));
-		friendConsumed = saveDiary(friendE.getId(), "friend-consumed", DiaryVisibility.PUBLIC, baseTime.minusHours(5));
-		publicHigh = saveDiary(publicAuthor1.getId(), "public-high", DiaryVisibility.PUBLIC, baseTime.minusMinutes(20));
-		publicLow = saveDiary(publicAuthor2.getId(), "public-low", DiaryVisibility.PUBLIC, baseTime.minusMinutes(10));
-		nonFriendFriendsDiary = saveDiary(nonFriend.getId(), "non-friend-friends", DiaryVisibility.FRIENDS, baseTime.minusMinutes(5));
+		ownDiary = saveDiary(viewer.getId(), "my-feed", DiaryVisibility.PUBLIC, baseDate, baseTime.minusMinutes(1));
+		privateDiary = saveDiary(privateAuthor.getId(), "private-feed", DiaryVisibility.PRIVATE, baseDate, baseTime.minusMinutes(2));
+		friendHigh = saveDiary(friendA.getId(), "friend-high", DiaryVisibility.PUBLIC, baseDate.minusDays(6), baseTime.minusHours(4));
+		friendMid = saveDiary(friendB.getId(), "friend-mid", DiaryVisibility.FRIENDS, baseDate.minusDays(3), baseTime.minusHours(3));
+		friendLow = saveDiary(friendC.getId(), "friend-low", DiaryVisibility.PUBLIC, baseDate.minusDays(2), baseTime.minusHours(2));
+		friendExtra = saveDiary(friendD.getId(), "friend-extra", DiaryVisibility.FRIENDS, baseDate.minusDays(5), baseTime.minusHours(1));
+		friendConsumed = saveDiary(friendE.getId(), "friend-consumed", DiaryVisibility.PUBLIC, baseDate.minusDays(7), baseTime.minusHours(5));
+		publicHigh = saveDiary(publicAuthor1.getId(), "public-high", DiaryVisibility.PUBLIC, baseDate.minusDays(1), baseTime.minusMinutes(20));
+		publicLow = saveDiary(publicAuthor2.getId(), "public-low", DiaryVisibility.PUBLIC, baseDate.minusDays(4), baseTime.minusMinutes(10));
+		nonFriendFriendsDiary = saveDiary(nonFriend.getId(), "non-friend-friends", DiaryVisibility.FRIENDS, baseDate.plusDays(1), baseTime.minusMinutes(5));
 
 		saveRepresentPhoto(ownDiary, "my-feed.jpg");
 		saveRepresentPhoto(privateDiary, "private-feed.jpg");
@@ -205,8 +206,8 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	}
 
 	@Test
-	@DisplayName("최신순 첫 페이지는 공개 일기와 조회 가능한 친구공개 일기를 전역 createdAt DESC 순서로 반환한다")
-	void latestFirstPageReturnsVisibleDiariesByGlobalCreatedAtOrder() {
+	@DisplayName("최신순 첫 페이지는 공개 일기와 조회 가능한 친구공개 일기를 date DESC, diaryId DESC 순서로 반환한다")
+	void latestFirstPageReturnsVisibleDiariesByGlobalDateOrder() {
 		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 7, FeedSortMode.LATEST),
 				REQUEST_META_INFO,
@@ -214,11 +215,11 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.containsExactly(
-						publicLow.getId(),
 						publicHigh.getId(),
-						friendExtra.getId(),
 						friendLow.getId(),
 						friendMid.getId(),
+						publicLow.getId(),
+						friendExtra.getId(),
 						friendHigh.getId(),
 						friendConsumed.getId());
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -226,7 +227,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	}
 
 	@Test
-	@DisplayName("최신순 nextCursor는 중복 없이 다음 createdAt 구간으로 이어진다")
+	@DisplayName("최신순 nextCursor는 중복 없이 다음 date 구간으로 이어진다")
 	void latestNextCursorContinuesWithoutDuplicates() {
 		FeedCursorPage<FeedDiaryResult> firstPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 3, FeedSortMode.LATEST),
@@ -239,21 +240,23 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 				viewer.getId());
 
 		assertThat(firstPage.items()).extracting(FeedDiaryResult::getDiaryId)
-				.containsExactly(publicLow.getId(), publicHigh.getId(), friendExtra.getId());
+				.containsExactly(publicHigh.getId(), friendLow.getId(), friendMid.getId());
 		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
-				.containsExactly(friendLow.getId(), friendMid.getId(), friendHigh.getId());
+				.containsExactly(publicLow.getId(), friendExtra.getId(), friendHigh.getId());
 		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
-				.doesNotContain(publicLow.getId(), publicHigh.getId(), friendExtra.getId());
+				.doesNotContain(publicHigh.getId(), friendLow.getId(), friendMid.getId());
 	}
 
 	@Test
-	@DisplayName("최신순은 createdAt이 같으면 diaryId DESC로 순서를 고정한다")
-	void latestSortBreaksCreatedAtTiesByDiaryIdDescending() {
+	@DisplayName("최신순은 date가 같으면 diaryId DESC로 순서를 고정한다")
+	void latestSortBreaksDateTiesByDiaryIdDescending() {
 		User publicTieA = saveUser("public-tie-a");
 		User publicTieB = saveUser("public-tie-b");
-		LocalDateTime tiedCreatedAt = LocalDateTime.of(2026, 3, 8, 11, 55);
-		Diary olderId = saveDiary(publicTieA.getId(), "public-tie-a", DiaryVisibility.PUBLIC, tiedCreatedAt);
-		Diary newerId = saveDiary(publicTieB.getId(), "public-tie-b", DiaryVisibility.PUBLIC, tiedCreatedAt);
+		LocalDate tiedDate = LocalDate.of(2026, 3, 9);
+		Diary olderId = saveDiary(publicTieA.getId(), "public-tie-a", DiaryVisibility.PUBLIC,
+				tiedDate, LocalDateTime.of(2026, 3, 8, 11, 55));
+		Diary newerId = saveDiary(publicTieB.getId(), "public-tie-b", DiaryVisibility.PUBLIC,
+				tiedDate, LocalDateTime.of(2026, 3, 8, 11, 50));
 		saveRepresentPhoto(olderId, "public-tie-a.jpg");
 		saveRepresentPhoto(newerId, "public-tie-b.jpg");
 		flushAndClear();
@@ -264,7 +267,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 				viewer.getId());
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
-				.containsExactly(newerId.getId(), olderId.getId(), publicLow.getId(), publicHigh.getId());
+				.containsExactly(newerId.getId(), olderId.getId(), publicHigh.getId(), friendLow.getId());
 	}
 
 	@Test
@@ -278,9 +281,9 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.containsExactly(
 						ownDiary.getId(),
-						publicLow.getId(),
 						publicHigh.getId(),
 						friendLow.getId(),
+						publicLow.getId(),
 						friendHigh.getId());
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
 				.doesNotContain(privateDiary.getId(), friendMid.getId(), friendExtra.getId(), nonFriendFriendsDiary.getId());
@@ -295,7 +298,12 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	}
 
 	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDateTime createdAt) {
-		Diary diary = diaryJpaRepository.save(new Diary(content, visibility, LocalDate.now(), userId));
+		return saveDiary(userId, content, visibility, LocalDate.now(), createdAt);
+	}
+
+	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDate date,
+			LocalDateTime createdAt) {
+		Diary diary = diaryJpaRepository.save(new Diary(content, visibility, date, userId));
 		entityManager.createNativeQuery("UPDATE diary SET created_at = :createdAt WHERE id = :diaryId")
 				.setParameter("createdAt", createdAt)
 				.setParameter("diaryId", diary.getId())

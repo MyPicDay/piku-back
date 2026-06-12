@@ -29,7 +29,6 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -175,8 +174,8 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 
 	@Override
 	public List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String viewerId, List<String> friendUserIds,
-			LocalDateTime cursorCreatedAt, Long cursorDiaryId, int limit) {
-		return loadDiaryPort.findLatestVisibleFeedCandidates(viewerId, friendUserIds, cursorCreatedAt, cursorDiaryId, limit);
+			LocalDate cursorDate, Long cursorDiaryId, int limit) {
+		return loadDiaryPort.findLatestVisibleFeedCandidates(viewerId, friendUserIds, cursorDate, cursorDiaryId, limit);
 	}
 
 	@Override

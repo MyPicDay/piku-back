@@ -63,13 +63,13 @@ public class FeedController {
 			    cursor 기반으로 피드 목록을 조회합니다.
 			    - cursor: 다음 페이지 조회용 opaque token
 			    - limit: 1~100 사이 정수
-			    - sort: recommended(추천순) 또는 latest(전역 최신순)
+			    - sort: recommended(추천순) 또는 latest(기록일 최신순)
 			""")
 	@GetMapping
 	public ResponseEntity<FeedCursorPage<FeedDiaryResult>> getAllDiaries(
 			@RequestParam(required = false) String cursor,
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
-			@Parameter(description = "피드 정렬 모드. 생략 시 recommended(추천순)이며, latest는 전역 최신순입니다.",
+			@Parameter(description = "피드 정렬 모드. 생략 시 recommended(추천순)이며, latest는 기록일 최신순입니다.",
 					schema = @Schema(allowableValues = {"recommended", "latest"}, defaultValue = "recommended"))
 			@RequestParam(required = false) String sort,
 			HttpServletRequest request,
