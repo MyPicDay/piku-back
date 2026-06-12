@@ -159,7 +159,3 @@ sequenceDiagram
 - Photo WebP Optimization Runbook: 일기 사진 WebP 최적화 스케줄러와 상태 전이 운영 절차
 - MinIO Cloudflare HeadObject Incident: MinIO HeadObject 403 장애 원인과 서버 S3 API endpoint 분리 배경
 - Diary Domain Model: Photo 엔티티의 object key, optimizedUrl, 표시 URL 선택 규칙
-
-## Commit Message
-
-docs: 일기 이미지 저장 운영 현황 정리
