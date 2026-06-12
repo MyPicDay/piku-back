@@ -33,7 +33,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
 
-import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PREFIX;
+import static com.pikume.back.diary.adapter.out.storage.PhotoObjectKeyConstants.PUBLIC_PREFIX;
 
 @Slf4j
 @Component

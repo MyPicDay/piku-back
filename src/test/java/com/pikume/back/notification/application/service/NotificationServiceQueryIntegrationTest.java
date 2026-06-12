@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
-import com.pikume.back.diary.adapter.out.storage.PhotoConstants;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
@@ -81,7 +80,7 @@ class NotificationServiceQueryIntegrationTest extends AbstractJpaQueryCountInteg
 	}
 
 	private void saveRepresentPhoto(Diary diary, String fileName) {
-		Photo photo = new Photo(diary, PhotoConstants.PUBLIC_PREFIX + diary.getUserId() + "/" + fileName, 0);
+		Photo photo = new Photo(diary, "public/" + diary.getUserId() + "/" + fileName, 0);
 		photo.updateRepresent(true);
 		photoJpaRepository.save(photo);
 	}

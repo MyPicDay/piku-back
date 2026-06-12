@@ -10,8 +10,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.UUID;
 
-import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PRIVATE_PREFIX;
-import static com.pikume.back.diary.adapter.out.storage.PhotoConstants.PUBLIC_PREFIX;
+import static com.pikume.back.diary.adapter.out.storage.PhotoObjectKeyConstants.PRIVATE_PREFIX;
+import static com.pikume.back.diary.adapter.out.storage.PhotoObjectKeyConstants.PUBLIC_PREFIX;
 
 @Slf4j
 @Service
