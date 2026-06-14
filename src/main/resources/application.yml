@@ -10,6 +10,8 @@ spring:
       max-file-size: 7MB
       max-request-size: 7MB
   data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
     web:
       pageable:
         default-page-size: 10
@@ -37,7 +39,7 @@ gemini:
     key: ${GEMINI_API_KEY:api-key-placeholder}
     base-url: https://generativelanguage.googleapis.com/v1beta
     models:
-      image-generation: gemini-2.0-flash-preview-image-generation
+      image-generation: ${AI_IMAGE_MODEL:gemini-2.5-flash-image}
       chat: gemini-2.0-flash
     timeout: 30s
 
