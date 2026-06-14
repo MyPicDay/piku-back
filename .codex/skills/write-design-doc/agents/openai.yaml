@@ -1,7 +1,7 @@
 interface:
   display_name: "Write Design Doc"
-  short_description: "piku-back 설계문서 작성 규칙"
-  default_prompt: "Use $write-design-doc to draft a Korean piku-back design document focused on feature intent, architecture flow, and a required Korean commit message."
+  short_description: "piku-back 설계·계획문서 작성 규칙"
+  default_prompt: "Use $write-design-doc to draft a Korean piku-back design or planning document focused on feature intent, architecture flow, prose-only task sections when relevant, and a required Korean commit message."
 
 policy:
   allow_implicit_invocation: true

@@ -3,6 +3,7 @@
 - Do not open, read, quote, or inspect `.env` files in this repository.
 - Do not open, read, quote, or inspect local secret key files such as Firebase credential JSON files.
 - If configuration values are needed, ask the user to provide the non-sensitive values explicitly or work from application defaults and checked-in config files.
+- If globally configured skills or instructions conflict with project-local `.codex/` content, prioritize the project-local `.codex/` content.
 - For API work, follow RFC 9457 / Problem Details principles for error responses by default.
 - Do not introduce new ad hoc string error bodies or bespoke error DTOs for APIs unless backward compatibility explicitly requires a temporary exception.
 - When changing existing APIs incrementally, prefer a documented migration path toward Problem Details rather than creating another response shape.
