@@ -44,9 +44,7 @@ public interface LoadDiaryPort {
 
 	long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses);
 
-	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo);
-
-	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo, Collection<DiaryVisibility> statuses);
+	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, Collection<DiaryVisibility> statuses);
 
 	boolean existsById(Long diaryId);
 

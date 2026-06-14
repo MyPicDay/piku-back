@@ -87,13 +87,11 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo) {
-		return diaryJpaRepository.countDiariesPerMonth(userId, monthsAgo);
-	}
-
-	@Override
-	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, LocalDate monthsAgo, Collection<DiaryVisibility> statuses) {
-		return diaryJpaRepository.countDiariesPerMonthByStatuses(userId, monthsAgo, statuses);
+	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, Collection<DiaryVisibility> statuses) {
+		if (statuses == null || statuses.isEmpty()) {
+			return List.of();
+		}
+		return diaryJpaRepository.countDiariesPerMonthByStatuses(userId, statuses);
 	}
 
 	@Override

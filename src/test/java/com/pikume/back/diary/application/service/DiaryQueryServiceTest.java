@@ -397,7 +397,7 @@ class DiaryQueryServiceTest {
 			List<DiaryMonthCountDTO> expected = List.of(dto1, dto2);
 			given(diaryVisibilityPolicy.visibleStatusesForOwner(USER_ID, "viewer-id"))
 					.willReturn(List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS));
-			given(loadDiaryPort.countDiariesPerMonth(eq(USER_ID), any(), eq(List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS))))
+			given(loadDiaryPort.countDiariesPerMonth(USER_ID, List.of(DiaryVisibility.PUBLIC, DiaryVisibility.FRIENDS)))
 					.willReturn(expected);
 
 			List<DiaryMonthCountDTO> result = diaryQueryService.getMonthlyDiaryCount(USER_ID, "viewer-id");

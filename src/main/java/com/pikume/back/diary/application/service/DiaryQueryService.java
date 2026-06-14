@@ -201,10 +201,8 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 
 	@Override
 	public List<DiaryMonthCountDTO> getMonthlyDiaryCount(String profileId, String viewerId) {
-		LocalDate monthsAgo = LocalDate.now().minusMonths(6).withDayOfMonth(1);
 		return loadDiaryPort.countDiariesPerMonth(
 				profileId,
-				monthsAgo,
 				diaryVisibilityPolicy.visibleStatusesForOwner(profileId, viewerId));
 	}
 

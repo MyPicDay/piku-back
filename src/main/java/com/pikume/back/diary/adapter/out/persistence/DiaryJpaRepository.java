@@ -59,26 +59,12 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			+
 			"FROM Diary d " +
 			"WHERE d.userId = :userId " +
-			"AND d.deletedAt IS NULL " +
-			"AND d.date >= :monthsAgo " +
-			"GROUP BY YEAR(d.date), MONTH(d.date) " +
-			"ORDER BY YEAR(d.date) DESC, MONTH(d.date) DESC")
-	List<DiaryMonthCountDTO> countDiariesPerMonth(
-			@Param("userId") String userId,
-			@Param("monthsAgo") LocalDate monthsAgo);
-
-	@Query(value = "SELECT new com.pikume.back.diary.application.dto.DiaryMonthCountDTO(YEAR(d.date), MONTH(d.date), COUNT(d.id)) "
-			+
-			"FROM Diary d " +
-			"WHERE d.userId = :userId " +
 			"AND d.status IN :statuses " +
 			"AND d.deletedAt IS NULL " +
-			"AND d.date >= :monthsAgo " +
 			"GROUP BY YEAR(d.date), MONTH(d.date) " +
 			"ORDER BY YEAR(d.date) DESC, MONTH(d.date) DESC")
 	List<DiaryMonthCountDTO> countDiariesPerMonthByStatuses(
 			@Param("userId") String userId,
-			@Param("monthsAgo") LocalDate monthsAgo,
 			@Param("statuses") Collection<DiaryVisibility> statuses);
 
 	@Query("SELECT d.id FROM Diary d " +
