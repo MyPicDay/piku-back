@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class RefreshToken {
 	@Id
 	@Column(name = "refresh_key")
-	private String key; // email + deviceId 조합
+	private String key; // userId + deviceId 조합
 
 	private String refreshToken;
 

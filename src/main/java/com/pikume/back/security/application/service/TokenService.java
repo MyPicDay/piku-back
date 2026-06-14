@@ -37,17 +37,17 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 
 	@Override
 	public LoginResult login(LoginRequest dto, String deviceId) {
-		log.info("[로그인] 서비스 호출 : 이메일={}", dto.getEmail());
+		log.info("event=login_requested outcome=accepted");
 
 		AuthUserView user = loadUserForAuthPort.findByEmail(dto.getEmail())
 				.orElseThrow(this::invalidCredentials);
 
-		validateLoginPassword(dto.getPassword(), user.password(), dto.getEmail());
+		validateLoginPassword(dto.getPassword(), user.password());
 
-		String accessToken = jwtProvider.generateAccessToken(dto.getEmail());
-		String refreshToken = saveNewRefreshToken(dto.getEmail(), deviceId, user.id());
+		String accessToken = jwtProvider.generateAccessToken(user.id());
+		String refreshToken = saveNewRefreshToken(user.id(), deviceId);
 
-		log.info("[로그인] 완료 : 이메일={}", dto.getEmail());
+		log.info("event=login_completed outcome=success userId={}", user.id());
 		return new LoginResult(
 				new TokenDto(accessToken, refreshToken),
 				new AuthenticatedUserInfo(
@@ -75,8 +75,7 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 			return null;
 		}
 
-		String email = tokenEntity.getKey().split("-")[0];
-		return jwtProvider.generateAccessToken(email);
+		return generateAccessTokenForStoredRefreshToken(refreshToken, tokenEntity);
 	}
 
 	@Override
@@ -97,8 +96,10 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 			return null;
 		}
 
-		String email = tokenEntity.getKey().split("-")[0];
-		String newAccessToken = jwtProvider.generateAccessToken(email);
+		String newAccessToken = generateAccessTokenForStoredRefreshToken(refreshToken, tokenEntity);
+		if (newAccessToken == null) {
+			return null;
+		}
 
 		return new ReissueResult(
 				newAccessToken,
@@ -132,14 +133,14 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	}
 
 	@Override
-	public void logout(String email, String deviceId) {
-		String key = email + "-" + deviceId;
+	public void logout(String userId, String deviceId) {
+		String key = userId + "-" + deviceId;
 		deleteRefreshTokenPort.deleteById(key);
-		log.info("[로그아웃] Refresh Token 삭제 완료 : key={}", key);
+		log.info("event=logout_completed outcome=success userId={}", userId);
 	}
 
 	@Override
-    @Transactional
+	@Transactional
 	public void logoutByRefreshToken(String refreshToken) {
 		if (!StringUtils.hasText(refreshToken)) {
 			return;
@@ -147,9 +148,8 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		deleteRefreshTokenPort.deleteByRefreshToken(refreshToken);
 	}
 
-	private void validateLoginPassword(String requestPassword, String storedPassword, String email) {
+	private void validateLoginPassword(String requestPassword, String storedPassword) {
 		if (!passwordEncoder.matches(requestPassword, storedPassword)) {
-			log.warn("[로그인] 실패 - 비밀번호 불일치 : 이메일={}", email);
 			throw invalidCredentials();
 		}
 	}
@@ -158,12 +158,22 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		return new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.");
 	}
 
-	private String saveNewRefreshToken(String email, String deviceId, String userId) {
-		String key = email + "-" + deviceId;
+	private String saveNewRefreshToken(String userId, String deviceId) {
+		String key = userId + "-" + deviceId;
 		String newRefreshToken = jwtProvider.generateRefreshToken();
 		RefreshToken refreshTokenEntity = new RefreshToken(key, newRefreshToken, userId);
 		saveRefreshTokenPort.save(refreshTokenEntity);
-		log.info("[JWT Refresh Token 저장 완료] key={}", key);
+		log.debug("event=refresh_token_saved userId={}", userId);
 		return newRefreshToken;
+	}
+
+	private String generateAccessTokenForStoredRefreshToken(String refreshToken, RefreshToken tokenEntity) {
+		if (!StringUtils.hasText(tokenEntity.getUserId())) {
+			deleteRefreshTokenPort.deleteByRefreshToken(refreshToken);
+			log.warn("event=token_reissue_failed outcome=denied reason=missing_user_id");
+			return null;
+		}
+
+		return jwtProvider.generateAccessToken(tokenEntity.getUserId());
 	}
 }

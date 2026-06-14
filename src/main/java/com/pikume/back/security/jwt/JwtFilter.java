@@ -42,7 +42,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
 			try {
 				if (!jwtProvider.validateToken(token)) {
-					log.warn("[JWT 필터] 토큰 유효성 검사 실패");
+					log.warn("event=jwt_filter_authentication_failed outcome=denied reason=invalid_token");
 					authenticationEntryPoint.commence(request, response,
 							new BadCredentialsException("인증이 필요합니다."));
 					return;
@@ -50,7 +50,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
 				authenticateUser(token);
 			} catch (Exception e) {
-				log.error("[JWT 필터] 토큰 처리 중 오류 발생 : {}", e.getMessage());
+				log.warn("event=jwt_filter_authentication_failed outcome=denied reason={}",
+						e.getClass().getSimpleName());
 				authenticationEntryPoint.commence(request, response,
 						new BadCredentialsException("인증이 필요합니다."));
 				return;
@@ -61,12 +62,12 @@ public class JwtFilter extends OncePerRequestFilter {
 	}
 
 	private void authenticateUser(String token) {
-		String email = jwtProvider.getEmailFromToken(token);
-		log.info("[JWT 필터] 토큰 검증 성공 : 이메일={}", email);
+		String userId = jwtProvider.getUserIdFromToken(token);
+		log.debug("event=jwt_filter_token_validated userId={}", userId);
 
-		AuthUserView user = loadUserForAuthPort.findByEmail(email)
+		AuthUserView user = loadUserForAuthPort.findById(userId)
 				.orElseThrow(() -> {
-					log.warn("[JWT 필터] 사용자 이메일 DB 조회 실패 : {}", email);
+					log.warn("event=jwt_filter_user_lookup_failed userId={}", userId);
 					return new RuntimeException("유저 없음");
 				});
 
@@ -77,7 +78,6 @@ public class JwtFilter extends OncePerRequestFilter {
 				userDetails, null, userDetails.getAuthorities());
 
 		SecurityContextHolder.getContext().setAuthentication(authentication);
-		log.info("[JWT 필터] SecurityContext 인증 완료 : 사용자 ID={}, 이메일={}",
-				user.id(), user.email());
+		log.debug("event=jwt_filter_authentication_set userId={}", user.id());
 	}
 }

@@ -30,6 +30,7 @@ import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
 import com.pikume.back.security.dto.TokenDto;
 import com.pikume.back.security.dto.request.LoginRequest;
 import com.pikume.back.security.dto.UserInfo;
+import com.pikume.back.user.auth.constants.AuthConstants;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -198,7 +199,7 @@ class LoginControllerTest {
 		CookieSpec deleteCookie = new CookieSpec("refreshToken", "", true, true, "/", 0, "None");
 		given(loginUseCase.removeCookieRefreshToken()).willReturn(deleteCookie);
 		MockHttpServletRequest request = new MockHttpServletRequest();
-		request.addHeader("X-Device-Id", "ios");
+		request.addHeader(AuthConstants.DEVICE_ID_HEADER, "ios");
 
 		ResponseEntity<?> response = loginController.logout(
 				new CustomUserDetails("user1", "user@example.com", "pikume"),
@@ -207,5 +208,6 @@ class LoginControllerTest {
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getHeaders().containsKey("Set-Cookie")).isTrue();
 		assertThat(response.getBody()).isEqualTo(new MessageResponse("로그아웃 완료"));
+		then(loginUseCase).should().logout("user1", "ios");
 	}
 }

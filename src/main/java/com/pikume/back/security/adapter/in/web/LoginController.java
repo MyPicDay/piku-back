@@ -53,11 +53,11 @@ public class LoginController {
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
 		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
-		log.info("[로그인] 요청 수신: 이메일={}", dto.getEmail());
+		log.info("event=login_request_received outcome=accepted");
 
 		try {
 			LoginResult loginResult = loginUseCase.login(dto, deviceId);
-			log.info("[로그인] 성공 : 이메일={}", dto.getEmail());
+			log.info("event=login_response_ready outcome=success userId={}", loginResult.userInfo().id());
 
 			ResponseCookie responseCookie = toResponseCookie(
 					loginUseCase.newCookieRefreshToken(loginResult.tokens().getRefreshToken()));
@@ -72,7 +72,7 @@ public class LoginController {
 					.header(HttpHeaders.SET_COOKIE, responseCookie.toString())
 					.body(loginResponse);
 		} catch (InvalidCredentialsException e) {
-			log.warn("[로그인] 실패 : {}", e.getMessage());
+			log.warn("event=login_failed outcome=denied reason=invalid_credentials");
 			return buildProblem(SecurityProblemType.INVALID_CREDENTIALS, e.getMessage(), request);
 		}
 	}
@@ -108,11 +108,11 @@ public class LoginController {
 	})
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails user, HttpServletRequest request) {
-		if (user == null || user.getEmail() == null) {
+		if (user == null || user.getId() == null) {
 			return buildProblem(SecurityProblemType.UNAUTHENTICATED, "로그인 상태가 아닙니다.", request);
 		}
 		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
-		loginUseCase.logout(user.getEmail(), deviceId);
+		loginUseCase.logout(user.getId(), deviceId);
 
 		ResponseCookie deleteCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
 

@@ -12,7 +12,7 @@ public interface LoginUseCase {
 
 	CookieSpec removeCookieRefreshToken();
 
-	void logout(String email, String deviceId);
+	void logout(String userId, String deviceId);
 
 	void logoutByRefreshToken(String refreshToken);
 }

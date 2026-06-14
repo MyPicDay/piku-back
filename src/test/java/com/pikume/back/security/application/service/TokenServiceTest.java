@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,8 +26,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TokenService")
@@ -59,17 +62,20 @@ class TokenServiceTest {
 			AuthUserView user = new AuthUserView("user-id", "test@piku.store", "encodedPassword", "testUser", "avatar.png");
 			given(loadUserForAuthPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
 			given(passwordEncoder.matches("password123", "encodedPassword")).willReturn(true);
-			given(jwtProvider.generateAccessToken("test@piku.store")).willReturn("access-token");
+			given(jwtProvider.generateAccessToken("user-id")).willReturn("access-token");
 			given(jwtProvider.generateRefreshToken()).willReturn("refresh-token");
 			given(saveRefreshTokenPort.save(any(RefreshToken.class))).willReturn(null);
 
 			LoginResult result = tokenService.login(request, "device-1");
 
+			ArgumentCaptor<RefreshToken> refreshTokenCaptor = ArgumentCaptor.forClass(RefreshToken.class);
 			assertThat(result.tokens().getAccessToken()).isEqualTo("access-token");
 			assertThat(result.tokens().getRefreshToken()).isEqualTo("refresh-token");
 			assertThat(result.userInfo().email()).isEqualTo("test@piku.store");
 			assertThat(result.userInfo().avatarPath()).isEqualTo("avatar.png");
-			then(saveRefreshTokenPort).should().save(any(RefreshToken.class));
+			then(saveRefreshTokenPort).should().save(refreshTokenCaptor.capture());
+			assertThat(refreshTokenCaptor.getValue().getKey()).isEqualTo("user-id-device-1");
+			assertThat(refreshTokenCaptor.getValue().getUserId()).isEqualTo("user-id");
 		}
 
 		@Test
@@ -106,8 +112,8 @@ class TokenServiceTest {
 		void reissueSuccess() {
 			given(jwtProvider.validateToken("valid-refresh")).willReturn(true);
 			given(loadRefreshTokenPort.findByRefreshToken("valid-refresh"))
-					.willReturn(Optional.of(new RefreshToken("test@piku.store-device-1", "valid-refresh", "user-id")));
-			given(jwtProvider.generateAccessToken("test@piku.store")).willReturn("new-access-token");
+					.willReturn(Optional.of(new RefreshToken("user-id-device-1", "valid-refresh", "user-id")));
+			given(jwtProvider.generateAccessToken("user-id")).willReturn("new-access-token");
 
 			String result = tokenService.reissueAccessToken("valid-refresh");
 
@@ -145,13 +151,28 @@ class TokenServiceTest {
 		}
 
 		@Test
+		@DisplayName("저장된 Refresh Token에 사용자 ID가 없으면 null을 반환하고 토큰을 삭제한다")
+		void reissueFailWhenStoredRefreshTokenHasNoUserId() {
+			String refreshToken = "legacy-refresh";
+			given(jwtProvider.validateToken(refreshToken)).willReturn(true);
+			given(loadRefreshTokenPort.findByRefreshToken(refreshToken))
+					.willReturn(Optional.of(new RefreshToken("legacy-key", refreshToken, null)));
+
+			String result = tokenService.reissueAccessToken(refreshToken);
+
+			assertThat(result).isNull();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken(refreshToken);
+			then(jwtProvider).should(never()).generateAccessToken(anyString());
+		}
+
+		@Test
 		@DisplayName("유효한 Refresh Token이면 모바일용 재발급 결과를 반환한다")
 		void reissueTokensReturnsMobileResult() {
 			String refreshToken = "refresh-token";
-			RefreshToken stored = new RefreshToken("user@example.com-device", refreshToken, "user-1");
+			RefreshToken stored = new RefreshToken("user-1-device", refreshToken, "user-1");
 			given(jwtProvider.validateToken(refreshToken)).willReturn(true);
 			given(loadRefreshTokenPort.findByRefreshToken(refreshToken)).willReturn(Optional.of(stored));
-			given(jwtProvider.generateAccessToken("user@example.com")).willReturn("new-access");
+			given(jwtProvider.generateAccessToken("user-1")).willReturn("new-access");
 
 			ReissueResult result = tokenService.reissueTokens(refreshToken);
 
@@ -159,6 +180,21 @@ class TokenServiceTest {
 			assertThat(result.refreshToken()).isEqualTo(refreshToken);
 			assertThat(result.accessTokenExpiresIn()).isGreaterThan(0L);
 			assertThat(result.refreshTokenExpiresIn()).isGreaterThan(0L);
+		}
+
+		@Test
+		@DisplayName("모바일 재발급 시 저장된 Refresh Token에 사용자 ID가 없으면 null을 반환하고 토큰을 삭제한다")
+		void reissueTokensFailWhenStoredRefreshTokenHasNoUserId() {
+			String refreshToken = "legacy-refresh";
+			given(jwtProvider.validateToken(refreshToken)).willReturn(true);
+			given(loadRefreshTokenPort.findByRefreshToken(refreshToken))
+					.willReturn(Optional.of(new RefreshToken("legacy-key", refreshToken, "")));
+
+			ReissueResult result = tokenService.reissueTokens(refreshToken);
+
+			assertThat(result).isNull();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken(refreshToken);
+			then(jwtProvider).should(never()).generateAccessToken(anyString());
 		}
 	}
 
@@ -169,9 +205,9 @@ class TokenServiceTest {
 		@Test
 		@DisplayName("로그아웃 시 Refresh Token을 삭제한다")
 		void logoutSuccess() {
-			tokenService.logout("test@piku.store", "device-1");
+			tokenService.logout("user-id", "device-1");
 
-			then(deleteRefreshTokenPort).should().deleteById("test@piku.store-device-1");
+			then(deleteRefreshTokenPort).should().deleteById("user-id-device-1");
 		}
 
 		@Test
