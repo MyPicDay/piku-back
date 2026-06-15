@@ -1,5 +1,9 @@
 package com.pikume.back.creative.adapter.in.web;
 
+import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
+import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.service.RedisService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,10 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
-import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.service.RedisService;
 
 import java.util.Map;
 

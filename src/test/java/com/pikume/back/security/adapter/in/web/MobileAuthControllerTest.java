@@ -49,7 +49,6 @@ class MobileAuthControllerTest {
 	private AuthUserResponseMapper authUserResponseMapper;
 
 	private MockMvc mockMvc;
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {

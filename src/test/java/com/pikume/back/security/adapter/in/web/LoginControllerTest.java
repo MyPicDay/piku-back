@@ -193,7 +193,7 @@ class LoginControllerTest {
 
 	@Test
 	@DisplayName("POST /api/auth/logout은 성공 시 MessageResponse를 반환한다")
-	void logoutReturnsMessageResponseWhenSuccessful() throws Exception {
+	void logoutReturnsMessageResponseWhenSuccessful() {
 		CookieSpec deleteCookie = new CookieSpec("refreshToken", "", true, true, "/", 0, "None");
 		given(loginUseCase.removeCookieRefreshToken()).willReturn(deleteCookie);
 		MockHttpServletRequest request = new MockHttpServletRequest();
