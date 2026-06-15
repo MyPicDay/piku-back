@@ -46,7 +46,6 @@ class MobileAuthSecurityConfigTest {
 				new TokenDto("access-token", "refresh-token"),
 				new AuthenticatedUserInfo(
 						"user-1",
-						"user@example.com",
 						"pikume",
 						"https://assets.example.com/avatar.png"));
 		given(loginUseCase.login(any(), anyString())).willReturn(result);

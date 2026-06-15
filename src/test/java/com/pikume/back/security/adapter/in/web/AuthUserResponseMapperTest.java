@@ -29,7 +29,6 @@ class AuthUserResponseMapperTest {
 	void convertsLoginUserAvatarPathToDisplayUrl() {
 		AuthenticatedUserInfo rawUserInfo = new AuthenticatedUserInfo(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
 		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.png"))
@@ -46,7 +45,6 @@ class AuthUserResponseMapperTest {
 	void convertsCurrentUserPrincipalAvatarPathToDisplayUrl() {
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
 		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.png"))

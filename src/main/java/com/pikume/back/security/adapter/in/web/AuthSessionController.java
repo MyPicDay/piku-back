@@ -35,7 +35,7 @@ public class AuthSessionController {
 	public ResponseEntity<?> getCurrentUser(
 			@AuthenticationPrincipal CustomUserDetails userDetails,
 			HttpServletRequest request) {
-		if (userDetails == null || userDetails.getEmail() == null) {
+		if (userDetails == null || userDetails.getId() == null) {
 			ProblemDetail problemDetail = problemDetailFactory.create(
 					SecurityProblemType.UNAUTHENTICATED,
 					"인증이 필요합니다.",

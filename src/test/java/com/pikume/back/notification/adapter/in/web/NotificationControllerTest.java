@@ -48,7 +48,7 @@ class NotificationControllerTest {
 
 		ResponseEntity<?> response = notificationController.markAsRead(
 				1L,
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
@@ -65,7 +65,7 @@ class NotificationControllerTest {
 
 		ResponseEntity<?> response = notificationController.deleteNotification(
 				1L,
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);

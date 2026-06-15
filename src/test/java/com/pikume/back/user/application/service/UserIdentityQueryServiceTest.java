@@ -39,7 +39,6 @@ class UserIdentityQueryServiceTest {
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");
-		assertThat(result.get().email()).isEqualTo("user@example.com");
 		assertThat(result.get().passwordHash()).isEqualTo("encoded-password");
 		assertThat(result.get().avatarPath()).isEqualTo("public/characters/fixed/base_image_1.png");
 	}
@@ -59,7 +58,6 @@ class UserIdentityQueryServiceTest {
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");
-		assertThat(result.get().email()).isEqualTo("user@example.com");
 		assertThat(result.get().passwordHash()).isEqualTo("encoded-password");
 		assertThat(result.get().nickname()).isEqualTo("pikume");
 	}

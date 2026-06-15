@@ -125,12 +125,10 @@ class LoginControllerTest {
 				new TokenDto("access-token", "refresh-token"),
 				new AuthenticatedUserInfo(
 						"user-1",
-						"user@example.com",
 						"pikume",
 						"public/characters/fixed/base_image_1.png"));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		CookieSpec cookieSpec = new CookieSpec("refreshToken", "refresh-token", true, true, "/", 3600, "Lax");
@@ -145,7 +143,7 @@ class LoginControllerTest {
 				.andExpect(header().string("Authorization", "Bearer access-token"))
 				.andExpect(jsonPath("$.message").value("로그인 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
-				.andExpect(jsonPath("$.user.email").value("user@example.com"))
+				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));
 	}
@@ -202,7 +200,7 @@ class LoginControllerTest {
 		request.addHeader(AuthConstants.DEVICE_ID_HEADER, "ios");
 
 		ResponseEntity<?> response = loginController.logout(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				request);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);

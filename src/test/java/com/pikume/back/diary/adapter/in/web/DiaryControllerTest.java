@@ -336,7 +336,7 @@ class DiaryControllerTest {
 		@Override
 		public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
 				NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-			return new CustomUserDetails("user1", "user@example.com", "pikume");
+			return new CustomUserDetails("user1", "pikume");
 		}
 	}
 }

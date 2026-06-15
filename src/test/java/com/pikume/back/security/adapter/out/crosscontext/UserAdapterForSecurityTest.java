@@ -30,7 +30,6 @@ class UserAdapterForSecurityTest {
 		given(queryUserIdentityUseCase.findByEmail("user@example.com"))
 				.willReturn(Optional.of(new UserIdentityView(
 						"user-id",
-						"user@example.com",
 						"encoded-password",
 						"pikume",
 						"public/characters/fixed/base_image_1.png")));
@@ -39,7 +38,6 @@ class UserAdapterForSecurityTest {
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");
-		assertThat(result.get().email()).isEqualTo("user@example.com");
 		assertThat(result.get().password()).isEqualTo("encoded-password");
 		assertThat(result.get().avatarPath())
 				.isEqualTo("public/characters/fixed/base_image_1.png");
@@ -51,7 +49,6 @@ class UserAdapterForSecurityTest {
 		given(queryUserIdentityUseCase.findById("user-id"))
 				.willReturn(Optional.of(new UserIdentityView(
 						"user-id",
-						"user@example.com",
 						"encoded-password",
 						"pikume",
 						"public/characters/fixed/base_image_1.png")));
@@ -60,7 +57,6 @@ class UserAdapterForSecurityTest {
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");
-		assertThat(result.get().email()).isEqualTo("user@example.com");
 		assertThat(result.get().password()).isEqualTo("encoded-password");
 		assertThat(result.get().nickname()).isEqualTo("pikume");
 	}

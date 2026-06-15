@@ -52,7 +52,6 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 				new TokenDto(accessToken, refreshToken),
 				new AuthenticatedUserInfo(
 						user.id(),
-						user.email(),
 						user.nickname(),
 						user.avatarPath()));
 	}

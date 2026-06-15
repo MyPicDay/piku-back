@@ -54,7 +54,7 @@ class CommentControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		userDetails = new CustomUserDetails("viewer-id", "viewer@example.com", "viewer");
+		userDetails = new CustomUserDetails("viewer-id", "viewer");
 		mockMvc = MockMvcBuilders.standaloneSetup(commentController)
 				.setCustomArgumentResolvers(
 						new AuthenticationPrincipalResolver(userDetails),

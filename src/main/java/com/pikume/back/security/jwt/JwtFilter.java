@@ -72,7 +72,7 @@ public class JwtFilter extends OncePerRequestFilter {
 				});
 
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
-				user.id(), user.email(), user.nickname(), user.avatarPath());
+				user.id(), user.nickname(), user.avatarPath());
 
 		Authentication authentication = new UsernamePasswordAuthenticationToken(
 				userDetails, null, userDetails.getAuthorities());

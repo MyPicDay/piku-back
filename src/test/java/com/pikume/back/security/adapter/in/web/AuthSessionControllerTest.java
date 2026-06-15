@@ -30,12 +30,10 @@ class AuthSessionControllerTest {
 	void getCurrentUserReturnsLoginResponseShape() throws Exception {
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		org.mockito.BDDMockito.given(authUserResponseMapper.toDisplayUserInfo(userDetails)).willReturn(displayUserInfo);
@@ -46,7 +44,7 @@ class AuthSessionControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 검증 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
-				.andExpect(jsonPath("$.user.email").value("user@example.com"))
+				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.nickname").value("pikume"))
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));

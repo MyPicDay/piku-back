@@ -13,7 +13,6 @@ class CustomUserDetailsTest {
 	void usernameReturnsUserId() {
 		CustomUserDetails userDetails = new CustomUserDetails(
 				"user-id",
-				"user@example.com",
 				"pikume");
 
 		assertThat(userDetails.getUsername()).isEqualTo("user-id");

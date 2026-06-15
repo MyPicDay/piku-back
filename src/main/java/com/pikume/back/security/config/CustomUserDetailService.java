@@ -23,7 +23,6 @@ public class CustomUserDetailService implements UserDetailsService {
 
 		return CustomUserDetails.withAvatarPath(
 				user.id(),
-				user.email(),
 				user.nickname(),
 				user.avatarPath());
 	}

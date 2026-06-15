@@ -30,7 +30,6 @@ public class UserAdapterForSecurity implements LoadUserForAuthPort {
 	private AuthUserView toAuthUserView(UserIdentityView user) {
 		return new AuthUserView(
 				user.id(),
-				user.email(),
 				user.passwordHash(),
 				user.nickname(),
 				user.avatarPath());

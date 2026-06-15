@@ -48,7 +48,7 @@ class AiGeneratorControllerTest {
 
 		ResponseEntity<Object> response = aiGeneratorController.generateDiaryImage(
 				Map.of("content", "test diary"),
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(429);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
@@ -68,7 +68,7 @@ class AiGeneratorControllerTest {
 
 		ResponseEntity<Object> response = aiGeneratorController.generateDiaryImage(
 				Map.of("content", "test diary"),
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(500);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);

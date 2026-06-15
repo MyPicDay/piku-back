@@ -59,7 +59,7 @@ class TokenServiceTest {
 		@DisplayName("유효한 이메일과 비밀번호로 로그인 성공 시 토큰을 반환한다")
 		void loginSuccess() {
 			LoginRequest request = new LoginRequest("test@piku.store", "password123");
-			AuthUserView user = new AuthUserView("user-id", "test@piku.store", "encodedPassword", "testUser", "avatar.png");
+			AuthUserView user = new AuthUserView("user-id", "encodedPassword", "testUser", "avatar.png");
 			given(loadUserForAuthPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
 			given(passwordEncoder.matches("password123", "encodedPassword")).willReturn(true);
 			given(jwtProvider.generateAccessToken("user-id")).willReturn("access-token");
@@ -71,7 +71,8 @@ class TokenServiceTest {
 			ArgumentCaptor<RefreshToken> refreshTokenCaptor = ArgumentCaptor.forClass(RefreshToken.class);
 			assertThat(result.tokens().getAccessToken()).isEqualTo("access-token");
 			assertThat(result.tokens().getRefreshToken()).isEqualTo("refresh-token");
-			assertThat(result.userInfo().email()).isEqualTo("test@piku.store");
+			assertThat(result.userInfo().id()).isEqualTo("user-id");
+			assertThat(result.userInfo().nickname()).isEqualTo("testUser");
 			assertThat(result.userInfo().avatarPath()).isEqualTo("avatar.png");
 			then(saveRefreshTokenPort).should().save(refreshTokenCaptor.capture());
 			assertThat(refreshTokenCaptor.getValue().getKey()).isEqualTo("user-id-device-1");
@@ -93,7 +94,7 @@ class TokenServiceTest {
 		@DisplayName("비밀번호가 일치하지 않을 때 예외가 발생한다")
 		void loginFailPasswordMismatch() {
 			LoginRequest request = new LoginRequest("test@piku.store", "wrongPassword");
-			AuthUserView user = new AuthUserView("user-id", "test@piku.store", "encodedPassword", "testUser", "avatar.png");
+			AuthUserView user = new AuthUserView("user-id", "encodedPassword", "testUser", "avatar.png");
 			given(loadUserForAuthPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
 			given(passwordEncoder.matches("wrongPassword", "encodedPassword")).willReturn(false);
 

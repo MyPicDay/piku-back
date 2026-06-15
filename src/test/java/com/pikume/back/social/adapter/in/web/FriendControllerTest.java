@@ -56,7 +56,7 @@ class FriendControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		userDetails = new CustomUserDetails("user-1", "user@example.com", "user");
+		userDetails = new CustomUserDetails("user-1", "user");
 		requestMetaInfo = new RequestMetaInfo(
 				"https",
 				"localhost",

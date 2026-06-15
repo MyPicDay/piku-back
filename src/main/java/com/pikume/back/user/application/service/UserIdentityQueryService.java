@@ -32,7 +32,6 @@ public class UserIdentityQueryService implements QueryUserIdentityUseCase {
 	private UserIdentityView toIdentityView(User user) {
 		return new UserIdentityView(
 				user.getId(),
-				user.getEmail(),
 				user.getPassword(),
 				user.getNickname(),
 				user.getAvatar());

@@ -68,7 +68,7 @@ class AuthSessionSecurityIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 검증 성공"))
 				.andExpect(jsonPath("$.user.id").value(user.getId()))
-				.andExpect(jsonPath("$.user.email").value(user.getEmail()))
+				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.nickname").value(user.getNickname()))
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("http://localhost:9000/piku/public/characters/fixed/base_image_1.png"));
