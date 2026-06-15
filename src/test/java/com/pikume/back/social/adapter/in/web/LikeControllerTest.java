@@ -1,5 +1,13 @@
 package com.pikume.back.social.adapter.in.web;
 
+import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.dto.RequestMetaInfo;
+import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.exception.GlobalExceptionHandler;
+import com.pikume.back.global.util.RequestMetaMapper;
+import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
+import com.pikume.back.social.application.port.in.LikeUseCase;
+import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,32 +16,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
 import org.springframework.core.MethodParameter;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
-import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
-import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
-import com.pikume.back.social.application.dto.LikeResult;
-import com.pikume.back.social.application.port.in.LikeUseCase;
-import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
-import com.pikume.back.social.domain.like.exception.LikeErrorCode;
-import com.pikume.back.social.domain.like.exception.LikeException;
 
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -57,7 +51,7 @@ class LikeControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		userDetails = new CustomUserDetails("user-1", "user@example.com", "user");
+		userDetails = new CustomUserDetails("user-1", "user");
 		mockMvc = MockMvcBuilders.standaloneSetup(likeController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
 				.setControllerAdvice(

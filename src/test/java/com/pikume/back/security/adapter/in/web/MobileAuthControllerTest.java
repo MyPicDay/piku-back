@@ -49,7 +49,6 @@ class MobileAuthControllerTest {
 	private AuthUserResponseMapper authUserResponseMapper;
 
 	private MockMvc mockMvc;
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {
@@ -70,12 +69,10 @@ class MobileAuthControllerTest {
 				new TokenDto("access-token", "refresh-token"),
 				new AuthenticatedUserInfo(
 						"user-1",
-						"user@example.com",
 						"pikume",
 						"public/characters/fixed/base_image_1.png"));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
-				"user@example.com",
 				"pikume",
 				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
 		given(loginUseCase.login(any(LoginRequest.class), anyString())).willReturn(result);
@@ -90,6 +87,7 @@ class MobileAuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("로그인 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
+				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"))
 				.andExpect(jsonPath("$.tokens.accessToken").value("access-token"))

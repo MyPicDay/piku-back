@@ -58,7 +58,7 @@ class UserControllerTest {
 				.updateProfileImage("user1", 10L);
 
 		ResponseEntity<?> response = userController.updateProfileImage(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				10L);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
@@ -73,7 +73,7 @@ class UserControllerTest {
 	@DisplayName("PUT /api/users/profile-image는 성공 시 200을 반환한다")
 	void updateProfileImageReturnsOkWhenImageExists() {
 		ResponseEntity<?> response = userController.updateProfileImage(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				1L);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -87,7 +87,7 @@ class UserControllerTest {
 
 		ResponseEntity<?> response = userController.checkNickname(
 				"taken",
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(409);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
@@ -108,7 +108,7 @@ class UserControllerTest {
 						"old-nickname"));
 
 		ResponseEntity<?> response = userController.changeNickname(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				new UpdateProfileRequest("new-nickname", 1L));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(409);
@@ -130,7 +130,7 @@ class UserControllerTest {
 						"old-nickname"));
 
 		ResponseEntity<?> response = userController.changeNickname(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				new UpdateProfileRequest("taken", null));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(409);
@@ -152,7 +152,7 @@ class UserControllerTest {
 						"old-nickname"));
 
 		ResponseEntity<?> response = userController.changeNickname(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				new UpdateProfileRequest(null, null));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(400);
@@ -174,7 +174,7 @@ class UserControllerTest {
 						"old-nickname"));
 
 		ResponseEntity<?> response = userController.changeNickname(
-				new CustomUserDetails("user1", "user@example.com", "pikume"),
+				new CustomUserDetails("user1", "pikume"),
 				new UpdateProfileRequest("new-nickname", 999L));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);

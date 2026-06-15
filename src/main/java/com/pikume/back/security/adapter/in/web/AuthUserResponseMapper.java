@@ -19,7 +19,6 @@ public class AuthUserResponseMapper {
 		}
 		return new UserInfo(
 				userInfo.id(),
-				userInfo.email(),
 				userInfo.nickname(),
 				imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatarPath()));
 	}
@@ -30,7 +29,6 @@ public class AuthUserResponseMapper {
 		}
 		return new UserInfo(
 				userDetails.getId(),
-				userDetails.getEmail(),
 				userDetails.getNickname(),
 				imagePathToUrlConverter.userAvatarImageUrl(userDetails.getAvatarPath()));
 	}

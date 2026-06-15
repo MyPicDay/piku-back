@@ -17,13 +17,12 @@ public class CustomUserDetailService implements UserDetailsService {
 	}
 
 	@Override
-	public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-		AuthUserView user = loadUserForAuthPort.findByEmail(email)
-				.orElseThrow(() -> new UsernameNotFoundException("이메일 없음"));
+	public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
+		AuthUserView user = loadUserForAuthPort.findById(userId)
+				.orElseThrow(() -> new UsernameNotFoundException("사용자 없음"));
 
 		return CustomUserDetails.withAvatarPath(
 				user.id(),
-				user.email(),
 				user.nickname(),
 				user.avatarPath());
 	}

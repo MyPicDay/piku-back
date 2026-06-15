@@ -54,13 +54,13 @@ class AuthSessionSecurityIntegrationTest {
 
 	@Test
 	@DisplayName("GET /api/auth/me는 유효한 Bearer 토큰의 사용자 정보를 반환한다")
-	void getCurrentUserReturnsUserForValidBearerToken() throws Exception {
+	void getCurrentUserReturnsUserForBearerTokenSubjectUserId() throws Exception {
 		User user = userJpaRepository.saveAndFlush(new User(
 				"session-user@example.com",
 				"encoded-password",
 				"session-user",
 				"public/characters/fixed/base_image_1.png"));
-		String accessToken = jwtProvider.generateAccessToken(user.getEmail());
+		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/auth/me")
 						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
@@ -68,7 +68,7 @@ class AuthSessionSecurityIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 검증 성공"))
 				.andExpect(jsonPath("$.user.id").value(user.getId()))
-				.andExpect(jsonPath("$.user.email").value(user.getEmail()))
+				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.nickname").value(user.getNickname()))
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("http://localhost:9000/piku/public/characters/fixed/base_image_1.png"));

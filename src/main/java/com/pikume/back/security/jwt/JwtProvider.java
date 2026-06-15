@@ -32,17 +32,17 @@ public class JwtProvider {
 	/*
 	 * JWT Access Token 생성
 	 */
-	public String generateAccessToken(String email) {
-		log.info("[JWT Access Token 생성] 이메일 : {}", email);
+	public String generateAccessToken(String userId) {
+		log.debug("event=access_token_generation_requested userId={}", userId);
 
-		Claims claims = Jwts.claims().setSubject(email);
+		Claims claims = Jwts.claims().setSubject(userId);
 		Date now = new Date();
 		Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
 		Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
 		claims.put("roles", List.of("ROLE_USER"));
 
-		log.debug("[JWT Access Token 생성] 완료 : 만료시간={}", expiry);
+		log.debug("event=access_token_generated userId={} expiresAt={}", userId, expiry);
 
 		return Jwts.builder()
 				.setClaims(claims)
@@ -56,13 +56,13 @@ public class JwtProvider {
 	 * JWT Refresh Token 생성
 	 */
 	public String generateRefreshToken() {
-		log.info("[JWT Refresh Token 생성] 생성 시작");
+		log.debug("event=refresh_token_generation_requested");
 
 		Date now = new Date();
 		Date expiry = new Date(now.getTime() + AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME);
 		Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
-		log.debug("[JWT Refresh Token 생성] 완료 : 만료시간={}", expiry);
+		log.debug("event=refresh_token_generated expiresAt={}", expiry);
 
 		return Jwts.builder()
 				.setExpiration(expiry)
@@ -71,23 +71,23 @@ public class JwtProvider {
 	}
 
 	/*
-	 * JWT에서 이메일 추출
+	 * JWT에서 사용자 ID 추출
 	 */
-	public String getEmailFromToken(String token) {
+	public String getUserIdFromToken(String token) {
 		token = cleanToken(token);
-		log.debug("[JWT 파싱] 이메일 추출 시작");
+		log.debug("event=jwt_subject_parse_requested");
 
 		Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
-		String email = Jwts.parserBuilder()
+		String userId = Jwts.parserBuilder()
 				.setSigningKey(key)
 				.build()
 				.parseClaimsJws(token)
 				.getBody()
 				.getSubject();
 
-		log.debug("[JWT 파싱 완료] 이메일: {}", email);
-		return email;
+		log.debug("event=jwt_subject_parsed userId={}", userId);
+		return userId;
 	}
 
 	/*
@@ -102,11 +102,11 @@ public class JwtProvider {
 					.setSigningKey(key)
 					.build()
 					.parseClaimsJws(token);
-			log.debug("[JWT 유효성 검사] 유효성 검사 통과");
+			log.debug("event=jwt_validation_succeeded");
 			return true;
 
 		} catch (Exception e) {
-			log.warn("[JWT 유효성 검사 실패] 에러: {}", e.getMessage());
+			log.warn("event=jwt_validation_failed reason={}", e.getClass().getSimpleName());
 			return false;
 		}
 	}
@@ -120,9 +120,9 @@ public class JwtProvider {
 
 	public Authentication getAuthentication(String token) {
 		token = cleanToken(token);
-		String email = getEmailFromToken(token);
+		String userId = getUserIdFromToken(token);
 
-		CustomUserDetails userDetails = (CustomUserDetails) customUserDetailService.loadUserByUsername(email);
+		CustomUserDetails userDetails = (CustomUserDetails) customUserDetailService.loadUserByUsername(userId);
 
 		return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 	}

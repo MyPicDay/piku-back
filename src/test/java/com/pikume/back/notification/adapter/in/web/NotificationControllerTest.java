@@ -43,12 +43,12 @@ class NotificationControllerTest {
 
 	@Test
 	@DisplayName("PATCH /api/sse/{notificationId}는 알림이 없으면 Problem Details를 반환한다")
-	void markAsReadReturnsProblemDetailWhenNotificationDoesNotExist() throws Exception {
+	void markAsReadReturnsProblemDetailWhenNotificationDoesNotExist() {
 		given(notificationUseCase.markAsRead(1L, "user1")).willReturn(false);
 
 		ResponseEntity<?> response = notificationController.markAsRead(
 				1L,
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
@@ -60,12 +60,12 @@ class NotificationControllerTest {
 
 	@Test
 	@DisplayName("DELETE /api/sse/{notificationId}는 알림이 없으면 Problem Details를 반환한다")
-	void deleteNotificationReturnsProblemDetailWhenNotificationDoesNotExist() throws Exception {
+	void deleteNotificationReturnsProblemDetailWhenNotificationDoesNotExist() {
 		given(notificationUseCase.deleteNotification(1L, "user1")).willReturn(false);
 
 		ResponseEntity<?> response = notificationController.deleteNotification(
 				1L,
-				new CustomUserDetails("user1", "user@example.com", "pikume"));
+				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
