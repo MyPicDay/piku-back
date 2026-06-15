@@ -131,10 +131,10 @@ class MinioPhotoStorageAdapterTest {
 				"http://minio:9000",
 				"https://assets.example.com");
 		byte[] bytes = "fixed-character".getBytes(StandardCharsets.UTF_8);
-		given(s3Client.getObjectAsBytes(getObjectWithKey("public/characters/fixed/base_image_1.png")))
+		given(s3Client.getObjectAsBytes(getObjectWithKey("public/characters/fixed/base_image_1.webp")))
 				.willReturn(ResponseBytes.fromByteArray(GetObjectResponse.builder().build(), bytes));
 
-		byte[] result = adapter.loadObject("public/characters/fixed/base_image_1.png");
+		byte[] result = adapter.loadObject("public/characters/fixed/base_image_1.webp");
 
 		assertThat(result).isEqualTo(bytes);
 	}

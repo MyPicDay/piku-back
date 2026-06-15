@@ -31,11 +31,11 @@ class AuthSessionControllerTest {
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.png");
+				"public/characters/fixed/base_image_1.webp");
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
 				"pikume",
-				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 		org.mockito.BDDMockito.given(authUserResponseMapper.toDisplayUserInfo(userDetails)).willReturn(displayUserInfo);
 		MockMvc mockMvc = mockMvcWith(userDetails);
 
@@ -47,7 +47,7 @@ class AuthSessionControllerTest {
 				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.nickname").value("pikume"))
 				.andExpect(jsonPath("$.user.avatarUrl")
-						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp"));
 	}
 
 	@Test

@@ -33,20 +33,20 @@ class MinioFixedCharacterAssetCatalogAdapterTest {
 			given(s3Client.listObjectsV2(fixedCharacterListRequest()))
 					.willReturn(ListObjectsV2Response.builder()
 							.contents(
-									S3Object.builder().key("public/characters/fixed/base_image_2.png").build(),
-									S3Object.builder().key("public/characters/fixed/group/base_image_3.png").build(),
+									S3Object.builder().key("public/characters/fixed/base_image_2.webp").build(),
+									S3Object.builder().key("public/characters/fixed/group/base_image_3.webp").build(),
 									S3Object.builder().key("public/characters/fixed/").build(),
 									S3Object.builder().key("public/characters/fixed/readme.txt").build(),
-									S3Object.builder().key("public/characters/fixed/base_image_1.png").build())
+									S3Object.builder().key("public/characters/fixed/base_image_1.webp").build())
 							.isTruncated(false)
 							.build());
 
 			List<String> result = adapter.listFixedCharacterObjectKeys();
 
 			assertThat(result).containsExactly(
-					"public/characters/fixed/base_image_1.png",
-					"public/characters/fixed/base_image_2.png",
-					"public/characters/fixed/group/base_image_3.png");
+					"public/characters/fixed/base_image_1.webp",
+					"public/characters/fixed/base_image_2.webp",
+					"public/characters/fixed/group/base_image_3.webp");
 		}
 
 	private ListObjectsV2Request fixedCharacterListRequest() {

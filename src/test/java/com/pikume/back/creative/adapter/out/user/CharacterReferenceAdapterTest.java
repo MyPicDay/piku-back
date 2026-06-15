@@ -38,14 +38,14 @@ class CharacterReferenceAdapterTest {
 	@DisplayName("사용자 고정 캐릭터 아바타 object를 Base64 creative 참조 이미지로 변환한다")
 	void returnsCharacterReferenceImage() {
 		given(queryUserSummaryUseCase.getUserSummaries(Set.of("user-1")))
-				.willReturn(Map.of("user-1", userSummary("public/characters/fixed/base_image_1.png")));
-		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.png"))
+				.willReturn(Map.of("user-1", userSummary("public/characters/fixed/base_image_1.webp")));
+		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
 		var result = characterReferenceAdapter.findByUserId("user-1");
 
 		assertThat(result).isPresent();
-		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.png");
+		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.webp");
 		assertThat(result.get().imageBase64())
 				.isEqualTo(Base64.getEncoder().encodeToString("fixed-character".getBytes(StandardCharsets.UTF_8)));
 	}
@@ -54,28 +54,28 @@ class CharacterReferenceAdapterTest {
 	@DisplayName("legacy 고정 캐릭터 아바타 path는 canonical object key로 읽는다")
 	void normalizesLegacyFixedCharacterAvatarPath() {
 		given(queryUserSummaryUseCase.getUserSummaries(Set.of("user-1")))
-				.willReturn(Map.of("user-1", userSummary("characters/fixed/base_image_1.png")));
-		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.png"))
+				.willReturn(Map.of("user-1", userSummary("characters/fixed/base_image_1.webp")));
+		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
 		var result = characterReferenceAdapter.findByUserId("user-1");
 
 		assertThat(result).isPresent();
-		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.png");
+		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test
 	@DisplayName("같은 fixed character object key는 한 번만 storage에서 읽고 캐시한다")
 	void cachesFixedCharacterReferenceImage() {
 		given(queryUserSummaryUseCase.getUserSummaries(Set.of("user-1")))
-				.willReturn(Map.of("user-1", userSummary("public/characters/fixed/base_image_1.png")));
-		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.png"))
+				.willReturn(Map.of("user-1", userSummary("public/characters/fixed/base_image_1.webp")));
+		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
 		characterReferenceAdapter.findByUserId("user-1");
 		characterReferenceAdapter.findByUserId("user-1");
 
-		verify(loadObjectPort, times(1)).loadObject("public/characters/fixed/base_image_1.png");
+		verify(loadObjectPort, times(1)).loadObject("public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test

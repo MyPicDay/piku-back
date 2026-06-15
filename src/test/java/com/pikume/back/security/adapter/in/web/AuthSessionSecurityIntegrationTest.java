@@ -59,7 +59,7 @@ class AuthSessionSecurityIntegrationTest {
 				"session-user@example.com",
 				"encoded-password",
 				"session-user",
-				"public/characters/fixed/base_image_1.png"));
+				"public/characters/fixed/base_image_1.webp"));
 		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/auth/me")
@@ -71,7 +71,7 @@ class AuthSessionSecurityIntegrationTest {
 				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.nickname").value(user.getNickname()))
 				.andExpect(jsonPath("$.user.avatarUrl")
-						.value("http://localhost:9000/piku/public/characters/fixed/base_image_1.png"));
+						.value("http://localhost:9000/piku/public/characters/fixed/base_image_1.webp"));
 	}
 
 	@Test

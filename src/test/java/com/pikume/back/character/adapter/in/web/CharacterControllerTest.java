@@ -54,14 +54,14 @@ class CharacterControllerTest {
 				.willReturn(List.of(new CharacterResult(
 						1L,
 						null,
-						"https://assets.example.com/piku/public/characters/fixed/base_image_1.png",
+						"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp",
 						CharacterCreationType.FIXED)));
 
 		mockMvc.perform(get("/api/characters/fixed"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].id").value(1))
 				.andExpect(jsonPath("$[0].displayImageUrl")
-						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"))
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp"))
 				.andExpect(jsonPath("$[0].type").value("FIXED"));
 	}
 

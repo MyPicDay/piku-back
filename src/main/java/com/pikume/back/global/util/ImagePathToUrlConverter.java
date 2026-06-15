@@ -49,7 +49,7 @@ public class ImagePathToUrlConverter {
     /**
      * Character 이미지 경로를 storage public URL로 변환합니다.
      *
-     * @param imagePath DB에 저장된 이미지 경로 (예: "characters/fixed/base_image_1.png")
+     * @param imagePath DB에 저장된 이미지 경로 (예: "characters/fixed/base_image_1.webp")
      * @param requestMetaInfo HttpRequest 정보
      * @return 완성된 storage public URL, 변환 불가 시 빈 문자열
      */

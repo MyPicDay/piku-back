@@ -29,34 +29,34 @@ class ImagePathToUrlConverterTest {
 	@Test
 	@DisplayName("canonical fixed character object key는 storage public URL로 변환한다")
 	void convertsCanonicalFixedCharacterObjectKeyToPublicStorageUrl() {
-		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.png", true))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.userAvatarImageUrl("public/characters/fixed/base_image_1.png", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp", requestMetaInfo);
 
-		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test
 	@DisplayName("fixed character 파일명은 canonical object key로 정규화한 뒤 public URL로 변환한다")
 	void convertsFixedCharacterFileNameToPublicStorageUrl() {
-		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.png", true))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.fixedCharacterImageUrl("base_image_1.png", requestMetaInfo);
+		String result = converter.fixedCharacterImageUrl("base_image_1.webp", requestMetaInfo);
 
-		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test
 	@DisplayName("legacy fixed character avatar path는 canonical object key로 정규화한 뒤 public URL로 변환한다")
 	void convertsLegacyFixedCharacterAvatarPathToPublicStorageUrl() {
-		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.png", true))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.userAvatarImageUrl("characters/fixed/base_image_1.png", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("characters/fixed/base_image_1.webp", requestMetaInfo);
 
-		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test

@@ -132,15 +132,15 @@ class UserProfileCommandServiceTest {
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 1L);
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
 			given(characterPort.findFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
 			UpdateProfileResult result = service.updateProfile(command);
 
 			assertThat(result.success()).isTrue();
-			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_1.png");
+			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_1.webp");
 			verify(saveUserPort).save(argThat(savedUser ->
-					"public/characters/fixed/base_image_1.png".equals(savedUser.getAvatar())));
+					"public/characters/fixed/base_image_1.webp".equals(savedUser.getAvatar())));
 		}
 	}
 
@@ -154,13 +154,13 @@ class UserProfileCommandServiceTest {
 			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
 			given(loadUserPort.findById("user-1")).willReturn(Optional.of(user));
 			given(characterPort.findFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 			given(saveUserPort.save(any(User.class))).willReturn(user);
 
 			service.updateProfileImage("user-1", 1L);
 
 			verify(saveUserPort).save(argThat(savedUser ->
-					"public/characters/fixed/base_image_1.png".equals(savedUser.getAvatar())));
+					"public/characters/fixed/base_image_1.webp".equals(savedUser.getAvatar())));
 		}
 
 		@Test

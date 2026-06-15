@@ -37,7 +37,7 @@ class AvatarTest {
 		@Test
 		@DisplayName("유효한 path가 있으면 빈 아바타가 아니다")
 		void validPath() {
-			Avatar avatar = new Avatar("characters/fixed/base_image_1.png");
+			Avatar avatar = new Avatar("characters/fixed/base_image_1.webp");
 			assertThat(avatar.isEmpty()).isFalse();
 		}
 	}
@@ -49,16 +49,16 @@ class AvatarTest {
 		@Test
 		@DisplayName("같은 path의 두 아바타는 같다")
 		void samePath() {
-			Avatar a = new Avatar("characters/fixed/base_image_1.png");
-			Avatar b = new Avatar("characters/fixed/base_image_1.png");
+			Avatar a = new Avatar("characters/fixed/base_image_1.webp");
+			Avatar b = new Avatar("characters/fixed/base_image_1.webp");
 			assertThat(a.isSameAs(b)).isTrue();
 		}
 
 		@Test
 		@DisplayName("다른 path의 두 아바타는 다르다")
 		void differentPath() {
-			Avatar a = new Avatar("characters/fixed/base_image_1.png");
-			Avatar b = new Avatar("characters/fixed/base_image_2.png");
+			Avatar a = new Avatar("characters/fixed/base_image_1.webp");
+			Avatar b = new Avatar("characters/fixed/base_image_2.webp");
 			assertThat(a.isSameAs(b)).isFalse();
 		}
 
@@ -72,7 +72,7 @@ class AvatarTest {
 		@Test
 		@DisplayName("null 아바타와 비교 시 - 자신이 비어있지 않으면 다르다")
 		void nullOtherWhenNotEmpty() {
-			Avatar avatar = new Avatar("characters/fixed/base_image_1.png");
+			Avatar avatar = new Avatar("characters/fixed/base_image_1.webp");
 			assertThat(avatar.isSameAs(null)).isFalse();
 		}
 
@@ -87,7 +87,7 @@ class AvatarTest {
 		@Test
 		@DisplayName("한쪽만 빈 아바타이면 다르다")
 		void oneEmpty() {
-			Avatar filled = new Avatar("characters/fixed/base_image_1.png");
+			Avatar filled = new Avatar("characters/fixed/base_image_1.webp");
 			Avatar empty = new Avatar(null);
 			assertThat(filled.isSameAs(empty)).isFalse();
 		}

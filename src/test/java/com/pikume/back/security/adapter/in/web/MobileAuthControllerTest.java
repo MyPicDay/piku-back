@@ -70,11 +70,11 @@ class MobileAuthControllerTest {
 				new AuthenticatedUserInfo(
 						"user-1",
 						"pikume",
-						"public/characters/fixed/base_image_1.png"));
+						"public/characters/fixed/base_image_1.webp"));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
 				"pikume",
-				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 		given(loginUseCase.login(any(LoginRequest.class), anyString())).willReturn(result);
 		given(authUserResponseMapper.toDisplayUserInfo(result.userInfo())).willReturn(displayUserInfo);
 
@@ -89,7 +89,7 @@ class MobileAuthControllerTest {
 				.andExpect(jsonPath("$.user.id").value("user-1"))
 				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.avatarUrl")
-						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"))
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp"))
 				.andExpect(jsonPath("$.tokens.accessToken").value("access-token"))
 				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"));
 	}

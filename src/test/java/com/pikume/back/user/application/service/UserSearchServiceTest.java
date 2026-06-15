@@ -47,12 +47,12 @@ class UserSearchServiceTest {
 		void returnsSearchResults() {
 			String keyword = "피쿠";
 			PageQuery pageQuery = PageQuery.of(0, 10);
-			User user = new User("user-1", "piku@test.com", "password", "피쿠유저", "characters/fixed/base_image_1.png");
+			User user = new User("user-1", "piku@test.com", "password", "피쿠유저", "characters/fixed/base_image_1.webp");
 			PageResult<User> userPage = new PageResult<>(List.of(user), 0, 10, 1);
 
 			given(userQueryPort.searchByName("%피쿠%", pageQuery)).willReturn(userPage);
-			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.png", requestMetaInfo))
-					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.webp", requestMetaInfo))
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
 			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
 
@@ -60,7 +60,7 @@ class UserSearchServiceTest {
 			UserSearchResult searchResult = result.getContent().get(0);
 			assertThat(searchResult.id()).isEqualTo("user-1");
 			assertThat(searchResult.nickname()).isEqualTo("피쿠유저");
-			assertThat(searchResult.avatar()).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+			assertThat(searchResult.avatar()).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 		}
 
 		@Test

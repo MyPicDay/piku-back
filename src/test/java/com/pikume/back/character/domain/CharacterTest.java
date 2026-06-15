@@ -43,9 +43,9 @@ class CharacterTest {
 		@Test
 		@DisplayName("imageUrl과 FIXED 타입으로 고정 캐릭터를 생성한다")
 		void createsFixedCharacter() {
-			Character character = new Character("base_image_1.png", CharacterCreationType.FIXED);
+			Character character = new Character("base_image_1.webp", CharacterCreationType.FIXED);
 
-			assertThat(character.getImageUrl()).isEqualTo("base_image_1.png");
+			assertThat(character.getImageUrl()).isEqualTo("base_image_1.webp");
 			assertThat(character.getType()).isEqualTo(CharacterCreationType.FIXED);
 			assertThat(character.getUserId()).isNull();
 		}

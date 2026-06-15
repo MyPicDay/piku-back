@@ -126,11 +126,11 @@ class LoginControllerTest {
 				new AuthenticatedUserInfo(
 						"user-1",
 						"pikume",
-						"public/characters/fixed/base_image_1.png"));
+						"public/characters/fixed/base_image_1.webp"));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
 				"pikume",
-				"https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 		CookieSpec cookieSpec = new CookieSpec("refreshToken", "refresh-token", true, true, "/", 3600, "Lax");
 		given(loginUseCase.login(any(LoginRequest.class), nullable(String.class))).willReturn(loginResult);
 		given(loginUseCase.newCookieRefreshToken("refresh-token")).willReturn(cookieSpec);
@@ -145,7 +145,7 @@ class LoginControllerTest {
 				.andExpect(jsonPath("$.user.id").value("user-1"))
 				.andExpect(jsonPath("$.user.email").doesNotExist())
 				.andExpect(jsonPath("$.user.avatarUrl")
-						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.png"));
+						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp"));
 	}
 
 	@Test

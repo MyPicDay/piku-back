@@ -58,13 +58,13 @@ class CharacterServiceTest {
 		@Test
 		@DisplayName("고정 캐릭터 목록은 클라이언트 표시용 storage public URL로 반환한다")
 		void returnsFixedCharacterList() {
-			Character c1 = new Character("base_image_1.png", CharacterCreationType.FIXED);
-			Character c2 = new Character("base_image_2.png", CharacterCreationType.FIXED);
+			Character c1 = new Character("base_image_1.webp", CharacterCreationType.FIXED);
+			Character c2 = new Character("base_image_2.webp", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findByType(CharacterCreationType.FIXED)).willReturn(List.of(c1, c2));
-			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.png", true))
-					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
-			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_2.png", true))
-					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_2.png");
+			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
+			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_2.webp", true))
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_2.webp");
 
 			List<CharacterResult> result = characterService.getFixedCharacters();
 
@@ -72,8 +72,8 @@ class CharacterServiceTest {
 			assertThat(result).allSatisfy(c -> assertThat(c.type()).isEqualTo(CharacterCreationType.FIXED));
 			assertThat(result).extracting(CharacterResult::imageUrl)
 					.containsExactly(
-							"https://assets.example.com/piku/public/characters/fixed/base_image_1.png",
-							"https://assets.example.com/piku/public/characters/fixed/base_image_2.png");
+							"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp",
+							"https://assets.example.com/piku/public/characters/fixed/base_image_2.webp");
 		}
 
 		@Test
@@ -119,34 +119,34 @@ class CharacterServiceTest {
 		@Test
 		@DisplayName("파일명만 저장된 고정 캐릭터는 canonical object key로 반환한다")
 		void returnsCanonicalObjectKeyForFileNameOnlyFixedCharacter() {
-			Character character = new Character("base_image_1.png", CharacterCreationType.FIXED);
+			Character character = new Character("base_image_1.webp", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
 			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.webp");
 		}
 
 		@Test
 		@DisplayName("legacy characters/fixed 경로는 canonical object key로 반환한다")
 		void returnsCanonicalObjectKeyForLegacyFixedCharacterPath() {
-			Character character = new Character("characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
+			Character character = new Character("characters/fixed/base_image_1.webp", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
 			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.webp");
 		}
 
 		@Test
 		@DisplayName("canonical object key로 저장된 고정 캐릭터는 그대로 반환한다")
 		void returnsCanonicalObjectKeyAsIs() {
-			Character character = new Character("public/characters/fixed/base_image_1.png", CharacterCreationType.FIXED);
+			Character character = new Character("public/characters/fixed/base_image_1.webp", CharacterCreationType.FIXED);
 			given(loadCharacterPort.findById(1L)).willReturn(Optional.of(character));
 
 			Optional<String> objectKey = characterService.findFixedCharacterObjectKey(1L);
 
-			assertThat(objectKey).contains("public/characters/fixed/base_image_1.png");
+			assertThat(objectKey).contains("public/characters/fixed/base_image_1.webp");
 		}
 
 		@Test
@@ -309,20 +309,20 @@ class CharacterServiceTest {
 		void savesOnlyMissingFixedCharacterObjectKeysFromCatalog() {
 			given(loadCharacterPort.findByType(CharacterCreationType.FIXED))
 					.willReturn(List.of(new Character(
-							"public/characters/fixed/base_image_1.png",
+							"public/characters/fixed/base_image_1.webp",
 							CharacterCreationType.FIXED)));
 			given(fixedCharacterAssetCatalogPort.listFixedCharacterObjectKeys())
 					.willReturn(List.of(
-							"public/characters/fixed/base_image_1.png",
-							"public/characters/fixed/base_image_2.png"));
+							"public/characters/fixed/base_image_1.webp",
+							"public/characters/fixed/base_image_2.webp"));
 
 			int result = characterService.synchronizeFixedCharactersFromStorageCatalog();
 
 			assertThat(result).isEqualTo(1);
 			then(saveCharacterPort).should(never()).save(argThat(character ->
-					"public/characters/fixed/base_image_1.png".equals(character.getImageUrl())));
+					"public/characters/fixed/base_image_1.webp".equals(character.getImageUrl())));
 			then(saveCharacterPort).should().save(argThat(character ->
-					"public/characters/fixed/base_image_2.png".equals(character.getImageUrl())
+					"public/characters/fixed/base_image_2.webp".equals(character.getImageUrl())
 							&& character.getType() == CharacterCreationType.FIXED));
 		}
 
@@ -331,13 +331,13 @@ class CharacterServiceTest {
 		void savesGroupedFixedCharacterObjectKeysFromCatalog() {
 			given(loadCharacterPort.findByType(CharacterCreationType.FIXED)).willReturn(List.of());
 			given(fixedCharacterAssetCatalogPort.listFixedCharacterObjectKeys())
-					.willReturn(List.of("public/characters/fixed/group/base_image_1.png"));
+					.willReturn(List.of("public/characters/fixed/group/base_image_1.webp"));
 
 			int result = characterService.synchronizeFixedCharactersFromStorageCatalog();
 
 			assertThat(result).isEqualTo(1);
 			then(saveCharacterPort).should().save(argThat(character ->
-					"public/characters/fixed/group/base_image_1.png".equals(character.getImageUrl())
+					"public/characters/fixed/group/base_image_1.webp".equals(character.getImageUrl())
 							&& character.getType() == CharacterCreationType.FIXED));
 		}
 
@@ -348,13 +348,13 @@ class CharacterServiceTest {
 			given(fixedCharacterAssetCatalogPort.listFixedCharacterObjectKeys())
 					.willReturn(List.of(
 							"public/characters/fixed/group/../bad.png",
-							"public/characters/fixed/group/base_image_1.png"));
+							"public/characters/fixed/group/base_image_1.webp"));
 
 			int result = characterService.synchronizeFixedCharactersFromStorageCatalog();
 
 			assertThat(result).isEqualTo(1);
 			then(saveCharacterPort).should().save(argThat(character ->
-					"public/characters/fixed/group/base_image_1.png".equals(character.getImageUrl())
+					"public/characters/fixed/group/base_image_1.webp".equals(character.getImageUrl())
 							&& character.getType() == CharacterCreationType.FIXED));
 			then(saveCharacterPort).should(never()).save(argThat(character ->
 					"public/characters/fixed/bad.png".equals(character.getImageUrl())));
@@ -368,13 +368,13 @@ class CharacterServiceTest {
 							"public/characters/fixed/group/../bad.png",
 							CharacterCreationType.FIXED)));
 			given(fixedCharacterAssetCatalogPort.listFixedCharacterObjectKeys())
-					.willReturn(List.of("public/characters/fixed/group/base_image_1.png"));
+					.willReturn(List.of("public/characters/fixed/group/base_image_1.webp"));
 
 			int result = characterService.synchronizeFixedCharactersFromStorageCatalog();
 
 			assertThat(result).isEqualTo(1);
 			then(saveCharacterPort).should().save(argThat(character ->
-					"public/characters/fixed/group/base_image_1.png".equals(character.getImageUrl())
+					"public/characters/fixed/group/base_image_1.webp".equals(character.getImageUrl())
 							&& character.getType() == CharacterCreationType.FIXED));
 		}
 

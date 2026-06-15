@@ -76,13 +76,13 @@ class AuthServiceTest {
 					.willReturn(Optional.of(verified));
 			given(passwordEncoder.encode("abc@123")).willReturn("encodedPw");
 			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 			given(loadUserForSignUpPort.save(any(User.class))).willReturn(null);
 
 			authService.signup(dto);
 
 			then(loadUserForSignUpPort).should().save(argThat(user ->
-					"public/characters/fixed/base_image_1.png".equals(user.getAvatar())));
+					"public/characters/fixed/base_image_1.webp".equals(user.getAvatar())));
 			then(saveVerifiedEmailPort).should().save(verified);
 		}
 

@@ -30,14 +30,14 @@ class AuthUserResponseMapperTest {
 		AuthenticatedUserInfo rawUserInfo = new AuthenticatedUserInfo(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.png");
-		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.png"))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				"public/characters/fixed/base_image_1.webp");
+		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp"))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
 		UserInfo result = authUserResponseMapper.toDisplayUserInfo(rawUserInfo);
 
 		assertThat(result.getAvatarUrl())
-				.isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				.isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
 
 	@Test
@@ -46,13 +46,13 @@ class AuthUserResponseMapperTest {
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.png");
-		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.png"))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				"public/characters/fixed/base_image_1.webp");
+		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp"))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
 		UserInfo result = authUserResponseMapper.toDisplayUserInfo(userDetails);
 
 		assertThat(result.getAvatarUrl())
-				.isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.png");
+				.isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
 }

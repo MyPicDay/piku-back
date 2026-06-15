@@ -27,10 +27,10 @@ class CharacterAdapterForAuthTest {
 	@DisplayName("회원가입용 고정 캐릭터 object key 조회를 character use case에 위임한다")
 	void delegatesFixedCharacterObjectKeyLookup() {
 		given(getCharacterUseCase.findFixedCharacterObjectKey(1L))
-				.willReturn(Optional.of("public/characters/fixed/base_image_1.png"));
+				.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 
 		Optional<String> result = characterAdapterForAuth.findFixedCharacterObjectKey(1L);
 
-		assertThat(result).contains("public/characters/fixed/base_image_1.png");
+		assertThat(result).contains("public/characters/fixed/base_image_1.webp");
 	}
 }
