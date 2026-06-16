@@ -23,23 +23,28 @@ repositories {
 	mavenCentral()
 }
 
+// CVE-2025-55163은 Netty 4.1.124.Final 이상에서 해결된다.
+ext['netty.version'] = '4.1.124.Final'
+
 def profile = System.getenv("PROFILE") ?: "dev"
 def isProd = profile == "prod"
 
 dependencies {
-	implementation 'io.swagger.core.v3:swagger-annotations-jakarta:2.2.30'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
 	if (!isProd) {
-		implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8'
 //		implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
 	}
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	// CVE-2024-31033 관련 JJWT 0.11.5 판단은 아래 코멘트를 참고한다.
+	// https://github.com/jwtk/jjwt/issues/930#issuecomment-2032699358
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5' // JSON 처리용
-        implementation 'org.springframework.boot:spring-boot-starter-actuator'
-        implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	// JSON 용도
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 //        implementation 'io.micrometer:micrometer-registry-prometheus'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
@@ -48,11 +53,16 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testRuntimeOnly 'com.h2database:h2'
-	implementation 'io.minio:minio:8.5.7'
+	implementation 'io.minio:minio:9.0.3'
 	implementation 'software.amazon.awssdk:s3'
 	implementation 'software.amazon.awssdk:auth'
 	implementation 'com.github.usefulness:webp-imageio:0.10.2'
-	implementation 'com.google.firebase:firebase-admin:9.5.0'
+	implementation('com.google.firebase:firebase-admin:9.9.0') {
+		// Firebase Admin은 FCM 용도로만 사용하고 Firebase Storage XML API는 사용하지 않는다.
+		// jackson-dataformat-xml이 MVC 응답에 영향을 줘 JSON 응답 테스트를 깨뜨리므로 아래와 같이 처리한다.
+		exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-xml'
+		exclude group: 'com.fasterxml.woodstox', module: 'woodstox-core'
+	}
 	implementation platform("software.amazon.awssdk:bom:2.25.19")
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
