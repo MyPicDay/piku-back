@@ -43,6 +43,7 @@ logs
 uploads
 
 **/*.json
+!firebase-json-key.json
 
 minio-data
 
