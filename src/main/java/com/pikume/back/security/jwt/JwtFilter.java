@@ -141,8 +141,6 @@ public class JwtFilter extends OncePerRequestFilter {
 				|| requestPath.equals("/api/admin/auth/login")
 				|| requestPath.equals("/api/admin/auth/reissue")
 				|| requestPath.equals("/api/admin/auth/otp/verify")
-				|| requestPath.equals("/api/admin/accounts/email-change/confirm")
-				|| requestPath.startsWith("/api/admin/auth/onboarding/")
-				|| requestPath.startsWith("/api/admin/auth/password-reset/"));
+				|| requestPath.startsWith("/api/admin/auth/onboarding/"));
 	}
 }

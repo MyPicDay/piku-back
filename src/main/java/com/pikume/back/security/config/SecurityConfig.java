@@ -82,8 +82,6 @@ public class SecurityConfig {
 				"/api/admin/auth/reissue",
 				"/api/admin/auth/onboarding/**",
 				"/api/admin/auth/otp/verify",
-				"/api/admin/auth/password-reset/**",
-				"/api/admin/accounts/email-change/confirm",
 				"/api/mobile/auth/**",
 				"/api/characters/fixed",
 				"/api/search"));

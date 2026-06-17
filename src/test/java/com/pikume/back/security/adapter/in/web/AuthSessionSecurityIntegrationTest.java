@@ -194,6 +194,21 @@ class AuthSessionSecurityIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("1차 범위 밖 관리자 공개 경로는 인증 없이 접근할 수 없다")
+	void excludedAdminPublicPathsRequireAuthentication() throws Exception {
+		mockMvc.perform(post("/api/admin/auth/password-reset/request")
+						.header(HttpHeaders.ORIGIN, "https://pikume-ops.pikume.com")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.type").value(SecurityProblemType.UNAUTHENTICATED.type().toString()));
+
+		mockMvc.perform(get("/api/admin/accounts/email-change/confirm")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.type").value(SecurityProblemType.UNAUTHENTICATED.type().toString()));
+	}
+
+	@Test
 	@DisplayName("상태를 변경하는 관리자 API 요청은 관리자 Origin만 허용한다")
 	void adminStateChangingRequestsRequireAllowedOrigin() throws Exception {
 		mockMvc.perform(post("/api/admin/auth/temporary-login")
