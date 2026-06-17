@@ -108,6 +108,28 @@ class AdminAuthServiceTest {
 	}
 
 	@Test
+	@DisplayName("OTP 인증 5회 실패 후 10분 동안 OTP 인증을 차단한다")
+	void verifyOtpBlocksAfterFiveFailures() {
+		AdminAccount admin = readyAdmin();
+		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("SECRET");
+		given(adminOtpPort.verify("SECRET", "000000")).willReturn(false);
+		AdminAuthService service = service();
+
+		for (int i = 0; i < 4; i++) {
+			assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
+					.isInstanceOfSatisfying(AdminException.class, exception ->
+							assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_VERIFICATION_FAILED));
+		}
+
+		assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_BLOCKED));
+		assertThat(admin.getOtpFailureCount()).isEqualTo(5);
+		assertThat(admin.isOtpBlockedAt(LocalDateTime.now())).isTrue();
+	}
+
+	@Test
 	@DisplayName("관리자 Refresh Token 재발급 시 기존 토큰을 회전한다")
 	void reissueRotatesRefreshToken() {
 		AdminAccount admin = readyAdmin();

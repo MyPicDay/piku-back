@@ -89,11 +89,14 @@ public class AdminAuthService implements AdminAuthUseCase {
 		if (!StringUtils.hasText(otpSecret)) {
 			throw new AdminException(AdminProblem.INVALID_REQUEST, "OTP가 등록되어 있지 않습니다.");
 		}
-		String plainSecret = protectAdminOtpSecretPort.reveal(otpSecret);
-		if (!adminOtpPort.verify(plainSecret, otpCode)) {
-			admin.recordOtpFailure(now);
-			throw new AdminException(AdminProblem.OTP_VERIFICATION_FAILED, "OTP 인증 코드가 올바르지 않습니다.");
-		}
+			String plainSecret = protectAdminOtpSecretPort.reveal(otpSecret);
+			if (!adminOtpPort.verify(plainSecret, otpCode)) {
+				admin.recordOtpFailure(now);
+				if (admin.isOtpBlockedAt(now)) {
+					throw new AdminException(AdminProblem.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
+				}
+				throw new AdminException(AdminProblem.OTP_VERIFICATION_FAILED, "OTP 인증 코드가 올바르지 않습니다.");
+			}
 
 		admin.resetOtpFailures();
 		admin.recordLoginSuccess(now);

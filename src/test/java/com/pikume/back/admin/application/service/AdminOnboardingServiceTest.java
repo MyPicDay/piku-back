@@ -6,6 +6,7 @@ import com.pikume.back.admin.application.port.out.AdminOtpPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
+import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.security.jwt.JwtProvider;
 import org.junit.jupiter.api.DisplayName;
@@ -66,6 +67,26 @@ class AdminOnboardingServiceTest {
 		assertThatThrownBy(() -> service().temporaryLogin("operator@pikume.com", "wrong"))
 				.isInstanceOf(AdminException.class);
 		assertThat(admin.getLoginFailureCount()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("임시 로그인 패스워드 실패 5회 시 관리자 계정을 잠근다")
+	void temporaryLoginLocksAfterFivePasswordFailures() {
+		AdminAccount admin = invited();
+		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
+		given(passwordEncoder.matches("wrong", "temp-hash")).willReturn(false);
+		AdminOnboardingService service = service();
+
+		for (int i = 0; i < 4; i++) {
+			assertThatThrownBy(() -> service.temporaryLogin("operator@pikume.com", "wrong"))
+					.isInstanceOfSatisfying(AdminException.class, exception ->
+							assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_CREDENTIALS));
+		}
+
+		assertThatThrownBy(() -> service.temporaryLogin("operator@pikume.com", "wrong"))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.ACCOUNT_LOCKED));
+		assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.LOCKED);
 	}
 
 	@Test
@@ -146,17 +167,17 @@ class AdminOnboardingServiceTest {
 		given(adminOtpPort.verify("SECRET", "000000")).willReturn(false);
 		AdminOnboardingService service = service();
 
-		for (int i = 0; i < 5; i++) {
+			for (int i = 0; i < 4; i++) {
+				assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
+						.isInstanceOfSatisfying(AdminException.class, exception ->
+								assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_VERIFICATION_FAILED));
+			}
+
 			assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_VERIFICATION_FAILED));
-		}
-
-		assertThat(admin.getOtpFailureCount()).isEqualTo(5);
-		assertThat(admin.isOtpBlockedAt(LocalDateTime.now())).isTrue();
-		assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
-				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_BLOCKED));
+							assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_BLOCKED));
+			assertThat(admin.getOtpFailureCount()).isEqualTo(5);
+			assertThat(admin.isOtpBlockedAt(LocalDateTime.now())).isTrue();
 	}
 
 	private AdminOnboardingService service() {

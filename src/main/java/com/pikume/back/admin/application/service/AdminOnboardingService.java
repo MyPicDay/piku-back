@@ -36,10 +36,13 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	public AdminTemporaryLoginResult temporaryLogin(String email, String temporaryPassword) {
 		String normalizedEmail = AdminEmail.normalize(email);
 		AdminAccount admin = loadAdminAccountPort.findByEmail(normalizedEmail)
-				.orElseThrow(() -> new AdminException(AdminProblem.INVALID_CREDENTIALS, "임시 로그인 정보가 올바르지 않습니다."));
+			.orElseThrow(() -> new AdminException(AdminProblem.INVALID_CREDENTIALS, "임시 로그인 정보가 올바르지 않습니다."));
 		LocalDateTime now = LocalDateTime.now();
 		admin.releaseExpiredLock(now);
 
+		if (admin.isLockedAt(now)) {
+			throw new AdminException(AdminProblem.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.");
+		}
 		if (admin.hasLoginId()) {
 			throw new AdminException(AdminProblem.INVALID_CREDENTIALS, "정식 로그인 아이디 설정 이후에는 이메일 로그인을 사용할 수 없습니다.");
 		}
@@ -47,12 +50,10 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 			throw new AdminException(AdminProblem.TEMPORARY_CREDENTIAL_EXPIRED, "임시 로그인 정보가 만료되었습니다.");
 		}
 		if (temporaryPassword == null || temporaryPassword.isBlank()) {
-			admin.recordPasswordFailure(now);
-			throw new AdminException(AdminProblem.INVALID_CREDENTIALS, "임시 로그인 정보가 올바르지 않습니다.");
+			throw passwordFailure(admin, now);
 		}
 		if (!passwordEncoder.matches(temporaryPassword, admin.getTemporaryPasswordHash())) {
-			admin.recordPasswordFailure(now);
-			throw new AdminException(AdminProblem.INVALID_CREDENTIALS, "임시 로그인 정보가 올바르지 않습니다.");
+			throw passwordFailure(admin, now);
 		}
 
 		String token = jwtProvider.generateAdminOnboardingToken(admin.getId());
@@ -118,6 +119,9 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 		String secret = protectAdminOtpSecretPort.reveal(admin.getPendingOtpSecret());
 		if (!adminOtpPort.verify(secret, otpCode)) {
 			admin.recordOtpFailure(now);
+			if (admin.isOtpBlockedAt(now)) {
+				throw new AdminException(AdminProblem.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
+			}
 			throw new AdminException(AdminProblem.OTP_VERIFICATION_FAILED, "OTP 인증 코드가 올바르지 않습니다.");
 		}
 		admin.completeOtpRegistration();
@@ -128,6 +132,14 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	private AdminAccount requireAdmin(String adminId) {
 		return loadAdminAccountPort.findById(adminId)
 				.orElseThrow(() -> new AdminException(AdminProblem.ONBOARDING_TOKEN_INVALID, "온보딩 토큰이 유효하지 않습니다."));
+	}
+
+	private AdminException passwordFailure(AdminAccount admin, LocalDateTime now) {
+		admin.recordPasswordFailure(now);
+		if (admin.isLockedAt(now)) {
+			return new AdminException(AdminProblem.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.");
+		}
+		return new AdminException(AdminProblem.INVALID_CREDENTIALS, "임시 로그인 정보가 올바르지 않습니다.");
 	}
 
 	private void validatePassword(String password, String loginId) {
