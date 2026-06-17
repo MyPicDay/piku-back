@@ -68,6 +68,12 @@ public class AdminAccount extends BaseEntity {
 	@Column(name = "otp_registration_required", nullable = false)
 	private boolean otpRegistrationRequired;
 
+	@Column(name = "pending_otp_secret", columnDefinition = "TEXT")
+	private String pendingOtpSecret;
+
+	@Column(name = "otp_secret", columnDefinition = "TEXT")
+	private String otpSecret;
+
 	@Column(name = "login_failure_count", nullable = false)
 	private int loginFailureCount;
 
@@ -146,9 +152,19 @@ public class AdminAccount extends BaseEntity {
 	}
 
 	public void completeOtpRegistration() {
+		if (pendingOtpSecret == null || pendingOtpSecret.isBlank()) {
+			throw new AdminDomainException("등록 대기 중인 OTP 비밀키가 없습니다.");
+		}
+		this.otpSecret = pendingOtpSecret;
+		this.pendingOtpSecret = null;
 		this.otpRegistered = true;
 		this.otpRegistrationRequired = false;
 		resetOtpFailures();
+	}
+
+	public void startOtpRegistration(String protectedSecret) {
+		this.pendingOtpSecret = requireHash(protectedSecret, "OTP 비밀키는 필수입니다.");
+		this.otpRegistrationRequired = true;
 	}
 
 	public void recordLoginSuccess(LocalDateTime now) {
@@ -219,6 +235,8 @@ public class AdminAccount extends BaseEntity {
 	public void resetOtp() {
 		this.otpRegistered = false;
 		this.otpRegistrationRequired = true;
+		this.pendingOtpSecret = null;
+		this.otpSecret = null;
 		resetOtpFailures();
 	}
 

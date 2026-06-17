@@ -97,11 +97,14 @@ class AdminAccountTest {
 		void otpRegistrationResetsOtpState() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
 			admin.recordOtpFailure(now);
+			admin.startOtpRegistration("protected-secret");
 
 			admin.completeOtpRegistration();
 
 			assertThat(admin.isOtpRegistered()).isTrue();
 			assertThat(admin.isOtpRegistrationRequired()).isFalse();
+			assertThat(admin.getOtpSecret()).isEqualTo("protected-secret");
+			assertThat(admin.getPendingOtpSecret()).isNull();
 			assertThat(admin.getOtpFailureCount()).isZero();
 			assertThat(admin.getOtpBlockedUntil()).isNull();
 		}
@@ -192,12 +195,14 @@ class AdminAccountTest {
 		@DisplayName("OTP 초기화 시 OTP 재등록이 필요하다")
 		void resetOtpRequiresRegistrationAgain() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.startOtpRegistration("protected-secret");
 			admin.completeOtpRegistration();
 
 			admin.resetOtp();
 
 			assertThat(admin.isOtpRegistered()).isFalse();
 			assertThat(admin.isOtpRegistrationRequired()).isTrue();
+			assertThat(admin.getOtpSecret()).isNull();
 		}
 	}
 

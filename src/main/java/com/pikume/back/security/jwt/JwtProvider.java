@@ -81,6 +81,22 @@ public class JwtProvider {
 				.compact();
 	}
 
+	public String generateAdminOnboardingToken(String adminId) {
+		validateRequired(adminId, "관리자 ID는 필수입니다.");
+		Claims claims = Jwts.claims().setSubject(adminId);
+		Date now = new Date();
+		Date expiry = new Date(now.getTime() + AdminAuthConstants.ONBOARDING_TOKEN_EXPIRATION_TIME);
+
+		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_ONBOARDING.name());
+
+		return Jwts.builder()
+				.setClaims(claims)
+				.setIssuedAt(now)
+				.setExpiration(expiry)
+				.signWith(signingKey())
+				.compact();
+	}
+
 	/*
 	 * JWT Refresh Token 생성
 	 */
