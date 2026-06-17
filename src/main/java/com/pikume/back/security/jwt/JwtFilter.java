@@ -15,6 +15,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.security.config.AdminUserDetails;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
@@ -25,6 +26,8 @@ import java.io.IOException;
 @Slf4j
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
+
+	private static final String ADMIN_PATH_PREFIX = "/api/admin";
 
 	private final JwtProvider jwtProvider;
 	private final LoadUserForAuthPort loadUserForAuthPort;
@@ -48,7 +51,30 @@ public class JwtFilter extends OncePerRequestFilter {
 					return;
 				}
 
-				authenticateUser(token);
+				SecurityTokenType tokenType = jwtProvider.getTokenType(token);
+				String requestPath = request.getRequestURI();
+				if (isAdminHandshakePath(requestPath)) {
+					chain.doFilter(request, response);
+					return;
+				}
+
+				if (isAdminPath(requestPath)) {
+					if (tokenType != SecurityTokenType.ADMIN_ACCESS) {
+						log.warn("event=jwt_filter_authentication_failed outcome=denied reason=admin_token_required");
+						authenticationEntryPoint.commence(request, response,
+								new BadCredentialsException("관리자 인증이 필요합니다."));
+						return;
+					}
+					authenticateAdmin(token);
+				} else {
+					if (tokenType.isAdminScoped() || tokenType != SecurityTokenType.USER_ACCESS) {
+						log.warn("event=jwt_filter_authentication_failed outcome=denied reason=user_token_required");
+						authenticationEntryPoint.commence(request, response,
+								new BadCredentialsException("인증이 필요합니다."));
+						return;
+					}
+					authenticateUser(token);
+				}
 			} catch (Exception e) {
 				log.warn("event=jwt_filter_authentication_failed outcome=denied reason={}",
 						e.getClass().getSimpleName());
@@ -79,5 +105,34 @@ public class JwtFilter extends OncePerRequestFilter {
 
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 		log.debug("event=jwt_filter_authentication_set userId={}", user.id());
+	}
+
+	private void authenticateAdmin(String token) {
+		String adminId = jwtProvider.getUserIdFromToken(token);
+		String role = jwtProvider.getAdminRoleFromToken(token);
+		String sessionId = jwtProvider.getAdminSessionIdFromToken(token);
+		log.debug("event=jwt_filter_admin_token_validated adminId={}", adminId);
+
+		AdminUserDetails adminUserDetails = new AdminUserDetails(adminId, role, sessionId);
+		Authentication authentication = new UsernamePasswordAuthenticationToken(
+				adminUserDetails, null, adminUserDetails.getAuthorities());
+
+		SecurityContextHolder.getContext().setAuthentication(authentication);
+		log.debug("event=jwt_filter_admin_authentication_set adminId={}", adminId);
+	}
+
+	private boolean isAdminPath(String requestPath) {
+		return requestPath != null && requestPath.startsWith(ADMIN_PATH_PREFIX);
+	}
+
+	private boolean isAdminHandshakePath(String requestPath) {
+		return requestPath != null
+				&& (requestPath.equals("/api/admin/auth/temporary-login")
+				|| requestPath.equals("/api/admin/auth/login")
+				|| requestPath.equals("/api/admin/auth/reissue")
+				|| requestPath.equals("/api/admin/auth/otp/verify")
+				|| requestPath.equals("/api/admin/accounts/email-change/confirm")
+				|| requestPath.startsWith("/api/admin/auth/onboarding/")
+				|| requestPath.startsWith("/api/admin/auth/password-reset/"));
 	}
 }

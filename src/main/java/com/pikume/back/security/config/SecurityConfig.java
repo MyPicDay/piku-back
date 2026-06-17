@@ -41,6 +41,13 @@ public class SecurityConfig {
 
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration adminConfiguration = new CorsConfiguration();
+		adminConfiguration.setAllowedOrigins(List.of("https://pikume-ops.pikume.com"));
+		adminConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+		adminConfiguration.setAllowedHeaders(List.of("*"));
+		adminConfiguration.setExposedHeaders(List.of("Authorization"));
+		adminConfiguration.setAllowCredentials(true);
+
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001",
 				"https://dev.piku.store", "https://piku.store", "https://pikume.com", "https://www.pikume.com"));
@@ -49,6 +56,7 @@ public class SecurityConfig {
 		configuration.setExposedHeaders(List.of("Authorization"));
 		configuration.setAllowCredentials(true);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/api/admin/**", adminConfiguration);
 		source.registerCorsConfiguration("/**", configuration);
 		return source;
 	}
@@ -65,6 +73,13 @@ public class SecurityConfig {
 				"/api/auth/password-reset",
 				"/api/auth/email",
 				"/api/auth/email-domains",
+				"/api/admin/auth/temporary-login",
+				"/api/admin/auth/login",
+				"/api/admin/auth/reissue",
+				"/api/admin/auth/onboarding/**",
+				"/api/admin/auth/otp/verify",
+				"/api/admin/auth/password-reset/**",
+				"/api/admin/accounts/email-change/confirm",
 				"/api/mobile/auth/**",
 				"/api/characters/fixed",
 				"/api/search"));
@@ -106,6 +121,9 @@ public class SecurityConfig {
 
 							return new org.springframework.security.authorization.AuthorizationDecision(false);
 						})
+						.requestMatchers(permittedPaths.toArray(new String[0]))
+						.permitAll()
+						.requestMatchers("/api/admin/**").hasRole("ADMIN")
 						.requestMatchers("/api/auth/me").authenticated()
 						.requestMatchers("/api/diary/ai/**").authenticated()
 						.requestMatchers(HttpMethod.GET,
@@ -114,8 +132,6 @@ public class SecurityConfig {
 								"/api/comments",
 								"/api/comments/*/replies",
 								"/api/users/{userId}/profile-preview")
-						.permitAll()
-						.requestMatchers(permittedPaths.toArray(new String[0]))
 						.permitAll()
 						.anyRequest().authenticated())
 				.sessionManagement(
