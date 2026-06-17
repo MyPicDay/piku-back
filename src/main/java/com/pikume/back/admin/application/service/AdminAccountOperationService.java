@@ -11,10 +11,13 @@ import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SearchAdminAccountsPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
+import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminAuditAction;
 import com.pikume.back.admin.domain.AdminAuditLog;
 import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminRole;
+import com.pikume.back.admin.domain.exception.AdminDomainException;
+import com.pikume.back.admin.domain.service.AdminRoleGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,7 @@ import java.util.List;
 public class AdminAccountOperationService implements AdminAccountOperationUseCase {
 
 	private static final int AUDIT_LOG_LIMIT_MAX = 200;
+	private static final AdminRoleGuard ADMIN_ROLE_GUARD = new AdminRoleGuard();
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
 	private final SaveAdminAccountPort saveAdminAccountPort;
@@ -63,8 +67,12 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	@Override
 	@Transactional
 	public void changeRole(String actorAdminId, String targetAdminId, AdminRole role) {
-		requireSuperAdmin(actorAdminId);
+		if (role == null) {
+			throw new AdminException(AdminProblem.INVALID_REQUEST, "변경할 관리자 등급은 필수입니다.");
+		}
+		AdminAccount actor = requireSuperAdmin(actorAdminId);
 		AdminAccount target = requireTarget(targetAdminId);
+		validateCanChangeRole(actor, target, role);
 		AdminRole before = target.getRole();
 		target.changeRole(role);
 		adminSessionTokenService.revokeActiveSessions(target.getId(), LocalDateTime.now());
@@ -75,11 +83,12 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	@Override
 	@Transactional
 	public void deactivate(String actorAdminId, String targetAdminId, String reason) {
-		requireSuperAdmin(actorAdminId);
+		AdminAccount actor = requireSuperAdmin(actorAdminId);
 		if (!StringUtils.hasText(reason)) {
 			throw new AdminException(AdminProblem.INVALID_REQUEST, "관리자 계정 비활성화 사유는 필수입니다.");
 		}
 		AdminAccount target = requireTarget(targetAdminId);
+		validateCanDeactivate(actor, target);
 		target.deactivate(reason);
 		adminSessionTokenService.revokeActiveSessions(target.getId(), LocalDateTime.now());
 		audit(actorAdminId, target.getId(), AdminAuditAction.DEACTIVATED, reason, null);
@@ -183,6 +192,26 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 
 	private AdminException notFound() {
 		return new AdminException(AdminProblem.NOT_FOUND, "관리자 계정을 찾을 수 없습니다.");
+	}
+
+	private void validateCanChangeRole(AdminAccount actor, AdminAccount target, AdminRole role) {
+		try {
+			ADMIN_ROLE_GUARD.validateCanChangeRole(actor, target, role, activeSuperAdminCount());
+		} catch (AdminDomainException e) {
+			throw new AdminException(AdminProblem.FORBIDDEN, e.getMessage());
+		}
+	}
+
+	private void validateCanDeactivate(AdminAccount actor, AdminAccount target) {
+		try {
+			ADMIN_ROLE_GUARD.validateCanDeactivate(actor, target, activeSuperAdminCount());
+		} catch (AdminDomainException e) {
+			throw new AdminException(AdminProblem.FORBIDDEN, e.getMessage());
+		}
+	}
+
+	private long activeSuperAdminCount() {
+		return loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE);
 	}
 
 	private void audit(String actorAdminId, String targetAdminId, AdminAuditAction action, String reason, String detail) {

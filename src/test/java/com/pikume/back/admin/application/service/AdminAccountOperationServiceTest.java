@@ -102,6 +102,8 @@ class AdminAccountOperationServiceTest {
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
 		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+				.willReturn(1L);
 		AdminAccountOperationService service = service();
 
 		assertThatThrownBy(() -> service.deactivate(actor.getId(), target.getId(), " "))
@@ -125,11 +127,49 @@ class AdminAccountOperationServiceTest {
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
 		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+				.willReturn(1L);
 
 		service().changeRole(actor.getId(), target.getId(), AdminRole.VIEWER);
 
 		assertThat(target.getRole()).isEqualTo(AdminRole.VIEWER);
 		then(adminSessionTokenService).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
+	}
+
+	@Test
+	@DisplayName("자기 계정은 비활성화하거나 등급을 변경할 수 없다")
+	void cannotOperateOwnAdminAccount() {
+		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
+		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+				.willReturn(2L);
+		AdminAccountOperationService service = service();
+
+		assertThatThrownBy(() -> service.deactivate(actor.getId(), actor.getId(), "퇴사"))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+		assertThatThrownBy(() -> service.changeRole(actor.getId(), actor.getId(), AdminRole.OPERATOR))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+	}
+
+	@Test
+	@DisplayName("마지막 SUPER_ADMIN은 비활성화하거나 등급을 낮출 수 없다")
+	void cannotRemoveLastSuperAdmin() {
+		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "actor@pikume.com");
+		AdminAccount target = admin(AdminRole.SUPER_ADMIN, "target@pikume.com");
+		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+				.willReturn(1L);
+		AdminAccountOperationService service = service();
+
+		assertThatThrownBy(() -> service.deactivate(actor.getId(), target.getId(), "퇴사"))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+		assertThatThrownBy(() -> service.changeRole(actor.getId(), target.getId(), AdminRole.OPERATOR))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
 	}
 
 	@Test
