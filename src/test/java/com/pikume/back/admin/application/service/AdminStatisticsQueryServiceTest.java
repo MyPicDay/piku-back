@@ -84,6 +84,18 @@ class AdminStatisticsQueryServiceTest {
 						assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_REQUEST));
 	}
 
+	@Test
+	@DisplayName("VIEWER는 통계 CSV를 내보낼 수 없다")
+	void getStatisticsCsvRejectsViewer() {
+		LocalDate startDate = LocalDate.of(2026, 6, 11);
+		LocalDate endDate = LocalDate.of(2026, 6, 17);
+		given(loadAdminAccountPort.findById("viewer-1")).willReturn(Optional.of(admin(AdminRole.VIEWER)));
+
+		assertThatThrownBy(() -> service().getStatisticsCsv("viewer-1", startDate, endDate))
+				.isInstanceOfSatisfying(AdminException.class, exception ->
+						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+	}
+
 	private AdminStatisticsQueryService service() {
 		return new AdminStatisticsQueryService(
 				loadAdminAccountPort,
@@ -93,10 +105,14 @@ class AdminStatisticsQueryServiceTest {
 	}
 
 	private AdminAccount admin() {
+		return admin(AdminRole.VIEWER);
+	}
+
+	private AdminAccount admin(AdminRole role) {
 		return AdminAccount.invite(
 				"admin@pikume.com",
 				"관리자1",
-				AdminRole.VIEWER,
+				role,
 				"temp-hash",
 				LocalDateTime.now().minusDays(1),
 				LocalDateTime.now().plusDays(1));

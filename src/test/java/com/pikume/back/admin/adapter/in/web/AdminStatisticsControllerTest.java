@@ -50,16 +50,16 @@ class AdminStatisticsControllerTest {
 	@BeforeEach
 	void setUp() {
 		AdminStatisticsController controller = new AdminStatisticsController(adminStatisticsUseCase);
-		mockMvc = MockMvcBuilders.standaloneSetup(controller)
-				.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
-				.setMessageConverters(
-						new StringHttpMessageConverter(StandardCharsets.UTF_8),
-						new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
-								.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-								.build()))
+			mockMvc = MockMvcBuilders.standaloneSetup(controller)
+					.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
+					.setMessageConverters(
+							new StringHttpMessageConverter(StandardCharsets.UTF_8),
+							new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
+									.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+									.build()))
 					.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
 							"admin-1",
-							AdminRole.VIEWER.name(),
+							AdminRole.OPERATOR.name(),
 							"session-1")))
 					.build();
 	}

@@ -6,7 +6,9 @@ import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.LoadAdminDailyStatisticsPort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsSourcePort;
+import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminDailyStatistics;
+import com.pikume.back.admin.domain.AdminRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,21 +37,15 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 	@Transactional(readOnly = true)
 	public AdminStatisticsResponse getStatistics(String actorAdminId, LocalDate startDate, LocalDate endDate) {
 		requireAdmin(actorAdminId);
-		Period period = normalizePeriod(startDate, endDate);
-		List<AdminDailyStatisticsResult> dailyStatistics = dailyStatistics(period.startDate(), period.endDate());
-		return new AdminStatisticsResponse(
-				period.startDate(),
-				period.endDate(),
-				queryAdminStatisticsSourcePort.countCurrentMembers(),
-				dailyStatistics,
-				weeklySignupMembers(dailyStatistics),
-				monthlySignupMembers(dailyStatistics));
+		return statisticsResponse(startDate, endDate);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public String getStatisticsCsv(String actorAdminId, LocalDate startDate, LocalDate endDate) {
-		AdminStatisticsResponse response = getStatistics(actorAdminId, startDate, endDate);
+		AdminAccount actor = requireAdmin(actorAdminId);
+		requireCsvExportRole(actor);
+		AdminStatisticsResponse response = statisticsResponse(startDate, endDate);
 		StringBuilder csv = new StringBuilder();
 		csv.append("date,current_member_count,daily_unique_visitors,total_visits,dau,diary_creations,")
 				.append("ai_photo_requests,ai_photo_successes,ai_photo_failures,signup_members\n");
@@ -66,6 +62,18 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 					.append(row.signupMembers()).append('\n');
 		}
 		return csv.toString();
+	}
+
+	private AdminStatisticsResponse statisticsResponse(LocalDate startDate, LocalDate endDate) {
+		Period period = normalizePeriod(startDate, endDate);
+		List<AdminDailyStatisticsResult> dailyStatistics = dailyStatistics(period.startDate(), period.endDate());
+		return new AdminStatisticsResponse(
+				period.startDate(),
+				period.endDate(),
+				queryAdminStatisticsSourcePort.countCurrentMembers(),
+				dailyStatistics,
+				weeklySignupMembers(dailyStatistics),
+				monthlySignupMembers(dailyStatistics));
 	}
 
 	private List<AdminDailyStatisticsResult> dailyStatistics(LocalDate startDate, LocalDate endDate) {
@@ -130,9 +138,15 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 		return new Period(normalizedStartDate, normalizedEndDate);
 	}
 
-	private void requireAdmin(String actorAdminId) {
-		loadAdminAccountPort.findById(actorAdminId)
+	private AdminAccount requireAdmin(String actorAdminId) {
+		return loadAdminAccountPort.findById(actorAdminId)
 				.orElseThrow(() -> new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다."));
+	}
+
+	private void requireCsvExportRole(AdminAccount actor) {
+		if (actor.getRole() != AdminRole.SUPER_ADMIN && actor.getRole() != AdminRole.OPERATOR) {
+			throw new AdminException(AdminProblem.FORBIDDEN, "통계 CSV 내보내기 권한이 없습니다.");
+		}
 	}
 
 	private record Period(LocalDate startDate, LocalDate endDate) {
