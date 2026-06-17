@@ -1,7 +1,9 @@
 package com.pikume.back.security.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pikume.back.admin.adapter.out.persistence.AdminAccountJpaRepository;
 import com.pikume.back.admin.adapter.out.persistence.AdminSessionJpaRepository;
+import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminSession;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
@@ -48,6 +50,9 @@ class AuthSessionSecurityIntegrationTest {
 
 	@Autowired
 	private AdminSessionJpaRepository adminSessionJpaRepository;
+
+	@Autowired
+	private AdminAccountJpaRepository adminAccountJpaRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -141,25 +146,39 @@ class AuthSessionSecurityIntegrationTest {
 	@Test
 	@DisplayName("관리자 토큰은 관리자 보호 경로의 보안 검사를 통과한다")
 	void adminTokenPassesAdminSecurityBoundary() throws Exception {
-		String adminId = "018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b1";
 		String sessionId = "018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b2";
 		LocalDateTime now = LocalDateTime.now();
+		AdminAccount admin = AdminAccount.invite(
+				"boundary-admin@example.com",
+				"BoundaryAdmin",
+				AdminRole.SUPER_ADMIN,
+				"temporary-password-hash",
+				now,
+				now.plusHours(24));
+		admin.setLoginId("boundary-admin");
+		admin.completePasswordSetup("password-hash");
+		admin.startOtpRegistration("protected-otp-secret");
+		admin.completeOtpRegistration();
+		adminAccountJpaRepository.saveAndFlush(admin);
+
 		adminSessionJpaRepository.saveAndFlush(AdminSession.start(
 				sessionId,
-				adminId,
+				admin.getId(),
 				"refresh-token-hash",
 				now.plusHours(1),
 				now.plusMinutes(30),
 				now));
 		String accessToken = jwtProvider.generateAdminAccessToken(
-				adminId,
+				admin.getId(),
 				AdminRole.SUPER_ADMIN.name(),
 				sessionId);
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")
 						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
 						.accept(MediaType.APPLICATION_JSON))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.currentMemberCount").exists())
+				.andExpect(jsonPath("$.dailyStatistics").isArray());
 	}
 
 	@Test

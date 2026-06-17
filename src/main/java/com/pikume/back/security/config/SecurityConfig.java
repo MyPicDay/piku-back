@@ -1,12 +1,15 @@
 package com.pikume.back.security.config;
 
+import com.pikume.back.admin.adapter.in.web.AdminVisitStatisticsFilter;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
+import com.pikume.back.security.jwt.JwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
-import org.springframework.http.HttpMethod;
-import com.pikume.back.security.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,8 +23,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
-import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 	private final AdminOriginValidationFilter adminOriginValidationFilter;
+	private final AdminVisitStatisticsFilter adminVisitStatisticsFilter;
 	private final Environment env;
 	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
 	private final ProblemDetailAccessDeniedHandler accessDeniedHandler;
@@ -140,6 +142,7 @@ public class SecurityConfig {
 						(sessionManagement) -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+		http.addFilterAfter(adminVisitStatisticsFilter, JwtFilter.class);
 
 		return http.build();
 	}
