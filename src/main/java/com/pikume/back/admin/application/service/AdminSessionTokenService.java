@@ -1,5 +1,6 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.HashAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
@@ -9,8 +10,6 @@ import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminId;
 import com.pikume.back.admin.domain.AdminRefreshToken;
 import com.pikume.back.admin.domain.AdminSession;
-import com.pikume.back.security.jwt.AdminAuthConstants;
-import com.pikume.back.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -26,15 +25,15 @@ public class AdminSessionTokenService {
 	private final LoadAdminRefreshTokenPort loadAdminRefreshTokenPort;
 	private final SaveAdminRefreshTokenPort saveAdminRefreshTokenPort;
 	private final HashAdminRefreshTokenPort hashAdminRefreshTokenPort;
-	private final JwtProvider jwtProvider;
+	private final AdminTokenPort adminTokenPort;
 
 	public AdminTokenIssueResult issueNewSession(AdminAccount admin, LocalDateTime now) {
 		revokeActiveSessions(admin.getId(), now);
 
 		String sessionId = AdminId.newId();
-		LocalDateTime absoluteExpiresAt = now.plus(Duration.ofMillis(AdminAuthConstants.REFRESH_TOKEN_ABSOLUTE_EXPIRATION_TIME));
+		LocalDateTime absoluteExpiresAt = now.plus(adminTokenPort.refreshTokenAbsoluteTtl());
 		LocalDateTime refreshExpiresAt = refreshExpiresAt(now, absoluteExpiresAt);
-		String refreshToken = jwtProvider.generateAdminRefreshToken(admin.getId(), sessionId);
+		String refreshToken = adminTokenPort.generateRefreshToken(admin.getId(), sessionId);
 		String refreshTokenHash = hashAdminRefreshTokenPort.hash(refreshToken);
 
 		AdminSession session = AdminSession.start(
@@ -58,7 +57,7 @@ public class AdminSessionTokenService {
 	public AdminTokenIssueResult rotate(AdminAccount admin, AdminSession session,
 			AdminRefreshToken previousRefreshToken, LocalDateTime now) {
 		LocalDateTime refreshExpiresAt = refreshExpiresAt(now, session.getAbsoluteExpiresAt());
-		String refreshToken = jwtProvider.generateAdminRefreshToken(admin.getId(), session.getId());
+		String refreshToken = adminTokenPort.generateRefreshToken(admin.getId(), session.getId());
 		String refreshTokenHash = hashAdminRefreshTokenPort.hash(refreshToken);
 
 		previousRefreshToken.rotate(now);
@@ -107,7 +106,7 @@ public class AdminSessionTokenService {
 	}
 
 	private LocalDateTime refreshExpiresAt(LocalDateTime now, LocalDateTime absoluteExpiresAt) {
-		LocalDateTime idleExpiresAt = now.plus(Duration.ofMillis(AdminAuthConstants.REFRESH_TOKEN_IDLE_EXPIRATION_TIME));
+		LocalDateTime idleExpiresAt = now.plus(adminTokenPort.refreshTokenIdleTtl());
 		if (idleExpiresAt.isAfter(absoluteExpiresAt)) {
 			return absoluteExpiresAt;
 		}
@@ -116,11 +115,11 @@ public class AdminSessionTokenService {
 
 	private AdminTokenIssueResult tokenResult(AdminAccount admin, String sessionId, String refreshToken,
 			LocalDateTime refreshExpiresAt, LocalDateTime now) {
-		String accessToken = jwtProvider.generateAdminAccessToken(admin.getId(), admin.getRole().name(), sessionId);
+		String accessToken = adminTokenPort.generateAccessToken(admin.getId(), admin.getRole().name(), sessionId);
 		return new AdminTokenIssueResult(
 				accessToken,
 				refreshToken,
-				AdminAuthConstants.ACCESS_TOKEN_EXPIRATION_TIME / 1000L,
+				adminTokenPort.accessTokenTtl().toSeconds(),
 				Duration.between(now, refreshExpiresAt).toSeconds(),
 				sessionId,
 				admin.getLoginId(),

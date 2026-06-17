@@ -3,12 +3,12 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminRole;
-import com.pikume.back.security.jwt.JwtProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -34,7 +35,7 @@ class AdminOnboardingServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 	@Mock
-	private JwtProvider jwtProvider;
+	private AdminTokenPort adminTokenPort;
 	@Mock
 	private AdminOtpPort adminOtpPort;
 	@Mock
@@ -48,7 +49,8 @@ class AdminOnboardingServiceTest {
 		AdminAccount admin = invited();
 		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
 		given(passwordEncoder.matches("TempPass1!", "temp-hash")).willReturn(true);
-		given(jwtProvider.generateAdminOnboardingToken(admin.getId())).willReturn("onboarding-token");
+		given(adminTokenPort.generateOnboardingToken(admin.getId())).willReturn("onboarding-token");
+		given(adminTokenPort.onboardingTokenTtl()).willReturn(Duration.ofMinutes(10));
 
 		AdminTemporaryLoginResult result = service().temporaryLogin("Operator@Pikume.com", "TempPass1!");
 
@@ -184,7 +186,7 @@ class AdminOnboardingServiceTest {
 		return new AdminOnboardingService(
 				loadAdminAccountPort,
 				passwordEncoder,
-				jwtProvider,
+				adminTokenPort,
 				adminOtpPort,
 				protectAdminOtpSecretPort,
 				adminSessionTokenService);

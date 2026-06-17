@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.port.out.HashAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.SaveAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.SaveAdminSessionPort;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -11,7 +12,6 @@ import com.pikume.back.admin.domain.AdminRefreshTokenStatus;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.admin.domain.AdminSession;
 import com.pikume.back.admin.domain.AdminSessionStatus;
-import com.pikume.back.security.jwt.JwtProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -44,7 +45,7 @@ class AdminSessionTokenServiceTest {
 	@Mock
 	private HashAdminRefreshTokenPort hashAdminRefreshTokenPort;
 	@Mock
-	private JwtProvider jwtProvider;
+	private AdminTokenPort adminTokenPort;
 
 	@Test
 	@DisplayName("새 관리자 세션 발급 시 기존 활성 세션과 토큰을 폐기한다")
@@ -54,10 +55,13 @@ class AdminSessionTokenServiceTest {
 		AdminRefreshToken oldRefreshToken = activeRefreshToken(admin.getId(), oldSession.getId(), "old-hash");
 		given(loadAdminSessionPort.findActiveByAdminId(admin.getId())).willReturn(List.of(oldSession));
 		given(loadAdminRefreshTokenPort.findActiveBySessionId(oldSession.getId())).willReturn(List.of(oldRefreshToken));
-		given(jwtProvider.generateAdminRefreshToken(eq(admin.getId()), anyString())).willReturn("new-refresh");
+		given(adminTokenPort.refreshTokenAbsoluteTtl()).willReturn(Duration.ofHours(8));
+		given(adminTokenPort.refreshTokenIdleTtl()).willReturn(Duration.ofMinutes(30));
+		given(adminTokenPort.generateRefreshToken(eq(admin.getId()), anyString())).willReturn("new-refresh");
 		given(hashAdminRefreshTokenPort.hash("new-refresh")).willReturn("new-hash");
-		given(jwtProvider.generateAdminAccessToken(eq(admin.getId()), eq(AdminRole.OPERATOR.name()), anyString()))
+		given(adminTokenPort.generateAccessToken(eq(admin.getId()), eq(AdminRole.OPERATOR.name()), anyString()))
 				.willReturn("new-access");
+		given(adminTokenPort.accessTokenTtl()).willReturn(Duration.ofMinutes(10));
 
 		AdminTokenIssueResult result = service().issueNewSession(admin, LocalDateTime.now());
 
@@ -73,10 +77,12 @@ class AdminSessionTokenServiceTest {
 		AdminAccount admin = readyAdmin();
 		AdminSession session = activeSession(admin.getId(), "session-1", "old-hash");
 		AdminRefreshToken previousRefreshToken = activeRefreshToken(admin.getId(), session.getId(), "old-hash");
-		given(jwtProvider.generateAdminRefreshToken(admin.getId(), session.getId())).willReturn("new-refresh");
+		given(adminTokenPort.refreshTokenIdleTtl()).willReturn(Duration.ofMinutes(30));
+		given(adminTokenPort.generateRefreshToken(admin.getId(), session.getId())).willReturn("new-refresh");
 		given(hashAdminRefreshTokenPort.hash("new-refresh")).willReturn("new-hash");
-		given(jwtProvider.generateAdminAccessToken(admin.getId(), AdminRole.OPERATOR.name(), session.getId()))
+		given(adminTokenPort.generateAccessToken(admin.getId(), AdminRole.OPERATOR.name(), session.getId()))
 				.willReturn("new-access");
+		given(adminTokenPort.accessTokenTtl()).willReturn(Duration.ofMinutes(10));
 
 		AdminTokenIssueResult result = service().rotate(admin, session, previousRefreshToken, LocalDateTime.now());
 
@@ -96,7 +102,7 @@ class AdminSessionTokenServiceTest {
 				loadAdminRefreshTokenPort,
 				saveAdminRefreshTokenPort,
 				hashAdminRefreshTokenPort,
-				jwtProvider);
+				adminTokenPort);
 	}
 
 	private AdminAccount readyAdmin() {

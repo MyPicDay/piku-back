@@ -3,6 +3,8 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminRefreshTokenClaims;
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.HashAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.LoadAdminRefreshTokenPort;
@@ -13,9 +15,6 @@ import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminRefreshToken;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.admin.domain.AdminSession;
-import com.pikume.back.security.jwt.AdminAuthConstants;
-import com.pikume.back.security.jwt.JwtProvider;
-import com.pikume.back.security.jwt.SecurityTokenType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -48,7 +48,7 @@ class AdminAuthServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 	@Mock
-	private JwtProvider jwtProvider;
+	private AdminTokenPort adminTokenPort;
 	@Mock
 	private AdminOtpPort adminOtpPort;
 	@Mock
@@ -62,12 +62,13 @@ class AdminAuthServiceTest {
 		AdminAccount admin = readyAdmin();
 		given(loadAdminAccountPort.findByLoginId("ops-june")).willReturn(Optional.of(admin));
 		given(passwordEncoder.matches("AdminPass1!", "encoded-password")).willReturn(true);
-		given(jwtProvider.generateAdminOtpChallengeToken(admin.getId())).willReturn("otp-challenge-token");
+		given(adminTokenPort.generateOtpChallengeToken(admin.getId())).willReturn("otp-challenge-token");
+		given(adminTokenPort.otpChallengeTokenTtl()).willReturn(Duration.ofMinutes(5));
 
 		AdminLoginChallengeResult result = service().login("ops-june", "AdminPass1!");
 
 		assertThat(result.otpChallengeToken()).isEqualTo("otp-challenge-token");
-		assertThat(result.expiresInSeconds()).isEqualTo(AdminAuthConstants.OTP_CHALLENGE_TOKEN_EXPIRATION_TIME / 1000L);
+		assertThat(result.expiresInSeconds()).isEqualTo(Duration.ofMinutes(5).toSeconds());
 		assertThat(result.nextStep()).isEqualTo(AdminAuthStep.VERIFY_OTP.name());
 	}
 
@@ -138,10 +139,8 @@ class AdminAuthServiceTest {
 		given(hashAdminRefreshTokenPort.hash("old-refresh")).willReturn("old-hash");
 		given(loadAdminRefreshTokenPort.findByTokenHash("old-hash")).willReturn(Optional.of(refreshToken));
 		given(loadAdminSessionPort.findById(session.getId())).willReturn(Optional.of(session));
-		given(jwtProvider.validateToken("old-refresh")).willReturn(true);
-		given(jwtProvider.getTokenType("old-refresh")).willReturn(SecurityTokenType.ADMIN_REFRESH);
-		given(jwtProvider.getUserIdFromToken("old-refresh")).willReturn(admin.getId());
-		given(jwtProvider.getAdminSessionIdFromToken("old-refresh")).willReturn(session.getId());
+		given(adminTokenPort.readValidRefreshToken("old-refresh"))
+				.willReturn(Optional.of(new AdminRefreshTokenClaims(admin.getId(), session.getId())));
 		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
 		given(adminSessionTokenService.rotate(eq(admin), eq(session), eq(refreshToken), any(LocalDateTime.class)))
 				.willReturn(tokenResult());
@@ -178,7 +177,7 @@ class AdminAuthServiceTest {
 				loadAdminRefreshTokenPort,
 				hashAdminRefreshTokenPort,
 				passwordEncoder,
-				jwtProvider,
+				adminTokenPort,
 				adminOtpPort,
 				protectAdminOtpSecretPort,
 				adminSessionTokenService);

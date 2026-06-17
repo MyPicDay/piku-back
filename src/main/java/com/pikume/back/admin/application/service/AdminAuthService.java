@@ -4,6 +4,8 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminRefreshTokenClaims;
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.HashAdminRefreshTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.LoadAdminRefreshTokenPort;
@@ -14,9 +16,6 @@ import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminLoginId;
 import com.pikume.back.admin.domain.AdminRefreshToken;
 import com.pikume.back.admin.domain.AdminSession;
-import com.pikume.back.security.jwt.AdminAuthConstants;
-import com.pikume.back.security.jwt.JwtProvider;
-import com.pikume.back.security.jwt.SecurityTokenType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,13 +33,13 @@ public class AdminAuthService implements AdminAuthUseCase {
 	private final LoadAdminRefreshTokenPort loadAdminRefreshTokenPort;
 	private final HashAdminRefreshTokenPort hashAdminRefreshTokenPort;
 	private final PasswordEncoder passwordEncoder;
-	private final JwtProvider jwtProvider;
+	private final AdminTokenPort adminTokenPort;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	private final AdminSessionTokenService adminSessionTokenService;
 
 	@Override
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	public AdminLoginChallengeResult login(String loginId, String password) {
 		String normalizedLoginId = AdminLoginId.normalize(loginId);
 		AdminAccount admin = loadAdminAccountPort.findByLoginId(normalizedLoginId)
@@ -62,10 +61,10 @@ public class AdminAuthService implements AdminAuthUseCase {
 			throw invalidCredentials();
 		}
 
-		String otpChallengeToken = jwtProvider.generateAdminOtpChallengeToken(admin.getId());
+		String otpChallengeToken = adminTokenPort.generateOtpChallengeToken(admin.getId());
 		return new AdminLoginChallengeResult(
 				otpChallengeToken,
-				AdminAuthConstants.OTP_CHALLENGE_TOKEN_EXPIRATION_TIME / 1000L,
+				adminTokenPort.otpChallengeTokenTtl().toSeconds(),
 				AdminAuthStep.VERIFY_OTP.name(),
 				admin.getLoginId(),
 				admin.getNickname(),
@@ -74,7 +73,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 	}
 
 	@Override
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	public AdminTokenIssueResult verifyOtp(String adminId, String otpCode) {
 		AdminAccount admin = requireAdmin(adminId);
 		LocalDateTime now = LocalDateTime.now();
@@ -104,7 +103,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 	}
 
 	@Override
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	public AdminTokenIssueResult reissue(String refreshToken) {
 		if (!StringUtils.hasText(refreshToken)) {
 			throw invalidRefreshToken();
@@ -121,14 +120,15 @@ public class AdminAuthService implements AdminAuthUseCase {
 			adminSessionTokenService.markRefreshTokenReuse(session, storedRefreshToken, now);
 			throw new AdminException(AdminProblem.REFRESH_TOKEN_REUSED, "이미 회전된 관리자 Refresh Token이 재사용되었습니다.");
 		}
-		if (!jwtProvider.validateToken(refreshToken)
-				|| jwtProvider.getTokenType(refreshToken) != SecurityTokenType.ADMIN_REFRESH) {
+		AdminRefreshTokenClaims tokenClaims = adminTokenPort.readValidRefreshToken(refreshToken)
+				.orElse(null);
+		if (tokenClaims == null) {
 			storedRefreshToken.revoke(now);
 			throw invalidRefreshToken();
 		}
 
-		String adminId = jwtProvider.getUserIdFromToken(refreshToken);
-		String sessionId = jwtProvider.getAdminSessionIdFromToken(refreshToken);
+		String adminId = tokenClaims.adminId();
+		String sessionId = tokenClaims.sessionId();
 		if (!storedRefreshToken.belongsTo(adminId)
 				|| !storedRefreshToken.matchesSession(sessionId)
 				|| !session.belongsTo(adminId)) {

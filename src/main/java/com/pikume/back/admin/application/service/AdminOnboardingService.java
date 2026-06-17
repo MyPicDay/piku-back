@@ -4,13 +4,12 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminTokenPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminLoginId;
-import com.pikume.back.security.jwt.AdminAuthConstants;
-import com.pikume.back.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,13 +25,13 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
 	private final PasswordEncoder passwordEncoder;
-	private final JwtProvider jwtProvider;
+	private final AdminTokenPort adminTokenPort;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	private final AdminSessionTokenService adminSessionTokenService;
 
 	@Override
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	public AdminTemporaryLoginResult temporaryLogin(String email, String temporaryPassword) {
 		String normalizedEmail = AdminEmail.normalize(email);
 		AdminAccount admin = loadAdminAccountPort.findByEmail(normalizedEmail)
@@ -56,10 +55,10 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 			throw passwordFailure(admin, now);
 		}
 
-		String token = jwtProvider.generateAdminOnboardingToken(admin.getId());
+		String token = adminTokenPort.generateOnboardingToken(admin.getId());
 		return new AdminTemporaryLoginResult(
 				token,
-				AdminAuthConstants.ONBOARDING_TOKEN_EXPIRATION_TIME / 1000L,
+				adminTokenPort.onboardingTokenTtl().toSeconds(),
 				AdminOnboardingStep.SET_LOGIN_ID.name(),
 				admin.getEmail(),
 				admin.getNickname(),
@@ -106,7 +105,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	}
 
 	@Override
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	public AdminTokenIssueResult verifyOtp(String adminId, String otpCode) {
 		AdminAccount admin = requireAdmin(adminId);
 		if (admin.getPendingOtpSecret() == null) {
