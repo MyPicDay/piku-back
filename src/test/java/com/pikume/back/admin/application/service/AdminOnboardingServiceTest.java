@@ -20,6 +20,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +38,8 @@ class AdminOnboardingServiceTest {
 	private AdminOtpPort adminOtpPort;
 	@Mock
 	private ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
+	@Mock
+	private AdminSessionTokenService adminSessionTokenService;
 
 	@Test
 	@DisplayName("이메일과 임시 패스워드가 유효하면 온보딩 토큰을 발급한다")
@@ -120,10 +124,10 @@ class AdminOnboardingServiceTest {
 		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
 		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("SECRET");
 		given(adminOtpPort.verify("SECRET", "123456")).willReturn(true);
-		given(jwtProvider.generateAdminAccessToken(admin.getId(), AdminRole.OPERATOR.name(), "onboarding"))
-				.willReturn("access-token");
+		given(adminSessionTokenService.issueNewSession(eq(admin), any(LocalDateTime.class)))
+				.willReturn(tokenResult());
 
-		CompleteAdminOnboardingResult result = service().verifyOtp(admin.getId(), "123456");
+		AdminTokenIssueResult result = service().verifyOtp(admin.getId(), "123456");
 
 		assertThat(result.accessToken()).isEqualTo("access-token");
 		assertThat(admin.isOtpRegistered()).isTrue();
@@ -161,7 +165,21 @@ class AdminOnboardingServiceTest {
 				passwordEncoder,
 				jwtProvider,
 				adminOtpPort,
-				protectAdminOtpSecretPort);
+				protectAdminOtpSecretPort,
+				adminSessionTokenService);
+	}
+
+	private AdminTokenIssueResult tokenResult() {
+		return new AdminTokenIssueResult(
+				"access-token",
+				"refresh-token",
+				600L,
+				1800L,
+				"session-1",
+				"ops-june",
+				"운영자1",
+				"operator@pikume.com",
+				AdminRole.OPERATOR);
 	}
 
 	private AdminAccount invited() {

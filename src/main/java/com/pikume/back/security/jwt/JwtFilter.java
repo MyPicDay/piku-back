@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
+import com.pikume.back.admin.domain.AdminSession;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,6 +23,7 @@ import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 @Slf4j
@@ -31,6 +34,7 @@ public class JwtFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
 	private final LoadUserForAuthPort loadUserForAuthPort;
+	private final LoadAdminSessionPort loadAdminSessionPort;
 	private final AuthenticationEntryPoint authenticationEntryPoint;
 
 	@Override
@@ -112,6 +116,12 @@ public class JwtFilter extends OncePerRequestFilter {
 		String role = jwtProvider.getAdminRoleFromToken(token);
 		String sessionId = jwtProvider.getAdminSessionIdFromToken(token);
 		log.debug("event=jwt_filter_admin_token_validated adminId={}", adminId);
+
+		AdminSession session = loadAdminSessionPort.findById(sessionId)
+				.orElseThrow(() -> new RuntimeException("관리자 세션 없음"));
+		if (!session.belongsTo(adminId) || !session.isActiveAt(LocalDateTime.now())) {
+			throw new RuntimeException("관리자 세션이 유효하지 않습니다.");
+		}
 
 		AdminUserDetails adminUserDetails = new AdminUserDetails(adminId, role, sessionId);
 		Authentication authentication = new UsernamePasswordAuthenticationToken(

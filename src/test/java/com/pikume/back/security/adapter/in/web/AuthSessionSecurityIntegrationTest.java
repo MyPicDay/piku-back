@@ -1,6 +1,8 @@
 package com.pikume.back.security.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pikume.back.admin.adapter.out.persistence.AdminSessionJpaRepository;
+import com.pikume.back.admin.domain.AdminSession;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.jwt.JwtProvider;
@@ -21,6 +23,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.Map;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +45,9 @@ class AuthSessionSecurityIntegrationTest {
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
+
+	@Autowired
+	private AdminSessionJpaRepository adminSessionJpaRepository;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -135,10 +141,20 @@ class AuthSessionSecurityIntegrationTest {
 	@Test
 	@DisplayName("관리자 토큰은 관리자 보호 경로의 보안 검사를 통과한다")
 	void adminTokenPassesAdminSecurityBoundary() throws Exception {
+		String adminId = "018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b1";
+		String sessionId = "018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b2";
+		LocalDateTime now = LocalDateTime.now();
+		adminSessionJpaRepository.saveAndFlush(AdminSession.start(
+				sessionId,
+				adminId,
+				"refresh-token-hash",
+				now.plusHours(1),
+				now.plusMinutes(30),
+				now));
 		String accessToken = jwtProvider.generateAdminAccessToken(
-				"018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b1",
+				adminId,
 				AdminRole.SUPER_ADMIN.name(),
-				"session-1");
+				sessionId);
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")
 						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)

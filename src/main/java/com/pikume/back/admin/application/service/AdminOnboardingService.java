@@ -29,6 +29,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	private final JwtProvider jwtProvider;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
+	private final AdminSessionTokenService adminSessionTokenService;
 
 	@Override
 	@Transactional
@@ -105,7 +106,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 
 	@Override
 	@Transactional
-	public CompleteAdminOnboardingResult verifyOtp(String adminId, String otpCode) {
+	public AdminTokenIssueResult verifyOtp(String adminId, String otpCode) {
 		AdminAccount admin = requireAdmin(adminId);
 		if (admin.getPendingOtpSecret() == null) {
 			throw new AdminException(AdminProblem.INVALID_REQUEST, "OTP 등록을 먼저 시작해야 합니다.");
@@ -121,14 +122,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 		}
 		admin.completeOtpRegistration();
 		admin.recordLoginSuccess(now);
-		String accessToken = jwtProvider.generateAdminAccessToken(admin.getId(), admin.getRole().name(), "onboarding");
-		return new CompleteAdminOnboardingResult(
-				accessToken,
-				AdminAuthConstants.ACCESS_TOKEN_EXPIRATION_TIME / 1000L,
-				admin.getLoginId(),
-				admin.getNickname(),
-				admin.getEmail(),
-				admin.getRole());
+		return adminSessionTokenService.issueNewSession(admin, now);
 	}
 
 	private AdminAccount requireAdmin(String adminId) {

@@ -10,7 +10,8 @@ import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
 import com.pikume.back.admin.application.service.AdminOnboardingStep;
 import com.pikume.back.admin.application.service.AdminOtpRegistrationResult;
 import com.pikume.back.admin.application.service.AdminTemporaryLoginResult;
-import com.pikume.back.admin.application.service.CompleteAdminOnboardingResult;
+import com.pikume.back.admin.application.service.AdminTokenIssueResult;
+import com.pikume.back.security.jwt.AdminAuthConstants;
 import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.security.jwt.SecurityTokenType;
 import com.pikume.back.user.auth.constants.AuthConstants;
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -72,12 +74,16 @@ public class AdminOnboardingController {
 		return ResponseEntity.ok(adminOnboardingUseCase.startOtpRegistration(resolveOnboardingAdminId(authorization)));
 	}
 
-	@Operation(summary = "최초 OTP 인증", description = "OTP 코드를 검증하고 관리자 Access Token을 발급합니다.")
+	@Operation(summary = "최초 OTP 인증", description = "OTP 코드를 검증하고 관리자 Access/Refresh Token을 발급합니다.")
 	@PostMapping("/onboarding/otp/verify")
-	public ResponseEntity<CompleteAdminOnboardingResult> verifyOtp(
+	public ResponseEntity<AdminTokenResponse> verifyOtp(
 			@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
 			@RequestBody VerifyAdminOtpRequest request) {
-		return ResponseEntity.ok(adminOnboardingUseCase.verifyOtp(resolveOnboardingAdminId(authorization), request.otpCode()));
+		AdminTokenIssueResult result = adminOnboardingUseCase.verifyOtp(resolveOnboardingAdminId(authorization), request.otpCode());
+		return ResponseEntity.ok()
+				.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + result.accessToken())
+				.header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result).toString())
+				.body(AdminTokenResponse.from(result));
 	}
 
 	private String resolveOnboardingAdminId(String authorization) {
@@ -89,6 +95,16 @@ public class AdminOnboardingController {
 			throw new AdminException(AdminProblem.ONBOARDING_TOKEN_INVALID, "온보딩 토큰이 유효하지 않습니다.");
 		}
 		return jwtProvider.getUserIdFromToken(token);
+	}
+
+	private ResponseCookie refreshTokenCookie(AdminTokenIssueResult result) {
+		return ResponseCookie.from(AdminAuthConstants.REFRESH_TOKEN_COOKIE_NAME, result.refreshToken())
+				.httpOnly(true)
+				.secure(true)
+				.path("/api/admin/auth")
+				.maxAge(result.refreshTokenExpiresInSeconds())
+				.sameSite("Lax")
+				.build();
 	}
 
 	private record OnboardingNextStepResponse(String nextStep) {

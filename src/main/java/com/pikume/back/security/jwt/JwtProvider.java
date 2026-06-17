@@ -15,6 +15,7 @@ import com.pikume.back.global.config.CustomUserDetails;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -91,6 +92,41 @@ public class JwtProvider {
 
 		return Jwts.builder()
 				.setClaims(claims)
+				.setIssuedAt(now)
+				.setExpiration(expiry)
+				.signWith(signingKey())
+				.compact();
+	}
+
+	public String generateAdminOtpChallengeToken(String adminId) {
+		validateRequired(adminId, "관리자 ID는 필수입니다.");
+		Claims claims = Jwts.claims().setSubject(adminId);
+		Date now = new Date();
+		Date expiry = new Date(now.getTime() + AdminAuthConstants.OTP_CHALLENGE_TOKEN_EXPIRATION_TIME);
+
+		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_OTP_CHALLENGE.name());
+
+		return Jwts.builder()
+				.setClaims(claims)
+				.setIssuedAt(now)
+				.setExpiration(expiry)
+				.signWith(signingKey())
+				.compact();
+	}
+
+	public String generateAdminRefreshToken(String adminId, String sessionId) {
+		validateRequired(adminId, "관리자 ID는 필수입니다.");
+		validateRequired(sessionId, "관리자 세션 ID는 필수입니다.");
+		Claims claims = Jwts.claims().setSubject(adminId);
+		Date now = new Date();
+		Date expiry = new Date(now.getTime() + AdminAuthConstants.REFRESH_TOKEN_ABSOLUTE_EXPIRATION_TIME);
+
+		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_REFRESH.name());
+		claims.put(SESSION_ID_CLAIM, sessionId);
+
+		return Jwts.builder()
+				.setClaims(claims)
+				.setId(UUID.randomUUID().toString())
 				.setIssuedAt(now)
 				.setExpiration(expiry)
 				.signWith(signingKey())
