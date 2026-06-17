@@ -19,6 +19,7 @@ import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
 import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
 
@@ -32,6 +33,7 @@ import java.util.List;
 public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
+	private final AdminOriginValidationFilter adminOriginValidationFilter;
 	private final Environment env;
 	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
 	private final ProblemDetailAccessDeniedHandler accessDeniedHandler;
@@ -136,6 +138,7 @@ public class SecurityConfig {
 						.anyRequest().authenticated())
 				.sessionManagement(
 						(sessionManagement) -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();

@@ -157,4 +157,17 @@ class AuthSessionSecurityIntegrationTest {
 		assertThat(configuration.getAllowedOrigins()).containsExactly("https://pikume-ops.pikume.com");
 		assertThat(configuration.getAllowedOrigins()).doesNotContain("https://www.pikume.com");
 	}
+
+	@Test
+	@DisplayName("상태를 변경하는 관리자 API 요청은 관리자 Origin만 허용한다")
+	void adminStateChangingRequestsRequireAllowedOrigin() throws Exception {
+		mockMvc.perform(post("/api/admin/auth/temporary-login")
+						.header(HttpHeaders.ORIGIN, "https://www.pikume.com")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{}")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/origin-forbidden"))
+				.andExpect(jsonPath("$.status").value(403));
+	}
 }

@@ -9,6 +9,7 @@ public enum SecurityProblemType implements ApiProblemType {
 	UNAUTHENTICATED("https://api.pikume.com/problems/security/unauthenticated", HttpStatus.UNAUTHORIZED, "Unauthorized"),
 	INVALID_CREDENTIALS("https://api.pikume.com/problems/security/invalid-credentials", HttpStatus.UNAUTHORIZED, "Unauthorized"),
 	INVALID_REFRESH_TOKEN("https://api.pikume.com/problems/security/invalid-refresh-token", HttpStatus.UNAUTHORIZED, "Unauthorized"),
+	ADMIN_ORIGIN_FORBIDDEN("https://api.pikume.com/problems/admin/origin-forbidden", HttpStatus.FORBIDDEN, "Forbidden"),
 	FORBIDDEN("https://api.pikume.com/problems/security/forbidden", HttpStatus.FORBIDDEN, "Forbidden");
 
 	private final URI type;
