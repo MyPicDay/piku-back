@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +23,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
+
+	private static final ZoneId STATISTICS_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
 	private final LoadAdminDailyStatisticsPort loadAdminDailyStatisticsPort;
@@ -66,7 +69,7 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 	}
 
 	private List<AdminDailyStatisticsResult> dailyStatistics(LocalDate startDate, LocalDate endDate) {
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(STATISTICS_ZONE);
 		Map<LocalDate, AdminDailyStatisticsResult> calculated = adminDailyStatisticsCalculator.calculate(startDate, endDate);
 		Map<LocalDate, AdminDailyStatisticsResult> aggregated = new LinkedHashMap<>();
 		for (AdminDailyStatistics statistics : loadAdminDailyStatisticsPort.findByDateBetween(startDate, endDate)) {
@@ -115,7 +118,7 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 	}
 
 	private Period normalizePeriod(LocalDate startDate, LocalDate endDate) {
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(STATISTICS_ZONE);
 		LocalDate normalizedEndDate = endDate == null ? today : endDate;
 		LocalDate normalizedStartDate = startDate == null ? normalizedEndDate.minusDays(6) : startDate;
 		if (normalizedStartDate.isAfter(normalizedEndDate)) {

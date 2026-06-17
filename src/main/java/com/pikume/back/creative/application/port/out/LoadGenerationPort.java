@@ -2,6 +2,7 @@ package com.pikume.back.creative.application.port.out;
 
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,6 +11,9 @@ import java.util.Optional;
  */
 public interface LoadGenerationPort {
 
+	record DailyCount(LocalDate date, long count) {
+	}
+
 	Optional<DiaryImageGeneration> findById(Long id);
 
 	List<DiaryImageGeneration> findByDiaryIdIsNull();
@@ -17,4 +21,6 @@ public interface LoadGenerationPort {
 	Optional<DiaryImageGeneration> findByUserIdAndFilePath(String userId, String filePath);
 
 	boolean existsByIdAndUserId(Long id, String userId);
+
+	List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
 }

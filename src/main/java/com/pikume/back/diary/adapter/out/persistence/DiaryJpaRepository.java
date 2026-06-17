@@ -10,11 +10,18 @@ import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
+
+	interface DailyCountProjection {
+		Object getMetricDate();
+
+		Long getMetricCount();
+	}
 
 	Optional<Diary> findByIdAndDeletedAtIsNull(Long id);
 
@@ -66,6 +73,17 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 	List<DiaryMonthCountDTO> countDiariesPerMonthByStatuses(
 			@Param("userId") String userId,
 			@Param("statuses") Collection<DiaryVisibility> statuses);
+
+	@Query(value = """
+			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount
+			FROM diary
+			WHERE created_at >= :startDateTime
+			  AND created_at < :endExclusiveDateTime
+			GROUP BY CAST(created_at AS DATE)
+			""", nativeQuery = true)
+	List<DailyCountProjection> countCreatedDiariesByDate(
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 
 	@Query("SELECT d.id FROM Diary d " +
 			"WHERE d.status = :status " +

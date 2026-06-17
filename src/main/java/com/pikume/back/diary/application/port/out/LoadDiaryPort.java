@@ -14,6 +14,9 @@ import java.util.Optional;
 
 public interface LoadDiaryPort {
 
+	record DailyCount(LocalDate date, long count) {
+	}
+
 	record PhotoRow(Long diaryId, String url, String optimizedUrl, boolean represent) {
 
 		public String displayUrl() {
@@ -45,6 +48,8 @@ public interface LoadDiaryPort {
 	long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses);
 
 	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, Collection<DiaryVisibility> statuses);
+
+	List<DailyCount> countCreatedDiariesByDate(LocalDate startDate, LocalDate endDate);
 
 	boolean existsById(Long diaryId);
 

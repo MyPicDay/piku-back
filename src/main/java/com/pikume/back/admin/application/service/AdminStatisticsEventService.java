@@ -10,10 +10,13 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
 public class AdminStatisticsEventService implements RecordAdminStatisticsEventUseCase {
+
+	private static final ZoneId STATISTICS_ZONE = ZoneId.of("Asia/Seoul");
 
 	private final SaveAdminStatisticsEventPort saveAdminStatisticsEventPort;
 
@@ -22,7 +25,7 @@ public class AdminStatisticsEventService implements RecordAdminStatisticsEventUs
 	public void record(AdminStatisticsEventType eventType, String userId, String visitorKey) {
 		saveAdminStatisticsEventPort.save(AdminStatisticsEvent.record(
 				eventType,
-				LocalDateTime.now(),
+				LocalDateTime.now(STATISTICS_ZONE),
 				userId,
 				visitorKey));
 	}

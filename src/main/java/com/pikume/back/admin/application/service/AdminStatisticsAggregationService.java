@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Service
@@ -16,20 +17,22 @@ import java.util.Map;
 @Slf4j
 public class AdminStatisticsAggregationService {
 
+	private static final ZoneId STATISTICS_ZONE = ZoneId.of("Asia/Seoul");
+
 	private final AdminDailyStatisticsCalculator adminDailyStatisticsCalculator;
 	private final SaveAdminDailyStatisticsPort saveAdminDailyStatisticsPort;
 
 	@Scheduled(cron = "0 10 0 * * *", zone = "Asia/Seoul")
 	@Transactional
 	public void aggregateYesterday() {
-		aggregate(LocalDate.now().minusDays(1));
+		aggregate(LocalDate.now(STATISTICS_ZONE).minusDays(1));
 	}
 
 	@Transactional
 	public void aggregate(LocalDate date) {
 		Map<LocalDate, AdminDailyStatisticsResult> calculated = adminDailyStatisticsCalculator.calculate(date, date);
 		AdminDailyStatisticsResult result = calculated.getOrDefault(date, AdminDailyStatisticsResult.zero(date));
-		saveAdminDailyStatisticsPort.save(result.toEntity(LocalDateTime.now()));
+		saveAdminDailyStatisticsPort.save(result.toEntity(LocalDateTime.now(STATISTICS_ZONE)));
 		log.info("event=admin_daily_statistics_aggregated date={}", date);
 	}
 }

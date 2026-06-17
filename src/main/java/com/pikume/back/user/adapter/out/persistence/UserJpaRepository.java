@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.pikume.back.user.domain.User;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -14,9 +16,29 @@ import java.util.Optional;
  */
 public interface UserJpaRepository extends JpaRepository<User, String> {
 
+	interface DailyCountProjection {
+		Object getMetricDate();
+
+		Long getMetricCount();
+	}
+
 	Optional<User> findByEmail(String email);
 
 	boolean existsByEmail(String email);
+
+	long countByDeletedAtIsNull();
+
+	@Query(value = """
+			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount
+			FROM users
+			WHERE created_at >= :startDateTime
+			  AND created_at < :endExclusiveDateTime
+			  AND deleted_at IS NULL
+			GROUP BY CAST(created_at AS DATE)
+			""", nativeQuery = true)
+	List<DailyCountProjection> countSignupMembersByDate(
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 
 	@Query("SELECT u FROM User u WHERE u.nickname LIKE :keyword")
 	Page<User> searchByName(@Param("keyword") String keyword, Pageable pageable);
