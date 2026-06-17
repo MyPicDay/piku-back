@@ -171,6 +171,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 		}
 		validatePassword(newPassword, admin.getLoginId());
 		admin.completePasswordSetup(passwordEncoder.encode(newPassword));
+		adminSessionTokenService.revokeActiveSessions(admin.getId(), LocalDateTime.now());
 	}
 
 	private boolean canUseOfficialLogin(AdminAccount admin) {

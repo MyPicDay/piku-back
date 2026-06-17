@@ -170,6 +170,21 @@ class AdminAuthServiceTest {
 				.markRefreshTokenReuse(eq(session), eq(refreshToken), any(LocalDateTime.class));
 	}
 
+	@Test
+	@DisplayName("패스워드 변경에 성공하면 활성 관리자 세션을 폐기한다")
+	void changePasswordRevokesActiveSessions() {
+		AdminAccount admin = readyAdmin();
+		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+		given(passwordEncoder.matches("AdminPass1!", "encoded-password")).willReturn(true);
+		given(passwordEncoder.encode("NewAdminPass1!")).willReturn("encoded-new-password");
+
+		service().changePassword(admin.getId(), "AdminPass1!", "NewAdminPass1!");
+
+		assertThat(admin.getPasswordHash()).isEqualTo("encoded-new-password");
+		then(adminSessionTokenService).should()
+				.revokeActiveSessions(eq(admin.getId()), any(LocalDateTime.class));
+	}
+
 	private AdminAuthService service() {
 		return new AdminAuthService(
 				loadAdminAccountPort,
