@@ -11,6 +11,7 @@
 
 ## Active Documents
 
+- [Admin](../domain-models/admin.md)
 - [Domain Models Overview](../domain-models/README.md)
 - [Diary](../domain-models/diary.md)
 - [Feed](../domain-models/feed.md)
