@@ -8,6 +8,7 @@ import java.net.URI;
 public enum AdminProblem implements ApiProblemType {
 	UNAUTHENTICATED("https://api.pikume.com/problems/admin/unauthenticated", HttpStatus.UNAUTHORIZED, "Unauthorized"),
 	FORBIDDEN("https://api.pikume.com/problems/admin/forbidden", HttpStatus.FORBIDDEN, "Forbidden"),
+	NOT_FOUND("https://api.pikume.com/problems/admin/not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	INVALID_CREDENTIALS("https://api.pikume.com/problems/admin/invalid-credentials", HttpStatus.UNAUTHORIZED, "Unauthorized"),
 	TEMPORARY_CREDENTIAL_EXPIRED("https://api.pikume.com/problems/admin/temporary-credential-expired", HttpStatus.UNAUTHORIZED, "Unauthorized"),
 	ONBOARDING_TOKEN_INVALID("https://api.pikume.com/problems/admin/onboarding-token-invalid", HttpStatus.UNAUTHORIZED, "Unauthorized"),

@@ -226,6 +226,13 @@ public class AdminAccount extends BaseEntity {
 		this.passwordChangeRequired = true;
 	}
 
+	public void reactivate() {
+		this.status = AdminAccountStatus.ACTIVE;
+		this.loginFailureCount = 0;
+		this.lockedUntil = null;
+		resetOtpFailures();
+	}
+
 	public void reissueTemporaryPassword(String temporaryPasswordHash, LocalDateTime issuedAt, LocalDateTime expiresAt) {
 		this.temporaryPasswordHash = requireHash(temporaryPasswordHash, "임시 패스워드 해시는 필수입니다.");
 		this.temporaryPasswordIssuedAt = requireTime(issuedAt, "임시 패스워드 발급 시각은 필수입니다.");

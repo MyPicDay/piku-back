@@ -5,7 +5,9 @@ import com.pikume.back.admin.adapter.in.web.dto.request.CreateAdminAccountReques
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
+import com.pikume.back.admin.application.service.AdminAccountSummaryResult;
 import com.pikume.back.admin.application.service.CreateAdminAccountCommand;
 import com.pikume.back.admin.application.service.CreateAdminAccountResult;
 import com.pikume.back.admin.domain.AdminAccountStatus;
@@ -28,10 +30,12 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,13 +46,15 @@ class AdminAccountControllerTest {
 
 	@Mock
 	private CreateAdminAccountUseCase createAdminAccountUseCase;
+	@Mock
+	private AdminAccountOperationUseCase adminAccountOperationUseCase;
 
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {
-		AdminAccountController controller = new AdminAccountController(createAdminAccountUseCase);
+		AdminAccountController controller = new AdminAccountController(createAdminAccountUseCase, adminAccountOperationUseCase);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 				.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
 				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
@@ -56,6 +62,28 @@ class AdminAccountControllerTest {
 						AdminRole.SUPER_ADMIN.name(),
 						"session-1")))
 				.build();
+	}
+
+	@Test
+	@DisplayName("GET /api/admin/accounts는 관리자 UUID 없이 목록을 반환한다")
+	void listDoesNotExposeAdminId() throws Exception {
+		given(adminAccountOperationUseCase.list("admin-1"))
+				.willReturn(List.of(new AdminAccountSummaryResult(
+						"viewer@pikume.com",
+						"viewer-june",
+						"조회자1",
+						AdminRole.VIEWER,
+						AdminAccountStatus.ACTIVE,
+						false,
+						true,
+						null,
+						LocalDateTime.of(2026, 6, 17, 13, 0))));
+
+		mockMvc.perform(get("/api/admin/accounts")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].email").value("viewer@pikume.com"))
+				.andExpect(jsonPath("$[0].adminId").doesNotExist());
 	}
 
 	@Test

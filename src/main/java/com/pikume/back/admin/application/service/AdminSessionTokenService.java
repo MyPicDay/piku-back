@@ -85,6 +85,10 @@ public class AdminSessionTokenService {
 		saveAdminSessionPort.save(session);
 	}
 
+	public void revokeActiveSessions(String adminId, LocalDateTime now) {
+		revokeActiveSessionsForAdmin(adminId, now);
+	}
+
 	public void markRefreshTokenReuse(AdminSession session, AdminRefreshToken reusedRefreshToken, LocalDateTime now) {
 		reusedRefreshToken.markReused(now);
 		saveAdminRefreshTokenPort.save(reusedRefreshToken);
@@ -97,7 +101,7 @@ public class AdminSessionTokenService {
 		saveAdminSessionPort.save(session);
 	}
 
-	private void revokeActiveSessions(String adminId, LocalDateTime now) {
+	private void revokeActiveSessionsForAdmin(String adminId, LocalDateTime now) {
 		loadAdminSessionPort.findActiveByAdminId(adminId)
 				.forEach(session -> revokeSession(session, now));
 	}

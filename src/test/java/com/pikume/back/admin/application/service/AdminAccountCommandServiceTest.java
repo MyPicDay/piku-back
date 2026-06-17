@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -32,6 +33,8 @@ class AdminAccountCommandServiceTest {
 	private LoadAdminAccountPort loadAdminAccountPort;
 	@Mock
 	private SaveAdminAccountPort saveAdminAccountPort;
+	@Mock
+	private SaveAdminAuditLogPort saveAdminAuditLogPort;
 	@Mock
 	private GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	@Mock
@@ -102,6 +105,7 @@ class AdminAccountCommandServiceTest {
 		return new AdminAccountCommandService(
 				loadAdminAccountPort,
 				saveAdminAccountPort,
+				saveAdminAuditLogPort,
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
 				passwordEncoder);

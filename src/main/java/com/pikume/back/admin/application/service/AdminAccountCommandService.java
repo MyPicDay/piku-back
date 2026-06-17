@@ -5,9 +5,12 @@ import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
+import com.pikume.back.admin.domain.AdminAuditAction;
+import com.pikume.back.admin.domain.AdminAuditLog;
 import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminRole;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
 	private final SaveAdminAccountPort saveAdminAccountPort;
+	private final SaveAdminAuditLogPort saveAdminAuditLogPort;
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	private final PasswordEncoder passwordEncoder;
@@ -64,6 +68,13 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 		} catch (RuntimeException e) {
 			guideEmailSent = false;
 		}
+		saveAdminAuditLogPort.save(AdminAuditLog.record(
+				actor.getId(),
+				saved.getId(),
+				AdminAuditAction.ADMIN_CREATED,
+				null,
+				"email: %s, role: %s".formatted(saved.getEmail(), saved.getRole()),
+				LocalDateTime.now()));
 
 		return new CreateAdminAccountResult(
 				saved.getEmail(),
