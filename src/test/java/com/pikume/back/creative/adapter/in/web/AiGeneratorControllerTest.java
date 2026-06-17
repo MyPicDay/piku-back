@@ -1,10 +1,9 @@
 package com.pikume.back.creative.adapter.in.web;
 
-import com.pikume.back.admin.application.port.in.RecordAdminStatisticsEventUseCase;
-import com.pikume.back.admin.domain.AdminStatisticsEventType;
 import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
+import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.service.RedisService;
@@ -35,7 +34,7 @@ class AiGeneratorControllerTest {
 	@Mock
 	private GenerateImageUseCase generateImageUseCase;
 	@Mock
-	private RecordAdminStatisticsEventUseCase recordAdminStatisticsEventUseCase;
+	private RecordAiPhotoStatisticsUseCase recordAiPhotoStatisticsUseCase;
 
 	private AiGeneratorController aiGeneratorController;
 
@@ -45,7 +44,7 @@ class AiGeneratorControllerTest {
 				redisService,
 				generateImageUseCase,
 				new ProblemDetailFactory(),
-				recordAdminStatisticsEventUseCase);
+				recordAiPhotoStatisticsUseCase);
 	}
 
 	@Test
@@ -62,10 +61,8 @@ class AiGeneratorControllerTest {
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getBody()).isInstanceOf(AiDiaryResponse.class);
-		then(recordAdminStatisticsEventUseCase).should()
-				.record(AdminStatisticsEventType.AI_PHOTO_REQUEST, "user1", null);
-		then(recordAdminStatisticsEventUseCase).should()
-				.record(AdminStatisticsEventType.AI_PHOTO_SUCCESS, "user1", null);
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
+		then(recordAiPhotoStatisticsUseCase).should().recordSuccess("user1");
 	}
 
 	@Test
@@ -84,8 +81,7 @@ class AiGeneratorControllerTest {
 		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/rate-limit-exceeded");
 		assertThat(problemDetail.getStatus()).isEqualTo(429);
 		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/diary/ai/generate");
-		then(recordAdminStatisticsEventUseCase).should()
-				.record(AdminStatisticsEventType.AI_PHOTO_REQUEST, "user1", null);
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
 	}
 
 	@Test
@@ -107,9 +103,7 @@ class AiGeneratorControllerTest {
 		assertThat(problemDetail.getStatus()).isEqualTo(500);
 		assertThat(problemDetail.getDetail()).isEqualTo("AI 이미지 생성에 실패했습니다.");
 		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/diary/ai/generate");
-		then(recordAdminStatisticsEventUseCase).should()
-				.record(AdminStatisticsEventType.AI_PHOTO_REQUEST, "user1", null);
-		then(recordAdminStatisticsEventUseCase).should()
-				.record(AdminStatisticsEventType.AI_PHOTO_FAILURE, "user1", null);
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
+		then(recordAiPhotoStatisticsUseCase).should().recordFailure("user1");
 	}
 }

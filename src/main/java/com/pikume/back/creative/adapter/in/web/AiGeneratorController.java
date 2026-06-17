@@ -1,10 +1,9 @@
 package com.pikume.back.creative.adapter.in.web;
 
-import com.pikume.back.admin.application.port.in.RecordAdminStatisticsEventUseCase;
-import com.pikume.back.admin.domain.AdminStatisticsEventType;
 import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
+import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -36,7 +35,7 @@ public class AiGeneratorController {
 
 	private final GenerateImageUseCase generateImageUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
-	private final RecordAdminStatisticsEventUseCase recordAdminStatisticsEventUseCase;
+	private final RecordAiPhotoStatisticsUseCase recordAiPhotoStatisticsUseCase;
 
 	@Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
 	@SecurityRequirement(name = "JWT")
@@ -47,7 +46,7 @@ public class AiGeneratorController {
 
 		String content = body.get("content");
 		String userId = customUserDetails.getId();
-		recordAiEvent(AdminStatisticsEventType.AI_PHOTO_REQUEST, userId);
+		recordAiPhotoStatisticsUseCase.recordRequest(userId);
 
 		if (redisService.isLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
 			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
@@ -61,11 +60,11 @@ public class AiGeneratorController {
 			GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(content, userId);
 			log.info("Generated image URL: {}", generation.imageUrl());
 			redisService.incrementRequestCount(AI_GENERATE_ACTION, userId);
-			recordAiEvent(AdminStatisticsEventType.AI_PHOTO_SUCCESS, userId);
+			recordAiPhotoStatisticsUseCase.recordSuccess(userId);
 			return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
 		} catch (RuntimeException e) {
 			log.error("AI 이미지 생성 실패", e);
-			recordAiEvent(AdminStatisticsEventType.AI_PHOTO_FAILURE, userId);
+			recordAiPhotoStatisticsUseCase.recordFailure(userId);
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(problemDetailFactory.create(
 							CommonProblemType.INTERNAL_SERVER_ERROR,
@@ -85,16 +84,5 @@ public class AiGeneratorController {
 		response.put("remainingRequests", remainingCount);
 
 		return ResponseEntity.ok(response);
-	}
-
-	private void recordAiEvent(AdminStatisticsEventType eventType, String userId) {
-		try {
-			recordAdminStatisticsEventUseCase.record(eventType, userId, null);
-		} catch (RuntimeException e) {
-			log.warn("event=ai_statistics_record_failed eventType={} userId={} reason={}",
-					eventType,
-					userId,
-					e.getMessage());
-		}
 	}
 }
