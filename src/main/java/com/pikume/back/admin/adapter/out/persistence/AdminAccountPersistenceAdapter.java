@@ -25,6 +25,11 @@ public class AdminAccountPersistenceAdapter implements LoadAdminAccountPort, Sav
 	}
 
 	@Override
+	public Optional<AdminAccount> findByIdForUpdate(String adminId) {
+		return adminAccountJpaRepository.findByIdForUpdate(adminId);
+	}
+
+	@Override
 	public Optional<AdminAccount> findByEmail(String email) {
 		return adminAccountJpaRepository.findByEmail(email);
 	}

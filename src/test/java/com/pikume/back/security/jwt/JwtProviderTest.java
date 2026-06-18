@@ -15,9 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("JwtProvider")
 class JwtProviderTest {
 
-	@Mock
-	private CustomUserDetailService customUserDetailService;
-
+	@Mock private CustomUserDetailService customUserDetailService;
 	private JwtProvider jwtProvider;
 
 	@BeforeEach
@@ -34,38 +32,5 @@ class JwtProviderTest {
 		assertThat(jwtProvider.validateToken(token)).isTrue();
 		assertThat(jwtProvider.getUserIdFromToken(token)).isEqualTo("user-1");
 		assertThat(jwtProvider.getTokenType(token)).isEqualTo(SecurityTokenType.USER_ACCESS);
-	}
-
-	@Test
-	@DisplayName("관리자 Access Token에는 관리자 타입, 등급, 세션 식별자를 포함한다")
-	void adminAccessTokenHasAdminClaims() {
-		String token = jwtProvider.generateAdminAccessToken("admin-1", "SUPER_ADMIN", "session-1");
-
-		assertThat(jwtProvider.validateToken(token)).isTrue();
-		assertThat(jwtProvider.getUserIdFromToken(token)).isEqualTo("admin-1");
-		assertThat(jwtProvider.getTokenType(token)).isEqualTo(SecurityTokenType.ADMIN_ACCESS);
-		assertThat(jwtProvider.getAdminRoleFromToken(token)).isEqualTo("SUPER_ADMIN");
-		assertThat(jwtProvider.getAdminSessionIdFromToken(token)).isEqualTo("session-1");
-	}
-
-	@Test
-	@DisplayName("관리자 OTP Challenge Token에는 OTP_CHALLENGE 타입을 포함한다")
-	void adminOtpChallengeTokenHasAdminOtpChallengeType() {
-		String token = jwtProvider.generateAdminOtpChallengeToken("admin-1");
-
-		assertThat(jwtProvider.validateToken(token)).isTrue();
-		assertThat(jwtProvider.getUserIdFromToken(token)).isEqualTo("admin-1");
-		assertThat(jwtProvider.getTokenType(token)).isEqualTo(SecurityTokenType.ADMIN_OTP_CHALLENGE);
-	}
-
-	@Test
-	@DisplayName("관리자 Refresh Token에는 관리자 타입과 세션 식별자를 포함한다")
-	void adminRefreshTokenHasAdminRefreshClaims() {
-		String token = jwtProvider.generateAdminRefreshToken("admin-1", "session-1");
-
-		assertThat(jwtProvider.validateToken(token)).isTrue();
-		assertThat(jwtProvider.getUserIdFromToken(token)).isEqualTo("admin-1");
-		assertThat(jwtProvider.getTokenType(token)).isEqualTo(SecurityTokenType.ADMIN_REFRESH);
-		assertThat(jwtProvider.getAdminSessionIdFromToken(token)).isEqualTo("session-1");
 	}
 }

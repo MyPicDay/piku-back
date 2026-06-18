@@ -2,17 +2,17 @@ package com.pikume.back.admin.application.port.in;
 
 import com.pikume.back.admin.application.service.AdminOtpRegistrationResult;
 import com.pikume.back.admin.application.service.AdminTemporaryLoginResult;
-import com.pikume.back.admin.application.service.AdminTokenIssueResult;
+import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 
 public interface AdminOnboardingUseCase {
 
-	AdminTemporaryLoginResult temporaryLogin(String email, String temporaryPassword);
+	AdminTemporaryLoginResult temporaryLogin(String sessionToken, String email, String temporaryPassword);
 
-	void setLoginId(String adminId, String loginId);
+	void setLoginId(String sessionToken, String loginId);
 
-	void setPassword(String adminId, String password);
+	void setPassword(String sessionToken, String password);
 
-	AdminOtpRegistrationResult startOtpRegistration(String adminId);
+	AdminOtpRegistrationResult startOtpRegistration(String sessionToken);
 
-	AdminTokenIssueResult verifyOtp(String adminId, String otpCode);
+	AdminAuthenticationResult verifyOtp(String sessionToken, String otpCode);
 }

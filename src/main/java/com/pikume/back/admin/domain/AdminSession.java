@@ -92,6 +92,12 @@ public class AdminSession extends BaseEntity {
 		this.lastActivityAt = requireTime(now, "관리자 인증 단계 변경 시각은 필수입니다.");
 	}
 
+	public void advance(AdminSessionPhase expectedPhase, AdminSessionPhase nextPhase,
+			long currentAuthenticationVersion, LocalDateTime now) {
+		advance(expectedPhase, nextPhase, now);
+		this.authenticationVersion = requireVersion(currentAuthenticationVersion);
+	}
+
 	public void authenticate(String newSessionTokenHash, String newCsrfTokenHash, long authenticationVersion,
 			LocalDateTime absoluteExpiresAt, LocalDateTime idleExpiresAt, LocalDateTime now) {
 		requireActive();
@@ -178,46 +184,6 @@ public class AdminSession extends BaseEntity {
 			throw new AdminDomainException("관리자 인증 버전은 음수일 수 없습니다.");
 		}
 		return version;
-	}
-
-	@Deprecated(forRemoval = true)
-	public static AdminSession start(String adminId, String credentialHash,
-			LocalDateTime absoluteExpiresAt, LocalDateTime idleExpiresAt, LocalDateTime now) {
-		AdminSession session = new AdminSession(
-				AdminId.newId(), credentialHash, credentialHash, absoluteExpiresAt, idleExpiresAt, now);
-		session.bindAdmin(adminId, 0L, AdminSessionPhase.AUTHENTICATED, absoluteExpiresAt, now);
-		session.phase = AdminSessionPhase.AUTHENTICATED;
-		session.idleExpiresAt = idleExpiresAt;
-		return session;
-	}
-
-	@Deprecated(forRemoval = true)
-	public static AdminSession start(String sessionId, String adminId, String credentialHash,
-			LocalDateTime absoluteExpiresAt, LocalDateTime idleExpiresAt, LocalDateTime now) {
-		AdminSession session = new AdminSession(
-				sessionId, credentialHash, credentialHash, absoluteExpiresAt, idleExpiresAt, now);
-		session.bindAdmin(adminId, 0L, AdminSessionPhase.AUTHENTICATED, absoluteExpiresAt, now);
-		session.phase = AdminSessionPhase.AUTHENTICATED;
-		session.idleExpiresAt = idleExpiresAt;
-		return session;
-	}
-
-	@Deprecated(forRemoval = true)
-	public String getCurrentRefreshTokenHash() {
-		return sessionTokenHash;
-	}
-
-	@Deprecated(forRemoval = true)
-	public void rotate(String credentialHash, LocalDateTime newIdleExpiresAt, LocalDateTime now) {
-		this.sessionTokenHash = requireText(credentialHash, "관리자 자격 증명 해시는 필수입니다.");
-		this.csrfTokenHash = credentialHash;
-		this.idleExpiresAt = requireTime(newIdleExpiresAt, "관리자 세션 유휴 만료 시각은 필수입니다.");
-		this.lastActivityAt = requireTime(now, "관리자 세션 변경 시각은 필수입니다.");
-	}
-
-	@Deprecated(forRemoval = true)
-	public void markReuseDetected(LocalDateTime now) {
-		revoke(now);
 	}
 
 	private static String requireText(String value, String message) {

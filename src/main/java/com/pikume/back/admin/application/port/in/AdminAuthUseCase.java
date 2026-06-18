@@ -1,15 +1,13 @@
 package com.pikume.back.admin.application.port.in;
 
 import com.pikume.back.admin.application.service.AdminLoginChallengeResult;
-import com.pikume.back.admin.application.service.AdminTokenIssueResult;
+import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 
 public interface AdminAuthUseCase {
 
-	AdminLoginChallengeResult login(String loginId, String password);
+	AdminLoginChallengeResult login(String sessionToken, String loginId, String password);
 
-	AdminTokenIssueResult verifyOtp(String adminId, String otpCode);
-
-	AdminTokenIssueResult reissue(String refreshToken);
+	AdminAuthenticationResult verifyOtp(String sessionToken, String otpCode);
 
 	void logout(String adminId, String sessionId);
 

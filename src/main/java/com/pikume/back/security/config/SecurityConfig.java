@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -35,7 +36,10 @@ public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
 	private final AdminOriginValidationFilter adminOriginValidationFilter;
+	private final AdminCsrfValidationFilter adminCsrfValidationFilter;
+	private final AdminSessionAuthenticationFilter adminSessionAuthenticationFilter;
 	private final AdminVisitStatisticsFilter adminVisitStatisticsFilter;
+	private final AdminSecurityProperties adminSecurityProperties;
 	private final Environment env;
 	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
 	private final ProblemDetailAccessDeniedHandler accessDeniedHandler;
@@ -46,10 +50,9 @@ public class SecurityConfig {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration adminConfiguration = new CorsConfiguration();
-		adminConfiguration.setAllowedOrigins(List.of("https://pikume-ops.pikume.com"));
-		adminConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-		adminConfiguration.setAllowedHeaders(List.of("*"));
-		adminConfiguration.setExposedHeaders(List.of("Authorization"));
+		adminConfiguration.setAllowedOrigins(adminSecurityProperties.allowedOrigins());
+		adminConfiguration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+		adminConfiguration.setAllowedHeaders(List.of("Content-Type", "Accept", adminSecurityProperties.csrfHeaderName()));
 		adminConfiguration.setAllowCredentials(true);
 
 		CorsConfiguration configuration = new CorsConfiguration();
@@ -66,6 +69,35 @@ public class SecurityConfig {
 	}
 
 	@Bean
+	@Order(1)
+	public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
+		http
+				.securityMatcher("/api/admin/**")
+				.securityContext(context -> context.requireExplicitSave(false))
+				.csrf(AbstractHttpConfigurer::disable)
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.exceptionHandling(exceptionHandling -> exceptionHandling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(HttpMethod.OPTIONS, "/api/admin/**").permitAll()
+						.requestMatchers(
+								"/api/admin/auth/csrf",
+								"/api/admin/auth/temporary-login",
+								"/api/admin/auth/login",
+								"/api/admin/auth/onboarding/**",
+								"/api/admin/auth/otp/verify").permitAll()
+						.anyRequest().hasRole("ADMIN"))
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
+		http.addFilterAfter(adminCsrfValidationFilter, AdminOriginValidationFilter.class);
+		http.addFilterAfter(adminSessionAuthenticationFilter, AdminCsrfValidationFilter.class);
+		http.addFilterAfter(adminVisitStatisticsFilter, AdminSessionAuthenticationFilter.class);
+		return http.build();
+	}
+
+	@Bean
+	@Order(2)
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		List<String> permittedPaths = new ArrayList<>(Arrays.asList(
 				"/api/auth/login",
@@ -77,11 +109,6 @@ public class SecurityConfig {
 				"/api/auth/password-reset",
 				"/api/auth/email",
 				"/api/auth/email-domains",
-				"/api/admin/auth/temporary-login",
-				"/api/admin/auth/login",
-				"/api/admin/auth/reissue",
-				"/api/admin/auth/onboarding/**",
-				"/api/admin/auth/otp/verify",
 				"/api/mobile/auth/**",
 				"/api/characters/fixed",
 				"/api/search"));
@@ -125,7 +152,6 @@ public class SecurityConfig {
 						})
 						.requestMatchers(permittedPaths.toArray(new String[0]))
 						.permitAll()
-						.requestMatchers("/api/admin/**").hasRole("ADMIN")
 						.requestMatchers("/api/auth/me").authenticated()
 						.requestMatchers("/api/diary/ai/**").authenticated()
 						.requestMatchers(HttpMethod.GET,
@@ -138,9 +164,7 @@ public class SecurityConfig {
 						.anyRequest().authenticated())
 				.sessionManagement(
 						(sessionManagement) -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
 		http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-		http.addFilterAfter(adminVisitStatisticsFilter, JwtFilter.class);
 
 		return http.build();
 	}

@@ -54,7 +54,7 @@ class AdminAccountOperationServiceTest {
 	@Mock
 	private PasswordEncoder passwordEncoder;
 	@Mock
-	private AdminSessionTokenService adminSessionTokenService;
+	private com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
 
 	@Test
 	@DisplayName("관리자 목록 조회는 UUID를 포함하지 않는 요약 결과를 반환한다")
@@ -114,7 +114,7 @@ class AdminAccountOperationServiceTest {
 
 		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
 		assertThat(target.getStatus()).isEqualTo(AdminAccountStatus.INACTIVE);
-		then(adminSessionTokenService).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
+		then(adminSessionLifecyclePort).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
 		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
 		assertThat(auditCaptor.getValue().getAction()).isEqualTo(AdminAuditAction.DEACTIVATED);
 		assertThat(auditCaptor.getValue().getReason()).isEqualTo("퇴사");
@@ -133,7 +133,7 @@ class AdminAccountOperationServiceTest {
 		service().changeRole(actor.getId(), target.getId(), AdminRole.VIEWER);
 
 		assertThat(target.getRole()).isEqualTo(AdminRole.VIEWER);
-		then(adminSessionTokenService).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
+		then(adminSessionLifecyclePort).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
 	}
 
 	@Test
@@ -187,6 +187,8 @@ class AdminAccountOperationServiceTest {
 		assertThat(result.temporaryLoginId()).isEqualTo("operator@pikume.com");
 		assertThat(result.temporaryPassword()).isEqualTo("TempPass1!234567");
 		assertThat(target.getTemporaryPasswordHash()).isEqualTo("encoded-temp");
+		then(adminSessionLifecyclePort).should()
+				.revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
 	}
 
 	private AdminAccountOperationService service() {
@@ -199,7 +201,7 @@ class AdminAccountOperationServiceTest {
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
 				passwordEncoder,
-				adminSessionTokenService);
+				adminSessionLifecyclePort);
 	}
 
 	private AdminAccount admin(AdminRole role, String email) {

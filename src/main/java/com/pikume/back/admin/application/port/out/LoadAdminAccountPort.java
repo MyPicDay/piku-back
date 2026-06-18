@@ -10,6 +10,8 @@ public interface LoadAdminAccountPort {
 
 	Optional<AdminAccount> findById(String adminId);
 
+	Optional<AdminAccount> findByIdForUpdate(String adminId);
+
 	Optional<AdminAccount> findByEmail(String email);
 
 	Optional<AdminAccount> findByLoginId(String loginId);

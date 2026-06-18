@@ -194,6 +194,17 @@ class AdminAccountTest {
 		}
 
 		@Test
+		@DisplayName("임시 패스워드 재발급은 기존 사전 세션 인증 버전을 무효화한다")
+		void temporaryPasswordReissueAdvancesAuthenticationVersion() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			long before = admin.getAuthenticationVersion();
+
+			admin.reissueTemporaryPassword("new-temp-hash", now.plusHours(1), now.plusHours(25));
+
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(before + 1);
+		}
+
+		@Test
 		@DisplayName("OTP 초기화 시 OTP 재등록이 필요하다")
 		void resetOtpRequiresRegistrationAgain() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);

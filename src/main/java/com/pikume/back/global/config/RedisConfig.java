@@ -1,5 +1,6 @@
 package com.pikume.back.global.config;
 
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -20,8 +21,10 @@ public class RedisConfig {
 		template.setHashKeySerializer(new StringRedisSerializer());
 
 		// Value는 JSON으로 직렬화
-		template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-		template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+		GenericJackson2JsonRedisSerializer valueSerializer = new GenericJackson2JsonRedisSerializer()
+				.configure(objectMapper -> objectMapper.registerModule(new JavaTimeModule()));
+		template.setValueSerializer(valueSerializer);
+		template.setHashValueSerializer(valueSerializer);
 
 		template.afterPropertiesSet();
 		return template;

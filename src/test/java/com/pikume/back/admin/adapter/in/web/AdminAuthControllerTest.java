@@ -5,36 +5,33 @@ import com.pikume.back.admin.adapter.in.web.dto.request.AdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.VerifyAdminOtpRequest;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
+import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.service.AdminAuthStep;
+import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 import com.pikume.back.admin.application.service.AdminLoginChallengeResult;
-import com.pikume.back.admin.application.service.AdminTokenIssueResult;
+import com.pikume.back.admin.application.service.AdminSessionCredentials;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.security.config.AdminUserDetails;
-import com.pikume.back.security.jwt.AdminAuthConstants;
-import com.pikume.back.security.jwt.JwtProvider;
-import com.pikume.back.security.jwt.SecurityTokenType;
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.security.config.AdminSecurityProperties;
+import com.pikume.back.security.config.AdminSessionCookieManager;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.bind.support.WebDataBinderFactory;
-import org.springframework.web.context.request.NativeWebRequest;
-import org.springframework.web.method.support.HandlerMethodArgumentResolver;
-import org.springframework.web.method.support.ModelAndViewContainer;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -42,117 +39,73 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @DisplayName("AdminAuthController")
 class AdminAuthControllerTest {
 
-	@Mock
-	private AdminAuthUseCase adminAuthUseCase;
-	@Mock
-	private JwtProvider jwtProvider;
-
+	@Mock AdminAuthUseCase adminAuthUseCase;
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
 	void setUp() {
-		AdminAuthController controller = new AdminAuthController(adminAuthUseCase, jwtProvider);
-		mockMvc = MockMvcBuilders.standaloneSetup(controller)
-				.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
-				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
-						"admin-1",
-						AdminRole.SUPER_ADMIN.name(),
-						"session-1")))
-				.build();
+		AdminSessionCookieManager manager = new AdminSessionCookieManager(properties());
+		mockMvc = MockMvcBuilders.standaloneSetup(new AdminAuthController(adminAuthUseCase, manager))
+				.setControllerAdvice(new AdminExceptionHandler(
+						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class))).build();
 	}
 
 	@Test
-	@DisplayName("POST /api/admin/auth/login은 OTP challenge token을 반환한다")
-	void loginReturnsOtpChallengeToken() throws Exception {
-		given(adminAuthUseCase.login("ops-june", "AdminPass1!"))
+	@DisplayName("로그인은 사전 세션 쿠키를 사용하고 토큰을 응답하지 않는다")
+	void loginUsesPreAuthenticationCookie() throws Exception {
+		given(adminAuthUseCase.login("raw-session", "ops-june", "AdminPass1!"))
 				.willReturn(new AdminLoginChallengeResult(
-						"otp-challenge-token",
-						300L,
-						AdminAuthStep.VERIFY_OTP.name(),
-						"ops-june",
-						"운영자1",
-						"operator@pikume.com",
-						AdminRole.OPERATOR));
+						AdminAuthStep.VERIFY_OTP.name(), "ops-june", "운영자1", "operator@pikume.com", AdminRole.OPERATOR));
 
 		mockMvc.perform(post("/api/admin/auth/login")
+						.cookie(new Cookie("pk-a91f", "raw-session"))
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new AdminLoginRequest(
-								"ops-june",
-								"AdminPass1!"))))
+						.content(objectMapper.writeValueAsString(new AdminLoginRequest("ops-june", "AdminPass1!"))))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.otpChallengeToken").value("otp-challenge-token"))
+				.andExpect(jsonPath("$.otpChallengeToken").doesNotExist())
 				.andExpect(jsonPath("$.nextStep").value(AdminAuthStep.VERIFY_OTP.name()));
 	}
 
 	@Test
-	@DisplayName("POST /api/admin/auth/otp/verify는 Access Token 본문과 Refresh Token 쿠키를 반환한다")
-	void verifyOtpReturnsAccessTokenAndRefreshTokenCookie() throws Exception {
-		given(jwtProvider.validateToken("otp-challenge-token")).willReturn(true);
-		given(jwtProvider.getTokenType("otp-challenge-token")).willReturn(SecurityTokenType.ADMIN_OTP_CHALLENGE);
-		given(jwtProvider.getUserIdFromToken("otp-challenge-token")).willReturn("admin-1");
-		given(adminAuthUseCase.verifyOtp("admin-1", "123456")).willReturn(tokenResult());
+	@DisplayName("OTP 성공은 Access Token 없이 세션과 CSRF 쿠키를 교체한다")
+	void verifyOtpRotatesCookies() throws Exception {
+		given(adminAuthUseCase.verifyOtp("raw-session", "123456")).willReturn(authenticationResult());
 
-		mockMvc.perform(post("/api/admin/auth/otp/verify")
-						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + "otp-challenge-token")
+		var response = mockMvc.perform(post("/api/admin/auth/otp/verify")
+						.cookie(new Cookie("pk-a91f", "raw-session"))
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(new VerifyAdminOtpRequest("123456"))))
 				.andExpect(status().isOk())
-				.andExpect(header().string(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + "access-token"))
-				.andExpect(header().string(HttpHeaders.SET_COOKIE,
-						org.hamcrest.Matchers.containsString(AdminAuthConstants.REFRESH_TOKEN_COOKIE_NAME + "=refresh-token")))
-				.andExpect(jsonPath("$.accessToken").value("access-token"))
-				.andExpect(jsonPath("$.refreshToken").doesNotExist())
-				.andExpect(jsonPath("$.admin.loginId").value("ops-june"));
+				.andExpect(jsonPath("$.authenticated").value(true))
+				.andExpect(jsonPath("$.accessToken").doesNotExist())
+				.andReturn().getResponse();
+
+		assertThat(response.getHeader(HttpHeaders.AUTHORIZATION)).isNull();
+		assertThat(response.getHeaders(HttpHeaders.SET_COOKIE))
+				.anyMatch(value -> value.startsWith("pk-a91f=new-session"))
+				.anyMatch(value -> value.startsWith("pk-b74d=new-csrf"));
 	}
 
 	@Test
-	@DisplayName("POST /api/admin/auth/otp/verify는 OTP challenge token이 없으면 Problem Details를 반환한다")
-	void verifyOtpReturnsProblemDetailsWhenChallengeTokenMissing() throws Exception {
-		mockMvc.perform(post("/api/admin/auth/otp/verify")
+	@DisplayName("사전 세션 쿠키가 없으면 Problem Details 401을 반환한다")
+	void loginRequiresPreAuthenticationCookie() throws Exception {
+		mockMvc.perform(post("/api/admin/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new VerifyAdminOtpRequest("123456"))))
+						.content(objectMapper.writeValueAsString(new AdminLoginRequest("ops-june", "AdminPass1!"))))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/otp-challenge-token-invalid"))
-				.andExpect(jsonPath("$.status").value(401))
-				.andExpect(jsonPath("$.instance").value("/api/admin/auth/otp/verify"));
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+						.string(HttpHeaders.CACHE_CONTROL, "no-store"))
+				.andExpect(jsonPath("$.status").value(401));
 	}
 
-	@Test
-	@DisplayName("POST /api/admin/auth/logout은 현재 관리자 세션을 폐기한다")
-	void logoutRevokesCurrentAdminSession() throws Exception {
-		mockMvc.perform(post("/api/admin/auth/logout")
-						.contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isOk())
-				.andExpect(header().string(HttpHeaders.SET_COOKIE,
-						org.hamcrest.Matchers.containsString(AdminAuthConstants.REFRESH_TOKEN_COOKIE_NAME + "=;")));
-
-		then(adminAuthUseCase).should().logout("admin-1", "session-1");
+	private AdminAuthenticationResult authenticationResult() {
+		return new AdminAuthenticationResult(new AdminSessionCredentials("new-session", "new-csrf"),
+				"ops-june", "운영자1", "operator@pikume.com", AdminRole.OPERATOR);
 	}
 
-	private AdminTokenIssueResult tokenResult() {
-		return new AdminTokenIssueResult(
-				"access-token",
-				"refresh-token",
-				600L,
-				1800L,
-				"session-1",
-				"ops-june",
-				"운영자1",
-				"operator@pikume.com",
-				AdminRole.OPERATOR);
-	}
-
-	private record AdminPrincipalResolver(AdminUserDetails adminUserDetails) implements HandlerMethodArgumentResolver {
-		@Override
-		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(AdminUserDetails.class);
-		}
-
-		@Override
-		public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-				NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-			return adminUserDetails;
-		}
+	private AdminSecurityProperties properties() {
+		return new AdminSecurityProperties(List.of("http://localhost:3000"),
+				"pk-a91f", "pk-b74d", "X-PK-C83F", false, "");
 	}
 }

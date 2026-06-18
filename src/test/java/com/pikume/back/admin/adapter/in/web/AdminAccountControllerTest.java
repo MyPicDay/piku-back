@@ -7,6 +7,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
+import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.service.AdminAccountSummaryResult;
 import com.pikume.back.admin.application.service.CreateAdminAccountCommand;
 import com.pikume.back.admin.application.service.CreateAdminAccountResult;
@@ -35,6 +36,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,7 +58,8 @@ class AdminAccountControllerTest {
 	void setUp() {
 		AdminAccountController controller = new AdminAccountController(createAdminAccountUseCase, adminAccountOperationUseCase);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
-				.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
+				.setControllerAdvice(new AdminExceptionHandler(
+						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
 				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
 						"admin-1",
 						AdminRole.SUPER_ADMIN.name(),

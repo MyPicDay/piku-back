@@ -9,5 +9,7 @@ public interface LoadAdminSessionPort {
 
 	Optional<AdminSession> findById(String sessionId);
 
+	Optional<AdminSession> findBySessionTokenHash(String sessionTokenHash);
+
 	List<AdminSession> findActiveByAdminId(String adminId);
 }

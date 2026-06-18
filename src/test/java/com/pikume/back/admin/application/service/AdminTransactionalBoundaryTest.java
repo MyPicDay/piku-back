@@ -16,18 +16,17 @@ class AdminTransactionalBoundaryTest {
 	@Test
 	@DisplayName("인증 실패 상태를 저장해야 하는 공식 로그인 메서드는 AdminException으로 롤백하지 않는다")
 	void authFailureStateMethodsDoNotRollbackForAdminException() throws Exception {
-		assertThat(noRollbackFor(AdminAuthService.class, "login", String.class, String.class))
+		assertThat(noRollbackFor(AdminAuthService.class, "login", String.class, String.class, String.class))
 				.contains(AdminException.class);
 		assertThat(noRollbackFor(AdminAuthService.class, "verifyOtp", String.class, String.class))
-				.contains(AdminException.class);
-		assertThat(noRollbackFor(AdminAuthService.class, "reissue", String.class))
 				.contains(AdminException.class);
 	}
 
 	@Test
 	@DisplayName("인증 실패 상태를 저장해야 하는 온보딩 메서드는 AdminException으로 롤백하지 않는다")
 	void onboardingFailureStateMethodsDoNotRollbackForAdminException() throws Exception {
-		assertThat(noRollbackFor(AdminOnboardingService.class, "temporaryLogin", String.class, String.class))
+		assertThat(noRollbackFor(AdminOnboardingService.class, "temporaryLogin",
+				String.class, String.class, String.class))
 				.contains(AdminException.class);
 		assertThat(noRollbackFor(AdminOnboardingService.class, "verifyOtp", String.class, String.class))
 				.contains(AdminException.class);

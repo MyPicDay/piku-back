@@ -3,6 +3,7 @@ package com.pikume.back.admin.adapter.in.web;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
+import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.service.AdminDailyStatisticsResult;
 import com.pikume.back.admin.application.service.AdminStatisticsResponse;
 import com.pikume.back.admin.domain.AdminRole;
@@ -32,6 +33,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -51,7 +53,8 @@ class AdminStatisticsControllerTest {
 	void setUp() {
 		AdminStatisticsController controller = new AdminStatisticsController(adminStatisticsUseCase);
 			mockMvc = MockMvcBuilders.standaloneSetup(controller)
-					.setControllerAdvice(new AdminExceptionHandler(new ProblemDetailFactory()))
+					.setControllerAdvice(new AdminExceptionHandler(
+							new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
 					.setMessageConverters(
 							new StringHttpMessageConverter(StandardCharsets.UTF_8),
 							new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()

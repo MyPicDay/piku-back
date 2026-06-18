@@ -6,6 +6,8 @@ import com.pikume.back.admin.adapter.out.persistence.AdminSessionJpaRepository;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminSession;
 import com.pikume.back.admin.domain.AdminRole;
+import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
+import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
@@ -19,8 +21,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -28,7 +32,9 @@ import java.util.Map;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,6 +59,12 @@ class AuthSessionSecurityIntegrationTest {
 
 	@Autowired
 	private AdminAccountJpaRepository adminAccountJpaRepository;
+
+	@Autowired
+	private AdminSessionCredentialPort adminSessionCredentialPort;
+
+	@MockitoBean
+	private AdminSessionCachePort adminSessionCachePort;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -121,21 +133,18 @@ class AuthSessionSecurityIntegrationTest {
 						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isUnauthorized())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+						.string(HttpHeaders.CACHE_CONTROL, containsString("no-store")))
 				.andExpect(jsonPath("$.type").value(SecurityProblemType.UNAUTHENTICATED.type().toString()))
 				.andExpect(jsonPath("$.status").value(401))
 				.andExpect(jsonPath("$.instance").value("/api/admin/statistics/dashboard"));
 	}
 
 	@Test
-	@DisplayName("관리자 토큰으로 일반 사용자 API에 접근할 수 없다")
-	void adminTokenCannotAccessUserApi() throws Exception {
-		String accessToken = jwtProvider.generateAdminAccessToken(
-				"018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b1",
-				AdminRole.SUPER_ADMIN.name(),
-				"session-1");
-
+	@DisplayName("관리자 세션 쿠키로 일반 사용자 API에 접근할 수 없다")
+	void adminSessionCannotAccessUserApi() throws Exception {
 		mockMvc.perform(get("/api/auth/me")
-						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
+						.cookie(new Cookie("pk-a91f", "admin-session"))
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.type").value(SecurityProblemType.UNAUTHENTICATED.type().toString()))
@@ -144,9 +153,8 @@ class AuthSessionSecurityIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("관리자 토큰은 관리자 보호 경로의 보안 검사를 통과한다")
-	void adminTokenPassesAdminSecurityBoundary() throws Exception {
-		String sessionId = "018f6f6a-5d8c-7c4f-9d4f-7b7db85b26b2";
+	@DisplayName("관리자 세션 쿠키는 관리자 보호 경로의 보안 검사를 통과한다")
+	void adminSessionCookiePassesAdminSecurityBoundary() throws Exception {
 		LocalDateTime now = LocalDateTime.now();
 		AdminAccount admin = AdminAccount.invite(
 				"boundary-admin@example.com",
@@ -161,20 +169,22 @@ class AuthSessionSecurityIntegrationTest {
 		admin.completeOtpRegistration();
 		adminAccountJpaRepository.saveAndFlush(admin);
 
-		adminSessionJpaRepository.saveAndFlush(AdminSession.start(
-				sessionId,
-				admin.getId(),
-				"refresh-token-hash",
-				now.plusHours(1),
-				now.plusMinutes(30),
-				now));
-		String accessToken = jwtProvider.generateAdminAccessToken(
-				admin.getId(),
-				AdminRole.SUPER_ADMIN.name(),
-				sessionId);
+		String rawSessionToken = "raw-admin-session-token";
+		AdminSession session = AdminSession.startAnonymous(
+				adminSessionCredentialPort.hash(rawSessionToken),
+				adminSessionCredentialPort.hash("raw-csrf-token"),
+				now,
+				now.plusMinutes(5));
+		session.bindAdmin(admin.getId(), admin.getAuthenticationVersion(),
+				com.pikume.back.admin.domain.AdminSessionPhase.LOGIN_VERIFY_OTP, now.plusMinutes(5), now);
+		session.authenticate(
+				adminSessionCredentialPort.hash(rawSessionToken),
+				adminSessionCredentialPort.hash("raw-csrf-token"),
+				admin.getAuthenticationVersion(), now.plusHours(8), now.plusMinutes(30), now);
+		adminSessionJpaRepository.saveAndFlush(session);
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")
-						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
+						.cookie(new Cookie("pk-a91f", rawSessionToken))
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.currentMemberCount").exists())
@@ -189,18 +199,83 @@ class AuthSessionSecurityIntegrationTest {
 		CorsConfiguration configuration = corsConfigurationSource.getCorsConfiguration(request);
 
 		assertThat(configuration).isNotNull();
-		assertThat(configuration.getAllowedOrigins()).containsExactly("https://pikume-ops.pikume.com");
+		assertThat(configuration.getAllowedOrigins()).containsExactly("http://localhost:3000");
 		assertThat(configuration.getAllowedOrigins()).doesNotContain("https://www.pikume.com");
+		assertThat(configuration.getAllowedHeaders()).doesNotContain("*");
+	}
+
+	@Test
+	@DisplayName("CSRF 초기화는 비식별 세션 쿠키와 CSRF 쿠키를 발급한다")
+	void initializesCsrfCookies() throws Exception {
+		var result = mockMvc.perform(post("/api/admin/auth/csrf")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000"))
+				.andExpect(status().isNoContent())
+				.andReturn();
+
+		assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+				.anyMatch(value -> value.startsWith("pk-a91f=") && value.contains("HttpOnly") && value.contains("SameSite=Strict"))
+				.anyMatch(value -> value.startsWith("pk-b74d=") && !value.contains("HttpOnly") && value.contains("SameSite=Strict"));
+	}
+
+	@Test
+	@DisplayName("로그인은 세션 쿠키, CSRF 쿠키와 헤더, Origin이 모두 일치할 때 컨트롤러에 도달한다")
+	void loginRequiresSessionBoundCsrf() throws Exception {
+		storeAnonymousSession("raw-session", "raw-csrf");
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000")
+						.header("X-PK-C83F", "raw-csrf")
+						.cookie(new Cookie("pk-a91f", "raw-session"), new Cookie("pk-b74d", "raw-csrf"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(Map.of(
+								"loginId", "missing-admin",
+								"password", "WrongPass1!"))))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/invalid-credentials"));
+	}
+
+	@Test
+	@DisplayName("CSRF 헤더가 누락되거나 쿠키와 다르면 Problem Details 403을 반환한다")
+	void rejectsMissingOrMismatchedCsrf() throws Exception {
+		storeAnonymousSession("raw-session", "raw-csrf");
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000")
+						.cookie(new Cookie("pk-a91f", "raw-session"), new Cookie("pk-b74d", "raw-csrf"))
+						.contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/csrf-invalid"))
+				.andExpect(jsonPath("$.status").value(403));
+
+		mockMvc.perform(post("/api/admin/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000")
+						.header("X-PK-C83F", "other-csrf")
+						.cookie(new Cookie("pk-a91f", "raw-session"), new Cookie("pk-b74d", "raw-csrf"))
+						.contentType(MediaType.APPLICATION_JSON).content("{}"))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.status").value(403));
+	}
+
+	@Test
+	@DisplayName("관리자 CORS preflight는 허용 Origin과 비식별 CSRF 헤더를 노출한다")
+	void adminPreflightUsesSharedOriginConfiguration() throws Exception {
+		mockMvc.perform(options("/api/admin/auth/login")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+						.header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type,X-PK-C83F"))
+				.andExpect(status().isOk())
+				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+						.string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"));
 	}
 
 	@Test
 	@DisplayName("1차 범위 밖 관리자 공개 경로는 인증 없이 접근할 수 없다")
 	void excludedAdminPublicPathsRequireAuthentication() throws Exception {
 		mockMvc.perform(post("/api/admin/auth/password-reset/request")
-						.header(HttpHeaders.ORIGIN, "https://pikume-ops.pikume.com")
+						.header(HttpHeaders.ORIGIN, "http://localhost:3000")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.type").value(SecurityProblemType.UNAUTHENTICATED.type().toString()));
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/unauthenticated"));
 
 		mockMvc.perform(get("/api/admin/accounts/email-change/confirm")
 						.accept(MediaType.APPLICATION_JSON))
@@ -219,5 +294,14 @@ class AuthSessionSecurityIntegrationTest {
 				.andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/admin/origin-forbidden"))
 				.andExpect(jsonPath("$.status").value(403));
+	}
+
+	private void storeAnonymousSession(String rawSession, String rawCsrf) {
+		LocalDateTime now = LocalDateTime.now();
+		adminSessionJpaRepository.saveAndFlush(AdminSession.startAnonymous(
+				adminSessionCredentialPort.hash(rawSession),
+				adminSessionCredentialPort.hash(rawCsrf),
+				now,
+				now.plusMinutes(10)));
 	}
 }

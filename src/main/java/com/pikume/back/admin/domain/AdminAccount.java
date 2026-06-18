@@ -234,7 +234,6 @@ public class AdminAccount extends BaseEntity {
 		this.lockedUntil = null;
 		reissueTemporaryPassword(temporaryPasswordHash, issuedAt, expiresAt);
 		this.passwordChangeRequired = true;
-		advanceAuthenticationVersion();
 	}
 
 	public void reactivate() {
@@ -249,6 +248,7 @@ public class AdminAccount extends BaseEntity {
 		this.temporaryPasswordHash = requireHash(temporaryPasswordHash, "임시 패스워드 해시는 필수입니다.");
 		this.temporaryPasswordIssuedAt = requireTime(issuedAt, "임시 패스워드 발급 시각은 필수입니다.");
 		this.temporaryCredentialExpiresAt = requireTime(expiresAt, "임시 자격 증명 만료 시각은 필수입니다.");
+		advanceAuthenticationVersion();
 	}
 
 	public void resetOtp() {

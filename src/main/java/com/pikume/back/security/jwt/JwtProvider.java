@@ -15,15 +15,12 @@ import com.pikume.back.global.config.CustomUserDetails;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Component
 public class JwtProvider {
 
 	private static final String TOKEN_TYPE_CLAIM = "token_type";
-	private static final String ADMIN_ROLE_CLAIM = "admin_role";
-	private static final String SESSION_ID_CLAIM = "session_id";
 
 	private final CustomUserDetailService customUserDetailService;
 
@@ -57,81 +54,6 @@ public class JwtProvider {
 				.compact();
 	}
 
-	public String generateAdminAccessToken(String adminId, String role, String sessionId) {
-		validateRequired(adminId, "관리자 ID는 필수입니다.");
-		validateRequired(role, "관리자 등급은 필수입니다.");
-		validateRequired(sessionId, "관리자 세션 ID는 필수입니다.");
-		log.debug("event=admin_access_token_generation_requested adminId={}", adminId);
-
-		Claims claims = Jwts.claims().setSubject(adminId);
-		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AdminAuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
-
-		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_ACCESS.name());
-		claims.put(ADMIN_ROLE_CLAIM, role);
-		claims.put(SESSION_ID_CLAIM, sessionId);
-		claims.put("roles", List.of("ROLE_ADMIN", "ROLE_" + role));
-
-		log.debug("event=admin_access_token_generated adminId={} expiresAt={}", adminId, expiry);
-
-		return Jwts.builder()
-				.setClaims(claims)
-				.setIssuedAt(now)
-				.setExpiration(expiry)
-				.signWith(signingKey())
-				.compact();
-	}
-
-	public String generateAdminOnboardingToken(String adminId) {
-		validateRequired(adminId, "관리자 ID는 필수입니다.");
-		Claims claims = Jwts.claims().setSubject(adminId);
-		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AdminAuthConstants.ONBOARDING_TOKEN_EXPIRATION_TIME);
-
-		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_ONBOARDING.name());
-
-		return Jwts.builder()
-				.setClaims(claims)
-				.setIssuedAt(now)
-				.setExpiration(expiry)
-				.signWith(signingKey())
-				.compact();
-	}
-
-	public String generateAdminOtpChallengeToken(String adminId) {
-		validateRequired(adminId, "관리자 ID는 필수입니다.");
-		Claims claims = Jwts.claims().setSubject(adminId);
-		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AdminAuthConstants.OTP_CHALLENGE_TOKEN_EXPIRATION_TIME);
-
-		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_OTP_CHALLENGE.name());
-
-		return Jwts.builder()
-				.setClaims(claims)
-				.setIssuedAt(now)
-				.setExpiration(expiry)
-				.signWith(signingKey())
-				.compact();
-	}
-
-	public String generateAdminRefreshToken(String adminId, String sessionId) {
-		validateRequired(adminId, "관리자 ID는 필수입니다.");
-		validateRequired(sessionId, "관리자 세션 ID는 필수입니다.");
-		Claims claims = Jwts.claims().setSubject(adminId);
-		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AdminAuthConstants.REFRESH_TOKEN_ABSOLUTE_EXPIRATION_TIME);
-
-		claims.put(TOKEN_TYPE_CLAIM, SecurityTokenType.ADMIN_REFRESH.name());
-		claims.put(SESSION_ID_CLAIM, sessionId);
-
-		return Jwts.builder()
-				.setClaims(claims)
-				.setId(UUID.randomUUID().toString())
-				.setIssuedAt(now)
-				.setExpiration(expiry)
-				.signWith(signingKey())
-				.compact();
-	}
 
 	/*
 	 * JWT Refresh Token 생성
@@ -168,15 +90,6 @@ public class JwtProvider {
 		return SecurityTokenType.fromClaim(parseClaims(token).get(TOKEN_TYPE_CLAIM));
 	}
 
-	public String getAdminRoleFromToken(String token) {
-		token = cleanToken(token);
-		return parseClaims(token).get(ADMIN_ROLE_CLAIM, String.class);
-	}
-
-	public String getAdminSessionIdFromToken(String token) {
-		token = cleanToken(token);
-		return parseClaims(token).get(SESSION_ID_CLAIM, String.class);
-	}
 
 	/*
 	 * 토큰 유효성 검사
@@ -222,9 +135,4 @@ public class JwtProvider {
 		return Keys.hmacShaKeyFor(secretKey.getBytes());
 	}
 
-	private void validateRequired(String value, String message) {
-		if (value == null || value.isBlank()) {
-			throw new IllegalArgumentException(message);
-		}
-	}
 }

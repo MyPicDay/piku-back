@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
+import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAuditLogPort;
@@ -42,7 +43,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	private final PasswordEncoder passwordEncoder;
-	private final AdminSessionTokenService adminSessionTokenService;
+	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
 
 	@Override
 	@Transactional(readOnly = true)
@@ -75,7 +76,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		validateCanChangeRole(actor, target, role);
 		AdminRole before = target.getRole();
 		target.changeRole(role);
-		adminSessionTokenService.revokeActiveSessions(target.getId(), LocalDateTime.now());
+		adminSessionLifecyclePort.revokeActiveSessions(target.getId(), LocalDateTime.now());
 		audit(actorAdminId, target.getId(), AdminAuditAction.ROLE_CHANGED, null,
 				"role: %s -> %s".formatted(before, role));
 	}
@@ -90,7 +91,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		AdminAccount target = requireTarget(targetAdminId);
 		validateCanDeactivate(actor, target);
 		target.deactivate(reason);
-		adminSessionTokenService.revokeActiveSessions(target.getId(), LocalDateTime.now());
+		adminSessionLifecyclePort.revokeActiveSessions(target.getId(), LocalDateTime.now());
 		audit(actorAdminId, target.getId(), AdminAuditAction.DEACTIVATED, reason, null);
 	}
 
@@ -121,6 +122,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 			throw new AdminException(AdminProblem.INVALID_REQUEST, "정식 로그인 아이디 설정 이후에는 임시 패스워드를 재발급할 수 없습니다.");
 		}
 		AdminTemporaryPasswordResult result = reissueTemporaryPassword(target);
+		adminSessionLifecyclePort.revokeActiveSessions(target.getId(), LocalDateTime.now());
 		audit(actorAdminId, target.getId(), AdminAuditAction.TEMPORARY_PASSWORD_REISSUED, null, null);
 		return result;
 	}
@@ -131,7 +133,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		requireSuperAdmin(actorAdminId);
 		AdminAccount target = requireTarget(targetAdminId);
 		target.resetOtp();
-		adminSessionTokenService.revokeActiveSessions(target.getId(), LocalDateTime.now());
+		adminSessionLifecyclePort.revokeActiveSessions(target.getId(), LocalDateTime.now());
 		audit(actorAdminId, target.getId(), AdminAuditAction.OTP_RESET, null, null);
 	}
 

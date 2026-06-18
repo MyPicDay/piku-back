@@ -1,217 +1,142 @@
 package com.pikume.back.admin.application.service;
 
-import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
-import com.pikume.back.admin.application.port.out.AdminTokenPort;
+import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
-import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminRole;
+import com.pikume.back.admin.domain.AdminSessionPhase;
+import com.pikume.back.admin.domain.exception.AdminDomainException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DataAccessResourceFailureException;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminOnboardingService")
 class AdminOnboardingServiceTest {
 
-	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
-	@Mock
-	private PasswordEncoder passwordEncoder;
-	@Mock
-	private AdminTokenPort adminTokenPort;
-	@Mock
-	private AdminOtpPort adminOtpPort;
-	@Mock
-	private ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
-	@Mock
-	private AdminSessionTokenService adminSessionTokenService;
+	@Mock LoadAdminAccountPort loadAdminAccountPort;
+	@Mock PasswordEncoder passwordEncoder;
+	@Mock AdminOtpPort adminOtpPort;
+	@Mock ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
+	@Mock com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
+	@Mock AdminSessionTelemetryPort telemetryPort;
 
 	@Test
-	@DisplayName("이메일과 임시 패스워드가 유효하면 온보딩 토큰을 발급한다")
-	void temporaryLoginReturnsOnboardingToken() {
-		AdminAccount admin = invited();
+	@DisplayName("임시 로그인 성공은 사전 세션을 로그인 아이디 설정 단계에 결합한다")
+	void temporaryLoginBindsPreAuthenticationSession() {
+		AdminAccount admin = invitedAdmin();
 		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
 		given(passwordEncoder.matches("TempPass1!", "temp-hash")).willReturn(true);
-		given(adminTokenPort.generateOnboardingToken(admin.getId())).willReturn("onboarding-token");
-		given(adminTokenPort.onboardingTokenTtl()).willReturn(Duration.ofMinutes(10));
 
-		AdminTemporaryLoginResult result = service().temporaryLogin("Operator@Pikume.com", "TempPass1!");
+		AdminTemporaryLoginResult result = service().temporaryLogin(
+				"raw-session", "operator@pikume.com", "TempPass1!");
 
-		assertThat(result.onboardingToken()).isEqualTo("onboarding-token");
 		assertThat(result.nextStep()).isEqualTo(AdminOnboardingStep.SET_LOGIN_ID.name());
-		assertThat(result.email()).isEqualTo("operator@pikume.com");
+		then(adminSessionLifecyclePort).should().bindPreAuthentication(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(admin.getId()),
+				org.mockito.ArgumentMatchers.eq(admin.getAuthenticationVersion()),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_LOGIN_ID),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class));
+		then(telemetryPort).should().loginSucceeded("onboarding", admin.getId());
 	}
 
 	@Test
-	@DisplayName("임시 패스워드가 틀리면 실패 횟수를 기록하고 예외를 던진다")
-	void temporaryLoginRecordsFailureWhenPasswordMismatch() {
-		AdminAccount admin = invited();
-		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
-		given(passwordEncoder.matches("wrong", "temp-hash")).willReturn(false);
+	@DisplayName("임시 로그인 계정 저장소 장애는 인증 저장소 예외로 변환한다")
+	void temporaryLoginStoreFailureIsServiceUnavailable() {
+		given(loadAdminAccountPort.findByEmail("operator@pikume.com"))
+				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
-		assertThatThrownBy(() -> service().temporaryLogin("operator@pikume.com", "wrong"))
-				.isInstanceOf(AdminException.class);
-		assertThat(admin.getLoginFailureCount()).isEqualTo(1);
+		assertThatThrownBy(() -> service().temporaryLogin(
+				"raw-session", "operator@pikume.com", "TempPass1!"))
+				.isInstanceOf(AdminAuthenticationStoreException.class);
 	}
 
 	@Test
-	@DisplayName("임시 로그인 패스워드 실패 5회 시 관리자 계정을 잠근다")
-	void temporaryLoginLocksAfterFivePasswordFailures() {
-		AdminAccount admin = invited();
-		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
-		given(passwordEncoder.matches("wrong", "temp-hash")).willReturn(false);
-		AdminOnboardingService service = service();
-
-		for (int i = 0; i < 4; i++) {
-			assertThatThrownBy(() -> service.temporaryLogin("operator@pikume.com", "wrong"))
-					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_CREDENTIALS));
-		}
-
-		assertThatThrownBy(() -> service.temporaryLogin("operator@pikume.com", "wrong"))
-				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.ACCOUNT_LOCKED));
-		assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.LOCKED);
+	@DisplayName("잘못된 이메일 형식은 저장소 장애가 아니라 입력 오류로 유지한다")
+	void invalidEmailRemainsDomainValidationFailure() {
+		assertThatThrownBy(() -> service().temporaryLogin(
+				"raw-session", "invalid-email", "TempPass1!"))
+				.isInstanceOf(AdminDomainException.class);
 	}
 
 	@Test
-	@DisplayName("정식 로그인 아이디를 설정한다")
-	void setLoginId() {
-		AdminAccount admin = invited();
-		given(loadAdminAccountPort.existsByLoginId("ops-june")).willReturn(false);
+	@DisplayName("로그인 아이디 설정은 정확한 사전 세션 단계에서만 다음 단계로 이동한다")
+	void setLoginIdAdvancesExpectedPhase() {
+		AdminAccount admin = invitedAdmin();
+		given(adminSessionLifecyclePort.requirePhase(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_LOGIN_ID),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin.getId());
 		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
 
-		service().setLoginId(admin.getId(), "ops-june");
+		service().setLoginId("raw-session", "ops-june");
 
 		assertThat(admin.getLoginId()).isEqualTo("ops-june");
+		then(adminSessionLifecyclePort).should().advancePhase(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_LOGIN_ID),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_PASSWORD),
+				org.mockito.ArgumentMatchers.eq(admin.getAuthenticationVersion()),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class));
 	}
 
 	@Test
-	@DisplayName("정식 패스워드 설정 시 임시 패스워드를 무효화한다")
-	void setPasswordInvalidatesTemporaryPassword() {
-		AdminAccount admin = invited();
+	@DisplayName("최초 OTP 성공은 온보딩 세션을 인증 완료 세션으로 교체한다")
+	void verifyOtpCompletesOnboardingSession() {
+		AdminAccount admin = invitedAdmin();
 		admin.setLoginId("ops-june");
-		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
-		given(passwordEncoder.encode("NewAdmin1!")).willReturn("encoded-password");
-
-		service().setPassword(admin.getId(), "NewAdmin1!");
-
-		assertThat(admin.getPasswordHash()).isEqualTo("encoded-password");
-		assertThat(admin.getTemporaryPasswordHash()).isNull();
-		assertThat(admin.isPasswordChangeRequired()).isFalse();
-	}
-
-	@Test
-	@DisplayName("OTP 등록 정보를 생성하고 보호된 비밀키를 저장한다")
-	void startOtpRegistration() {
-		AdminAccount admin = invited();
-		admin.setLoginId("ops-june");
-		admin.completePasswordSetup("encoded-password");
-		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
-		given(adminOtpPort.generateSecret()).willReturn("SECRET");
-		given(protectAdminOtpSecretPort.protect("SECRET")).willReturn("protected-secret");
-		given(adminOtpPort.provisioningUri("Pikume Ops", "ops-june", "SECRET"))
-				.willReturn("otpauth://totp/Pikume");
-
-		AdminOtpRegistrationResult result = service().startOtpRegistration(admin.getId());
-
-		assertThat(result.manualEntryKey()).isEqualTo("SECRET");
-		assertThat(result.provisioningUri()).isEqualTo("otpauth://totp/Pikume");
-		assertThat(admin.getPendingOtpSecret()).isEqualTo("protected-secret");
-	}
-
-	@Test
-	@DisplayName("OTP 인증이 성공하면 OTP 등록을 완료하고 관리자 Access Token을 발급한다")
-	void verifyOtpCompletesOnboarding() {
-		AdminAccount admin = invited();
-		admin.setLoginId("ops-june");
-		admin.completePasswordSetup("encoded-password");
+		admin.completePasswordSetup("password-hash");
 		admin.startOtpRegistration("protected-secret");
-		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
-		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("SECRET");
-		given(adminOtpPort.verify("SECRET", "123456")).willReturn(true);
-		given(adminSessionTokenService.issueNewSession(eq(admin), any(LocalDateTime.class)))
-				.willReturn(tokenResult());
+		given(adminSessionLifecyclePort.requirePhase(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_VERIFY_OTP),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin.getId());
+		given(loadAdminAccountPort.findByIdForUpdate(admin.getId())).willReturn(Optional.of(admin));
+		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("plain-secret");
+		given(adminOtpPort.verify("plain-secret", "123456")).willReturn(true);
+		given(adminSessionLifecyclePort.completeAuthentication(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.same(admin),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_VERIFY_OTP),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
+				.willReturn(new AdminSessionCredentials("new-session", "new-csrf"));
 
-		AdminTokenIssueResult result = service().verifyOtp(admin.getId(), "123456");
+		AdminAuthenticationResult result = service().verifyOtp("raw-session", "123456");
 
-		assertThat(result.accessToken()).isEqualTo("access-token");
+		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
 		assertThat(admin.isOtpRegistered()).isTrue();
-		assertThat(admin.isOtpRegistrationRequired()).isFalse();
-	}
-
-	@Test
-	@DisplayName("OTP 인증 5회 실패 후 10분 동안 OTP 인증을 차단한다")
-	void verifyOtpBlocksAfterFiveFailures() {
-		AdminAccount admin = invited();
-		admin.setLoginId("ops-june");
-		admin.completePasswordSetup("encoded-password");
-		admin.startOtpRegistration("protected-secret");
-		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
-		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("SECRET");
-		given(adminOtpPort.verify("SECRET", "000000")).willReturn(false);
-		AdminOnboardingService service = service();
-
-			for (int i = 0; i < 4; i++) {
-				assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
-						.isInstanceOfSatisfying(AdminException.class, exception ->
-								assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_VERIFICATION_FAILED));
-			}
-
-			assertThatThrownBy(() -> service.verifyOtp(admin.getId(), "000000"))
-					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.OTP_BLOCKED));
-			assertThat(admin.getOtpFailureCount()).isEqualTo(5);
-			assertThat(admin.isOtpBlockedAt(LocalDateTime.now())).isTrue();
+		then(adminSessionLifecyclePort).should(times(2)).requirePhase(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_VERIFY_OTP),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class));
+		then(telemetryPort).should().otpSucceeded("onboarding", admin.getId());
 	}
 
 	private AdminOnboardingService service() {
-		return new AdminOnboardingService(
-				loadAdminAccountPort,
-				passwordEncoder,
-				adminTokenPort,
-				adminOtpPort,
-				protectAdminOtpSecretPort,
-				adminSessionTokenService);
+		return new AdminOnboardingService(loadAdminAccountPort, passwordEncoder, adminOtpPort,
+				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort);
 	}
 
-	private AdminTokenIssueResult tokenResult() {
-		return new AdminTokenIssueResult(
-				"access-token",
-				"refresh-token",
-				600L,
-				1800L,
-				"session-1",
-				"ops-june",
-				"운영자1",
-				"operator@pikume.com",
-				AdminRole.OPERATOR);
-	}
-
-	private AdminAccount invited() {
+	private AdminAccount invitedAdmin() {
 		return AdminAccount.invite(
-				"operator@pikume.com",
-				"운영자1",
-				AdminRole.OPERATOR,
-				"temp-hash",
-				LocalDateTime.now().minusMinutes(1),
-				LocalDateTime.now().plusHours(1));
+				"operator@pikume.com", "운영자1", AdminRole.OPERATOR, "temp-hash",
+				LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(23));
 	}
 }
