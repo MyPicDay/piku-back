@@ -32,6 +32,7 @@ class AdminAccountTest {
 			assertThat(admin.isPasswordChangeRequired()).isTrue();
 			assertThat(admin.isOtpRegistrationRequired()).isTrue();
 			assertThat(admin.isOtpRegistered()).isFalse();
+			assertThat(admin.getAuthenticationVersion()).isZero();
 			assertThat(admin.canUseTemporaryCredentialAt(now.plusHours(1))).isTrue();
 		}
 
@@ -127,6 +128,7 @@ class AdminAccountTest {
 			assertThat(admin.getLoginFailureCount()).isEqualTo(5);
 			assertThat(admin.getLockedUntil()).isEqualTo(now.plusMinutes(30));
 			assertThat(admin.isLockedAt(now.plusMinutes(29))).isTrue();
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(1L);
 		}
 
 		@Test
@@ -197,12 +199,36 @@ class AdminAccountTest {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
 			admin.startOtpRegistration("protected-secret");
 			admin.completeOtpRegistration();
+			long authenticationVersionBeforeReset = admin.getAuthenticationVersion();
 
 			admin.resetOtp();
 
 			assertThat(admin.isOtpRegistered()).isFalse();
 			assertThat(admin.isOtpRegistrationRequired()).isTrue();
 			assertThat(admin.getOtpSecret()).isNull();
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(authenticationVersionBeforeReset + 1);
+		}
+
+		@Test
+		@DisplayName("등급 변경과 비활성화는 기존 인증 버전을 무효화한다")
+		void securityOperationsAdvanceAuthenticationVersion() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			admin.changeRole(AdminRole.VIEWER);
+			admin.deactivate("권한 회수");
+
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(2L);
+		}
+
+		@Test
+		@DisplayName("로그인 성공 기록은 비활성 계정을 재활성화하지 않는다")
+		void loginSuccessCannotReactivateInactiveAccount() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.deactivate("퇴사");
+
+			assertThatThrownBy(() -> admin.recordLoginSuccess(now.plusMinutes(1)))
+					.isInstanceOf(AdminDomainException.class);
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.INACTIVE);
 		}
 	}
 

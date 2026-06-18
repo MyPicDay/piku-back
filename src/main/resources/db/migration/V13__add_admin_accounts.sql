@@ -1,5 +1,5 @@
 CREATE TABLE admins (
-  id CHAR(36) NOT NULL,
+  id VARCHAR(36) NOT NULL,
   email VARCHAR(255) NOT NULL,
   login_id VARCHAR(15) NULL,
   nickname VARCHAR(20) NOT NULL,
@@ -18,6 +18,7 @@ CREATE TABLE admins (
   otp_failure_count INT NOT NULL DEFAULT 0,
   otp_blocked_until DATETIME(6) NULL,
   last_login_at DATETIME(6) NULL,
+  authentication_version BIGINT NOT NULL DEFAULT 0,
   created_at DATETIME(6) NULL,
   updated_at DATETIME(6) NULL,
   deleted_at DATETIME(6) NULL,
@@ -26,51 +27,42 @@ CREATE TABLE admins (
   UNIQUE KEY uk_admins_login_id (login_id),
   KEY idx_admins_status_created_at (status, created_at),
   KEY idx_admins_temporary_credential_expires_at (temporary_credential_expires_at)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE admin_roles (
-  admin_id CHAR(36) NOT NULL,
+  admin_id VARCHAR(36) NOT NULL,
   role VARCHAR(30) NOT NULL,
   PRIMARY KEY (admin_id),
   KEY idx_admin_roles_role (role),
   CONSTRAINT fk_admin_roles_admin_id
     FOREIGN KEY (admin_id)
     REFERENCES admins (id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE admin_sessions (
   id varchar(36) NOT NULL,
-  admin_id varchar(36) NOT NULL,
+  admin_id varchar(36) DEFAULT NULL,
   status varchar(30) NOT NULL,
-  current_refresh_token_hash varchar(64) DEFAULT NULL,
+  phase varchar(40) NOT NULL,
+  active_admin_id varchar(36) GENERATED ALWAYS AS (
+    CASE WHEN status = 'ACTIVE' AND phase = 'AUTHENTICATED' THEN admin_id ELSE NULL END
+  ) STORED,
+  session_token_hash varchar(64) NOT NULL,
+  csrf_token_hash varchar(64) NOT NULL,
+  authentication_version bigint NOT NULL,
   absolute_expires_at datetime(6) NOT NULL,
   idle_expires_at datetime(6) NOT NULL,
-  last_rotated_at datetime(6) NOT NULL,
+  last_activity_at datetime(6) NOT NULL,
   revoked_at datetime(6) DEFAULT NULL,
-  reuse_detected_at datetime(6) DEFAULT NULL,
   created_at datetime(6) DEFAULT NULL,
   updated_at datetime(6) DEFAULT NULL,
   deleted_at datetime(6) DEFAULT NULL,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_admin_sessions_active_admin_id (active_admin_id),
+  UNIQUE KEY uk_admin_sessions_token_hash (session_token_hash),
   KEY idx_admin_sessions_admin_status (admin_id, status),
-  KEY idx_admin_sessions_current_refresh_token_hash (current_refresh_token_hash)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE admin_refresh_tokens (
-  token_hash varchar(64) NOT NULL,
-  session_id varchar(36) NOT NULL,
-  admin_id varchar(36) NOT NULL,
-  status varchar(30) NOT NULL,
-  issued_at datetime(6) NOT NULL,
-  expires_at datetime(6) NOT NULL,
-  rotated_at datetime(6) DEFAULT NULL,
-  revoked_at datetime(6) DEFAULT NULL,
-  reused_at datetime(6) DEFAULT NULL,
-  PRIMARY KEY (token_hash),
-  KEY idx_admin_refresh_tokens_session_status (session_id, status),
-  KEY idx_admin_refresh_tokens_admin_status (admin_id, status),
-  CONSTRAINT fk_admin_refresh_tokens_session
-    FOREIGN KEY (session_id) REFERENCES admin_sessions (id)
+  CONSTRAINT fk_admin_sessions_admin_id
+    FOREIGN KEY (admin_id) REFERENCES admins (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE admin_audit_logs (

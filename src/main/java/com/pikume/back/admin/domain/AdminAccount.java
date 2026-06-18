@@ -89,6 +89,9 @@ public class AdminAccount extends BaseEntity {
 	@Column(name = "last_login_at")
 	private LocalDateTime lastLoginAt;
 
+	@Column(name = "authentication_version", nullable = false)
+	private long authenticationVersion;
+
 	private AdminAccount(String email, String nickname, AdminRole role, String temporaryPasswordHash,
 			LocalDateTime temporaryPasswordIssuedAt, LocalDateTime temporaryCredentialExpiresAt) {
 		this.id = AdminId.newId();
@@ -149,6 +152,7 @@ public class AdminAccount extends BaseEntity {
 		this.passwordChangeRequired = false;
 		this.temporaryPasswordHash = null;
 		this.temporaryCredentialExpiresAt = null;
+		advanceAuthenticationVersion();
 	}
 
 	public void completeOtpRegistration() {
@@ -160,6 +164,7 @@ public class AdminAccount extends BaseEntity {
 		this.otpRegistered = true;
 		this.otpRegistrationRequired = false;
 		resetOtpFailures();
+		advanceAuthenticationVersion();
 	}
 
 	public void startOtpRegistration(String protectedSecret) {
@@ -169,7 +174,9 @@ public class AdminAccount extends BaseEntity {
 
 	public void recordLoginSuccess(LocalDateTime now) {
 		requireTime(now, "로그인 성공 시각은 필수입니다.");
-		this.status = AdminAccountStatus.ACTIVE;
+		if (status != AdminAccountStatus.ACTIVE) {
+			throw new AdminDomainException("활성 관리자 계정만 로그인 성공을 기록할 수 있습니다.");
+		}
 		this.loginFailureCount = 0;
 		this.lockedUntil = null;
 		this.lastLoginAt = now;
@@ -178,9 +185,10 @@ public class AdminAccount extends BaseEntity {
 	public void recordPasswordFailure(LocalDateTime now) {
 		requireTime(now, "로그인 실패 시각은 필수입니다.");
 		this.loginFailureCount++;
-		if (loginFailureCount >= PASSWORD_FAILURE_LIMIT) {
+		if (loginFailureCount == PASSWORD_FAILURE_LIMIT) {
 			this.status = AdminAccountStatus.LOCKED;
 			this.lockedUntil = now.plusMinutes(30);
+			advanceAuthenticationVersion();
 		}
 	}
 
@@ -196,6 +204,7 @@ public class AdminAccount extends BaseEntity {
 		this.loginFailureCount = 0;
 		this.lockedUntil = null;
 		resetOtpFailures();
+		advanceAuthenticationVersion();
 	}
 
 	public void recordOtpFailure(LocalDateTime now) {
@@ -216,6 +225,7 @@ public class AdminAccount extends BaseEntity {
 			throw new AdminDomainException("관리자 계정 비활성화 사유는 필수입니다.");
 		}
 		this.status = AdminAccountStatus.INACTIVE;
+		advanceAuthenticationVersion();
 	}
 
 	public void reactivate(String temporaryPasswordHash, LocalDateTime issuedAt, LocalDateTime expiresAt) {
@@ -224,6 +234,7 @@ public class AdminAccount extends BaseEntity {
 		this.lockedUntil = null;
 		reissueTemporaryPassword(temporaryPasswordHash, issuedAt, expiresAt);
 		this.passwordChangeRequired = true;
+		advanceAuthenticationVersion();
 	}
 
 	public void reactivate() {
@@ -231,6 +242,7 @@ public class AdminAccount extends BaseEntity {
 		this.loginFailureCount = 0;
 		this.lockedUntil = null;
 		resetOtpFailures();
+		advanceAuthenticationVersion();
 	}
 
 	public void reissueTemporaryPassword(String temporaryPasswordHash, LocalDateTime issuedAt, LocalDateTime expiresAt) {
@@ -245,6 +257,7 @@ public class AdminAccount extends BaseEntity {
 		this.pendingOtpSecret = null;
 		this.otpSecret = null;
 		resetOtpFailures();
+		advanceAuthenticationVersion();
 	}
 
 	public void changeEmail(String newEmail) {
@@ -252,7 +265,15 @@ public class AdminAccount extends BaseEntity {
 	}
 
 	public void changeRole(AdminRole newRole) {
-		this.role = requireRole(newRole);
+		AdminRole normalizedRole = requireRole(newRole);
+		if (this.role != normalizedRole) {
+			this.role = normalizedRole;
+			advanceAuthenticationVersion();
+		}
+	}
+
+	public long advanceAuthenticationVersion() {
+		return ++authenticationVersion;
 	}
 
 	private static AdminRole requireRole(AdminRole role) {
