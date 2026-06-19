@@ -2,6 +2,7 @@ package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.time.LocalDateTime;
@@ -31,7 +31,7 @@ import static org.mockito.Mockito.times;
 class AdminOnboardingServiceTest {
 
 	@Mock LoadAdminAccountPort loadAdminAccountPort;
-	@Mock PasswordEncoder passwordEncoder;
+	@Mock AdminPasswordPort adminPasswordPort;
 	@Mock AdminOtpPort adminOtpPort;
 	@Mock ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	@Mock com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
@@ -42,7 +42,7 @@ class AdminOnboardingServiceTest {
 	void temporaryLoginBindsPreAuthenticationSession() {
 		AdminAccount admin = invitedAdmin();
 		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
-		given(passwordEncoder.matches("TempPass1!", "temp-hash")).willReturn(true);
+		given(adminPasswordPort.matches("TempPass1!", "temp-hash")).willReturn(true);
 
 		AdminTemporaryLoginResult result = service().temporaryLogin(
 				"raw-session", "operator@pikume.com", "TempPass1!");
@@ -130,7 +130,7 @@ class AdminOnboardingServiceTest {
 	}
 
 	private AdminOnboardingService service() {
-		return new AdminOnboardingService(loadAdminAccountPort, passwordEncoder, adminOtpPort,
+		return new AdminOnboardingService(loadAdminAccountPort, adminPasswordPort, adminOtpPort,
 				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort);
 	}
 

@@ -5,6 +5,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
@@ -14,7 +15,6 @@ import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminLoginId;
 import com.pikume.back.admin.domain.AdminSessionPhase;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +29,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	private static final String AUTHENTICATION_FLOW = "onboarding";
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
-	private final PasswordEncoder passwordEncoder;
+	private final AdminPasswordPort adminPasswordPort;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
@@ -63,7 +63,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 					"credential_expired");
 		}
 		if (temporaryPassword == null || temporaryPassword.isBlank()
-				|| !passwordEncoder.matches(temporaryPassword, admin.getTemporaryPasswordHash())) {
+				|| !adminPasswordPort.matches(temporaryPassword, admin.getTemporaryPasswordHash())) {
 			throw passwordFailure(admin, now);
 		}
 		adminSessionLifecyclePort.bindPreAuthentication(sessionToken, admin.getId(), admin.getAuthenticationVersion(),
@@ -97,7 +97,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 				sessionToken, AdminSessionPhase.ONBOARDING_SET_PASSWORD, now);
 		AdminAccount admin = requireAdmin(adminId);
 		validatePassword(password, admin.getLoginId());
-		admin.completePasswordSetup(passwordEncoder.encode(password));
+		admin.completePasswordSetup(adminPasswordPort.encode(password));
 		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_SET_PASSWORD,
 				AdminSessionPhase.ONBOARDING_REGISTER_OTP, admin.getAuthenticationVersion(), now);
 	}

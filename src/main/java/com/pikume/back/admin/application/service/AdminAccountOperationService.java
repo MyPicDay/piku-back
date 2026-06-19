@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
@@ -20,7 +21,6 @@ import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.admin.domain.exception.AdminDomainException;
 import com.pikume.back.admin.domain.service.AdminRoleGuard;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -42,7 +42,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	private final LoadAdminAuditLogPort loadAdminAuditLogPort;
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
-	private final PasswordEncoder passwordEncoder;
+	private final AdminPasswordPort adminPasswordPort;
 	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
 
 	@Override
@@ -167,7 +167,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		String temporaryPassword = generateTemporaryPasswordPort.generate();
 		LocalDateTime issuedAt = LocalDateTime.now();
 		LocalDateTime expiresAt = issuedAt.plusHours(24);
-		target.reissueTemporaryPassword(passwordEncoder.encode(temporaryPassword), issuedAt, expiresAt);
+		target.reissueTemporaryPassword(adminPasswordPort.encode(temporaryPassword), issuedAt, expiresAt);
 		saveAdminAccountPort.save(target);
 		boolean guideEmailSent = true;
 		try {

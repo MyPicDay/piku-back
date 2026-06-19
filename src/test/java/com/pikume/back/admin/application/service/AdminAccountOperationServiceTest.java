@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
@@ -20,7 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -52,7 +52,7 @@ class AdminAccountOperationServiceTest {
 	@Mock
 	private SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	@Mock
-	private PasswordEncoder passwordEncoder;
+	private AdminPasswordPort adminPasswordPort;
 	@Mock
 	private com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
 
@@ -180,7 +180,7 @@ class AdminAccountOperationServiceTest {
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
 		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
 		given(generateTemporaryPasswordPort.generate()).willReturn("TempPass1!234567");
-		given(passwordEncoder.encode("TempPass1!234567")).willReturn("encoded-temp");
+		given(adminPasswordPort.encode("TempPass1!234567")).willReturn("encoded-temp");
 
 		AdminTemporaryPasswordResult result = service().reissueTemporaryPassword(actor.getId(), target.getId());
 
@@ -200,7 +200,7 @@ class AdminAccountOperationServiceTest {
 				loadAdminAuditLogPort,
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
-				passwordEncoder,
+				adminPasswordPort,
 				adminSessionLifecyclePort);
 	}
 

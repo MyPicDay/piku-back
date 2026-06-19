@@ -5,6 +5,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
@@ -14,7 +15,6 @@ import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminLoginId;
 import com.pikume.back.admin.domain.AdminSessionPhase;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,7 +29,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 	private static final String AUTHENTICATION_FLOW = "official";
 
 	private final LoadAdminAccountPort loadAdminAccountPort;
-	private final PasswordEncoder passwordEncoder;
+	private final AdminPasswordPort adminPasswordPort;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
@@ -55,7 +55,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 					"관리자 로그인 정보가 올바르지 않습니다.",
 					"invalid_credentials");
 		}
-		if (!StringUtils.hasText(password) || !passwordEncoder.matches(password, admin.getPasswordHash())) {
+		if (!StringUtils.hasText(password) || !adminPasswordPort.matches(password, admin.getPasswordHash())) {
 			admin.recordPasswordFailure(now);
 			if (admin.isLockedAt(now)) {
 				throw rejectLogin(AdminProblem.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.", "account_locked");
@@ -123,11 +123,11 @@ public class AdminAuthService implements AdminAuthUseCase {
 	public void changePassword(String adminId, String currentPassword, String newPassword) {
 		AdminAccount admin = requireAdmin(adminId);
 		if (!StringUtils.hasText(admin.getPasswordHash()) || !StringUtils.hasText(currentPassword)
-				|| !passwordEncoder.matches(currentPassword, admin.getPasswordHash())) {
+				|| !adminPasswordPort.matches(currentPassword, admin.getPasswordHash())) {
 			throw invalidCredentials();
 		}
 		validatePassword(newPassword, admin.getLoginId());
-		admin.completePasswordSetup(passwordEncoder.encode(newPassword));
+		admin.completePasswordSetup(adminPasswordPort.encode(newPassword));
 		adminSessionLifecyclePort.revokeActiveSessions(admin.getId(), LocalDateTime.now());
 	}
 

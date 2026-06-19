@@ -4,6 +4,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
@@ -16,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import java.time.LocalDateTime;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.times;
 class AdminAuthServiceTest {
 
 	@Mock LoadAdminAccountPort loadAdminAccountPort;
-	@Mock PasswordEncoder passwordEncoder;
+	@Mock AdminPasswordPort adminPasswordPort;
 	@Mock AdminOtpPort adminOtpPort;
 	@Mock ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	@Mock com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
@@ -44,7 +44,7 @@ class AdminAuthServiceTest {
 	void loginBindsPreAuthenticationSession() {
 		AdminAccount admin = readyAdmin();
 		given(loadAdminAccountPort.findByLoginId("ops-june")).willReturn(Optional.of(admin));
-		given(passwordEncoder.matches("AdminPass1!", admin.getPasswordHash())).willReturn(true);
+		given(adminPasswordPort.matches("AdminPass1!", admin.getPasswordHash())).willReturn(true);
 
 		AdminLoginChallengeResult result = service().login("raw-session", "ops-june", "AdminPass1!");
 
@@ -134,7 +134,7 @@ class AdminAuthServiceTest {
 	}
 
 	private AdminAuthService service() {
-		return new AdminAuthService(loadAdminAccountPort, passwordEncoder, adminOtpPort,
+		return new AdminAuthService(loadAdminAccountPort, adminPasswordPort, adminOtpPort,
 				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort);
 	}
 

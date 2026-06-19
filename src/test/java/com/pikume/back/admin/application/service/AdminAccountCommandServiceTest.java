@@ -2,6 +2,7 @@ package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -40,7 +40,7 @@ class AdminAccountCommandServiceTest {
 	@Mock
 	private SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	@Mock
-	private PasswordEncoder passwordEncoder;
+	private AdminPasswordPort adminPasswordPort;
 
 	@Test
 	@DisplayName("SUPER_ADMIN은 임시 패스워드를 한 번만 포함한 관리자 계정 생성 결과를 받는다")
@@ -49,7 +49,7 @@ class AdminAccountCommandServiceTest {
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
 		given(loadAdminAccountPort.existsByEmail("viewer@pikume.com")).willReturn(false);
 		given(generateTemporaryPasswordPort.generate()).willReturn("TempPass1!234567");
-		given(passwordEncoder.encode("TempPass1!234567")).willReturn("encoded-temp");
+		given(adminPasswordPort.encode("TempPass1!234567")).willReturn("encoded-temp");
 		given(saveAdminAccountPort.save(any(AdminAccount.class))).willAnswer(invocation -> invocation.getArgument(0));
 		AdminAccountCommandService service = service();
 
@@ -108,7 +108,7 @@ class AdminAccountCommandServiceTest {
 				saveAdminAuditLogPort,
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
-				passwordEncoder);
+				adminPasswordPort);
 	}
 
 	private AdminAccount admin(AdminRole role, String email) {

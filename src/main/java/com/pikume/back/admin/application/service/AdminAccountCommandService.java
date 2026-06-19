@@ -3,6 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
+import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
@@ -14,7 +15,6 @@ import com.pikume.back.admin.domain.AdminAuditLog;
 import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminRole;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +29,7 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 	private final SaveAdminAuditLogPort saveAdminAuditLogPort;
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
-	private final PasswordEncoder passwordEncoder;
+	private final AdminPasswordPort adminPasswordPort;
 
 	@Override
 	@Transactional
@@ -57,7 +57,7 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 				email,
 				command.nickname(),
 				role,
-				passwordEncoder.encode(temporaryPassword),
+				adminPasswordPort.encode(temporaryPassword),
 				issuedAt,
 				expiresAt);
 
