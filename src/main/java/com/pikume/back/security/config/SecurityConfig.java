@@ -56,8 +56,8 @@ public class SecurityConfig {
 		adminConfiguration.setAllowCredentials(true);
 
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001",
-				"https://dev.piku.store", "https://piku.store", "https://pikume.com", "https://www.pikume.com"));
+		configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"
+                , "https://pikume.com", "https://www.pikume.com"));
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setExposedHeaders(List.of("Authorization"));

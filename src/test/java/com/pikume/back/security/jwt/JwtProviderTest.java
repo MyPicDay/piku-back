@@ -1,36 +1,42 @@
 package com.pikume.back.security.jwt;
 
-import com.pikume.back.security.config.CustomUserDetailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@ExtendWith(MockitoExtension.class)
 @DisplayName("JwtProvider")
 class JwtProviderTest {
 
-	@Mock private CustomUserDetailService customUserDetailService;
 	private JwtProvider jwtProvider;
 
 	@BeforeEach
 	void setUp() {
-		jwtProvider = new JwtProvider(customUserDetailService);
-		ReflectionTestUtils.setField(jwtProvider, "secretKey", "LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=");
+        jwtProvider = new JwtProvider();
+        ReflectionTestUtils.setField(jwtProvider, "secretKey", "LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=");
 	}
 
 	@Test
-	@DisplayName("사용자 Access Token에는 USER_ACCESS 타입을 포함한다")
-	void userAccessTokenHasUserTokenType() {
+	@DisplayName("사용자 Access Token에서 사용자 ID를 추출한다")
+	void extractsUserIdFromAccessToken() {
 		String token = jwtProvider.generateAccessToken("user-1");
 
 		assertThat(jwtProvider.validateToken(token)).isTrue();
 		assertThat(jwtProvider.getUserIdFromToken(token)).isEqualTo("user-1");
-		assertThat(jwtProvider.getTokenType(token)).isEqualTo(SecurityTokenType.USER_ACCESS);
+	}
+
+	@Test
+	@DisplayName("사용자 ID가 없는 Refresh Token은 사용자 인증 토큰으로 사용할 수 없다")
+	void rejectsRefreshTokenWithoutUserId() {
+		String refreshToken = jwtProvider.generateRefreshToken();
+
+		assertThat(jwtProvider.validateToken(refreshToken)).isTrue();
+		assertThatThrownBy(() -> jwtProvider.getUserIdFromToken(refreshToken))
+				.isInstanceOf(BadCredentialsException.class)
+				.hasMessage("사용자 ID가 없는 토큰입니다.");
 	}
 }

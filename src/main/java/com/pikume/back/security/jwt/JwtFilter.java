@@ -1,6 +1,7 @@
 package com.pikume.back.security.jwt;
 
 import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.global.util.RequestUtil;
 import com.pikume.back.security.application.dto.AuthUserView;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
 import com.pikume.back.user.auth.constants.AuthConstants;
@@ -13,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
@@ -32,32 +35,67 @@ public class JwtFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
-		String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		if (authHeader == null || !authHeader.startsWith(AuthConstants.BEARER_PREFIX)) {
+		String token = extractBearerToken(request);
+		if (token == null) {
 			chain.doFilter(request, response);
 			return;
 		}
-		String token = authHeader.substring(AuthConstants.BEARER_PREFIX.length());
+
 		try {
-			if (!jwtProvider.validateToken(token) || jwtProvider.getTokenType(token) != SecurityTokenType.USER_ACCESS) {
-				throw new BadCredentialsException("인증이 필요합니다.");
-			}
-			authenticateUser(token);
-			chain.doFilter(request, response);
+			SecurityContextHolder.getContext().setAuthentication(authenticate(token));
+		} catch (MissingJwtSubjectException exception) {
+			log.error("event=jwt_subject_missing outcome=denied reason=missing_user_id clientIp={}",
+					RequestUtil.getClientIp(request));
+			reject(request, response, exception);
+			return;
 		} catch (Exception exception) {
 			log.warn("event=jwt_filter_authentication_failed outcome=denied reason={}",
 					exception.getClass().getSimpleName());
-			authenticationEntryPoint.commence(request, response, new BadCredentialsException("인증이 필요합니다."));
+			reject(request, response, new BadCredentialsException("인증이 필요합니다."));
+			return;
 		}
+
+		chain.doFilter(request, response);
 	}
 
-	private void authenticateUser(String token) {
-		String userId = jwtProvider.getUserIdFromToken(token);
+	private String extractBearerToken(HttpServletRequest request) {
+		String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+		if (authHeader == null || !authHeader.startsWith(AuthConstants.BEARER_PREFIX)) {
+			return null;
+		}
+		return authHeader.substring(AuthConstants.BEARER_PREFIX.length());
+	}
+
+	private Authentication authenticate(String token) {
+		if (!jwtProvider.validateToken(token)) {
+			throw new BadCredentialsException("인증이 필요합니다.");
+		}
+
+		String userId = requireUserId(token);
 		AuthUserView user = loadUserForAuthPort.findById(userId)
 				.orElseThrow(() -> new BadCredentialsException("인증이 필요합니다."));
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				user.id(), user.nickname(), user.avatarPath());
-		SecurityContextHolder.getContext().setAuthentication(
-				new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()));
+		return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+	}
+
+	private String requireUserId(String token) {
+		try {
+			return jwtProvider.getUserIdFromToken(token);
+		} catch (BadCredentialsException exception) {
+			throw new MissingJwtSubjectException(exception.getMessage(), exception);
+		}
+	}
+
+	private void reject(HttpServletRequest request, HttpServletResponse response,
+			AuthenticationException exception) throws IOException, ServletException {
+		authenticationEntryPoint.commence(request, response, exception);
+	}
+
+	private static class MissingJwtSubjectException extends BadCredentialsException {
+
+		private MissingJwtSubjectException(String message, Throwable cause) {
+			super(message, cause);
+		}
 	}
 }
