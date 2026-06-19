@@ -76,9 +76,8 @@ public class AdminAuthService implements AdminAuthUseCase {
 	@Transactional(noRollbackFor = AdminException.class)
 	public AdminAuthenticationResult verifyOtp(String sessionToken, String otpCode) {
 		LocalDateTime now = LocalDateTime.now();
-		String adminId = adminSessionLifecyclePort.requirePhase(sessionToken, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
-		AdminAccount admin = requireAdminForUpdate(adminId);
-		adminSessionLifecyclePort.requirePhase(sessionToken, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
+		AdminAccount admin = adminSessionLifecyclePort.requirePhaseForUpdate(
+				sessionToken, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
 		if (!canUseOfficialLogin(admin)) {
 			telemetryPort.otpRejected(AUTHENTICATION_FLOW, "invalid_credentials");
 			throw invalidCredentials();
@@ -127,7 +126,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 			throw invalidCredentials();
 		}
 		validatePassword(newPassword, admin.getLoginId());
-		admin.completePasswordSetup(adminPasswordPort.encode(newPassword));
+		admin.changePassword(adminPasswordPort.encode(newPassword));
 		adminSessionLifecyclePort.revokeActiveSessions(admin.getId(), LocalDateTime.now());
 	}
 
@@ -143,11 +142,6 @@ public class AdminAuthService implements AdminAuthUseCase {
 
 	private AdminAccount requireAdmin(String adminId) {
 		return loadAccount(() -> loadAdminAccountPort.findById(adminId))
-				.orElseThrow(this::invalidCredentials);
-	}
-
-	private AdminAccount requireAdminForUpdate(String adminId) {
-		return loadAccount(() -> loadAdminAccountPort.findByIdForUpdate(adminId))
 				.orElseThrow(this::invalidCredentials);
 	}
 

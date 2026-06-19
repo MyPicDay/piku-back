@@ -8,9 +8,7 @@ public interface AdminOnboardingUseCase {
 
 	AdminTemporaryLoginResult temporaryLogin(String sessionToken, String email, String temporaryPassword);
 
-	void setLoginId(String sessionToken, String loginId);
-
-	void setPassword(String sessionToken, String password);
+	void setCredentials(String sessionToken, String loginId, String password);
 
 	AdminOtpRegistrationResult startOtpRegistration(String sessionToken);
 

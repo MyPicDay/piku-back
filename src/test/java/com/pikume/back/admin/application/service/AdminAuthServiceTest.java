@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminAuthService")
@@ -91,11 +90,10 @@ class AdminAuthServiceTest {
 	@DisplayName("OTP 성공은 사전 세션 자격 증명을 인증 완료 세션으로 교체한다")
 	void verifyOtpCompletesSessionAuthentication() {
 		AdminAccount admin = readyAdmin();
-		given(adminSessionLifecyclePort.requirePhase(
+		given(adminSessionLifecyclePort.requirePhaseForUpdate(
 				org.mockito.ArgumentMatchers.eq("raw-session"),
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.LOGIN_VERIFY_OTP),
-				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin.getId());
-		given(loadAdminAccountPort.findByIdForUpdate(admin.getId())).willReturn(Optional.of(admin));
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin);
 		given(protectAdminOtpSecretPort.reveal("protected-secret")).willReturn("plain-secret");
 		given(adminOtpPort.verify("plain-secret", "123456")).willReturn(true);
 		given(adminSessionLifecyclePort.completeAuthentication(
@@ -110,7 +108,7 @@ class AdminAuthServiceTest {
 		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
 		assertThat(result.loginId()).isEqualTo("ops-june");
 		assertThat(admin.getAuthenticationVersion()).isEqualTo(3L);
-		then(adminSessionLifecyclePort).should(times(2)).requirePhase(
+		then(adminSessionLifecyclePort).should().requirePhaseForUpdate(
 				org.mockito.ArgumentMatchers.eq("raw-session"),
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.LOGIN_VERIFY_OTP),
 				org.mockito.ArgumentMatchers.any(LocalDateTime.class));
@@ -142,8 +140,7 @@ class AdminAuthServiceTest {
 		AdminAccount admin = AdminAccount.invite(
 				"operator@pikume.com", "운영자1", AdminRole.OPERATOR, "temp-hash",
 				LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1));
-		admin.setLoginId("ops-june");
-		admin.completePasswordSetup("password-hash");
+		admin.completeCredentialSetup("ops-june", "password-hash");
 		admin.startOtpRegistration("protected-secret");
 		admin.completeOtpRegistration();
 		return admin;

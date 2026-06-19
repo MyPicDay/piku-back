@@ -117,18 +117,20 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 		}
 	}
 
-	@Transactional
+	@Transactional(noRollbackFor = AdminException.class)
 	@Override
 	public void bindPreAuthentication(String rawSessionToken, String adminId, long authenticationVersion,
 			AdminSessionPhase nextPhase, LocalDateTime now) {
-		AdminSession session = loadSession(rawSessionToken);
+		AdminSession session = loadSessionForUpdate(rawSessionToken);
 		try {
 			if (!session.isActiveAt(now)) {
 				throw unauthenticated();
 			}
+			AdminSessionPhase previousPhase = session.getPhase();
 			session.bindAdmin(adminId, authenticationVersion, nextPhase,
 					now.plusMinutes(PRE_AUTHENTICATION_MINUTES), now);
 			saveAdminSessionPort.save(session);
+			telemetryPort.phaseChanged(session.getId(), adminId, previousPhase, nextPhase, now);
 		} catch (AdminException exception) {
 			throw exception;
 		} catch (AdminDomainException exception) {
@@ -136,19 +138,20 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 		}
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional(noRollbackFor = AdminException.class)
 	@Override
-	public String requirePhase(String rawSessionToken, AdminSessionPhase expectedPhase, LocalDateTime now) {
-		AdminSession session = loadSession(rawSessionToken);
+	public AdminAccount requirePhaseForUpdate(
+			String rawSessionToken, AdminSessionPhase expectedPhase, LocalDateTime now) {
+		AdminSession session = loadSessionForUpdate(rawSessionToken);
 		if (!session.isActiveAt(now) || session.getPhase() != expectedPhase || session.getAdminId() == null) {
 			throw unauthenticated();
 		}
-		AdminAccount admin = loadCurrentAdmin(session.getAdminId());
+		AdminAccount admin = loadCurrentAdminForUpdate(session.getAdminId());
 		if (admin.getStatus() != AdminAccountStatus.ACTIVE
 				|| !session.hasAuthenticationVersion(admin.getAuthenticationVersion())) {
 			throw unauthenticated();
 		}
-		return session.getAdminId();
+		return admin;
 	}
 
 	@Transactional
@@ -160,8 +163,11 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 			throw unauthenticated();
 		}
 		try {
+			AdminSessionPhase previousPhase = session.getPhase();
 			session.advance(expectedPhase, nextPhase, currentAuthenticationVersion, now);
 			saveAdminSessionPort.save(session);
+			telemetryPort.phaseChanged(
+					session.getId(), session.getAdminId(), previousPhase, nextPhase, now);
 			return session.getAdminId();
 		} catch (AdminDomainException exception) {
 			throw unauthenticated();
@@ -192,6 +198,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 		String newSessionToken = adminSessionCredentialPort.generate();
 		String newCsrfToken = adminSessionCredentialPort.generate();
+		AdminSessionPhase previousPhase = session.getPhase();
 		session.authenticate(
 				adminSessionCredentialPort.hash(newSessionToken),
 				adminSessionCredentialPort.hash(newCsrfToken),
@@ -200,6 +207,8 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 				now.plusMinutes(IDLE_TIMEOUT_MINUTES),
 				now);
 		saveAdminSessionPort.save(session);
+		telemetryPort.phaseChanged(
+				session.getId(), admin.getId(), previousPhase, AdminSessionPhase.AUTHENTICATED, now);
 		evictQuietly(oldTokenHash);
 		telemetryPort.sessionIssued();
 		return new AdminSessionCredentials(newSessionToken, newCsrfToken);
@@ -231,6 +240,18 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 	private AdminSession loadSession(String rawSessionToken) {
 		return loadSessionByHash(adminSessionCredentialPort.hash(rawSessionToken));
+	}
+
+	private AdminSession loadSessionForUpdate(String rawSessionToken) {
+		String tokenHash = adminSessionCredentialPort.hash(rawSessionToken);
+		try {
+			return loadAdminSessionPort.findBySessionTokenHashForUpdate(tokenHash)
+					.orElseThrow(this::unauthenticated);
+		} catch (AdminException exception) {
+			throw exception;
+		} catch (RuntimeException exception) {
+			throw sessionStoreUnavailable(exception);
+		}
 	}
 
 	private AdminSession loadSessionByHash(String tokenHash) {
@@ -274,6 +295,16 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 	private AdminAccount loadCurrentAdmin(String adminId) {
 		try {
 			return loadAdminAccountPort.findById(adminId).orElseThrow(this::unauthenticated);
+		} catch (AdminException exception) {
+			throw exception;
+		} catch (RuntimeException exception) {
+			throw sessionStoreUnavailable(exception);
+		}
+	}
+
+	private AdminAccount loadCurrentAdminForUpdate(String adminId) {
+		try {
+			return loadAdminAccountPort.findByIdForUpdate(adminId).orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {

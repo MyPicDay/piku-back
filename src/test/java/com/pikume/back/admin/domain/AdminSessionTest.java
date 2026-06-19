@@ -43,19 +43,19 @@ class AdminSessionTest {
 			session.bindAdmin(
 					"admin-1",
 					3L,
-					AdminSessionPhase.ONBOARDING_SET_LOGIN_ID,
+					AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
 					now.plusMinutes(10),
 					now);
 
 			session.advance(
-					AdminSessionPhase.ONBOARDING_SET_LOGIN_ID,
-					AdminSessionPhase.ONBOARDING_SET_PASSWORD,
+					AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
+					AdminSessionPhase.ONBOARDING_REGISTER_OTP,
 					now.plusSeconds(1));
 
-			assertThat(session.getPhase()).isEqualTo(AdminSessionPhase.ONBOARDING_SET_PASSWORD);
+			assertThat(session.getPhase()).isEqualTo(AdminSessionPhase.ONBOARDING_REGISTER_OTP);
 			assertThatThrownBy(() -> session.advance(
-					AdminSessionPhase.ONBOARDING_SET_LOGIN_ID,
-					AdminSessionPhase.ONBOARDING_REGISTER_OTP,
+					AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
+					AdminSessionPhase.ONBOARDING_VERIFY_OTP,
 					now.plusSeconds(2)))
 					.isInstanceOf(AdminDomainException.class);
 		}

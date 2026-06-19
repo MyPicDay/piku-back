@@ -46,32 +46,51 @@ class AdminAccountTest {
 	}
 
 	@Nested
-	@DisplayName("정식 로그인 아이디")
-	class LoginId {
+	@DisplayName("정식 로그인 자격 증명")
+	class Credentials {
 
 		@Test
-		@DisplayName("정식 로그인 아이디는 한 번만 설정할 수 있다")
-		void loginIdCanBeSetOnlyOnce() {
+		@DisplayName("정식 로그인 아이디와 패스워드는 한 번만 함께 설정할 수 있다")
+		void credentialsCanBeSetOnlyOnce() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
 
-			admin.setLoginId("ops-june");
+			admin.completeCredentialSetup("ops-june", "password-hash");
 
 			assertThat(admin.getLoginId()).isEqualTo("ops-june");
-			assertThatThrownBy(() -> admin.setLoginId("ops-next"))
+			assertThat(admin.getPasswordHash()).isEqualTo("password-hash");
+			assertThatThrownBy(() -> admin.completeCredentialSetup("ops-next", "next-password-hash"))
 					.isInstanceOf(AdminDomainException.class);
 		}
 
 		@Test
-		@DisplayName("정식 로그인 아이디는 정책에 맞아야 한다")
-		void loginIdMustMatchPolicy() {
+		@DisplayName("로그인 아이디나 패스워드 해시가 유효하지 않으면 둘 다 설정하지 않는다")
+		void invalidCredentialDoesNotPartiallyMutateAccount() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
 
-			assertThatThrownBy(() -> admin.setLoginId("운영자"))
+			assertThatThrownBy(() -> admin.completeCredentialSetup("운영자", "password-hash"))
 					.isInstanceOf(AdminDomainException.class);
-			assertThatThrownBy(() -> admin.setLoginId("ABC"))
+			assertThatThrownBy(() -> admin.completeCredentialSetup("ops-june", " "))
 					.isInstanceOf(AdminDomainException.class);
-			assertThatThrownBy(() -> admin.setLoginId("admin login"))
+
+			assertThat(admin.getLoginId()).isNull();
+			assertThat(admin.getPasswordHash()).isNull();
+			assertThat(admin.getTemporaryPasswordHash()).isEqualTo("temp-hash");
+		}
+
+		@Test
+		@DisplayName("정식 자격 증명 설정 전에는 패스워드를 별도로 변경할 수 없다")
+		void passwordChangeRequiresCompletedCredentials() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThatThrownBy(() -> admin.changePassword("new-password-hash"))
 					.isInstanceOf(AdminDomainException.class);
+			assertThat(admin.getLoginId()).isNull();
+			assertThat(admin.getPasswordHash()).isNull();
+
+			admin.completeCredentialSetup("ops-june", "password-hash");
+			admin.changePassword("new-password-hash");
+
+			assertThat(admin.getPasswordHash()).isEqualTo("new-password-hash");
 		}
 	}
 
@@ -84,7 +103,7 @@ class AdminAccountTest {
 		void passwordSetupInvalidatesTemporaryPassword() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
 
-			admin.completePasswordSetup("bcrypt-hash");
+			admin.completeCredentialSetup("ops-june", "bcrypt-hash");
 
 			assertThat(admin.getPasswordHash()).isEqualTo("bcrypt-hash");
 			assertThat(admin.isPasswordChangeRequired()).isFalse();
@@ -182,7 +201,7 @@ class AdminAccountTest {
 		@DisplayName("재활성화 시 임시 패스워드를 새로 발급하고 패스워드 변경을 요구한다")
 		void reactivationReissuesTemporaryPassword() {
 			AdminAccount admin = invited(AdminRole.OPERATOR);
-			admin.completePasswordSetup("old-hash");
+			admin.completeCredentialSetup("ops-june", "old-hash");
 			admin.deactivate("퇴사");
 
 			admin.reactivate("new-temp-hash", now.plusHours(1), now.plusHours(25));

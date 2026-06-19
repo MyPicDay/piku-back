@@ -11,7 +11,8 @@ public interface AdminSessionLifecyclePort {
 	void bindPreAuthentication(String rawSessionToken, String adminId, long authenticationVersion,
 			AdminSessionPhase nextPhase, LocalDateTime now);
 
-	String requirePhase(String rawSessionToken, AdminSessionPhase expectedPhase, LocalDateTime now);
+	AdminAccount requirePhaseForUpdate(
+			String rawSessionToken, AdminSessionPhase expectedPhase, LocalDateTime now);
 
 	String advancePhase(String rawSessionToken, AdminSessionPhase expectedPhase,
 			AdminSessionPhase nextPhase, long currentAuthenticationVersion, LocalDateTime now);

@@ -43,6 +43,13 @@ public class AdminSessionPersistenceAdapter implements
 	}
 
 	@Override
+	public Optional<AdminSession> findBySessionTokenHashForUpdate(String sessionTokenHash) {
+		return recordLookup(
+				"token_hash_for_update",
+				() -> adminSessionJpaRepository.findBySessionTokenHashForUpdate(sessionTokenHash));
+	}
+
+	@Override
 	public List<AdminSession> findActiveByAdminId(String adminId) {
 		return recordLookup(
 				"active_by_admin",

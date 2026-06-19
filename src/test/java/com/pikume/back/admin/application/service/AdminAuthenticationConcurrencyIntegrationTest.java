@@ -120,8 +120,7 @@ class AdminAuthenticationConcurrencyIntegrationTest {
 				"temporary-password-hash",
 				now.minusDays(1),
 				now.plusDays(1));
-		admin.setLoginId("concurrent1");
-		admin.completePasswordSetup("password-hash");
+		admin.completeCredentialSetup("concurrent1", "password-hash");
 		admin.startOtpRegistration("protected-secret");
 		admin.completeOtpRegistration();
 		return admin;

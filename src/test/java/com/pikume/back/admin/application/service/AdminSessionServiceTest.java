@@ -240,7 +240,8 @@ class AdminSessionServiceTest {
 			AdminSession session = AdminSession.startAnonymous(
 					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+					.willReturn(Optional.of(session));
 			given(saveAdminSessionPort.save(session)).willReturn(session);
 
 			service().bindPreAuthentication(
@@ -248,6 +249,38 @@ class AdminSessionServiceTest {
 
 			assertThat(session.getAdminId()).isEqualTo("admin-1");
 			assertThat(session.getPhase()).isEqualTo(AdminSessionPhase.LOGIN_VERIFY_OTP);
+			then(telemetryPort).should().phaseChanged(
+					session.getId(),
+					"admin-1",
+					AdminSessionPhase.ANONYMOUS,
+					AdminSessionPhase.LOGIN_VERIFY_OTP,
+					now);
+		}
+
+		@Test
+		@DisplayName("사전 세션 단계 전환은 이전 단계와 다음 단계를 기록한다")
+		void recordsPreAuthenticationPhaseTransition() {
+			LocalDateTime now = LocalDateTime.now();
+			AdminSession session = AdminSession.startAnonymous(
+					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
+			session.bindAdmin("admin-1", 2L, AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
+					now.plusMinutes(10), now.minusSeconds(1));
+			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
+			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+
+			service().advancePhase(
+					"raw-session",
+					AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
+					AdminSessionPhase.ONBOARDING_REGISTER_OTP,
+					3L,
+					now);
+
+			then(telemetryPort).should().phaseChanged(
+					session.getId(),
+					"admin-1",
+					AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
+					AdminSessionPhase.ONBOARDING_REGISTER_OTP,
+					now);
 		}
 
 		@Test
@@ -256,13 +289,14 @@ class AdminSessionServiceTest {
 			LocalDateTime now = LocalDateTime.now();
 			AdminSession session = AdminSession.startAnonymous(
 					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
-			session.bindAdmin("admin-1", 2L, AdminSessionPhase.ONBOARDING_SET_PASSWORD,
+			session.bindAdmin("admin-1", 2L, AdminSessionPhase.ONBOARDING_REGISTER_OTP,
 					now.plusMinutes(10), now.minusSeconds(1));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+					.willReturn(Optional.of(session));
 
-			assertThatThrownBy(() -> service().requirePhase(
-					"raw-session", AdminSessionPhase.ONBOARDING_SET_LOGIN_ID, now))
+			assertThatThrownBy(() -> service().requirePhaseForUpdate(
+					"raw-session", AdminSessionPhase.ONBOARDING_SET_CREDENTIALS, now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
 							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
 		}
@@ -278,10 +312,11 @@ class AdminSessionServiceTest {
 					AdminSessionPhase.LOGIN_VERIFY_OTP, now.plusMinutes(10), now.minusSeconds(1));
 			admin.advanceAuthenticationVersion();
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
-			given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+					.willReturn(Optional.of(session));
+			given(loadAdminAccountPort.findByIdForUpdate(admin.getId())).willReturn(Optional.of(admin));
 
-			assertThatThrownBy(() -> service().requirePhase(
+			assertThatThrownBy(() -> service().requirePhaseForUpdate(
 					"raw-session", AdminSessionPhase.LOGIN_VERIFY_OTP, now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
 							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
@@ -313,6 +348,12 @@ class AdminSessionServiceTest {
 			assertThat(preSession.getSessionTokenHash()).isEqualTo("new-session-hash");
 			then(saveAdminSessionPort).should().save(preSession);
 			then(adminSessionCachePort).should().evict("old-session-hash");
+			then(telemetryPort).should().phaseChanged(
+					preSession.getId(),
+					admin.getId(),
+					AdminSessionPhase.LOGIN_VERIFY_OTP,
+					AdminSessionPhase.AUTHENTICATED,
+					now);
 		}
 	}
 
@@ -335,8 +376,7 @@ class AdminSessionServiceTest {
 				"temp-hash",
 				LocalDateTime.now().minusDays(1),
 				LocalDateTime.now().plusDays(1));
-		admin.setLoginId("ops-june");
-		admin.completePasswordSetup("password-hash");
+		admin.completeCredentialSetup("ops-june", "password-hash");
 		admin.startOtpRegistration("protected-secret");
 		admin.completeOtpRegistration();
 		return admin;

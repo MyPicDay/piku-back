@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Backend Engineers, Operators
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-18
+- Last Reviewed: 2026-06-19
 
 ## 목적
 
@@ -25,6 +25,9 @@
 - 현재 유효한 인증 완료 세션 수는 `admin.session.active`로 확인한다.
 - DB 세션 또는 관리자 상태 확인 실패는 `admin.session.store.unavailable`로 확인한다.
 - 로그인과 OTP 성공·거부는 `admin.authentication.login.*`, `admin.authentication.otp.*` 계열로 확인한다.
+- 세션 단계 전환은 트랜잭션 커밋 성공 후 `admin_session_phase_changed` 정보 로그로 기록된다.
+- 단계 전환 로그에서 관리자 식별자, 세션 식별자, 이전 단계, 다음 단계와 전환 시각을 확인한다.
+- 단계 전환 로그에는 세션 토큰, CSRF 토큰, 패스워드와 OTP 비밀키 원문을 기록하지 않는다.
 - CSRF와 Origin 거부는 `admin.security.csrf.rejected`, `admin.security.origin.rejected`로 확인한다.
 
 ## Redis 장애

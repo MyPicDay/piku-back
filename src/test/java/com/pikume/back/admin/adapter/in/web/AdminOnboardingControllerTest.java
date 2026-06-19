@@ -1,7 +1,7 @@
 package com.pikume.back.admin.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminLoginIdRequest;
+import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminCredentialsRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.TemporaryAdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
@@ -54,7 +54,7 @@ class AdminOnboardingControllerTest {
 	@DisplayName("임시 로그인은 사전 세션 쿠키를 사용하고 온보딩 토큰을 응답하지 않는다")
 	void temporaryLoginUsesPreAuthenticationCookie() throws Exception {
 		given(adminOnboardingUseCase.temporaryLogin("raw-session", "operator@pikume.com", "TempPass1!"))
-				.willReturn(new AdminTemporaryLoginResult(AdminOnboardingStep.SET_LOGIN_ID.name(),
+				.willReturn(new AdminTemporaryLoginResult(AdminOnboardingStep.SET_CREDENTIALS.name(),
 						"operator@pikume.com", "운영자1", AdminRole.OPERATOR));
 
 		mockMvc.perform(post("/api/admin/auth/temporary-login")
@@ -64,19 +64,36 @@ class AdminOnboardingControllerTest {
 								"operator@pikume.com", "TempPass1!"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.onboardingToken").doesNotExist())
-				.andExpect(jsonPath("$.nextStep").value(AdminOnboardingStep.SET_LOGIN_ID.name()));
+				.andExpect(jsonPath("$.nextStep").value(AdminOnboardingStep.SET_CREDENTIALS.name()));
 	}
 
 	@Test
-	@DisplayName("로그인 아이디 설정은 JWT 없이 사전 세션 쿠키를 사용한다")
-	void setLoginIdUsesPreAuthenticationCookie() throws Exception {
+	@DisplayName("로그인 아이디와 패스워드 설정은 하나의 요청과 사전 세션 쿠키를 사용한다")
+	void setCredentialsUsesPreAuthenticationCookie() throws Exception {
+		mockMvc.perform(patch("/api/admin/auth/onboarding/credentials")
+						.cookie(new Cookie("pk-a91f", "raw-session"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(
+								new SetAdminCredentialsRequest("ops-june", "Password1!"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nextStep").value(AdminOnboardingStep.REGISTER_OTP.name()));
+
+		then(adminOnboardingUseCase).should().setCredentials("raw-session", "ops-june", "Password1!");
+	}
+
+	@Test
+	@DisplayName("기존 로그인 아이디와 패스워드 개별 설정 경로는 제거한다")
+	void removesSeparateCredentialEndpoints() throws Exception {
 		mockMvc.perform(patch("/api/admin/auth/onboarding/login-id")
 						.cookie(new Cookie("pk-a91f", "raw-session"))
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new SetAdminLoginIdRequest("ops-june"))))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.nextStep").value(AdminOnboardingStep.SET_PASSWORD.name()));
+						.content("{}"))
+				.andExpect(status().isNotFound());
 
-		then(adminOnboardingUseCase).should().setLoginId("raw-session", "ops-june");
+		mockMvc.perform(patch("/api/admin/auth/onboarding/password")
+						.cookie(new Cookie("pk-a91f", "raw-session"))
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{}"))
+				.andExpect(status().isNotFound());
 	}
 }

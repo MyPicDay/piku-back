@@ -1,7 +1,6 @@
 package com.pikume.back.admin.adapter.in.web;
 
-import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminLoginIdRequest;
-import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminPasswordRequest;
+import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminCredentialsRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.TemporaryAdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.VerifyAdminOtpRequest;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
@@ -41,17 +40,11 @@ public class AdminOnboardingController {
 				cookieManager.requireSessionToken(servletRequest), request.email(), request.temporaryPassword()));
 	}
 
-	@PatchMapping("/onboarding/login-id")
-	public ResponseEntity<OnboardingNextStepResponse> setLoginId(
-			HttpServletRequest servletRequest, @RequestBody SetAdminLoginIdRequest request) {
-		adminOnboardingUseCase.setLoginId(cookieManager.requireSessionToken(servletRequest), request.loginId());
-		return ResponseEntity.ok(new OnboardingNextStepResponse(AdminOnboardingStep.SET_PASSWORD.name()));
-	}
-
-	@PatchMapping("/onboarding/password")
-	public ResponseEntity<OnboardingNextStepResponse> setPassword(
-			HttpServletRequest servletRequest, @RequestBody SetAdminPasswordRequest request) {
-		adminOnboardingUseCase.setPassword(cookieManager.requireSessionToken(servletRequest), request.password());
+	@PatchMapping("/onboarding/credentials")
+	public ResponseEntity<OnboardingNextStepResponse> setCredentials(
+			HttpServletRequest servletRequest, @RequestBody SetAdminCredentialsRequest request) {
+		adminOnboardingUseCase.setCredentials(
+				cookieManager.requireSessionToken(servletRequest), request.loginId(), request.password());
 		return ResponseEntity.ok(new OnboardingNextStepResponse(AdminOnboardingStep.REGISTER_OTP.name()));
 	}
 

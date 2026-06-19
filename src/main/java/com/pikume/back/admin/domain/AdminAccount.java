@@ -140,14 +140,24 @@ public class AdminAccount extends BaseEntity {
 		return otpBlockedUntil != null && now.isBefore(otpBlockedUntil);
 	}
 
-	public void setLoginId(String loginId) {
+	public void completeCredentialSetup(String loginId, String passwordHash) {
 		if (this.loginId != null) {
-			throw new AdminDomainException("정식 로그인 아이디는 변경할 수 없습니다.");
+			throw new AdminDomainException("정식 로그인 자격 증명은 다시 설정할 수 없습니다.");
 		}
-		this.loginId = AdminLoginId.normalize(loginId);
+		String normalizedLoginId = AdminLoginId.normalize(loginId);
+		String requiredPasswordHash = requireHash(passwordHash, "패스워드 해시는 필수입니다.");
+		this.loginId = normalizedLoginId;
+		applyPasswordHash(requiredPasswordHash);
 	}
 
-	public void completePasswordSetup(String passwordHash) {
+	public void changePassword(String passwordHash) {
+		if (loginId == null) {
+			throw new AdminDomainException("정식 로그인 자격 증명 설정 후 패스워드를 변경할 수 있습니다.");
+		}
+		applyPasswordHash(requireHash(passwordHash, "패스워드 해시는 필수입니다."));
+	}
+
+	private void applyPasswordHash(String passwordHash) {
 		this.passwordHash = requireHash(passwordHash, "패스워드 해시는 필수입니다.");
 		this.passwordChangeRequired = false;
 		this.temporaryPasswordHash = null;

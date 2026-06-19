@@ -163,8 +163,7 @@ class AuthSessionSecurityIntegrationTest {
 				"temporary-password-hash",
 				now,
 				now.plusHours(24));
-		admin.setLoginId("boundary-admin");
-		admin.completePasswordSetup("password-hash");
+		admin.completeCredentialSetup("boundary-admin", "password-hash");
 		admin.startOtpRegistration("protected-otp-secret");
 		admin.completeOtpRegistration();
 		adminAccountJpaRepository.saveAndFlush(admin);

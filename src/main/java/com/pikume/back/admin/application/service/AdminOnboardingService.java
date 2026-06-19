@@ -10,6 +10,7 @@ import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
+import com.pikume.back.admin.application.port.out.SaveAdminCredentialsPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminEmail;
 import com.pikume.back.admin.domain.AdminLoginId;
@@ -34,6 +35,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
 	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
 	private final AdminSessionTelemetryPort telemetryPort;
+	private final SaveAdminCredentialsPort saveAdminCredentialsPort;
 
 	@Override
 	@Transactional(noRollbackFor = AdminException.class)
@@ -67,38 +69,28 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 			throw passwordFailure(admin, now);
 		}
 		adminSessionLifecyclePort.bindPreAuthentication(sessionToken, admin.getId(), admin.getAuthenticationVersion(),
-				AdminSessionPhase.ONBOARDING_SET_LOGIN_ID, now);
+				AdminSessionPhase.ONBOARDING_SET_CREDENTIALS, now);
 		telemetryPort.loginSucceeded(AUTHENTICATION_FLOW, admin.getId());
 		return new AdminTemporaryLoginResult(
-				AdminOnboardingStep.SET_LOGIN_ID.name(), admin.getEmail(), admin.getNickname(), admin.getRole());
+				AdminOnboardingStep.SET_CREDENTIALS.name(), admin.getEmail(), admin.getNickname(), admin.getRole());
 	}
 
 	@Override
 	@Transactional
-	public void setLoginId(String sessionToken, String loginId) {
+	public void setCredentials(String sessionToken, String loginId, String password) {
 		LocalDateTime now = LocalDateTime.now();
-		String adminId = adminSessionLifecyclePort.requirePhase(
-				sessionToken, AdminSessionPhase.ONBOARDING_SET_LOGIN_ID, now);
+		AdminAccount admin = adminSessionLifecyclePort.requirePhaseForUpdate(
+				sessionToken, AdminSessionPhase.ONBOARDING_SET_CREDENTIALS, now);
 		String normalizedLoginId = AdminLoginId.normalize(loginId);
 		if (loadAccount(() -> loadAdminAccountPort.existsByLoginId(normalizedLoginId))) {
 			throw new AdminException(AdminProblem.DUPLICATE_LOGIN_ID, "이미 사용 중인 관리자 로그인 아이디입니다.");
 		}
-		AdminAccount admin = requireAdmin(adminId);
-		admin.setLoginId(normalizedLoginId);
-		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_SET_LOGIN_ID,
-				AdminSessionPhase.ONBOARDING_SET_PASSWORD, admin.getAuthenticationVersion(), now);
-	}
-
-	@Override
-	@Transactional
-	public void setPassword(String sessionToken, String password) {
-		LocalDateTime now = LocalDateTime.now();
-		String adminId = adminSessionLifecyclePort.requirePhase(
-				sessionToken, AdminSessionPhase.ONBOARDING_SET_PASSWORD, now);
-		AdminAccount admin = requireAdmin(adminId);
-		validatePassword(password, admin.getLoginId());
-		admin.completePasswordSetup(adminPasswordPort.encode(password));
-		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_SET_PASSWORD,
+		validatePassword(password, normalizedLoginId);
+		admin.completeCredentialSetup(normalizedLoginId, adminPasswordPort.encode(password));
+		if (!saveAdminCredentialsPort.saveIfLoginIdAvailable(admin)) {
+			throw new AdminException(AdminProblem.DUPLICATE_LOGIN_ID, "이미 사용 중인 관리자 로그인 아이디입니다.");
+		}
+		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
 				AdminSessionPhase.ONBOARDING_REGISTER_OTP, admin.getAuthenticationVersion(), now);
 	}
 
@@ -106,9 +98,8 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	@Transactional
 	public AdminOtpRegistrationResult startOtpRegistration(String sessionToken) {
 		LocalDateTime now = LocalDateTime.now();
-		String adminId = adminSessionLifecyclePort.requirePhase(
+		AdminAccount admin = adminSessionLifecyclePort.requirePhaseForUpdate(
 				sessionToken, AdminSessionPhase.ONBOARDING_REGISTER_OTP, now);
-		AdminAccount admin = requireAdmin(adminId);
 		String secret = adminOtpPort.generateSecret();
 		admin.startOtpRegistration(protectAdminOtpSecretPort.protect(secret));
 		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_REGISTER_OTP,
@@ -121,10 +112,8 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 	@Transactional(noRollbackFor = AdminException.class)
 	public AdminAuthenticationResult verifyOtp(String sessionToken, String otpCode) {
 		LocalDateTime now = LocalDateTime.now();
-		String adminId = adminSessionLifecyclePort.requirePhase(
+		AdminAccount admin = adminSessionLifecyclePort.requirePhaseForUpdate(
 				sessionToken, AdminSessionPhase.ONBOARDING_VERIFY_OTP, now);
-		AdminAccount admin = requireAdminForUpdate(adminId);
-		adminSessionLifecyclePort.requirePhase(sessionToken, AdminSessionPhase.ONBOARDING_VERIFY_OTP, now);
 		if (admin.getPendingOtpSecret() == null) {
 			telemetryPort.otpRejected(AUTHENTICATION_FLOW, "not_registered");
 			throw new AdminException(AdminProblem.INVALID_REQUEST, "OTP 등록을 먼저 시작해야 합니다.");
@@ -151,17 +140,6 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 		telemetryPort.otpSucceeded(AUTHENTICATION_FLOW, admin.getId());
 		return new AdminAuthenticationResult(
 				credentials, admin.getLoginId(), admin.getNickname(), admin.getEmail(), admin.getRole());
-	}
-
-	private AdminAccount requireAdmin(String adminId) {
-		return loadAccount(() -> loadAdminAccountPort.findById(adminId))
-				.orElseThrow(() -> new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 사전 세션이 유효하지 않습니다."));
-	}
-
-	private AdminAccount requireAdminForUpdate(String adminId) {
-		return loadAccount(() -> loadAdminAccountPort.findByIdForUpdate(adminId))
-				.orElseThrow(() -> new AdminException(AdminProblem.UNAUTHENTICATED,
-						"관리자 사전 세션이 유효하지 않습니다."));
 	}
 
 	private AdminException passwordFailure(AdminAccount admin, LocalDateTime now) {

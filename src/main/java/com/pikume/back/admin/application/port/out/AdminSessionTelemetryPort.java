@@ -1,5 +1,9 @@
 package com.pikume.back.admin.application.port.out;
 
+import com.pikume.back.admin.domain.AdminSessionPhase;
+
+import java.time.LocalDateTime;
+
 public interface AdminSessionTelemetryPort {
 
 	void cacheHit();
@@ -25,4 +29,7 @@ public interface AdminSessionTelemetryPort {
 	void otpSucceeded(String flow, String adminId);
 
 	void otpRejected(String flow, String reason);
+
+	void phaseChanged(String sessionId, String adminId, AdminSessionPhase fromPhase,
+			AdminSessionPhase toPhase, LocalDateTime transitionedAt);
 }

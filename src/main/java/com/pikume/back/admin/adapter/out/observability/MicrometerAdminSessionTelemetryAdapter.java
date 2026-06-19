@@ -1,10 +1,15 @@
 package com.pikume.back.admin.adapter.out.observability;
 
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.domain.AdminSessionPhase;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
@@ -83,5 +88,31 @@ public class MicrometerAdminSessionTelemetryAdapter implements AdminSessionTelem
 		meterRegistry.counter(
 				"admin.authentication.otp.rejected", "flow", flow, "reason", reason).increment();
 		log.warn("event=admin_otp_failed outcome=denied flow={} reason={}", flow, reason);
+	}
+
+	@Override
+	public void phaseChanged(String sessionId, String adminId, AdminSessionPhase fromPhase,
+			AdminSessionPhase toPhase, LocalDateTime transitionedAt) {
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					recordPhaseChange(sessionId, adminId, fromPhase, toPhase, transitionedAt);
+				}
+			});
+			return;
+		}
+		recordPhaseChange(sessionId, adminId, fromPhase, toPhase, transitionedAt);
+	}
+
+	private void recordPhaseChange(String sessionId, String adminId, AdminSessionPhase fromPhase,
+			AdminSessionPhase toPhase, LocalDateTime transitionedAt) {
+		meterRegistry.counter(
+				"admin.session.phase.changed",
+				"from", fromPhase.name(),
+				"to", toPhase.name()).increment();
+		log.info(
+				"event=admin_session_phase_changed outcome=success sessionId={} adminId={} fromPhase={} toPhase={} transitionedAt={}",
+				sessionId, adminId, fromPhase, toPhase, transitionedAt);
 	}
 }

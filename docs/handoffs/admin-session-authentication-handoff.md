@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Backend Engineers, Frontend Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-18
+- Last Reviewed: 2026-06-19
 
 ## 목적
 
@@ -41,6 +41,16 @@
 | 관리자 보호 API | 인증 필요 | 안전하지 않은 메서드는 CSRF와 Origin 필수 | 현재 계정 상태와 등급 기준으로 처리 |
 
 로그인과 OTP 응답에는 액세스 토큰, 리프레시 토큰, 온보딩 토큰, OTP challenge token이 포함되지 않는다. 관리자 토큰 재발급 API는 존재하지 않는다.
+
+### 최초 온보딩 순서
+
+1. CSRF 초기화 후 이메일과 임시 패스워드로 임시 로그인한다.
+2. 임시 로그인 응답의 다음 단계가 `SET_CREDENTIALS`인지 확인한다.
+3. `PATCH /api/admin/auth/onboarding/credentials` 요청으로 정식 로그인 아이디와 정식 패스워드를 함께 전송한다.
+4. 자격 증명 설정 성공 후 OTP 등록 API를 호출한다.
+5. OTP 등록 정보를 인증 앱에 추가한 뒤 OTP 검증 API를 호출한다.
+
+로그인 아이디와 패스워드는 서버에서 하나의 원자적 작업으로 설정된다. 클라이언트는 두 값을 분리된 요청으로 저장하거나 이전 로그인 아이디 및 패스워드 개별 설정 경로를 호출하지 않는다.
 
 ## 쿠키와 헤더
 
