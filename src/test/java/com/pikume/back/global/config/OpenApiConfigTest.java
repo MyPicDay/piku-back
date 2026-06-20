@@ -7,6 +7,7 @@ import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springdoc.core.models.GroupedOpenApi;
 
 import java.util.List;
 
@@ -40,6 +41,22 @@ class OpenApiConfigTest {
 		assertThat(login.getSecurity()).singleElement().satisfies(requirement ->
 				assertThat(requirement.keySet()).containsExactlyInAnyOrder("AdminSessionCookie", "AdminCsrfHeader"));
 		assertThat(csrf.getSecurity()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("Swagger 문서를 관리자 API와 사용자 API 그룹으로 분리한다")
+	void separatesAdminAndUserApiGroups() {
+		GroupedOpenApi admin = config().adminApi();
+		GroupedOpenApi user = config().userApi();
+
+		assertThat(admin.getGroup()).isEqualTo("admin");
+		assertThat(admin.getDisplayName()).isEqualTo("관리자 API");
+		assertThat(admin.getPathsToMatch()).containsExactly("/api/admin/**");
+
+		assertThat(user.getGroup()).isEqualTo("user");
+		assertThat(user.getDisplayName()).isEqualTo("사용자 API");
+		assertThat(user.getPathsToMatch()).containsExactly("/api/**");
+		assertThat(user.getPathsToExclude()).containsExactly("/api/admin/**");
 	}
 
 	private OpenApiConfig config() {

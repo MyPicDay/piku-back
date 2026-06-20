@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springdoc.core.models.GroupedOpenApi;
 
 import java.util.List;
 
@@ -24,6 +25,25 @@ public class OpenApiConfig {
 
 	public OpenApiConfig(AdminSecurityProperties adminSecurityProperties) {
 		this.adminSecurityProperties = adminSecurityProperties;
+	}
+
+	@Bean
+	public GroupedOpenApi adminApi() {
+		return GroupedOpenApi.builder()
+				.group("admin")
+				.displayName("관리자 API")
+				.pathsToMatch("/api/admin/**")
+				.build();
+	}
+
+	@Bean
+	public GroupedOpenApi userApi() {
+		return GroupedOpenApi.builder()
+				.group("user")
+				.displayName("사용자 API")
+				.pathsToMatch("/api/**")
+				.pathsToExclude("/api/admin/**")
+				.build();
 	}
 
 	@Bean
