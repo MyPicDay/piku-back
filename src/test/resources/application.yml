@@ -43,6 +43,8 @@ admin:
     csrf-header-name: X-PK-C83F
     secure-cookies: false
     csrf-cookie-domain: ""
+  otp:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 
 storage:
   server-to-s3-url: http://localhost:9000
