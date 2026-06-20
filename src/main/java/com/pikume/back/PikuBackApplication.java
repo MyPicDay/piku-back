@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import com.pikume.back.admin.adapter.out.crypto.AdminOtpCryptoProperties;
 import com.pikume.back.diary.adapter.out.cache.ImageCacheProperties;
 import com.pikume.back.diary.application.service.PhotoOptimizationProperties;
 import com.pikume.back.global.storage.StorageProperties;
@@ -14,7 +15,7 @@ import com.pikume.back.security.config.AdminSecurityProperties;
 @EnableJpaAuditing
 @EnableScheduling
 @EnableConfigurationProperties({StorageProperties.class, PhotoOptimizationProperties.class, ImageCacheProperties.class,
-		AdminSecurityProperties.class})
+		AdminSecurityProperties.class, AdminOtpCryptoProperties.class})
 public class PikuBackApplication {
 
 	public static void main(String[] args) {
