@@ -81,6 +81,14 @@ class AdminMigrationSchemaTest {
 		assertThat(migrationSql).doesNotContain("CREATE TABLE admin_refresh_tokens");
 	}
 
+	@Test
+	@DisplayName("미배포 관리자 스키마는 후속 감사 로그 정리 마이그레이션 없이 완결된다")
+	void doesNotRequireFollowUpAuditLogPrivacyMigration() {
+		assertThat(new ClassPathResource(
+				"db/migration/V14__remove_emails_from_admin_audit_logs.sql").exists()).isFalse();
+		assertThat(migrationSql).doesNotContain("UPDATE admin_audit_logs");
+	}
+
 	private String tableDefinition(String tableName) {
 		String createTable = "CREATE TABLE " + tableName + " (";
 		int start = migrationSql.indexOf(createTable);

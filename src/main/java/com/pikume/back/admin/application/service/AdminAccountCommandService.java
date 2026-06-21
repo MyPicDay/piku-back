@@ -73,15 +73,13 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 				saved.getId(),
 				AdminAuditAction.ADMIN_CREATED,
 				null,
-				"email: %s, role: %s".formatted(saved.getEmail(), saved.getRole()),
+				"role: %s".formatted(saved.getRole()),
 				LocalDateTime.now()));
 
 		return new CreateAdminAccountResult(
-				saved.getEmail(),
 				saved.getNickname(),
 				saved.getRole(),
 				saved.getStatus(),
-				saved.getEmail(),
 				temporaryPassword,
 				expiresAt,
 				guideEmailSent);

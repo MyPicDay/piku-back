@@ -9,6 +9,7 @@ import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
 import com.pikume.back.admin.application.service.AdminAccountSummaryResult;
+import com.pikume.back.admin.application.service.AdminAccountDetailResult;
 import com.pikume.back.admin.application.service.CreateAdminAccountCommand;
 import com.pikume.back.admin.application.service.CreateAdminAccountResult;
 import com.pikume.back.admin.domain.AdminAccountStatus;
@@ -68,12 +69,13 @@ class AdminAccountControllerTest {
 	}
 
 	@Test
-	@DisplayName("GET /api/admin/accounts는 관리자 UUID 없이 목록을 반환한다")
-	void listDoesNotExposeAdminId() throws Exception {
+	@DisplayName("GET /api/admin/accounts는 관리자 식별값과 마스킹된 식별자를 반환한다")
+	void listReturnsAdminIdAndMaskedIdentifiers() throws Exception {
 		given(adminAccountOperationUseCase.list("admin-1"))
 				.willReturn(List.of(new AdminAccountSummaryResult(
-						"viewer@pikume.com",
-						"viewer-june",
+						"target-admin",
+						"vi***@pikume.com",
+						"vi***ne",
 						"조회자1",
 						AdminRole.VIEWER,
 						AdminAccountStatus.ACTIVE,
@@ -85,8 +87,33 @@ class AdminAccountControllerTest {
 		mockMvc.perform(get("/api/admin/accounts")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[0].email").value("viewer@pikume.com"))
-				.andExpect(jsonPath("$[0].adminId").doesNotExist());
+				.andExpect(jsonPath("$[0].adminId").value("target-admin"))
+				.andExpect(jsonPath("$[0].email").value("vi***@pikume.com"))
+				.andExpect(jsonPath("$[0].loginId").value("vi***ne"));
+	}
+
+	@Test
+	@DisplayName("GET /api/admin/accounts/{adminId}는 관리자 식별값으로 상세를 조회한다")
+	void detailUsesAdminIdPath() throws Exception {
+		given(adminAccountOperationUseCase.detailById("admin-1", "target-admin"))
+				.willReturn(new AdminAccountDetailResult(
+						"target-admin",
+						"op***@pikume.com",
+						"op***ne",
+						"운영자1",
+						AdminRole.OPERATOR,
+						AdminAccountStatus.ACTIVE,
+						false,
+						true,
+						null,
+						LocalDateTime.of(2026, 6, 17, 13, 0)));
+
+		mockMvc.perform(get("/api/admin/accounts/target-admin")
+						.accept(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.adminId").value("target-admin"))
+				.andExpect(jsonPath("$.email").value("op***@pikume.com"))
+				.andExpect(jsonPath("$.loginId").value("op***ne"));
 	}
 
 	@Test
@@ -94,11 +121,9 @@ class AdminAccountControllerTest {
 	void createReturnsTemporaryPasswordOnce() throws Exception {
 		given(createAdminAccountUseCase.create(any(CreateAdminAccountCommand.class)))
 				.willReturn(new CreateAdminAccountResult(
-						"viewer@pikume.com",
 						"조회자1",
 						AdminRole.VIEWER,
 						AdminAccountStatus.ACTIVE,
-						"viewer@pikume.com",
 						"TempPass1!234567",
 						LocalDateTime.of(2026, 6, 18, 13, 0),
 						true));
@@ -110,7 +135,9 @@ class AdminAccountControllerTest {
 								"조회자1",
 								AdminRole.VIEWER))))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.temporaryLoginId").value("viewer@pikume.com"))
+				.andExpect(jsonPath("$.email").doesNotExist())
+				.andExpect(jsonPath("$.loginId").doesNotExist())
+				.andExpect(jsonPath("$.temporaryLoginId").doesNotExist())
 				.andExpect(jsonPath("$.temporaryPassword").value("TempPass1!234567"))
 				.andExpect(jsonPath("$.guideEmailSent").value(true))
 				.andExpect(jsonPath("$.adminId").doesNotExist());

@@ -12,7 +12,7 @@ public interface AdminAccountOperationUseCase {
 
 	List<AdminAccountSummaryResult> list(String actorAdminId);
 
-	AdminAccountDetailResult detailByEmail(String actorAdminId, String email);
+	AdminAccountDetailResult detailById(String actorAdminId, String targetAdminId);
 
 	void changeRole(String actorAdminId, String targetAdminId, AdminRole role);
 

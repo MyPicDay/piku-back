@@ -72,7 +72,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 				AdminSessionPhase.ONBOARDING_SET_CREDENTIALS, now);
 		telemetryPort.loginSucceeded(AUTHENTICATION_FLOW, admin.getId());
 		return new AdminTemporaryLoginResult(
-				AdminOnboardingStep.SET_CREDENTIALS.name(), admin.getEmail(), admin.getNickname(), admin.getRole());
+				AdminOnboardingStep.SET_CREDENTIALS.name(), admin.getNickname(), admin.getRole());
 	}
 
 	@Override
@@ -105,7 +105,8 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 		adminSessionLifecyclePort.advancePhase(sessionToken, AdminSessionPhase.ONBOARDING_REGISTER_OTP,
 				AdminSessionPhase.ONBOARDING_VERIFY_OTP, admin.getAuthenticationVersion(), now);
 		return new AdminOtpRegistrationResult(
-				OTP_ISSUER, admin.getLoginId(), adminOtpPort.provisioningUri(OTP_ISSUER, admin.getLoginId(), secret), secret);
+				OTP_ISSUER, admin.getId(),
+				adminOtpPort.provisioningUri(OTP_ISSUER, admin.getId(), secret), secret);
 	}
 
 	@Override
@@ -139,7 +140,7 @@ public class AdminOnboardingService implements AdminOnboardingUseCase {
 				sessionToken, admin, AdminSessionPhase.ONBOARDING_VERIFY_OTP, now);
 		telemetryPort.otpSucceeded(AUTHENTICATION_FLOW, admin.getId());
 		return new AdminAuthenticationResult(
-				credentials, admin.getLoginId(), admin.getNickname(), admin.getEmail(), admin.getRole());
+				credentials, admin.getNickname(), admin.getRole());
 	}
 
 	private AdminException passwordFailure(AdminAccount admin, LocalDateTime now) {

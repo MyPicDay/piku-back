@@ -106,7 +106,8 @@ class AdminAuthServiceTest {
 		AdminAuthenticationResult result = service().verifyOtp("raw-session", "123456");
 
 		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
-		assertThat(result.loginId()).isEqualTo("ops-june");
+		assertThat(result.nickname()).isEqualTo("운영자1");
+		assertThat(result.role()).isEqualTo(AdminRole.OPERATOR);
 		assertThat(admin.getAuthenticationVersion()).isEqualTo(3L);
 		then(adminSessionLifecyclePort).should().requirePhaseForUpdate(
 				org.mockito.ArgumentMatchers.eq("raw-session"),

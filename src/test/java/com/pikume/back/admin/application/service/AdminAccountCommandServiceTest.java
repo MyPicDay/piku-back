@@ -8,6 +8,7 @@ import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
+import com.pikume.back.admin.domain.AdminAuditLog;
 import com.pikume.back.admin.domain.AdminRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,10 +61,15 @@ class AdminAccountCommandServiceTest {
 				AdminRole.VIEWER));
 
 		ArgumentCaptor<AdminAccount> savedCaptor = ArgumentCaptor.forClass(AdminAccount.class);
+		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
 		then(saveAdminAccountPort).should().save(savedCaptor.capture());
+		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
 		assertThat(savedCaptor.getValue().getEmail()).isEqualTo("viewer@pikume.com");
 		assertThat(savedCaptor.getValue().getTemporaryPasswordHash()).isEqualTo("encoded-temp");
-		assertThat(result.temporaryLoginId()).isEqualTo("viewer@pikume.com");
+		assertThat(auditCaptor.getValue().getDetail()).doesNotContain("@", "viewer");
+		assertThat(java.util.Arrays.stream(result.getClass().getRecordComponents())
+				.map(java.lang.reflect.RecordComponent::getName))
+				.doesNotContain("email", "loginId", "temporaryLoginId");
 		assertThat(result.temporaryPassword()).isEqualTo("TempPass1!234567");
 		assertThat(result.guideEmailSent()).isTrue();
 		then(sendAdminGuideEmailPort).should()

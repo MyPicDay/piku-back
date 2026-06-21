@@ -68,8 +68,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 		adminSessionLifecyclePort.bindPreAuthentication(sessionToken, admin.getId(), admin.getAuthenticationVersion(),
 				AdminSessionPhase.LOGIN_VERIFY_OTP, now);
 		telemetryPort.loginSucceeded(AUTHENTICATION_FLOW, admin.getId());
-		return new AdminLoginChallengeResult(AdminAuthStep.VERIFY_OTP.name(),
-				admin.getLoginId(), admin.getNickname(), admin.getEmail(), admin.getRole());
+		return new AdminLoginChallengeResult(AdminAuthStep.VERIFY_OTP.name());
 	}
 
 	@Override
@@ -132,7 +131,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 
 	private AdminAuthenticationResult result(AdminAccount admin, AdminSessionCredentials credentials) {
 		return new AdminAuthenticationResult(
-				credentials, admin.getLoginId(), admin.getNickname(), admin.getEmail(), admin.getRole());
+				credentials, admin.getNickname(), admin.getRole());
 	}
 
 	private boolean canUseOfficialLogin(AdminAccount admin) {

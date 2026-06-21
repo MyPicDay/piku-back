@@ -22,7 +22,7 @@ public record AdminAuditLogResult(
 				auditLog.getTargetAdminId(),
 				auditLog.getAction(),
 				auditLog.getReason(),
-				auditLog.getDetail(),
+				AdminIdentifierMasker.maskEmailsInText(auditLog.getDetail()),
 				auditLog.getOccurredAt());
 	}
 }

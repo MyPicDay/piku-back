@@ -126,6 +126,26 @@ class AdminOnboardingServiceTest {
 	}
 
 	@Test
+	@DisplayName("OTP 등록 정보는 관리자 고유 식별값을 계정명으로 사용한다")
+	void otpRegistrationUsesAdminIdAsAccountName() {
+		AdminAccount admin = invitedAdmin();
+		admin.completeCredentialSetup("ops-june", "password-hash");
+		given(adminSessionLifecyclePort.requirePhaseForUpdate(
+				org.mockito.ArgumentMatchers.eq("raw-session"),
+				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_REGISTER_OTP),
+				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin);
+		given(adminOtpPort.generateSecret()).willReturn("plain-secret");
+		given(protectAdminOtpSecretPort.protect("plain-secret")).willReturn("protected-secret");
+		given(adminOtpPort.provisioningUri("Pikume Ops", admin.getId(), "plain-secret"))
+				.willReturn("otpauth://admin-id");
+
+		AdminOtpRegistrationResult result = service().startOtpRegistration("raw-session");
+
+		assertThat(result.accountName()).isEqualTo(admin.getId());
+		assertThat(result.provisioningUri()).isEqualTo("otpauth://admin-id");
+	}
+
+	@Test
 	@DisplayName("패스워드 정책 위반 시 로그인 아이디도 저장하지 않는다")
 	void invalidPasswordDoesNotPartiallySetLoginId() {
 		AdminAccount admin = invitedAdmin();

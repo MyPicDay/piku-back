@@ -22,8 +22,8 @@ public record AdminAccountDetailResult(
 	public static AdminAccountDetailResult from(AdminAccount admin) {
 		return new AdminAccountDetailResult(
 				admin.getId(),
-				admin.getEmail(),
-				admin.getLoginId(),
+				AdminIdentifierMasker.maskEmail(admin.getEmail()),
+				AdminIdentifierMasker.maskLoginId(admin.getLoginId()),
 				admin.getNickname(),
 				admin.getRole(),
 				admin.getStatus(),

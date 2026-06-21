@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -43,18 +42,18 @@ public class AdminAccountController {
 	private final CreateAdminAccountUseCase createAdminAccountUseCase;
 	private final AdminAccountOperationUseCase adminAccountOperationUseCase;
 
-	@Operation(summary = "관리자 목록 조회", description = "관리자 계정 목록을 조회합니다. 목록 응답에는 관리자 UUID를 포함하지 않습니다.")
+	@Operation(summary = "관리자 목록 조회", description = "관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 포함한 계정 목록을 조회합니다.")
 	@GetMapping
 	public ResponseEntity<List<AdminAccountSummaryResult>> list(@AuthenticationPrincipal AdminUserDetails admin) {
 		return ResponseEntity.ok(adminAccountOperationUseCase.list(requireAdminId(admin)));
 	}
 
-	@Operation(summary = "관리자 상세 조회", description = "관리자 이메일로 상세 정보를 조회합니다. 상세 응답에는 관리자 UUID를 포함합니다.")
-	@GetMapping("/detail")
+	@Operation(summary = "관리자 상세 조회", description = "관리자 식별값으로 상세 정보를 조회하며 이메일과 로그인 아이디는 마스킹해 반환합니다.")
+	@GetMapping("/{adminId}")
 	public ResponseEntity<AdminAccountDetailResult> detail(
 			@AuthenticationPrincipal AdminUserDetails admin,
-			@RequestParam String email) {
-		return ResponseEntity.ok(adminAccountOperationUseCase.detailByEmail(requireAdminId(admin), email));
+			@PathVariable String adminId) {
+		return ResponseEntity.ok(adminAccountOperationUseCase.detailById(requireAdminId(admin), adminId));
 	}
 
 	@Operation(summary = "관리자 계정 생성", description = "SUPER_ADMIN이 관리자 계정을 생성하고 임시 패스워드를 한 번만 반환합니다.")

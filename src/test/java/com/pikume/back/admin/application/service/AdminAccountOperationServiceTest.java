@@ -57,31 +57,74 @@ class AdminAccountOperationServiceTest {
 	private com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
 
 	@Test
-	@DisplayName("관리자 목록 조회는 UUID를 포함하지 않는 요약 결과를 반환한다")
-	void listReturnsSummariesWithoutAdminId() {
+	@DisplayName("관리자 목록 조회는 관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 반환한다")
+	void listReturnsAdminIdAndMaskedIdentifiers() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.VIEWER, "viewer@pikume.com");
+		target.completeCredentialSetup("viewer-june", "password-hash");
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
 		given(searchAdminAccountsPort.findAll()).willReturn(List.of(target));
 
 		List<AdminAccountSummaryResult> result = service().list(actor.getId());
 
 		assertThat(result).hasSize(1);
-		assertThat(result.get(0).email()).isEqualTo("viewer@pikume.com");
+		assertThat(recordComponentNames(result.get(0))).contains("adminId");
+		assertThat(result.get(0).email()).isEqualTo("vi***@pikume.com");
+		assertThat(result.get(0).loginId()).isEqualTo("vi***ne");
 	}
 
 	@Test
-	@DisplayName("상세 조회는 SUPER_ADMIN에게만 관리자 UUID를 포함해 반환한다")
-	void detailReturnsAdminIdForSuperAdmin() {
+	@DisplayName("상세 조회는 관리자 식별값으로 대상을 조회하고 마스킹된 식별자를 반환한다")
+	void detailLoadsByAdminIdAndReturnsMaskedIdentifiers() {
+		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
+		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
+		target.completeCredentialSetup("ops-june", "password-hash");
+		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+
+		AdminAccountDetailResult result = service().detailById(actor.getId(), target.getId());
+
+		assertThat(result.adminId()).isEqualTo(target.getId());
+		assertThat(result.email()).isEqualTo("op***@pikume.com");
+		assertThat(result.loginId()).isEqualTo("op***ne");
+	}
+
+	@Test
+	@DisplayName("감사 로그 조회는 상세에 포함된 이메일을 마스킹한다")
+	void auditLogsMaskEmailInDetail() {
+		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
+		AdminAuditLog auditLog = AdminAuditLog.record(
+				actor.getId(),
+				"target-admin",
+				AdminAuditAction.EMAIL_CHANGED,
+				null,
+				"email: old-admin@pikume.com -> 관리자@pikume.com",
+				LocalDateTime.of(2026, 6, 21, 12, 0));
+		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(loadAdminAuditLogPort.findLatest(50)).willReturn(List.of(auditLog));
+
+		List<AdminAuditLogResult> result = service().auditLogs(actor.getId(), 50);
+
+		assertThat(result.get(0).detail())
+				.isEqualTo("email: ol***@pikume.com -> 관리***@pikume.com");
+	}
+
+	@Test
+	@DisplayName("이메일 변경 감사 로그에는 이메일 값을 저장하지 않는다")
+	void changeEmailAuditDoesNotStoreEmailValues() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
 		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.existsByEmail("changed@pikume.com")).willReturn(false);
 
-		AdminAccountDetailResult result = service().detailByEmail(actor.getId(), "Operator@Pikume.com");
+		service().changeEmail(actor.getId(), target.getId(), "changed@pikume.com");
 
-		assertThat(result.adminId()).isEqualTo(target.getId());
-		assertThat(result.email()).isEqualTo("operator@pikume.com");
+		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
+		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getAction()).isEqualTo(AdminAuditAction.EMAIL_CHANGED);
+		assertThat(auditCaptor.getValue().getDetail()).isEqualTo("email changed");
+		assertThat(auditCaptor.getValue().getDetail()).doesNotContain("@", "operator@pikume.com", "changed@pikume.com");
 	}
 
 	@Test
@@ -118,6 +161,23 @@ class AdminAccountOperationServiceTest {
 		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
 		assertThat(auditCaptor.getValue().getAction()).isEqualTo(AdminAuditAction.DEACTIVATED);
 		assertThat(auditCaptor.getValue().getReason()).isEqualTo("퇴사");
+	}
+
+	@Test
+	@DisplayName("감사 로그 자유 입력에도 이메일 원문을 저장하지 않는다")
+	void auditLogRedactsEmailFromFreeText() {
+		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
+		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
+		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+				.willReturn(1L);
+
+		service().deactivate(actor.getId(), target.getId(), "operator@pikume.com 계정 퇴사");
+
+		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
+		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		assertThat(auditCaptor.getValue().getReason()).isEqualTo("[email removed] 계정 퇴사");
 	}
 
 	@Test
@@ -184,7 +244,7 @@ class AdminAccountOperationServiceTest {
 
 		AdminTemporaryPasswordResult result = service().reissueTemporaryPassword(actor.getId(), target.getId());
 
-		assertThat(result.temporaryLoginId()).isEqualTo("operator@pikume.com");
+		assertThat(recordComponentNames(result)).doesNotContain("temporaryLoginId", "email", "loginId");
 		assertThat(result.temporaryPassword()).isEqualTo("TempPass1!234567");
 		assertThat(target.getTemporaryPasswordHash()).isEqualTo("encoded-temp");
 		then(adminSessionLifecyclePort).should()
@@ -212,5 +272,11 @@ class AdminAccountOperationServiceTest {
 				"temp-hash",
 				LocalDateTime.of(2026, 6, 17, 13, 0),
 				LocalDateTime.of(2026, 6, 18, 13, 0));
+	}
+
+	private List<String> recordComponentNames(Object record) {
+		return java.util.Arrays.stream(record.getClass().getRecordComponents())
+				.map(java.lang.reflect.RecordComponent::getName)
+				.toList();
 	}
 }

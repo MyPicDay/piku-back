@@ -7,6 +7,7 @@ import com.pikume.back.admin.domain.AdminRole;
 import java.time.LocalDateTime;
 
 public record AdminAccountSummaryResult(
+		String adminId,
 		String email,
 		String loginId,
 		String nickname,
@@ -20,8 +21,9 @@ public record AdminAccountSummaryResult(
 
 	public static AdminAccountSummaryResult from(AdminAccount admin) {
 		return new AdminAccountSummaryResult(
-				admin.getEmail(),
-				admin.getLoginId(),
+				admin.getId(),
+				AdminIdentifierMasker.maskEmail(admin.getEmail()),
+				AdminIdentifierMasker.maskLoginId(admin.getLoginId()),
 				admin.getNickname(),
 				admin.getRole(),
 				admin.getStatus(),

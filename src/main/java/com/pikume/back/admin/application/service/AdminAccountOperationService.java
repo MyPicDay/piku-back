@@ -57,10 +57,9 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 
 	@Override
 	@Transactional(readOnly = true)
-	public AdminAccountDetailResult detailByEmail(String actorAdminId, String email) {
+	public AdminAccountDetailResult detailById(String actorAdminId, String targetAdminId) {
 		requireSuperAdmin(actorAdminId);
-		String normalizedEmail = AdminEmail.normalize(email);
-		return loadAdminAccountPort.findByEmail(normalizedEmail)
+		return loadAdminAccountPort.findById(targetAdminId)
 				.map(AdminAccountDetailResult::from)
 				.orElseThrow(this::notFound);
 	}
@@ -146,10 +145,8 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		if (!target.getEmail().equals(normalizedEmail) && loadAdminAccountPort.existsByEmail(normalizedEmail)) {
 			throw new AdminException(AdminProblem.DUPLICATE_EMAIL, "이미 등록된 관리자 이메일입니다.");
 		}
-		String before = target.getEmail();
 		target.changeEmail(normalizedEmail);
-		audit(actorAdminId, target.getId(), AdminAuditAction.EMAIL_CHANGED, null,
-				"email: %s -> %s".formatted(before, normalizedEmail));
+		audit(actorAdminId, target.getId(), AdminAuditAction.EMAIL_CHANGED, null, "email changed");
 	}
 
 	@Override
@@ -175,7 +172,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		} catch (RuntimeException e) {
 			guideEmailSent = false;
 		}
-		return new AdminTemporaryPasswordResult(target.getEmail(), temporaryPassword, expiresAt, guideEmailSent);
+		return new AdminTemporaryPasswordResult(temporaryPassword, expiresAt, guideEmailSent);
 	}
 
 	private AdminAccount requireSuperAdmin(String actorAdminId) {
@@ -221,8 +218,8 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 				actorAdminId,
 				targetAdminId,
 				action,
-				reason,
-				detail,
+				AdminIdentifierMasker.removeEmailsFromText(reason),
+				AdminIdentifierMasker.removeEmailsFromText(detail),
 				LocalDateTime.now()));
 	}
 }

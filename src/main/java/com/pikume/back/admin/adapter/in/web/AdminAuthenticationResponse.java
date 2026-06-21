@@ -7,9 +7,9 @@ public record AdminAuthenticationResponse(boolean authenticated, AdminProfile ad
 
 	static AdminAuthenticationResponse from(AdminAuthenticationResult result) {
 		return new AdminAuthenticationResponse(true, new AdminProfile(
-				result.loginId(), result.nickname(), result.email(), result.role()));
+				result.nickname(), result.role()));
 	}
 
-	public record AdminProfile(String loginId, String nickname, String email, AdminRole role) {
+	public record AdminProfile(String nickname, AdminRole role) {
 	}
 }

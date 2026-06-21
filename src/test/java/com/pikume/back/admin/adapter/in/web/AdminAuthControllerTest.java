@@ -55,8 +55,7 @@ class AdminAuthControllerTest {
 	@DisplayName("로그인은 사전 세션 쿠키를 사용하고 토큰을 응답하지 않는다")
 	void loginUsesPreAuthenticationCookie() throws Exception {
 		given(adminAuthUseCase.login("raw-session", "ops-june", "AdminPass1!"))
-				.willReturn(new AdminLoginChallengeResult(
-						AdminAuthStep.VERIFY_OTP.name(), "ops-june", "운영자1", "operator@pikume.com", AdminRole.OPERATOR));
+				.willReturn(new AdminLoginChallengeResult(AdminAuthStep.VERIFY_OTP.name()));
 
 		mockMvc.perform(post("/api/admin/auth/login")
 						.cookie(new Cookie("pk-a91f", "raw-session"))
@@ -64,7 +63,11 @@ class AdminAuthControllerTest {
 						.content(objectMapper.writeValueAsString(new AdminLoginRequest("ops-june", "AdminPass1!"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.otpChallengeToken").doesNotExist())
-				.andExpect(jsonPath("$.nextStep").value(AdminAuthStep.VERIFY_OTP.name()));
+				.andExpect(jsonPath("$.nextStep").value(AdminAuthStep.VERIFY_OTP.name()))
+				.andExpect(jsonPath("$.loginId").doesNotExist())
+				.andExpect(jsonPath("$.nickname").doesNotExist())
+				.andExpect(jsonPath("$.email").doesNotExist())
+				.andExpect(jsonPath("$.role").doesNotExist());
 	}
 
 	@Test
@@ -78,6 +81,9 @@ class AdminAuthControllerTest {
 						.content(objectMapper.writeValueAsString(new VerifyAdminOtpRequest("123456"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.authenticated").value(true))
+				.andExpect(jsonPath("$.admin.role").value(AdminRole.OPERATOR.name()))
+				.andExpect(jsonPath("$.admin.loginId").doesNotExist())
+				.andExpect(jsonPath("$.admin.email").doesNotExist())
 				.andExpect(jsonPath("$.accessToken").doesNotExist())
 				.andReturn().getResponse();
 
@@ -101,7 +107,7 @@ class AdminAuthControllerTest {
 
 	private AdminAuthenticationResult authenticationResult() {
 		return new AdminAuthenticationResult(new AdminSessionCredentials("new-session", "new-csrf"),
-				"ops-june", "운영자1", "operator@pikume.com", AdminRole.OPERATOR);
+				"운영자1", AdminRole.OPERATOR);
 	}
 
 	private AdminSecurityProperties properties() {
