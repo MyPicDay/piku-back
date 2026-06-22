@@ -28,7 +28,7 @@ public class AdminVisitStatisticsFilter extends OncePerRequestFilter {
 
 	private static final String API_PREFIX = "/api/";
 	private static final String ADMIN_PREFIX = "/api/admin/";
-	private static final String VISITOR_ID_HEADER = "X-Pikume-Visitor-Id";
+	private static final String VISITOR_ID_HEADER = "vid";
 
 	private final RecordAdminStatisticsEventUseCase recordAdminStatisticsEventUseCase;
 
