@@ -18,7 +18,7 @@
 - CSRF 쿠키는 프론트엔드에서 읽고, 안전하지 않은 요청의 CSRF 헤더 값으로 전달한다.
 - 로그인과 최초 온보딩을 시작하기 전에 CSRF 초기화 API로 사전 세션을 생성한다.
 - 로그인 및 온보딩의 다음 화면은 응답의 `nextStep`을 기준으로 결정한다.
-- OTP 검증 성공 후 `authenticated`, 닉네임, 등급으로 인증 완료 상태를 갱신한다.
+- OTP 검증이 성공하면 응답 최상위의 닉네임과 등급으로 인증 완료 상태를 갱신한다.
 - 인증 완료 여부를 쿠키 존재 여부로 추정하지 않는다.
 
 ## 세션 초기화 기준
@@ -41,7 +41,7 @@
 3. 응답의 `nextStep`이 `VERIFY_OTP`이면 OTP 입력 화면으로 이동한다.
 4. `POST /api/admin/auth/otp/verify`로 OTP 코드를 전송한다.
 5. OTP 검증 성공 시 서버가 세션 쿠키와 CSRF 쿠키를 교체한다.
-6. 응답의 `authenticated`가 true이면 닉네임과 등급을 저장하고 보호 화면으로 이동한다.
+6. 성공 응답의 최상위 닉네임과 등급을 저장하고 보호 화면으로 이동한다.
 
 로그인 응답은 `nextStep`만 반환한다. 닉네임과 `role`은 OTP 검증 성공 응답에서 제공하며, OTP 검증 전에는 보호 API를 호출할 수 없다. 인증 응답은 관리자 이메일과 로그인 아이디를 반환하지 않는다.
 
@@ -62,7 +62,7 @@ sequenceDiagram
 
     Admin->>Frontend: OTP 코드 입력
     Frontend->>Server: POST /api/admin/auth/otp/verify
-    Server-->>Frontend: authenticated = true, 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
+    Server-->>Frontend: 200, 최상위 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
     Frontend-->>Admin: 보호 화면으로 이동
 ```
 
@@ -76,7 +76,7 @@ sequenceDiagram
 6. `POST /api/admin/auth/onboarding/otp`를 호출해 OTP 등록 정보를 받는다.
 7. 인증 앱 등록 후 `POST /api/admin/auth/onboarding/otp/verify`로 OTP 코드를 전송한다.
 8. OTP 검증 성공 시 서버가 세션 쿠키와 CSRF 쿠키를 교체한다.
-9. 응답의 `authenticated`가 true이면 닉네임과 등급을 저장하고 보호 화면으로 이동한다.
+9. 성공 응답의 최상위 닉네임과 등급을 저장하고 보호 화면으로 이동한다.
 
 로그인 아이디와 패스워드는 하나의 요청으로 설정한다. 임시 로그인 응답은 이메일과 로그인 아이디를 반환하지 않는다. OTP 등록 응답의 계정명은 서버가 발급한 관리자 고유 식별값을 사용한다. 발급자, 계정명, 등록 URI, 수동 입력 키는 OTP 등록 화면에서만 사용하며 인증 완료 후 보관하지 않는다.
 
@@ -105,7 +105,7 @@ sequenceDiagram
 
     Admin->>Frontend: OTP 코드 입력
     Frontend->>Server: POST /api/admin/auth/onboarding/otp/verify
-    Server-->>Frontend: authenticated = true, 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
+    Server-->>Frontend: 200, 최상위 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
     Frontend-->>Admin: 보호 화면으로 이동
 ```
 
@@ -167,7 +167,7 @@ sequenceDiagram
 | 자격 증명 설정 | `nextStep`이 `SET_CREDENTIALS` | 로그인 아이디와 패스워드 설정 |
 | OTP 등록 | `nextStep`이 `REGISTER_OTP` | OTP 등록 정보 표시 |
 | OTP 검증 | `nextStep`이 `VERIFY_OTP` | OTP 코드 입력 |
-| 인증 완료 | `authenticated`가 true | 관리자 보호 화면 |
+| 인증 완료 | OTP 검증 성공 응답 | 관리자 보호 화면 |
 
 브라우저 새로고침 후 인증 여부는 쿠키를 읽어 판단하지 않는다. 보호 API 응답이 성공하면 인증 상태를 유지하고, 401이면 로컬 관리자 상태를 비운 뒤 로그인 흐름을 다시 시작한다.
 

@@ -85,11 +85,12 @@ class AdminOnboardingControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"otpCode\":\"123456\"}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.authenticated").value(true))
-				.andExpect(jsonPath("$.admin.nickname").value("운영자1"))
-				.andExpect(jsonPath("$.admin.role").value(AdminRole.OPERATOR.name()))
-				.andExpect(jsonPath("$.admin.email").doesNotExist())
-				.andExpect(jsonPath("$.admin.loginId").doesNotExist());
+				.andExpect(jsonPath("$.nickname").value("운영자1"))
+				.andExpect(jsonPath("$.role").value(AdminRole.OPERATOR.name()))
+				.andExpect(jsonPath("$.authenticated").doesNotExist())
+				.andExpect(jsonPath("$.admin").doesNotExist())
+				.andExpect(jsonPath("$.email").doesNotExist())
+				.andExpect(jsonPath("$.loginId").doesNotExist());
 	}
 
 	@Test

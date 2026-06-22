@@ -3,13 +3,9 @@ package com.pikume.back.admin.adapter.in.web;
 import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 import com.pikume.back.admin.domain.AdminRole;
 
-public record AdminAuthenticationResponse(boolean authenticated, AdminProfile admin) {
+public record AdminAuthenticationResponse(String nickname, AdminRole role) {
 
 	static AdminAuthenticationResponse from(AdminAuthenticationResult result) {
-		return new AdminAuthenticationResponse(true, new AdminProfile(
-				result.nickname(), result.role()));
-	}
-
-	public record AdminProfile(String nickname, AdminRole role) {
+		return new AdminAuthenticationResponse(result.nickname(), result.role());
 	}
 }

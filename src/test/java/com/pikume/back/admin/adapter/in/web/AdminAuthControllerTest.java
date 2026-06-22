@@ -80,10 +80,12 @@ class AdminAuthControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(new VerifyAdminOtpRequest("123456"))))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.authenticated").value(true))
-				.andExpect(jsonPath("$.admin.role").value(AdminRole.OPERATOR.name()))
-				.andExpect(jsonPath("$.admin.loginId").doesNotExist())
-				.andExpect(jsonPath("$.admin.email").doesNotExist())
+				.andExpect(jsonPath("$.nickname").value("운영자1"))
+				.andExpect(jsonPath("$.role").value(AdminRole.OPERATOR.name()))
+				.andExpect(jsonPath("$.authenticated").doesNotExist())
+				.andExpect(jsonPath("$.admin").doesNotExist())
+				.andExpect(jsonPath("$.loginId").doesNotExist())
+				.andExpect(jsonPath("$.email").doesNotExist())
 				.andExpect(jsonPath("$.accessToken").doesNotExist())
 				.andReturn().getResponse();
 

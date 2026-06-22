@@ -52,7 +52,7 @@ sequenceDiagram
     Server->>DB: 로그인 성공 상태 반영<br/>세션 토큰 교체 및 AUTHENTICATED 전환
     DB-->>Server: 인증 완료
     Server->>Redis: 이전 세션 캐시 제거
-    Server-->>Client: authenticated = true, 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
+    Server-->>Client: 200, 최상위 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
 
     Client->>Server: 관리자 보호 API 요청
     Server->>Redis: 인증 완료 세션 조회
@@ -116,7 +116,7 @@ sequenceDiagram
     Server->>DB: OTP 등록과 로그인 성공 상태 반영<br/>세션 토큰 교체 및 AUTHENTICATED 전환
     DB-->>Server: 인증 완료
     Server->>Redis: 이전 세션 캐시 제거
-    Server-->>Client: authenticated = true, 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
+    Server-->>Client: 200, 최상위 닉네임·등급<br/>인증 완료 세션·CSRF 쿠키
 
     Client->>Server: 관리자 보호 API 요청
     Server->>Redis: 인증 완료 세션 조회
