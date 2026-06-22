@@ -85,6 +85,8 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 
+	long countByCreatedAtBefore(LocalDateTime cutoffExclusive);
+
 	@Query("SELECT d.id FROM Diary d " +
 			"WHERE d.status = :status " +
 			"AND d.userId IN :userIds " +

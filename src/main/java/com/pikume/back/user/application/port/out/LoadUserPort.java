@@ -3,6 +3,7 @@ package com.pikume.back.user.application.port.out;
 import com.pikume.back.user.domain.User;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -29,5 +30,11 @@ public interface LoadUserPort {
 
 	long countActiveMembers();
 
+	long countAllMembers();
+
+	long countMembersBefore(LocalDateTime cutoffExclusive);
+
 	List<DailyCount> countSignupMembersByDate(LocalDate startDate, LocalDate endDate);
+
+	List<DailyCount> countAllSignupMembersByDate(LocalDate startDate, LocalDate endDate);
 }

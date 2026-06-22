@@ -70,6 +70,18 @@ public class AdminStatisticsPersistenceAdapter implements
 	}
 
 	@Override
+	public long countDistinctActiveUsers(LocalDate startDate, LocalDate endDate) {
+		Long count = jdbcTemplate.queryForObject("""
+				SELECT COUNT(DISTINCT user_id)
+				FROM admin_statistics_events
+				WHERE event_type = :eventType
+				  AND user_id IS NOT NULL
+				  AND event_date BETWEEN :startDate AND :endDate
+				""", params(startDate, endDate).addValue("eventType", AdminStatisticsEventType.VISIT.name()), Long.class);
+		return count == null ? 0 : count;
+	}
+
+	@Override
 	public List<AdminDailyStatistics> findByDateBetween(LocalDate startDate, LocalDate endDate) {
 		return adminDailyStatisticsJpaRepository.findByMetricDateBetween(startDate, endDate);
 	}

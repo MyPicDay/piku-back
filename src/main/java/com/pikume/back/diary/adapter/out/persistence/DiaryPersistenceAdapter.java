@@ -104,6 +104,16 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
+	public long countAllCreatedDiaries() {
+		return diaryJpaRepository.count();
+	}
+
+	@Override
+	public long countCreatedDiariesBefore(LocalDateTime cutoffExclusive) {
+		return diaryJpaRepository.countByCreatedAtBefore(cutoffExclusive);
+	}
+
+	@Override
 	public boolean existsById(Long diaryId) {
 		return diaryJpaRepository.existsByIdAndDeletedAtIsNull(diaryId);
 	}

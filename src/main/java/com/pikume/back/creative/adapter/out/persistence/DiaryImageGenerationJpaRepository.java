@@ -34,4 +34,17 @@ public interface DiaryImageGenerationJpaRepository extends JpaRepository<DiaryIm
 	List<DailyCountProjection> countSuccessfulGenerationsByDate(
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
+
+	@Query(value = """
+			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount
+			FROM diary_image_generation
+			WHERE created_at >= :startDateTime
+			  AND created_at < :endExclusiveDateTime
+			GROUP BY CAST(created_at AS DATE)
+			""", nativeQuery = true)
+	List<DailyCountProjection> countAllSuccessfulGenerationsByDate(
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
+
+	long countByCreatedAtBefore(LocalDateTime cutoffExclusive);
 }

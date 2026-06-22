@@ -50,6 +50,28 @@ public class GenerationPersistenceAdapter implements LoadGenerationPort, SaveGen
 	}
 
 	@Override
+	public List<LoadGenerationPort.DailyCount> countAllSuccessfulGenerationsByDate(
+			LocalDate startDate,
+			LocalDate endDate) {
+		return repository.countAllSuccessfulGenerationsByDate(
+						startDate.atStartOfDay(),
+						endDate.plusDays(1).atStartOfDay())
+				.stream()
+				.map(row -> new LoadGenerationPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
+				.toList();
+	}
+
+	@Override
+	public long countAllSuccessfulGenerations() {
+		return repository.count();
+	}
+
+	@Override
+	public long countSuccessfulGenerationsBefore(LocalDateTime cutoffExclusive) {
+		return repository.countByCreatedAtBefore(cutoffExclusive);
+	}
+
+	@Override
 	public DiaryImageGeneration save(DiaryImageGeneration generation) {
 		return repository.save(generation);
 	}

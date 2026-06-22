@@ -28,6 +28,8 @@ public interface UserJpaRepository extends JpaRepository<User, String> {
 
 	long countByDeletedAtIsNull();
 
+	long countByCreatedAtBefore(LocalDateTime cutoffExclusive);
+
 	@Query(value = """
 			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount
 			FROM users
@@ -37,6 +39,17 @@ public interface UserJpaRepository extends JpaRepository<User, String> {
 			GROUP BY CAST(created_at AS DATE)
 			""", nativeQuery = true)
 	List<DailyCountProjection> countSignupMembersByDate(
+			@Param("startDateTime") LocalDateTime startDateTime,
+			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
+
+	@Query(value = """
+			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount
+			FROM users
+			WHERE created_at >= :startDateTime
+			  AND created_at < :endExclusiveDateTime
+			GROUP BY CAST(created_at AS DATE)
+			""", nativeQuery = true)
+	List<DailyCountProjection> countAllSignupMembersByDate(
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 

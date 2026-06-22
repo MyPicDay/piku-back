@@ -48,8 +48,28 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQ
 	}
 
 	@Override
+	public long countAllMembers() {
+		return jpaRepository.count();
+	}
+
+	@Override
+	public long countMembersBefore(LocalDateTime cutoffExclusive) {
+		return jpaRepository.countByCreatedAtBefore(cutoffExclusive);
+	}
+
+	@Override
 	public List<LoadUserPort.DailyCount> countSignupMembersByDate(LocalDate startDate, LocalDate endDate) {
 		return jpaRepository.countSignupMembersByDate(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay())
+				.stream()
+				.map(row -> new LoadUserPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
+				.toList();
+	}
+
+	@Override
+	public List<LoadUserPort.DailyCount> countAllSignupMembersByDate(LocalDate startDate, LocalDate endDate) {
+		return jpaRepository.countAllSignupMembersByDate(
+						startDate.atStartOfDay(),
+						endDate.plusDays(1).atStartOfDay())
 				.stream()
 				.map(row -> new LoadUserPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
 				.toList();

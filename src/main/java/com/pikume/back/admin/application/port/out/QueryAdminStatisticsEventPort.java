@@ -13,4 +13,6 @@ public interface QueryAdminStatisticsEventPort {
 	List<AdminDailyCount> countDistinctVisitorsByDate(LocalDate startDate, LocalDate endDate);
 
 	List<AdminDailyCount> countDistinctActiveUsersByDate(LocalDate startDate, LocalDate endDate);
+
+	long countDistinctActiveUsers(LocalDate startDate, LocalDate endDate);
 }

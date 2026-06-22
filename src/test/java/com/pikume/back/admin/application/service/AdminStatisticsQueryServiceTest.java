@@ -69,8 +69,9 @@ class AdminStatisticsQueryServiceTest {
 		assertThat(response.dailyStatistics().get(0).dailyUniqueVisitors()).isEqualTo(10);
 		assertThat(response.dailyStatistics().get(1)).isEqualTo(AdminDailyStatisticsResult.zero(yesterday));
 		assertThat(response.dailyStatistics().get(2).aiPhotoFailures()).isEqualTo(6);
-		assertThat(response.weeklySignupMembers()).extracting(AdminSignupBucketResult::signupMembers)
-				.contains(9L);
+		assertThat(response.weeklySignupMembers())
+				.extracting(AdminSignupBucketResult::signupMembers)
+				.satisfies(counts -> assertThat(counts.stream().mapToLong(Long::longValue).sum()).isEqualTo(9L));
 	}
 
 	@Test
