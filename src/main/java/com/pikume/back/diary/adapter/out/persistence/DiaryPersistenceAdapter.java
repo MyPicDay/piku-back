@@ -16,8 +16,9 @@ import com.pikume.back.diary.domain.PhotoOptimizationStatus;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -92,6 +93,24 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 			return List.of();
 		}
 		return diaryJpaRepository.countDiariesPerMonthByStatuses(userId, statuses);
+	}
+
+	@Override
+	public List<LoadDiaryPort.DailyCount> countCreatedDiariesByDate(LocalDate startDate, LocalDate endDate) {
+		return diaryJpaRepository.countCreatedDiariesByDate(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay())
+				.stream()
+				.map(row -> new LoadDiaryPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
+				.toList();
+	}
+
+	@Override
+	public long countAllCreatedDiaries() {
+		return diaryJpaRepository.count();
+	}
+
+	@Override
+	public long countCreatedDiariesBefore(LocalDateTime cutoffExclusive) {
+		return diaryJpaRepository.countByCreatedAtBefore(cutoffExclusive);
 	}
 
 	@Override
@@ -227,5 +246,18 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	@Transactional
 	public void markPhotoOptimizationSkipped(Integer photoId, LocalDateTime attemptedAt) {
 		photoJpaRepository.markPhotoOptimizationSkipped(photoId, PhotoOptimizationStatus.SKIPPED, attemptedAt);
+	}
+
+	private LocalDate toLocalDate(Object value) {
+		if (value instanceof LocalDate localDate) {
+			return localDate;
+		}
+		if (value instanceof Date date) {
+			return date.toLocalDate();
+		}
+		if (value instanceof LocalDateTime dateTime) {
+			return dateTime.toLocalDate();
+		}
+		return LocalDate.parse(String.valueOf(value));
 	}
 }

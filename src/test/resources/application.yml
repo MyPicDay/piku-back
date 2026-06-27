@@ -35,6 +35,17 @@ spring:
 jwt:
   secret: LhVYSkvR90p9A7jPFlWWZ0uB3RPiIGnN8s3aXk2lbE4=
 
+admin:
+  security:
+    allowed-origins: http://localhost:3000
+    session-cookie-name: pk-a91f
+    csrf-cookie-name: pk-b74d
+    csrf-header-name: X-PK-C83F
+    secure-cookies: false
+    csrf-cookie-domain: ""
+  otp:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+
 storage:
   server-to-s3-url: http://localhost:9000
   client-to-s3-url: http://localhost:9000

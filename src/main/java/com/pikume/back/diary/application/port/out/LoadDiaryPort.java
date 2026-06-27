@@ -8,11 +8,15 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface LoadDiaryPort {
+
+	record DailyCount(LocalDate date, long count) {
+	}
 
 	record PhotoRow(Long diaryId, String url, String optimizedUrl, boolean represent) {
 
@@ -45,6 +49,12 @@ public interface LoadDiaryPort {
 	long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses);
 
 	List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, Collection<DiaryVisibility> statuses);
+
+	List<DailyCount> countCreatedDiariesByDate(LocalDate startDate, LocalDate endDate);
+
+	long countAllCreatedDiaries();
+
+	long countCreatedDiariesBefore(LocalDateTime cutoffExclusive);
 
 	boolean existsById(Long diaryId);
 

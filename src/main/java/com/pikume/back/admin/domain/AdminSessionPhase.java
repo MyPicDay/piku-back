@@ -1,0 +1,10 @@
+package com.pikume.back.admin.domain;
+
+public enum AdminSessionPhase {
+	ANONYMOUS,
+	ONBOARDING_SET_CREDENTIALS,
+	ONBOARDING_REGISTER_OTP,
+	ONBOARDING_VERIFY_OTP,
+	LOGIN_VERIFY_OTP,
+	AUTHENTICATED
+}

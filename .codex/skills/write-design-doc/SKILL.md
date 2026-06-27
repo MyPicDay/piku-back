@@ -1,11 +1,13 @@
 ---
 name: write-design-doc
-description: Use when creating, editing, or reviewing piku-back design documents, architecture notes, feature design docs, handoff docs, migration plans, rollout plans, or task-based planning documents.
+description: Use when planning piku-back work before implementation and creating or editing the corresponding design, implementation, migration, rollout, or task planning document.
 ---
 
 # Write Design Doc
 
-Use this skill for `piku-back` design documentation work only.
+Use this skill for `piku-back` planning documentation work before implementation begins.
+
+Do not use this skill for code review, document review, post-implementation review, or retrospective assessment.
 
 ## Core Rules
 
@@ -16,11 +18,13 @@ Use this skill for `piku-back` design documentation work only.
 - Explain architecture with layers, ports, adapters, domain boundaries, and request or event flow rather than implementation details.
 - For implementation, migration, rollout, or work plans, include explicit task sections with checkbox steps while keeping all steps prose-only.
 - Respect DDD + hexagonal boundaries from `docs/architecture/ddd-hexagonal-architecture.md`.
-- Place design documents under `docs/superpowers/plans`.
+- Place working design and planning documents under `docs/superpowers/plans`.
 - Place official documents under the appropriate `docs/` category and update the matching index when creating a new official document.
-- Include a required `Commit Message` section in every completed design document.
-- Write the commit message in Korean and follow `docs/standards/engineering-workflow.md`: `<type>: <description>`, no scope, no file-name list, no internal phase labels.
-- Base the `Commit Message` on the intended product or engineering work described by the document, not on the act of creating or editing the document. Use `docs:` only when the actual work is documentation-only maintenance.
+- Treat documents with explicit implementation, migration, rollout, or work tasks as work documents. Include a `Commit Message` section in these documents only when they are under `docs/superpowers/`.
+- Do not include a `Commit Message` section in planning-only documents without concrete work tasks.
+- Never include a `Commit Message` section in files outside `docs/superpowers/`, including architecture or domain records, product specifications, handoffs, runbooks, incident retrospectives, and other official documentation.
+- When a `Commit Message` section is included, write it in Korean and follow `docs/standards/engineering-workflow.md`: `<type>: <description>`, no scope, no file-name list, no internal phase labels.
+- Base an included `Commit Message` on the intended product or engineering work described by the document, not on the act of creating or editing the document. Use `docs:` only when the actual work is documentation-only maintenance.
 
 ## Document Shape
 
@@ -36,7 +40,7 @@ Use only sections that fit the request, but prefer this order:
 8. Operational, migration, and compatibility notes
 9. Task plan, if the document is an implementation, migration, rollout, or work plan
 10. Risks and open questions
-11. Commit Message
+11. Commit Message, only for a work document under `docs/superpowers/`
 
 ## Task Plan Guidance
 
@@ -69,5 +73,6 @@ Before presenting or saving the design document, verify:
 - The document explains feature and architecture flow clearly enough for implementation planning.
 - DDD + hexagonal architecture boundaries are explicit where relevant.
 - If the document is an implementation, migration, rollout, or work plan, explicit `Task` sections with checkbox steps are present.
-- A Korean `Commit Message` section is present.
-- The design document is placed under `docs/superpowers/plans`.
+- If the document is a work document under `docs/superpowers/`, a Korean `Commit Message` section is present.
+- If the document is planning-only or outside `docs/superpowers/`, no `Commit Message` section is present.
+- A working design or planning document is placed under `docs/superpowers/plans`; an official document is placed under the matching `docs/` category.

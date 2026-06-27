@@ -19,6 +19,7 @@
 | **Social**       | 친구 관계, 댓글, 좋아요, 이벤트 발행   | [social.md](social.md)             |
 | **Feed**         | 개인화 피드 구성, 열람 행위 이력 수집  | [feed.md](feed.md)                 |
 | **Notification** | SSE/FCM 이중 알림 발송, 기기 토큰 관리 | [notification.md](notification.md) |
+| **Admin**        | 관리자 계정, 인증, 감사, 운영 통계 정책 | [admin.md](admin.md)               |
 
 ---
 
@@ -33,6 +34,7 @@ graph TD
     Notification["🔔 Notification<br/>SSE·FCM 알림"]
     Creative["🎨 Creative<br/>AI 이미지 생성"]
     Recommendation["🤖 Recommendation<br/>추천 점수·캐시"]
+    Admin["🛡️ Admin<br/>운영자·감사·통계"]
 
     User -->|"userId로 일기 작성자 식별"| Diary
     User -->|"userId로 친구 관계 주체 식별"| Social
@@ -53,6 +55,11 @@ graph TD
     Feed -->|"LoadRecommendationForFeedPort<br/>추천 점수·캐시"| Recommendation
 
     Creative -->|"diaryId 갱신 (일기 생성 완료 후)"| Diary
+
+    Admin -->|"회원 수·가입 집계 조회<br/>(LoadUserPort)"| User
+    Admin -->|"일기 생성 집계 조회<br/>(LoadDiaryPort)"| Diary
+    Admin -->|"AI 사진 성공 집계 조회<br/>(LoadGenerationPort)"| Creative
+    Creative -->|"AI 사진 요청·실패 이벤트 기록<br/>(cross-context adapter)"| Admin
 ```
 
 ### 핵심 흐름 요약
@@ -63,6 +70,7 @@ graph TD
 | **피드 조회**    | `Feed` → `Diary` + `Social`(좋아요·댓글) + `User`(닉네임) + `Recommendation`(추천 캐시) |
 | **친구 요청**    | `Social` → (이벤트 발행) → `Notification`                                               |
 | **AI 일기 생성** | `Creative` → (이미지 연동) → `Diary`                                                    |
+| **관리자 통계 조회** | `Admin` → `User` + `Diary` + `Creative` 공개 포트, `Admin` 통계 이벤트와 일별 집계 |
 
 ---
 

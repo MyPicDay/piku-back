@@ -1,0 +1,12 @@
+package com.pikume.back.admin.domain;
+
+public enum AdminAuditAction {
+	ADMIN_CREATED,
+	ROLE_CHANGED,
+	DEACTIVATED,
+	REACTIVATED,
+	UNLOCKED,
+	TEMPORARY_PASSWORD_REISSUED,
+	OTP_RESET,
+	EMAIL_CHANGED
+}

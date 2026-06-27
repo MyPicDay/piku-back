@@ -1,12 +1,16 @@
 package com.pikume.back.security.config;
 
+import com.pikume.back.admin.adapter.in.web.AdminVisitStatisticsFilter;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
+import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
+import com.pikume.back.security.jwt.JwtFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
-import org.springframework.http.HttpMethod;
-import com.pikume.back.security.jwt.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,8 +23,7 @@ import org.springframework.security.web.util.matcher.IpAddressMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
-import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
+import org.springframework.web.filter.CorsFilter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +35,11 @@ import java.util.List;
 public class SecurityConfig {
 
 	private final JwtFilter jwtFilter;
+	private final AdminOriginValidationFilter adminOriginValidationFilter;
+	private final AdminCsrfValidationFilter adminCsrfValidationFilter;
+	private final AdminSessionAuthenticationFilter adminSessionAuthenticationFilter;
+	private final AdminVisitStatisticsFilter adminVisitStatisticsFilter;
+	private final AdminSecurityProperties adminSecurityProperties;
 	private final Environment env;
 	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
 	private final ProblemDetailAccessDeniedHandler accessDeniedHandler;
@@ -41,19 +49,55 @@ public class SecurityConfig {
 
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration adminConfiguration = new CorsConfiguration();
+		adminConfiguration.setAllowedOrigins(adminSecurityProperties.allowedOrigins());
+		adminConfiguration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+		adminConfiguration.setAllowedHeaders(List.of("Content-Type", "Accept", adminSecurityProperties.csrfHeaderName()));
+		adminConfiguration.setAllowCredentials(true);
+
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001",
-				"https://dev.piku.store", "https://piku.store", "https://pikume.com", "https://www.pikume.com"));
+		configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001"
+                , "https://pikume.com", "https://www.pikume.com"));
 		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setExposedHeaders(List.of("Authorization"));
 		configuration.setAllowCredentials(true);
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/api/admin/**", adminConfiguration);
 		source.registerCorsConfiguration("/**", configuration);
 		return source;
 	}
 
 	@Bean
+	@Order(1)
+	public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
+		http
+				.securityMatcher("/api/admin/**")
+				.securityContext(context -> context.requireExplicitSave(false))
+				.csrf(AbstractHttpConfigurer::disable)
+				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.exceptionHandling(exceptionHandling -> exceptionHandling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler))
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers(HttpMethod.OPTIONS, "/api/admin/**").permitAll()
+						.requestMatchers(
+								"/api/admin/auth/csrf",
+								"/api/admin/auth/temporary-login",
+								"/api/admin/auth/login",
+								"/api/admin/auth/onboarding/**",
+								"/api/admin/auth/otp/verify").permitAll()
+						.anyRequest().hasRole("ADMIN"))
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
+		http.addFilterAfter(adminCsrfValidationFilter, AdminOriginValidationFilter.class);
+		http.addFilterAfter(adminSessionAuthenticationFilter, AdminCsrfValidationFilter.class);
+		http.addFilterAfter(adminVisitStatisticsFilter, AdminSessionAuthenticationFilter.class);
+		return http.build();
+	}
+
+	@Bean
+	@Order(2)
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		List<String> permittedPaths = new ArrayList<>(Arrays.asList(
 				"/api/auth/login",
@@ -106,6 +150,8 @@ public class SecurityConfig {
 
 							return new org.springframework.security.authorization.AuthorizationDecision(false);
 						})
+						.requestMatchers(permittedPaths.toArray(new String[0]))
+						.permitAll()
 						.requestMatchers("/api/auth/me").authenticated()
 						.requestMatchers("/api/diary/ai/**").authenticated()
 						.requestMatchers(HttpMethod.GET,
@@ -114,8 +160,6 @@ public class SecurityConfig {
 								"/api/comments",
 								"/api/comments/*/replies",
 								"/api/users/{userId}/profile-preview")
-						.permitAll()
-						.requestMatchers(permittedPaths.toArray(new String[0]))
 						.permitAll()
 						.anyRequest().authenticated())
 				.sessionManagement(

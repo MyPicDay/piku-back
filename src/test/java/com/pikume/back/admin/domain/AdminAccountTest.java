@@ -1,0 +1,274 @@
+package com.pikume.back.admin.domain;
+
+import com.pikume.back.admin.domain.exception.AdminDomainException;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+@DisplayName("AdminAccount")
+class AdminAccountTest {
+
+	private final LocalDateTime now = LocalDateTime.of(2026, 6, 17, 13, 0);
+
+	@Nested
+	@DisplayName("초대 생성")
+	class Invitation {
+
+		@Test
+		@DisplayName("관리자 계정을 ACTIVE 상태와 최초 설정 필요 상태로 생성한다")
+		void createsInvitedAdmin() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThat(admin.getId()).isNotBlank();
+			assertThat(admin.getEmail()).isEqualTo("operator@pikume.com");
+			assertThat(admin.getNickname()).isEqualTo("운영자1");
+			assertThat(admin.getRole()).isEqualTo(AdminRole.OPERATOR);
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.ACTIVE);
+			assertThat(admin.isPasswordChangeRequired()).isTrue();
+			assertThat(admin.isOtpRegistrationRequired()).isTrue();
+			assertThat(admin.isOtpRegistered()).isFalse();
+			assertThat(admin.getAuthenticationVersion()).isZero();
+			assertThat(admin.canUseTemporaryCredentialAt(now.plusHours(1))).isTrue();
+		}
+
+		@Test
+		@DisplayName("임시 자격 증명 만료 시각이 지나면 임시 로그인을 사용할 수 없다")
+		void expiredTemporaryCredentialCannotBeUsed() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThat(admin.canUseTemporaryCredentialAt(now.plusDays(1).plusNanos(1))).isFalse();
+		}
+	}
+
+	@Nested
+	@DisplayName("정식 로그인 자격 증명")
+	class Credentials {
+
+		@Test
+		@DisplayName("정식 로그인 아이디와 패스워드는 한 번만 함께 설정할 수 있다")
+		void credentialsCanBeSetOnlyOnce() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			admin.completeCredentialSetup("ops-june", "password-hash");
+
+			assertThat(admin.getLoginId()).isEqualTo("ops-june");
+			assertThat(admin.getPasswordHash()).isEqualTo("password-hash");
+			assertThatThrownBy(() -> admin.completeCredentialSetup("ops-next", "next-password-hash"))
+					.isInstanceOf(AdminDomainException.class);
+		}
+
+		@Test
+		@DisplayName("로그인 아이디나 패스워드 해시가 유효하지 않으면 둘 다 설정하지 않는다")
+		void invalidCredentialDoesNotPartiallyMutateAccount() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThatThrownBy(() -> admin.completeCredentialSetup("운영자", "password-hash"))
+					.isInstanceOf(AdminDomainException.class);
+			assertThatThrownBy(() -> admin.completeCredentialSetup("ops-june", " "))
+					.isInstanceOf(AdminDomainException.class);
+
+			assertThat(admin.getLoginId()).isNull();
+			assertThat(admin.getPasswordHash()).isNull();
+			assertThat(admin.getTemporaryPasswordHash()).isEqualTo("temp-hash");
+		}
+
+		@Test
+		@DisplayName("정식 자격 증명 설정 전에는 패스워드를 별도로 변경할 수 없다")
+		void passwordChangeRequiresCompletedCredentials() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThatThrownBy(() -> admin.changePassword("new-password-hash"))
+					.isInstanceOf(AdminDomainException.class);
+			assertThat(admin.getLoginId()).isNull();
+			assertThat(admin.getPasswordHash()).isNull();
+
+			admin.completeCredentialSetup("ops-june", "password-hash");
+			admin.changePassword("new-password-hash");
+
+			assertThat(admin.getPasswordHash()).isEqualTo("new-password-hash");
+		}
+	}
+
+	@Nested
+	@DisplayName("패스워드와 OTP 설정")
+	class PasswordAndOtp {
+
+		@Test
+		@DisplayName("정식 패스워드 설정 시 임시 패스워드를 무효화한다")
+		void passwordSetupInvalidatesTemporaryPassword() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			admin.completeCredentialSetup("ops-june", "bcrypt-hash");
+
+			assertThat(admin.getPasswordHash()).isEqualTo("bcrypt-hash");
+			assertThat(admin.isPasswordChangeRequired()).isFalse();
+			assertThat(admin.getTemporaryPasswordHash()).isNull();
+			assertThat(admin.getTemporaryCredentialExpiresAt()).isNull();
+			assertThat(admin.canUseTemporaryCredentialAt(now)).isFalse();
+		}
+
+		@Test
+		@DisplayName("OTP 등록 완료 시 OTP 재등록 필요 상태와 실패 횟수를 초기화한다")
+		void otpRegistrationResetsOtpState() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.recordOtpFailure(now);
+			admin.startOtpRegistration("protected-secret");
+
+			admin.completeOtpRegistration();
+
+			assertThat(admin.isOtpRegistered()).isTrue();
+			assertThat(admin.isOtpRegistrationRequired()).isFalse();
+			assertThat(admin.getOtpSecret()).isEqualTo("protected-secret");
+			assertThat(admin.getPendingOtpSecret()).isNull();
+			assertThat(admin.getOtpFailureCount()).isZero();
+			assertThat(admin.getOtpBlockedUntil()).isNull();
+		}
+	}
+
+	@Nested
+	@DisplayName("잠금 정책")
+	class LockPolicy {
+
+		@Test
+		@DisplayName("패스워드 로그인 5회 실패 시 30분 동안 계정을 잠근다")
+		void locksAfterFivePasswordFailures() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			for (int i = 0; i < 5; i++) {
+				admin.recordPasswordFailure(now);
+			}
+
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.LOCKED);
+			assertThat(admin.getLoginFailureCount()).isEqualTo(5);
+			assertThat(admin.getLockedUntil()).isEqualTo(now.plusMinutes(30));
+			assertThat(admin.isLockedAt(now.plusMinutes(29))).isTrue();
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(1L);
+		}
+
+		@Test
+		@DisplayName("자동 잠금 시간이 지나면 잠금을 해제할 수 있다")
+		void releasesExpiredLock() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			for (int i = 0; i < 5; i++) {
+				admin.recordPasswordFailure(now);
+			}
+
+			admin.releaseExpiredLock(now.plusMinutes(30));
+
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.ACTIVE);
+			assertThat(admin.getLoginFailureCount()).isZero();
+			assertThat(admin.getLockedUntil()).isNull();
+		}
+
+		@Test
+		@DisplayName("OTP 5회 실패 시 10분 동안 OTP 인증을 차단한다")
+		void blocksOtpAfterFiveFailures() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			for (int i = 0; i < 5; i++) {
+				admin.recordOtpFailure(now);
+			}
+
+			assertThat(admin.getOtpFailureCount()).isEqualTo(5);
+			assertThat(admin.getOtpBlockedUntil()).isEqualTo(now.plusMinutes(10));
+			assertThat(admin.isOtpBlockedAt(now.plusMinutes(9))).isTrue();
+		}
+	}
+
+	@Nested
+	@DisplayName("계정 운영")
+	class AccountOperation {
+
+		@Test
+		@DisplayName("비활성화에는 사유가 필요하다")
+		void deactivationRequiresReason() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			assertThatThrownBy(() -> admin.deactivate(" "))
+					.isInstanceOf(AdminDomainException.class);
+
+			admin.deactivate("퇴사");
+
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.INACTIVE);
+		}
+
+		@Test
+		@DisplayName("재활성화 시 임시 패스워드를 새로 발급하고 패스워드 변경을 요구한다")
+		void reactivationReissuesTemporaryPassword() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.completeCredentialSetup("ops-june", "old-hash");
+			admin.deactivate("퇴사");
+
+			admin.reactivate("new-temp-hash", now.plusHours(1), now.plusHours(25));
+
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.ACTIVE);
+			assertThat(admin.getTemporaryPasswordHash()).isEqualTo("new-temp-hash");
+			assertThat(admin.getTemporaryCredentialExpiresAt()).isEqualTo(now.plusHours(25));
+			assertThat(admin.isPasswordChangeRequired()).isTrue();
+		}
+
+		@Test
+		@DisplayName("임시 패스워드 재발급은 기존 사전 세션 인증 버전을 무효화한다")
+		void temporaryPasswordReissueAdvancesAuthenticationVersion() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			long before = admin.getAuthenticationVersion();
+
+			admin.reissueTemporaryPassword("new-temp-hash", now.plusHours(1), now.plusHours(25));
+
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(before + 1);
+		}
+
+		@Test
+		@DisplayName("OTP 초기화 시 OTP 재등록이 필요하다")
+		void resetOtpRequiresRegistrationAgain() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.startOtpRegistration("protected-secret");
+			admin.completeOtpRegistration();
+			long authenticationVersionBeforeReset = admin.getAuthenticationVersion();
+
+			admin.resetOtp();
+
+			assertThat(admin.isOtpRegistered()).isFalse();
+			assertThat(admin.isOtpRegistrationRequired()).isTrue();
+			assertThat(admin.getOtpSecret()).isNull();
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(authenticationVersionBeforeReset + 1);
+		}
+
+		@Test
+		@DisplayName("등급 변경과 비활성화는 기존 인증 버전을 무효화한다")
+		void securityOperationsAdvanceAuthenticationVersion() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+
+			admin.changeRole(AdminRole.VIEWER);
+			admin.deactivate("권한 회수");
+
+			assertThat(admin.getAuthenticationVersion()).isEqualTo(2L);
+		}
+
+		@Test
+		@DisplayName("로그인 성공 기록은 비활성 계정을 재활성화하지 않는다")
+		void loginSuccessCannotReactivateInactiveAccount() {
+			AdminAccount admin = invited(AdminRole.OPERATOR);
+			admin.deactivate("퇴사");
+
+			assertThatThrownBy(() -> admin.recordLoginSuccess(now.plusMinutes(1)))
+					.isInstanceOf(AdminDomainException.class);
+			assertThat(admin.getStatus()).isEqualTo(AdminAccountStatus.INACTIVE);
+		}
+	}
+
+	private AdminAccount invited(AdminRole role) {
+		return AdminAccount.invite(
+				"Operator@Pikume.com",
+				"운영자1",
+				role,
+				"temp-hash",
+				now,
+				now.plusDays(1));
+	}
+}

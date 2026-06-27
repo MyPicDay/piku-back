@@ -1,6 +1,9 @@
 package com.pikume.back.creative.adapter.in.web;
 
+import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
+import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
+import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.service.RedisService;
@@ -19,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AiGeneratorController")
@@ -29,6 +33,8 @@ class AiGeneratorControllerTest {
 
 	@Mock
 	private GenerateImageUseCase generateImageUseCase;
+	@Mock
+	private RecordAiPhotoStatisticsUseCase recordAiPhotoStatisticsUseCase;
 
 	private AiGeneratorController aiGeneratorController;
 
@@ -37,7 +43,26 @@ class AiGeneratorControllerTest {
 		aiGeneratorController = new AiGeneratorController(
 				redisService,
 				generateImageUseCase,
-				new ProblemDetailFactory());
+				new ProblemDetailFactory(),
+				recordAiPhotoStatisticsUseCase);
+	}
+
+	@Test
+	@DisplayName("POST /api/diary/ai/generate는 생성 성공 시 요청과 성공 통계를 기록한다")
+	void generateDiaryImageRecordsRequestAndSuccessStatistics() throws Exception {
+		given(redisService.isLimitExceeded(anyString(), anyString(), anyInt()))
+				.willReturn(false);
+		given(generateImageUseCase.generateDiaryImage(anyString(), anyString()))
+				.willReturn(new GeneratedImageResult(1L, "https://cdn.pikume.com/ai/generated.webp", "ai/generated.webp"));
+
+		ResponseEntity<Object> response = aiGeneratorController.generateDiaryImage(
+				Map.of("content", "test diary"),
+				new CustomUserDetails("user1", "pikume"));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isInstanceOf(AiDiaryResponse.class);
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
+		then(recordAiPhotoStatisticsUseCase).should().recordSuccess("user1");
 	}
 
 	@Test
@@ -56,6 +81,7 @@ class AiGeneratorControllerTest {
 		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/rate-limit-exceeded");
 		assertThat(problemDetail.getStatus()).isEqualTo(429);
 		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/diary/ai/generate");
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
 	}
 
 	@Test
@@ -77,5 +103,7 @@ class AiGeneratorControllerTest {
 		assertThat(problemDetail.getStatus()).isEqualTo(500);
 		assertThat(problemDetail.getDetail()).isEqualTo("AI 이미지 생성에 실패했습니다.");
 		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/diary/ai/generate");
+		then(recordAiPhotoStatisticsUseCase).should().recordRequest("user1");
+		then(recordAiPhotoStatisticsUseCase).should().recordFailure("user1");
 	}
 }
