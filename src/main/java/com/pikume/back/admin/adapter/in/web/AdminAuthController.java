@@ -66,6 +66,7 @@ public class AdminAuthController {
 				.body(new MessageResponse("로그아웃 완료"));
 	}
 
+    /**
 	@Operation(summary = "관리자 패스워드 변경")
 	@PatchMapping("/password")
 	public ResponseEntity<MessageResponse> changePassword(
@@ -77,6 +78,7 @@ public class AdminAuthController {
 		adminAuthUseCase.changePassword(admin.getId(), request.currentPassword(), request.newPassword());
 		return ResponseEntity.ok(new MessageResponse("패스워드 변경 완료"));
 	}
+     */
 
 	private ResponseEntity<AdminAuthenticationResponse> authenticatedResponse(AdminAuthenticationResult result) {
 		return ResponseEntity.ok()

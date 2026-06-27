@@ -32,6 +32,7 @@ public class AdminOnboardingController {
 	private final AdminOnboardingUseCase adminOnboardingUseCase;
 	private final AdminSessionCookieManager cookieManager;
 
+    /**
 	@Operation(summary = "관리자 임시 로그인", description = "사전 세션을 최초 설정 단계에 결합합니다.")
 	@PostMapping("/temporary-login")
 	public ResponseEntity<AdminTemporaryLoginResult> temporaryLogin(
@@ -69,4 +70,5 @@ public class AdminOnboardingController {
 
 	private record OnboardingNextStepResponse(String nextStep) {
 	}
+    */
 }

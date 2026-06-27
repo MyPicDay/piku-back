@@ -42,6 +42,7 @@ public class AdminAccountController {
 	private final CreateAdminAccountUseCase createAdminAccountUseCase;
 	private final AdminAccountOperationUseCase adminAccountOperationUseCase;
 
+    /**
 	@Operation(summary = "관리자 목록 조회", description = "관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 포함한 계정 목록을 조회합니다.")
 	@GetMapping
 	public ResponseEntity<List<AdminAccountSummaryResult>> list(@AuthenticationPrincipal AdminUserDetails admin) {
@@ -146,4 +147,5 @@ public class AdminAccountController {
 		}
 		return admin.getId();
 	}
+    **/
 }
