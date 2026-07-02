@@ -118,7 +118,7 @@ public class NotificationService implements NotificationUseCase {
 			return false;
 		}
 
-		notification.inactive();
+		notification.delete();
 		return true;
 	}
 

@@ -140,7 +140,7 @@ class CommentServiceTest {
 		@DisplayName("삭제된 댓글에 대댓글을 달면 예외 발생")
 		void failsParentDeleted() {
 			Comment deletedParent = new Comment("삭제됨", "user-x", 1L);
-			deletedParent.inactive();
+			deletedParent.delete();
 
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
@@ -265,7 +265,7 @@ class CommentServiceTest {
 		@DisplayName("이미 삭제된 댓글을 삭제하면 예외 발생")
 		void failsAlreadyDeleted() {
 			Comment deletedComment = new Comment("삭제됨", "user-id", 1L);
-			deletedComment.inactive();
+			deletedComment.delete();
 			given(loadUserInfoPort.findUserInfoById("user-id"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
 			given(loadCommentPort.findById(1L)).willReturn(Optional.of(deletedComment));

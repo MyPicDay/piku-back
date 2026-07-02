@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-06
+- Last Reviewed: 2026-07-02
 
 ## 도메인 개요
 
@@ -90,13 +90,10 @@ _Entity_
 
 - `fromUserId` : String (UUID 36자리). 친구 요청을 발신한 사용자 식별자 (복합키 1)
 - `toUserId` : String (UUID 36자리). 친구 요청을 수신한 사용자 식별자 (복합키 2)
-- `updatedAt` : LocalDateTime. 최종 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 삭제 처리 일시 (`BaseEntity` 공통, 소프트 삭제용)
 
 ### 행위
 
 - `FriendRequest(String fromUserId, String toUserId)` : 특정 사용자가 다른 특정 사용자에게 보내는 친구 요청을 생성한다.
-- `inactive()` : 요청을 논리적 삭제 처리(소프트 삭제)한다. (`BaseEntity` 공통)
 
 ### 규칙
 
@@ -105,7 +102,7 @@ _Entity_
 - 수신자가 발신자에게 이미 요청한 상태에서 발신자가 수신자에게 요청하면 새 요청이 아니라 친구 수락으로 처리한다.
 - 발신자가 동일 수신자에게 이미 요청한 상태에서 다시 요청하면 새 요청이나 새 알림 이벤트를 만들지 않고 요청 완료 흐름으로 처리한다.
 - 친구 수락이 완료되어 `Friend` 엔티티가 생성되거나, 거절될 경우 해당 요청(엔티티)의 라이프사이클이 종료되거나 상태가 전환되어야 한다.
-- 요청 철회/거절 시 실제 데이터 삭제 대신 `deletedAt` 값을 설정하는 논리적 삭제 구조를 따른다.
+- 친구 요청은 대기 상태 자체가 도메인 의미이므로, 수락·거절·철회 시 요청 행을 물리적으로 삭제하여 라이프사이클을 종료한다.
 
 ---
 
@@ -123,14 +120,14 @@ _Entity_
 - `children` : List<Comment>. 이 댓글에 달린 답글 목록
 - `createdAt` : LocalDateTime. 댓글 생성 일시 (`BaseEntity` 공통)
 - `updatedAt` : LocalDateTime. 댓글 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 댓글 삭제 일시 (`BaseEntity` 공통, 소프트 삭제용)
+- `deletedAt` : LocalDateTime. `Comment`가 소유하는 댓글 삭제 일시
 
 ### 행위
 
 - `Comment(String content, String userId, Long diaryId)` : 특정 사용자가 특정 일기에 댓글을 생성한다.
 - `connectParent(Comment parent)` : 부모 댓글을 연결하거나 변경한다.
 - `updateContent(String content)` : 댓글 내용을 수정한다.
-- `inactive()` : 댓글을 소프트 삭제한다. (`BaseEntity` 공통)
+- `delete()` : 댓글을 소프트 삭제하고 삭제 일시를 기록한다.
 - `isDeleted()` : 삭제된 댓글인지 여부를 반환한다.
 
 ### 규칙
@@ -154,18 +151,20 @@ _Entity_
 - `diaryId` : Long. 좋아요 대상 일기 식별자
 - `createdAt` : LocalDateTime. 좋아요 생성 일시 (`BaseEntity` 공통)
 - `updatedAt` : LocalDateTime. 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 취소 처리 일시 (`BaseEntity` 공통, 소프트 삭제용)
+- `deletedAt` : LocalDateTime. `Like`가 소유하는 취소 처리 일시
 
 ### 행위
 
 - `Like.builder()` : 사용자와 일기를 기준으로 좋아요를 생성한다.
-- `inactive()` : 좋아요를 소프트 삭제한다. (`BaseEntity` 공통)
+- `cancel()` : 좋아요를 취소 처리하고 `deletedAt`을 현재 시각으로 설정한다.
+- `reactivate()` : 취소된 좋아요를 다시 활성 상태로 되돌리고 `deletedAt`을 비운다.
+- `isActive()` : 좋아요가 현재 활성 상태인지 반환한다.
 
 ### 규칙
 
 - 하나의 사용자(`userId`)는 하나의 일기(`diaryId`)에 active 좋아요를 한 번만 가질 수 있다.
 - 좋아요 중복 방지는 `(userId, diaryId)` 유니크 제약으로 보장한다.
-- 좋아요 취소는 소프트 삭제로 처리되며, 재활성화 정책은 application service가 결정한다.
+- 좋아요 취소는 소프트 삭제로 처리되며, 재좋아요 시 기존 `Like`를 재활성화하여 유니크 제약을 유지한다.
 
 ---
 

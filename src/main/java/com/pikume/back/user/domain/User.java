@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -26,6 +28,9 @@ public class User extends BaseEntity {
 	private String nickname;
 
 	private String avatar;
+
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
 
 	public User(String email, String password, String nickname, String avatar) {
 		this.email = email;
@@ -73,5 +78,13 @@ public class User extends BaseEntity {
 	 */
 	public void updatePassword(String newHashedPassword) {
 		this.password = newHashedPassword;
+	}
+
+	public void withdraw() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isWithdrawn() {
+		return deletedAt != null;
 	}
 }

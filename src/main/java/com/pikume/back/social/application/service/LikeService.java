@@ -43,10 +43,10 @@ public class LikeService implements LikeUseCase {
 		boolean shouldPublishLikeCreatedEvent = false;
 		if (existingLike.isPresent()) {
 			Like like = existingLike.get();
-			if (like.getDeletedAt() == null) {
+			if (like.isActive()) {
 				throw new LikeException(LikeErrorCode.ALREADY_LIKED);
 			}
-			like.restore();
+			like.reactivate();
 			saveLikePort.saveAndFlush(like);
 		} else {
 			Like like = Like.builder()
@@ -84,7 +84,7 @@ public class LikeService implements LikeUseCase {
 		Like like = loadLikePort.findByUserIdAndDiaryId(userId, diaryId)
 				.orElseThrow(() -> new LikeException(LikeErrorCode.LIKE_NOT_FOUND));
 
-		like.inactive();
+		like.cancel();
 
 		long likeCount = loadLikePort.countByDiaryId(diaryId);
 		log.info("[좋아요 취소 완료] diaryId: {}, 총 좋아요 수: {}", diaryId, likeCount);

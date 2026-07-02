@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "diary_image_generation")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -25,6 +27,9 @@ public class DiaryImageGeneration extends BaseEntity {
 
 	private Long diaryId;
 
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
 	public DiaryImageGeneration(String userId, String prompt, String filePath) {
 		this.userId = userId;
 		this.prompt = prompt;
@@ -37,5 +42,13 @@ public class DiaryImageGeneration extends BaseEntity {
 
 	public void updateFilePath(String newFilePath) {
 		this.filePath = newFilePath;
+	}
+
+	public void discard() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isDiscarded() {
+		return deletedAt != null;
 	}
 }

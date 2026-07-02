@@ -7,6 +7,7 @@ import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.entity.BaseEntity;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table
@@ -29,6 +30,9 @@ public class Diary extends BaseEntity {
 	@Column(name = "user_id", length = 36)
 	private String userId;
 
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
 	public Diary(String content, DiaryVisibility status, LocalDate date, String userId) {
 		this.content = content;
 		this.status = status;
@@ -37,7 +41,11 @@ public class Diary extends BaseEntity {
 	}
 
 	public void delete() {
-		this.inactive();
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 
 	public void updateContentAndStatus(String content, DiaryVisibility status) {

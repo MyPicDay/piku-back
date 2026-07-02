@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-07-02
 
 ## 도메인 개요
 
@@ -64,20 +64,21 @@ _Entity_
 - `avatar` : String. 사용자의 프로필 이미지 경로
 - `createdAt` : LocalDateTime. 최초 가입/생성 일시 (`BaseEntity` 공통)
 - `updatedAt` : LocalDateTime. 최종 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 삭제 처리 일시 (`BaseEntity` 공통, 소프트/탈퇴 처리용)
+- `deletedAt` : LocalDateTime. `User`가 소유하는 회원 탈퇴 처리 일시
 
 ### 행위
 
 - `changeNickname(String newNickname)` : 닉네임을 변경한다.
 - `changeAvatar(String avatar)` : 프로필 이미지 경로를 변경한다.
 - `updatePassword(String newHashedPassword)` : 암호화된 새로운 비밀번호로 변경한다.
-- `inactive()` : 사용자를 논리적 삭제 처리(회원 탈퇴 처리)한다. (`BaseEntity` 공통)
+- `withdraw()` : 사용자를 회원 탈퇴 처리하고 `deletedAt`을 현재 시각으로 설정한다.
+- `isWithdrawn()` : 회원 탈퇴 처리된 사용자인지 여부를 반환한다.
 
 ### 규칙
 
 - 이메일(`email`)과 닉네임(`nickname`)은 전체 시스템 내에서 고유(Unique)해야 하며 필수값이다.
 - 사용자 객체의 상태 변경(비밀번호, 닉네임, 아바타 등)은 캡슐화된 메서드를 통해서만 제어되어야 한다.
-- 회원 탈퇴 등 삭제 이벤트를 물리적 완전 삭제 대신 `deletedAt` 값을 갖는 논리적 삭제 구조로 처리한다.
+- 회원 탈퇴는 물리적 완전 삭제 대신 `User`가 소유한 `deletedAt` 값을 갖는 논리적 삭제 구조로 처리한다.
 
 ---
 
