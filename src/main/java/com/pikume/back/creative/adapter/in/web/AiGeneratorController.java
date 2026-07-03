@@ -2,19 +2,18 @@ package com.pikume.back.creative.adapter.in.web;
 
 import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
+import com.pikume.back.creative.application.exception.AiGenerationQuotaExceededException;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
-import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCase;
+import com.pikume.back.creative.application.port.in.ManageAiGenerationQuotaUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.service.RedisService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -29,13 +28,10 @@ import java.util.Map;
 @Slf4j
 public class AiGeneratorController {
 
-	private final RedisService redisService;
-	private static final int MAX_AI_REQUESTS_PER_DAY = 3;
-	private static final String AI_GENERATE_ACTION = "ai_generate";
+	private final ManageAiGenerationQuotaUseCase manageAiGenerationQuotaUseCase;
 
 	private final GenerateImageUseCase generateImageUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
-	private final RecordAiPhotoStatisticsUseCase recordAiPhotoStatisticsUseCase;
 
 	@Operation(summary = "AI 일기 이미지 생성", description = "일기 내용을 기반으로 AI 이미지를 생성합니다.")
 	@SecurityRequirement(name = "JWT")
@@ -46,29 +42,16 @@ public class AiGeneratorController {
 
 		String content = body.get("content");
 		String userId = customUserDetails.getId();
-		recordAiPhotoStatisticsUseCase.recordRequest(userId);
-
-		if (redisService.isLimitExceeded(AI_GENERATE_ACTION, userId, MAX_AI_REQUESTS_PER_DAY)) {
-			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-					.body(problemDetailFactory.create(
-							CommonProblemType.RATE_LIMIT_EXCEEDED,
-							"일일 생성 횟수(" + MAX_AI_REQUESTS_PER_DAY + "회)를 모두 사용하셨습니다.",
-							"/api/diary/ai/generate"));
-		}
 
 		try {
 			GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(content, userId);
 			log.info("Generated image URL: {}", generation.imageUrl());
-			redisService.incrementRequestCount(AI_GENERATE_ACTION, userId);
-			recordAiPhotoStatisticsUseCase.recordSuccess(userId);
 			return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
-		} catch (RuntimeException e) {
-			log.error("AI 이미지 생성 실패", e);
-			recordAiPhotoStatisticsUseCase.recordFailure(userId);
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+		} catch (AiGenerationQuotaExceededException e) {
+			return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
 					.body(problemDetailFactory.create(
-							CommonProblemType.INTERNAL_SERVER_ERROR,
-							e.getMessage() != null ? e.getMessage() : "AI 이미지 생성에 실패했습니다.",
+							CommonProblemType.RATE_LIMIT_EXCEEDED,
+							e.getMessage(),
 							"/api/diary/ai/generate"));
 		}
 	}
@@ -77,8 +60,7 @@ public class AiGeneratorController {
 	public ResponseEntity<Map<String, Integer>> getRemainingRequests(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 
-		int remainingCount = redisService.getRemainingCount(
-				AI_GENERATE_ACTION, customUserDetails.getId(), MAX_AI_REQUESTS_PER_DAY);
+		int remainingCount = manageAiGenerationQuotaUseCase.getRemainingGenerationCount(customUserDetails.getId());
 
 		Map<String, Integer> response = new HashMap<>();
 		response.put("remainingRequests", remainingCount);
