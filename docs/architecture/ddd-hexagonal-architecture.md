@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-07-03
 
 이 문서는 `piku-back` 프로젝트의 도메인 주도 설계(DDD) 및 헥사고날 아키텍처 구조를 설명합니다.
 
@@ -56,7 +56,17 @@
 2. 서비스 객체(`application/service`)는 구체적인 DB 기술(JPA 등)을 모른 채 `port/out` 인터페이스에만 의존하여 데이터를 조작합니다.
 3. 데이터 조작은 `domain` 패키지에 위치한 엔티티(`Entity`)를 통해 이뤄집니다.
 
-## 5. 다른 도메인에서 호출하는 방법
+## 5. Port 메서드 작성 원칙
+
+Port 메서드는 저장소 구현 방식이 아니라 Application 계층이 필요로 하는 유스케이스의 의도를 표현해야 합니다. Repository 관용 메서드명이 상위 계층으로 전파되면 저장소 구조나 조회 기준이 바뀔 때 Application Service, UseCase, 타 도메인 연동 코드까지 함께 흔들릴 수 있습니다.
+
+- `application/port/in`의 메서드는 외부 요청이 수행하려는 유스케이스를 드러내는 이름을 사용합니다.
+- `application/port/out`의 메서드는 Application Service가 필요로 하는 도메인 정보나 외부 능력을 드러내는 이름을 사용합니다.
+- `findById`, `save`, `delete`처럼 저장소 구현에 가까운 이름은 실제 Repository나 Persistence Adapter 내부에 머무르게 합니다. 식별자 기반 조회가 필요하더라도 Port 경계에서는 `loadUserForDiary`, `loadActiveUserProfile`, `checkUserExistsForNotification`처럼 호출 목적을 드러내는 이름을 우선합니다.
+- Cross-Context Port는 대상 도메인의 Repository, Entity 구조, 조회 기술을 노출하지 않고 호출 도메인이 필요로 하는 정보와 목적을 기준으로 정의합니다.
+- 저장소 조회 기준, JPA 사용 여부, 캐시 적용 여부 등 인프라 세부사항의 변경 영향은 Adapter 구현 내부에서 흡수되어야 합니다.
+
+## 6. 다른 도메인에서 호출하는 방법
 
 타 도메인의 데이터나 동작이 필요할 경우, 직접적으로 타 도메인의 엔티티나 DB(Repository)에 접근하지 않고 **Cross-Context Adapter**를 사용합니다.
 
