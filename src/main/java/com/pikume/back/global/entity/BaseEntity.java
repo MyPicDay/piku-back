@@ -22,15 +22,4 @@ public abstract class BaseEntity {
     
     @LastModifiedDate
     private LocalDateTime updatedAt;
-
-
-    private LocalDateTime deletedAt;
-
-    public void inactive() {
-        this.deletedAt = LocalDateTime.now();
-    }
-
-    public void restore() {
-        this.deletedAt = null;
-    }
 }

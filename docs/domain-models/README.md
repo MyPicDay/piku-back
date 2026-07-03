@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-07-02
 
 이 디렉토리는 `piku-back` 프로젝트의 도메인 모델링 문서를 포함합니다.
 각 문서는 DDD 원칙에 따라 **도메인 개요 → 엔티티/VO → 상태 → 행위 → 규칙** 순서로 기술합니다.
@@ -19,6 +19,7 @@
 | **Social**       | 친구 관계, 댓글, 좋아요, 이벤트 발행   | [social.md](social.md)             |
 | **Feed**         | 개인화 피드 구성, 열람 행위 이력 수집  | [feed.md](feed.md)                 |
 | **Notification** | SSE/FCM 이중 알림 발송, 기기 토큰 관리 | [notification.md](notification.md) |
+| **Creative**     | AI 일기 이미지 생성과 생성 이력 관리   | [creative.md](creative.md)         |
 | **Admin**        | 관리자 계정, 인증, 감사, 운영 통계 정책 | [admin.md](admin.md)               |
 
 ---

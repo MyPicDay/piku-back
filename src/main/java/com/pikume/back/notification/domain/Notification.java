@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "notification")
 @NoArgsConstructor
@@ -32,6 +34,9 @@ public class Notification extends BaseEntity {
 
 	private Boolean isRead;
 
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
 	public Notification(String receiverId, String senderId, NotificationType type, Long diaryId) {
 		this.receiverId = receiverId;
 		this.senderId = senderId;
@@ -42,5 +47,13 @@ public class Notification extends BaseEntity {
 
 	public void markAsRead() {
 		this.isRead = true;
+	}
+
+	public void delete() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
+	public boolean isDeleted() {
+		return deletedAt != null;
 	}
 }

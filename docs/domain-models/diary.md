@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-05
+- Last Reviewed: 2026-07-02
 
 ## 도메인 개요
 
@@ -128,14 +128,14 @@ _Entity_
 - `userId` : String. 일기를 작성한 사용자의 식별자
 - `createdAt` : LocalDateTime. 최초 생성 일시 (`BaseEntity` 공통)
 - `updatedAt` : LocalDateTime. 최종 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 삭제 처리 일시 (`BaseEntity` 공통, 소프트 삭제용)
+- `deletedAt` : LocalDateTime. `Diary`가 소유하는 삭제 처리 일시
 
 ### 행위
 
 - `static create()` : 내용을 기반으로 새로운 일기를 생성한다. (생성자)
-- `delete()` : 일기를 삭제 처리한다. 내부적으로 `BaseEntity.inactive()`를 호출하여 `deletedAt`을 현재 시각으로 설정한다.
+- `delete()` : 일기를 논리적으로 삭제하고 `deletedAt`을 현재 시각으로 설정한다.
+- `isDeleted()` : 일기가 삭제 처리되었는지 여부를 반환한다.
 - `isOwner(String userId)` : 전달받은 사용자 ID가 해당 일기의 작성자인지 여부를 반환한다.
-- `inactive()` : `deletedAt`을 현재 시각으로 설정하여 논리적 삭제를 수행한다. (`BaseEntity` 공통)
 
 ### 규칙
 
@@ -155,7 +155,7 @@ _Entity_
 ### 개요
 
 일기 삭제는 물리적 삭제가 아닌 논리적 삭제 방식으로 처리된다.
-`BaseEntity`의 `deletedAt` 필드에 삭제 시각이 기록되며, 이후 각 조회 쿼리에 명시적으로 `deletedAt IS NULL` 조건이 포함되어 삭제된 레코드가 제외된다.
+`Diary`가 소유한 `deletedAt` 필드에 삭제 시각이 기록되며, 이후 각 조회 쿼리에 명시적으로 `deletedAt IS NULL` 조건이 포함되어 삭제된 레코드가 제외된다.
 
 ### 삭제 흐름
 

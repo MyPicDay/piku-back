@@ -142,7 +142,7 @@ class LikeServiceTest {
 		@DisplayName("soft delete된 좋아요가 있으면 새로 저장하지 않고 복구한다")
 		void restoresSoftDeletedLike() {
 			Like softDeletedLike = Like.builder().userId("liker-id").diaryId(1L).build();
-			softDeletedLike.inactive();
+			softDeletedLike.cancel();
 			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(softDeletedLike));
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);

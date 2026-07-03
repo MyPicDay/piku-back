@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import com.pikume.back.global.entity.BaseEntity;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,6 +35,9 @@ public class Comment extends BaseEntity {
 	@OneToMany(mappedBy = "parent")
 	private List<Comment> children = new ArrayList<>();
 
+	@Column(name = "deleted_at")
+	private LocalDateTime deletedAt;
+
 	public Comment(String content, String userId, Long diaryId) {
 		this.content = content;
 		this.userId = userId;
@@ -56,7 +60,11 @@ public class Comment extends BaseEntity {
 		}
 	}
 
+	public void delete() {
+		this.deletedAt = LocalDateTime.now();
+	}
+
 	public boolean isDeleted() {
-		return this.getDeletedAt() != null;
+		return this.deletedAt != null;
 	}
 }

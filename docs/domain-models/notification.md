@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-06
+- Last Reviewed: 2026-07-02
 
 ## 도메인 개요
 
@@ -70,13 +70,14 @@ _Entity_
 - `isRead` : Boolean. 수신자의 알림 확인/읽음 처리에 대한 여부
 - `createdAt` : LocalDateTime. 알림 생성 일시 (`BaseEntity` 공통)
 - `updatedAt` : LocalDateTime. 최종 수정 일시 (`BaseEntity` 공통)
-- `deletedAt` : LocalDateTime. 삭제 처리 일시 (`BaseEntity` 공통, 소프트 삭제용)
+- `deletedAt` : LocalDateTime. `Notification`이 소유하는 삭제 처리 일시
 
 ### 행위
 
 - `Notification(receiverId, senderId, type, diaryId)` : 특정 사용자에게 보낼 새로운 알림 객체를 생성한다.
 - `markAsRead()` : 해당 알림을 수신자가 읽음 처리한다.
-- `inactive()` : 알림을 논리적 삭제 처리(소프트 삭제)한다. (`BaseEntity` 공통)
+- `delete()` : 알림을 논리적 삭제 처리하고 삭제 일시를 기록한다.
+- `isDeleted()` : 알림이 삭제 처리되었는지 여부를 반환한다.
 
 ### 규칙
 

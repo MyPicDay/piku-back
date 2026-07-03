@@ -114,7 +114,7 @@ public class CommentService implements CommentUseCase {
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
 		Comment comment = validateCommentForEditOrDelete(commentId, userId);
-		comment.inactive();
+		comment.delete();
 		saveCommentPort.save(comment);
 		log.info("사용자 {}님이 댓글 {} 삭제 완료", userId, commentId);
 
