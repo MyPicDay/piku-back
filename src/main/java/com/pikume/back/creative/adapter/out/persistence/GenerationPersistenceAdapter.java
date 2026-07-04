@@ -3,7 +3,7 @@ package com.pikume.back.creative.adapter.out.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
-import com.pikume.back.creative.application.port.out.SaveGenerationPort;
+import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 
 import java.sql.Date;
@@ -17,28 +17,18 @@ import java.util.Optional;
  */
 @Component
 @RequiredArgsConstructor
-public class GenerationPersistenceAdapter implements LoadGenerationPort, SaveGenerationPort {
+public class GenerationPersistenceAdapter implements LoadGenerationPort, RecordGenerationPort {
 
 	private final DiaryImageGenerationJpaRepository repository;
 
 	@Override
-	public Optional<DiaryImageGeneration> findById(Long id) {
-		return repository.findById(id);
+	public Optional<DiaryImageGeneration> loadGenerationForDiaryIntegration(Long generationId) {
+		return repository.findById(generationId);
 	}
 
 	@Override
-	public List<DiaryImageGeneration> findByDiaryIdIsNull() {
-		return repository.findByDiaryIdIsNull();
-	}
-
-	@Override
-	public Optional<DiaryImageGeneration> findByUserIdAndFilePath(String userId, String filePath) {
-		return repository.findByUserIdAndFilePath(userId, filePath);
-	}
-
-	@Override
-	public boolean existsByIdAndUserId(Long id, String userId) {
-		return repository.existsByIdAndUserId(id, userId);
+	public boolean isGenerationOwnedByUser(Long generationId, String userId) {
+		return repository.existsByIdAndUserId(generationId, userId);
 	}
 
 	@Override
@@ -72,7 +62,7 @@ public class GenerationPersistenceAdapter implements LoadGenerationPort, SaveGen
 	}
 
 	@Override
-	public DiaryImageGeneration save(DiaryImageGeneration generation) {
+	public DiaryImageGeneration recordGeneration(DiaryImageGeneration generation) {
 		return repository.save(generation);
 	}
 

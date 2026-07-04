@@ -1,5 +1,6 @@
 package com.pikume.back.creative.application.service;
 
+import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,5 +44,22 @@ class AiPhotoDashboardStatisticsQueryServiceTest {
 					assertThat(row.date()).isEqualTo(startDate);
 					assertThat(row.count()).isEqualTo(4);
 				});
+	}
+
+	@Test
+	@DisplayName("삭제되지 않은 AI 생성 성공 일간 집계를 생성 이력 조회 포트에 위임한다")
+	void delegatesCurrentSuccessfulGenerationStatisticsByDate() {
+		LocalDate startDate = LocalDate.of(2026, 6, 16);
+		LocalDate endDate = LocalDate.of(2026, 6, 22);
+		given(loadGenerationPort.countSuccessfulGenerationsByDate(startDate, endDate))
+				.willReturn(List.of(new LoadGenerationPort.DailyCount(endDate, 7)));
+		AiPhotoDashboardStatisticsQueryService service =
+				new AiPhotoDashboardStatisticsQueryService(loadGenerationPort);
+
+		List<QueryAiPhotoDashboardStatisticsUseCase.DailyCount> result =
+				service.countSuccessfulGenerationsByDate(startDate, endDate);
+
+		assertThat(result)
+				.containsExactly(new QueryAiPhotoDashboardStatisticsUseCase.DailyCount(endDate, 7));
 	}
 }

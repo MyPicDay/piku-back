@@ -7,7 +7,6 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 public interface DiaryImageGenerationJpaRepository extends JpaRepository<DiaryImageGeneration, Long> {
 
@@ -16,10 +15,6 @@ public interface DiaryImageGenerationJpaRepository extends JpaRepository<DiaryIm
 
 		Long getMetricCount();
 	}
-
-	List<DiaryImageGeneration> findByDiaryIdIsNull();
-
-	Optional<DiaryImageGeneration> findByUserIdAndFilePath(String userId, String filePath);
 
 	boolean existsByIdAndUserId(Long id, String userId);
 

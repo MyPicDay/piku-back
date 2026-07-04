@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-03
+- Last Reviewed: 2026-07-04
 
 이 문서는 `piku-back` 프로젝트의 도메인 주도 설계(DDD) 및 헥사고날 아키텍처 구조를 설명합니다.
 
@@ -70,16 +70,18 @@ Port 메서드는 저장소 구현 방식이 아니라 Application 계층이 필
 
 타 도메인의 데이터나 동작이 필요할 경우, 직접적으로 타 도메인의 엔티티나 DB(Repository)에 접근하지 않고 **Cross-Context Adapter**를 사용합니다.
 
-### 패턴 A: `crosscontext` 폴더 방식 (권장)
+### `crosscontext` 폴더 방식 (표준)
 
-- **Out Port 정의**: 해당 도메인의 `application/port/out` 패키지에 타 도메인의 정보 획득을 위한 Port 인터페이스 (예: `LoadUserForDiaryPort`)를 정의합니다.
-- **Adapter 구현**: `adapter/out/crosscontext` 패키지에서 해당 Port 인터페이스를 구현합니다.
-- **호출 방식**: 어댑터 내에서는 Spring의 DI를 활용하여 타 도메인의 공개된 빈(예: 타 도메인의 `Reader`, `QueryService`, 또는 `UseCase`)을 주입받아 데이터를 조회/명령합니다.
-- **적용 도메인**: `diary`, `notification`, `social`, `support`
+- **소유권**: 타 도메인의 정보나 동작이 필요한 **호출 도메인**이 Cross-Context Out Port와 Adapter를 소유합니다.
+- **Out Port 정의**: 호출 도메인의 `application/port/out` 패키지에 호출 목적을 드러내는 Port 인터페이스를 정의합니다. Port의 입력과 출력은 호출 도메인이 필요로 하는 정보와 의미를 기준으로 설계합니다.
+- **Adapter 구현**: 호출 도메인의 `adapter/out/crosscontext` 패키지에서 해당 Out Port를 구현합니다.
+- **대상 도메인 호출**: Cross-Context Adapter는 대상 도메인이 `application/port/in`으로 공개한 In Port(UseCase)를 주입받아 데이터 조회나 동작을 요청합니다.
+- **금지 의존성**: 호출 도메인의 Application Service와 Cross-Context Adapter는 대상 도메인의 Entity, `application/port/out`, Repository, Persistence Adapter에 직접 의존하지 않습니다.
+- **호출 흐름**: 호출 도메인의 Application Service가 호출 도메인의 Out Port를 사용하고, Cross-Context Adapter가 이를 대상 도메인의 In Port 호출로 변환합니다. 대상 도메인은 자신의 Application Service와 Out Port를 통해 요청을 처리합니다.
 
-### 패턴 B: 대상 도메인명 폴더 방식
+### 기존 대상 도메인명 폴더 방식의 처리
 
-- `adapter/out/{대상도메인명}/` 형태로 타 도메인 연동 어댑터를 분리합니다.
-- **적용 도메인**: `user` (`adapter/out/character/`, `adapter/out/diary/`, `adapter/out/friend/`)
-
-> 두 패턴 모두 각 도메인의 Application Service 계층이 타 도메인에 대한 강결합을 피하고, Port 인터페이스에만 의존하는 목적은 동일합니다. 프로젝트 내 통일을 위해 **패턴 A**로 수렴하는 것을 권장합니다.
+- `adapter/out/{대상도메인명}` 방식은 더 이상 허용되는 대안이 아니며 `crosscontext` 폴더 방식으로의 마이그레이션 대상입니다.
+- 신규 Cross-Context 연동은 반드시 `crosscontext` 폴더 방식을 사용합니다.
+- 기존 연동 코드를 변경할 때에는 관련 Adapter를 `adapter/out/crosscontext`로 이동하고, 대상 도메인의 공개 In Port를 사용하도록 함께 전환합니다.
+- 하위 호환성 등의 이유로 즉시 전환할 수 없다면 예외 사유, 영향 범위, 제거 조건을 관련 설계 또는 마이그레이션 문서에 기록해야 하며 예외 범위를 확장하지 않습니다.

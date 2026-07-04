@@ -49,7 +49,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 	private final LoadDiaryPort loadDiaryPort;
 	private final SaveDiaryPort saveDiaryPort;
 	private final PhotoStoragePort photoStoragePort;
-	private final LoadCreativePort loadCreativePort;
+	private final ManageGeneratedImageForDiaryPort manageGeneratedImageForDiaryPort;
 	private final DeleteDiaryNotificationPort deleteDiaryNotificationPort;
 	private final SendDiaryNotificationPort sendDiaryNotificationPort;
 	private final FriendUseCase friendUseCase;
@@ -325,15 +325,14 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		log.info("AI 사진 저장 시작 - 사용자: {}, 일기 날짜: {}", userId, diary.getDate());
 
 		if (aiPhoto != null) {
-			var diaryImageGeneration = loadCreativePort.findById(aiPhoto);
-			String filePath = diaryImageGeneration.filePath();
+			String filePath = manageGeneratedImageForDiaryPort.loadGeneratedImagePath(aiPhoto);
 
 			if (isPublicDiary(diary.getStatus())) {
 				String oldPath = filePath;
 				filePath = photoStoragePort.moveToPublic(filePath);
 				log.info("공개 일기 AI 사진을 public 경로로 이동 완료: {} → {}", oldPath, filePath);
 
-				loadCreativePort.updateFilePath(aiPhoto, filePath);
+				manageGeneratedImageForDiaryPort.updateGeneratedImagePath(aiPhoto, filePath);
 				log.info("DiaryImageGeneration filePath 업데이트 완료 (ID: {})", aiPhoto);
 			}
 
@@ -343,7 +342,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 				savePhoto.updateRepresent(true);
 			}
 			saveDiaryPort.savePhoto(savePhoto);
-			loadCreativePort.updateDiaryId(aiPhoto, diary.getId());
+			manageGeneratedImageForDiaryPort.attachGeneratedImageToDiary(aiPhoto, diary.getId());
 
 			log.info("AI 사진 저장 완료 - 경로: {}, 대표사진: {}", filePath, isRepresent);
 		} else {
@@ -432,7 +431,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 		int userImageCount = 0;
 		for (DiaryImageCommand info : infos) {
 			if (info.type() == DiaryPhotoType.AI_IMAGE) {
-				if (!loadCreativePort.existsByIdAndUserId(info.aiPhotoId(), userId)) {
+				if (!manageGeneratedImageForDiaryPort.isGeneratedImageOwnedByUser(info.aiPhotoId(), userId)) {
 					throw new DiaryInvalidRequestException("유효하지 않은 AI 사진 ID: " + info.aiPhotoId());
 				}
 			}

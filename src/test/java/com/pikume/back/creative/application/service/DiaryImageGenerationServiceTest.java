@@ -9,7 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
-import com.pikume.back.creative.application.port.out.SaveGenerationPort;
+import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 
 import java.util.Optional;
@@ -28,11 +28,11 @@ class DiaryImageGenerationServiceTest {
 	private LoadGenerationPort loadPort;
 
 	@Mock
-	private SaveGenerationPort savePort;
+	private RecordGenerationPort recordPort;
 
 	@Nested
-	@DisplayName("updateDiaryId")
-	class UpdateDiaryId {
+	@DisplayName("attachGenerationToDiary")
+	class AttachGenerationToDiary {
 
 		@Test
 		@DisplayName("일기 ID를 정상 업데이트한다")
@@ -40,39 +40,39 @@ class DiaryImageGenerationServiceTest {
 			Long historyId = 1L;
 			Long diaryId = 100L;
 			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
-			given(loadPort.findById(historyId)).willReturn(Optional.of(generation));
+			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
 
-			service.updateDiaryId(historyId, diaryId);
+			service.attachGenerationToDiary(historyId, diaryId);
 
 			assertThat(generation.getDiaryId()).isEqualTo(diaryId);
-			then(savePort).should().save(generation);
+			then(recordPort).should().recordGeneration(generation);
 		}
 	}
 
 	@Nested
-	@DisplayName("getByUserIdAndFilePath")
-	class GetByUserIdAndFilePath {
+	@DisplayName("loadGenerationForDiary")
+	class LoadGenerationForDiary {
 
 		@Test
-		@DisplayName("사용자 ID와 경로로 조회 성공")
+		@DisplayName("Diary 연동을 위한 생성 이력을 조회한다")
 		void returnsGeneration() {
-			String userId = "user-1";
+			Long generationId = 1L;
 			String path = "path/image.png";
-			DiaryImageGeneration generation = new DiaryImageGeneration(userId, "prompt", path);
-			given(loadPort.findByUserIdAndFilePath(userId, path)).willReturn(Optional.of(generation));
+			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", path);
+			given(loadPort.loadGenerationForDiaryIntegration(generationId)).willReturn(Optional.of(generation));
 
-			DiaryImageGenerationView result = service.getByUserIdAndFilePath(userId, path);
+			DiaryImageGenerationView result = service.loadGenerationForDiary(generationId);
 
 			assertThat(result.filePath()).isEqualTo(path);
-			assertThat(result.userId()).isEqualTo(userId);
+			assertThat(result.userId()).isEqualTo("user-1");
 		}
 
 		@Test
 		@DisplayName("조회 실패 시 예외 발생")
 		void throwsWhenNotFound() {
-			given(loadPort.findByUserIdAndFilePath(anyString(), anyString())).willReturn(Optional.empty());
+			given(loadPort.loadGenerationForDiaryIntegration(1L)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> service.getByUserIdAndFilePath("user-1", "path"))
+			assertThatThrownBy(() -> service.loadGenerationForDiary(1L))
 					.isInstanceOf(RuntimeException.class);
 		}
 	}

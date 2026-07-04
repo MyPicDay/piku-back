@@ -6,5 +6,5 @@ import java.util.Optional;
 
 public interface LoadCharacterReferencePort {
 
-	Optional<CharacterReferenceImage> findByUserId(String userId);
+	Optional<CharacterReferenceImage> loadCharacterReferenceForGeneration(String userId);
 }

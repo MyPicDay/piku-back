@@ -15,13 +15,9 @@ public interface LoadGenerationPort {
 	record DailyCount(LocalDate date, long count) {
 	}
 
-	Optional<DiaryImageGeneration> findById(Long id);
+	Optional<DiaryImageGeneration> loadGenerationForDiaryIntegration(Long generationId);
 
-	List<DiaryImageGeneration> findByDiaryIdIsNull();
-
-	Optional<DiaryImageGeneration> findByUserIdAndFilePath(String userId, String filePath);
-
-	boolean existsByIdAndUserId(Long id, String userId);
+	boolean isGenerationOwnedByUser(Long generationId, String userId);
 
 	List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
 

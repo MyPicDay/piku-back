@@ -2,33 +2,32 @@ package com.pikume.back.diary.adapter.out.crosscontext;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.creative.application.port.in.ManageGenerationUseCase;
-import com.pikume.back.diary.application.port.out.LoadCreativePort;
+import com.pikume.back.diary.application.port.out.ManageGeneratedImageForDiaryPort;
 
 @Component
 @RequiredArgsConstructor
-public class CreativeAdapterForDiary implements LoadCreativePort {
+public class CreativeAdapterForDiary implements ManageGeneratedImageForDiaryPort {
 
 	private final ManageGenerationUseCase manageGenerationUseCase;
 
 	@Override
-	public DiaryImageGenerationView findById(Long id) {
-		return manageGenerationUseCase.findById(id);
+	public String loadGeneratedImagePath(Long generationId) {
+		return manageGenerationUseCase.loadGenerationForDiary(generationId).filePath();
 	}
 
 	@Override
-	public boolean existsByIdAndUserId(Long id, String userId) {
-		return manageGenerationUseCase.existsByIdAndUserId(id, userId);
+	public boolean isGeneratedImageOwnedByUser(Long generationId, String userId) {
+		return manageGenerationUseCase.isGenerationOwnedByUser(generationId, userId);
 	}
 
 	@Override
-	public void updateFilePath(Long generationId, String filePath) {
-		manageGenerationUseCase.updateFilePath(generationId, filePath);
+	public void updateGeneratedImagePath(Long generationId, String filePath) {
+		manageGenerationUseCase.updateGeneratedImagePath(generationId, filePath);
 	}
 
 	@Override
-	public void updateDiaryId(Long generationId, Long diaryId) {
-		manageGenerationUseCase.updateDiaryId(generationId, diaryId);
+	public void attachGeneratedImageToDiary(Long generationId, Long diaryId) {
+		manageGenerationUseCase.attachGenerationToDiary(generationId, diaryId);
 	}
 }

@@ -7,11 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
 import com.pikume.back.creative.application.port.in.ManageGenerationUseCase;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
-import com.pikume.back.creative.application.port.out.SaveGenerationPort;
+import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
-import com.pikume.back.global.config.CustomUserDetails;
-
-import java.util.List;
 
 /**
  * 생성 이력 관리 Application Service
@@ -23,57 +20,37 @@ import java.util.List;
 public class DiaryImageGenerationService implements ManageGenerationUseCase {
 
 	private final LoadGenerationPort loadGenerationPort;
-	private final SaveGenerationPort saveGenerationPort;
+	private final RecordGenerationPort recordGenerationPort;
 
 	@Override
-	public DiaryImageGenerationView findById(Long id) {
-		return toView(loadGenerationPort.findById(id)
-				.orElseThrow(() -> new RuntimeException("DiaryImageGeneration not found with id: " + id)));
-	}
-
-	@Override
-	@Transactional
-	public void updateDiaryId(Long historyId, Long diaryId) {
-		DiaryImageGeneration generation = loadGenerationPort.findById(historyId)
-				.orElseThrow(() -> new RuntimeException("DiaryImageGeneration not found with id: " + historyId));
-		generation.saveDiaryId(diaryId);
-		saveGenerationPort.save(generation);
-	}
-
-	@Override
-	public List<DiaryImageGenerationView> findUnsavedGenerations() {
-		return loadGenerationPort.findByDiaryIdIsNull().stream()
-				.map(this::toView)
-				.toList();
-	}
-
-	@Override
-	public DiaryImageGenerationView getByUserIdAndFilePath(String userId, String filePath) {
-		return toView(loadGenerationPort.findByUserIdAndFilePath(userId, filePath)
+	public DiaryImageGenerationView loadGenerationForDiary(Long generationId) {
+		return toView(loadGenerationPort.loadGenerationForDiaryIntegration(generationId)
 				.orElseThrow(() -> new RuntimeException(
-						"DiaryImageGeneration not found for userId: " + userId + " and filePath: " + filePath)));
+						"DiaryImageGeneration not found with id: " + generationId)));
 	}
 
 	@Override
 	@Transactional
-	public void diaryUpdate(CustomUserDetails customUserDetails, Long diaryId, String path) {
-		String userId = customUserDetails.getId();
-		DiaryImageGenerationView generation = getByUserIdAndFilePath(userId, path);
-		updateDiaryId(generation.id(), diaryId);
+	public void attachGenerationToDiary(Long generationId, Long diaryId) {
+		DiaryImageGeneration generation = loadGenerationPort.loadGenerationForDiaryIntegration(generationId)
+				.orElseThrow(() -> new RuntimeException(
+						"DiaryImageGeneration not found with id: " + generationId));
+		generation.saveDiaryId(diaryId);
+		recordGenerationPort.recordGeneration(generation);
 	}
 
 	@Override
 	@Transactional
-	public void updateFilePath(Long generationId, String filePath) {
-		DiaryImageGeneration generation = loadGenerationPort.findById(generationId)
+	public void updateGeneratedImagePath(Long generationId, String filePath) {
+		DiaryImageGeneration generation = loadGenerationPort.loadGenerationForDiaryIntegration(generationId)
 				.orElseThrow(() -> new RuntimeException("DiaryImageGeneration not found with id: " + generationId));
 		generation.updateFilePath(filePath);
-		saveGenerationPort.save(generation);
+		recordGenerationPort.recordGeneration(generation);
 	}
 
 	@Override
-	public boolean existsByIdAndUserId(Long id, String userId) {
-		return loadGenerationPort.existsByIdAndUserId(id, userId);
+	public boolean isGenerationOwnedByUser(Long generationId, String userId) {
+		return loadGenerationPort.isGenerationOwnedByUser(generationId, userId);
 	}
 
 	private DiaryImageGenerationView toView(DiaryImageGeneration generation) {

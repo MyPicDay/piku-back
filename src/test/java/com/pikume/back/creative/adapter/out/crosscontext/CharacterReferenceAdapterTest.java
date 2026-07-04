@@ -1,4 +1,4 @@
-package com.pikume.back.creative.adapter.out.user;
+package com.pikume.back.creative.adapter.out.crosscontext;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class CharacterReferenceAdapterTest {
 		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
-		var result = characterReferenceAdapter.findByUserId("user-1");
+		var result = characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
 
 		assertThat(result).isPresent();
 		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.webp");
@@ -58,7 +58,7 @@ class CharacterReferenceAdapterTest {
 		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
-		var result = characterReferenceAdapter.findByUserId("user-1");
+		var result = characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
 
 		assertThat(result).isPresent();
 		assertThat(result.get().sourcePath()).isEqualTo("public/characters/fixed/base_image_1.webp");
@@ -72,8 +72,8 @@ class CharacterReferenceAdapterTest {
 		given(loadObjectPort.loadObject("public/characters/fixed/base_image_1.webp"))
 				.willReturn("fixed-character".getBytes(StandardCharsets.UTF_8));
 
-		characterReferenceAdapter.findByUserId("user-1");
-		characterReferenceAdapter.findByUserId("user-1");
+		characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
+		characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
 
 		verify(loadObjectPort, times(1)).loadObject("public/characters/fixed/base_image_1.webp");
 	}
@@ -86,7 +86,7 @@ class CharacterReferenceAdapterTest {
 		given(loadObjectPort.loadObject("public/characters/fixed/missing.png"))
 				.willThrow(new RuntimeException("missing"));
 
-		var result = characterReferenceAdapter.findByUserId("user-1");
+		var result = characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
 
 		assertThat(result).isEmpty();
 	}
@@ -97,7 +97,7 @@ class CharacterReferenceAdapterTest {
 		given(queryUserSummaryUseCase.getUserSummaries(Set.of("user-1")))
 				.willReturn(Map.of("user-1", userSummary("characters/fixed/group/../bad.png")));
 
-		var result = characterReferenceAdapter.findByUserId("user-1");
+		var result = characterReferenceAdapter.loadCharacterReferenceForGeneration("user-1");
 
 		assertThat(result).isEmpty();
 		verifyNoInteractions(loadObjectPort);

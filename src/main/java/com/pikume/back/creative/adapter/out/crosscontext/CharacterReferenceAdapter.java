@@ -1,4 +1,4 @@
-package com.pikume.back.creative.adapter.out.user;
+package com.pikume.back.creative.adapter.out.crosscontext;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +33,7 @@ public class CharacterReferenceAdapter implements LoadCharacterReferencePort {
 	};
 
 	@Override
-	public Optional<CharacterReferenceImage> findByUserId(String userId) {
+	public Optional<CharacterReferenceImage> loadCharacterReferenceForGeneration(String userId) {
 		return loadAvatarPath(userId)
 				.flatMap(avatarPath -> {
 					String sourcePath = avatarPath;

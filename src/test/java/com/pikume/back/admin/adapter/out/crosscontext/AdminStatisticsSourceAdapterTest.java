@@ -1,6 +1,7 @@
 package com.pikume.back.admin.adapter.out.crosscontext;
 
 import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.user.application.port.out.LoadUserPort;
@@ -11,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,7 +27,19 @@ class AdminStatisticsSourceAdapterTest {
 	@Mock
 	private LoadDiaryPort loadDiaryPort;
 	@Mock
-	private LoadGenerationPort loadGenerationPort;
+	private QueryAiPhotoDashboardStatisticsUseCase aiPhotoStatisticsUseCase;
+
+	@Test
+	@DisplayName("creative 통계는 공개 조회 유스케이스에 의존한다")
+	void dependsOnCreativeStatisticsUseCase() {
+		List<Class<?>> dependencyTypes = Arrays.stream(
+						AdminStatisticsSourceAdapter.class.getDeclaredConstructors()[0].getParameterTypes())
+				.toList();
+
+		assertThat(dependencyTypes)
+				.contains(QueryAiPhotoDashboardStatisticsUseCase.class)
+				.doesNotContain(LoadGenerationPort.class);
+	}
 
 	@Test
 	@DisplayName("현재 회원 수는 user 도메인 포트로 조회한다")
@@ -68,8 +82,8 @@ class AdminStatisticsSourceAdapterTest {
 	void countAiPhotoSuccessesByDateMapsCreativeCounts() {
 		LocalDate startDate = LocalDate.of(2026, 6, 10);
 		LocalDate endDate = LocalDate.of(2026, 6, 11);
-		given(loadGenerationPort.countSuccessfulGenerationsByDate(startDate, endDate))
-				.willReturn(List.of(new LoadGenerationPort.DailyCount(endDate, 7L)));
+		given(aiPhotoStatisticsUseCase.countSuccessfulGenerationsByDate(startDate, endDate))
+				.willReturn(List.of(new QueryAiPhotoDashboardStatisticsUseCase.DailyCount(endDate, 7L)));
 
 		List<AdminDailyCount> result = adapter().countAiPhotoSuccessesByDate(startDate, endDate);
 
@@ -77,6 +91,6 @@ class AdminStatisticsSourceAdapterTest {
 	}
 
 	private AdminStatisticsSourceAdapter adapter() {
-		return new AdminStatisticsSourceAdapter(loadUserPort, loadDiaryPort, loadGenerationPort);
+		return new AdminStatisticsSourceAdapter(loadUserPort, loadDiaryPort, aiPhotoStatisticsUseCase);
 	}
 }

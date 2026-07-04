@@ -28,6 +28,14 @@ public class AiPhotoDashboardStatisticsQueryService implements QueryAiPhotoDashb
 	}
 
 	@Override
+	public List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate) {
+		return loadGenerationPort.countSuccessfulGenerationsByDate(startDate, endDate)
+				.stream()
+				.map(row -> new DailyCount(row.date(), row.count()))
+				.toList();
+	}
+
+	@Override
 	public List<DailyCount> countAllSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate) {
 		return loadGenerationPort.countAllSuccessfulGenerationsByDate(startDate, endDate)
 				.stream()

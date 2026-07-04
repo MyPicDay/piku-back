@@ -13,5 +13,7 @@ public interface QueryAiPhotoDashboardStatisticsUseCase {
 
 	long countSuccessfulGenerationsBefore(LocalDateTime cutoffExclusive);
 
+	List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
+
 	List<DailyCount> countAllSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
 }

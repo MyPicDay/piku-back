@@ -16,7 +16,7 @@ import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCa
 import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.creative.application.port.out.GenerateDiaryIllustrationPort;
 import com.pikume.back.creative.application.port.out.LoadCharacterReferencePort;
-import com.pikume.back.creative.application.port.out.SaveGenerationPort;
+import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 import com.pikume.back.creative.domain.exception.ImageGenerationException;
 
@@ -29,7 +29,7 @@ import com.pikume.back.creative.domain.exception.ImageGenerationException;
 public class ImageGenerationService implements GenerateImageUseCase {
 
 	private final GenerateDiaryIllustrationPort generateDiaryIllustrationPort;
-	private final SaveGenerationPort saveGenerationPort;
+	private final RecordGenerationPort recordGenerationPort;
 	private final LoadCharacterReferencePort loadCharacterReferencePort;
 	private final CreativeImageStoragePort creativeImageStoragePort;
 	private final DiaryIllustrationPromptPolicy diaryIllustrationPromptPolicy;
@@ -49,7 +49,7 @@ public class ImageGenerationService implements GenerateImageUseCase {
 
 		GeneratedImageResult result;
 		try {
-			String characterImageBase64 = loadCharacterReferencePort.findByUserId(userId)
+			String characterImageBase64 = loadCharacterReferencePort.loadCharacterReferenceForGeneration(userId)
 					.map(reference -> reference.imageBase64())
 					.orElseThrow(() -> new ImageGenerationException("참조 캐릭터 이미지를 불러올 수 없습니다."));
 
@@ -58,13 +58,13 @@ public class ImageGenerationService implements GenerateImageUseCase {
 
 			GeneratedIllustrationPayload illustration = generateDiaryIllustrationPort.generate(
 					new DiaryIllustrationRequest(prompt, characterImageBase64));
-			String generatedImageRelativePath = creativeImageStoragePort.saveAIPhoto(
+			String generatedImageRelativePath = creativeImageStoragePort.storeGeneratedImage(
 					illustration.imageBase64(),
 					userId,
 					illustration.fileExtension());
 
-			String aiUrl = creativeImageStoragePort.getPhotoUrl(generatedImageRelativePath, false);
-			DiaryImageGeneration diaryImageGeneration = saveGenerationPort.save(
+			String aiUrl = creativeImageStoragePort.resolveGeneratedImageUrl(generatedImageRelativePath, false);
+			DiaryImageGeneration diaryImageGeneration = recordGenerationPort.recordGeneration(
 					new DiaryImageGeneration(userId, prompt, generatedImageRelativePath));
 			log.info("생성된 이미지 URL: {}", aiUrl);
 			result = new GeneratedImageResult(diaryImageGeneration.getId(), aiUrl, generatedImageRelativePath);

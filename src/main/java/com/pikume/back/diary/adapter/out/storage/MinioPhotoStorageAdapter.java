@@ -233,6 +233,11 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 	}
 
 	@Override
+	public String resolveGeneratedImageUrl(String objectName, boolean isPublic) {
+		return getPhotoUrl(objectName, isPublic);
+	}
+
+	@Override
 	public String saveAIPhoto(String base64Data, String userId, String fileExtension) {
 		try {
 			if (base64Data == null || base64Data.trim().isEmpty()) {
@@ -266,6 +271,11 @@ public class MinioPhotoStorageAdapter implements PhotoStoragePort, ResolveImageU
 			log.error("AI 이미지 저장 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
 			throw new RuntimeException("AI 이미지 저장 중 오류가 발생했습니다.", e);
 		}
+	}
+
+	@Override
+	public String storeGeneratedImage(String base64Data, String userId, String fileExtension) {
+		return saveAIPhoto(base64Data, userId, fileExtension);
 	}
 
 	@Override
