@@ -18,7 +18,9 @@ import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import com.pikume.back.global.util.CharacterAvatarPathNormalizer;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -43,7 +45,7 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 
 	@Override
 	public List<CharacterResult> getFixedCharacters() {
-		return loadCharacterPort.findByType(CharacterCreationType.FIXED).stream()
+		return selectPreferredFixedCharacters(loadCharacterPort.findByType(CharacterCreationType.FIXED)).stream()
 				.map(this::toDisplayResult)
 				.toList();
 	}
@@ -177,6 +179,29 @@ public class CharacterService implements GetCharacterUseCase, ManageCharacterUse
 					e.getMessage());
 			return Optional.empty();
 		}
+	}
+
+	private List<Character> selectPreferredFixedCharacters(List<Character> characters) {
+		Map<String, Character> selectedByBaseName = new LinkedHashMap<>();
+		for (Character character : characters) {
+			String imageUrl = CharacterAvatarPathNormalizer.normalizeFixedCharacterObjectKey(character.getImageUrl());
+			String baseName = removePngOrWebpExtension(imageUrl);
+			Character selected = selectedByBaseName.get(baseName);
+			if (selected == null || imageUrl.endsWith(".webp")) {
+				selectedByBaseName.put(baseName, character);
+			}
+		}
+		return selectedByBaseName.values().stream().toList();
+	}
+
+	private String removePngOrWebpExtension(String imageUrl) {
+		if (imageUrl.endsWith(".webp")) {
+			return imageUrl.substring(0, imageUrl.length() - ".webp".length());
+		}
+		if (imageUrl.endsWith(".png")) {
+			return imageUrl.substring(0, imageUrl.length() - ".png".length());
+		}
+		return imageUrl;
 	}
 
 	private int synchronizeStorageCharactersToDb(Set<String> dbObjectKeys, List<String> storageObjectKeys) {

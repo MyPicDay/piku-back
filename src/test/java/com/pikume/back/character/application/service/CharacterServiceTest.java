@@ -85,6 +85,30 @@ class CharacterServiceTest {
 
 			assertThat(result).isEmpty();
 		}
+
+		@Test
+		@DisplayName("같은 고정 캐릭터 png와 webp가 함께 있으면 webp를 우선 반환하고 png는 fallback으로 유지한다")
+		void prefersWebpWhenFixedCharacterPngAndWebpHaveSameBaseName() {
+			Character legacyPng = new Character("base_image_1.png", CharacterCreationType.FIXED);
+			Character preferredWebp = new Character("base_image_1.webp", CharacterCreationType.FIXED);
+			Character fallbackPng = new Character("base_image_2.png", CharacterCreationType.FIXED);
+			given(loadCharacterPort.findByType(CharacterCreationType.FIXED))
+					.willReturn(List.of(legacyPng, preferredWebp, fallbackPng));
+			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
+			given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_2.png", true))
+					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_2.png");
+
+			List<CharacterResult> result = characterService.getFixedCharacters();
+
+			assertThat(result).hasSize(2);
+			assertThat(result).extracting(CharacterResult::imageUrl)
+					.containsExactly(
+							"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp",
+							"https://assets.example.com/piku/public/characters/fixed/base_image_2.png");
+			then(resolveImageUrlPort).should(never())
+					.getPhotoUrl("public/characters/fixed/base_image_1.png", true);
+		}
 	}
 
 	@Nested
