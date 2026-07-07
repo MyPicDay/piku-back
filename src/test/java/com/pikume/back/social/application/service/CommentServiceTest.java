@@ -528,16 +528,16 @@ class CommentServiceTest {
 	}
 
 	@Nested
-	@DisplayName("countAllCommentsByDiaryId - 전체 댓글 수 조회")
+	@DisplayName("countAllCommentsByDiaryId - 활성 댓글 수 조회")
 	class CountComments {
 
 		@Test
 		@DisplayName("일기의 전체 댓글 수를 조회한다")
 		void countSuccess() {
 			given(loadDiaryInfoPort.existsVisibleById(1L, "viewer-id")).willReturn(true);
-			given(loadCommentPort.countAllByDiaryId(1L)).willReturn(15L);
+			given(loadCommentPort.countActiveCommentsByDiaryId(1L)).willReturn(15L);
 
-			assertThat(commentService.countAllCommentsByDiaryId("viewer-id", 1L)).isEqualTo(15L);
+			assertThat(commentService.countActiveCommentsByDiaryId("viewer-id", 1L)).isEqualTo(15L);
 		}
 
 		@Test
@@ -545,7 +545,7 @@ class CommentServiceTest {
 		void failsDiaryNotFound() {
 			given(loadDiaryInfoPort.existsVisibleById(999L, "viewer-id")).willReturn(false);
 
-			assertThatThrownBy(() -> commentService.countAllCommentsByDiaryId("viewer-id", 999L))
+			assertThatThrownBy(() -> commentService.countActiveCommentsByDiaryId("viewer-id", 999L))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.DIARY_NOT_FOUND));

@@ -26,7 +26,7 @@ public interface CommentUseCase {
 	PageResult<CommentListItemResult> getRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery,
 			RequestMetaInfo requestMetaInfo, String viewerId);
 
-	long countAllCommentsByDiaryId(String viewerId, Long diaryId);
+	long countActiveCommentsByDiaryId(String viewerId, Long diaryId);
 
 	Map<Long, Long> getCommentCountsForDiaries(List<Long> diaryIds);
 

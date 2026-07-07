@@ -23,13 +23,13 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
 	}
 
 	@Override
-	public long countAllByDiaryId(Long diaryId) {
-		return commentJpaRepository.countAllByDiaryId(diaryId);
+	public long countActiveCommentsByDiaryId(Long diaryId) {
+		return commentJpaRepository.countActiveCommentsByDiaryId(diaryId);
 	}
 
 	@Override
-	public List<Object[]> countAllByDiaryIds(Collection<Long> diaryIds) {
-		return commentJpaRepository.countAllByDiaryIds(diaryIds).stream()
+	public List<Object[]> countActiveCommentsByDiaryIds(Collection<Long> diaryIds) {
+		return commentJpaRepository.countActiveCommentsByDiaryIds(diaryIds).stream()
 				.map(result -> new Object[] { result.getDiaryId(), result.getCommentCount() })
 				.toList();
 	}

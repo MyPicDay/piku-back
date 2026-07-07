@@ -11,9 +11,9 @@ public interface LoadCommentPort {
 
 	Optional<Comment> findById(Long commentId);
 
-	long countAllByDiaryId(Long diaryId);
+	long countActiveCommentsByDiaryId(Long diaryId);
 
-	List<Object[]> countAllByDiaryIds(Collection<Long> diaryIds);
+	List<Object[]> countActiveCommentsByDiaryIds(Collection<Long> diaryIds);
 
 	Set<Long> findCommentedDiaryIdsByUserId(String userId, Collection<Long> diaryIds);
 }

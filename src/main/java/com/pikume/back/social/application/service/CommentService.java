@@ -146,12 +146,12 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public long countAllCommentsByDiaryId(String viewerId, Long diaryId) {
+	public long countActiveCommentsByDiaryId(String viewerId, Long diaryId) {
 		if (!loadDiaryInfoPort.existsVisibleById(diaryId, viewerId)) {
 			throw new CommentException(CommentErrorCode.DIARY_NOT_FOUND);
 		}
-		long count = loadCommentPort.countAllByDiaryId(diaryId);
-		log.info("일기 ID {}에 달린 전체 댓글 수: {}", diaryId, count);
+		long count = loadCommentPort.countActiveCommentsByDiaryId(diaryId);
+		log.info("일기 ID {}에 달린 활성 댓글 수: {}", diaryId, count);
 		return count;
 	}
 
@@ -162,7 +162,7 @@ public class CommentService implements CommentUseCase {
 			return java.util.Map.of();
 		}
 
-		return loadCommentPort.countAllByDiaryIds(diaryIds).stream()
+		return loadCommentPort.countActiveCommentsByDiaryIds(diaryIds).stream()
 				.collect(java.util.stream.Collectors.toMap(
 						row -> (Long) row[0],
 						row -> ((Number) row[1]).longValue()));

@@ -289,6 +289,29 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 				.doesNotContain(privateDiary.getId(), friendMid.getId(), friendExtra.getId(), nonFriendFriendsDiary.getId());
 	}
 
+	@Test
+	@DisplayName("피드 상세와 목록의 댓글 수는 삭제 댓글을 제외한다")
+	void feedCommentCountExcludesDeletedComments() {
+		User deletedCommenter = saveUser("deleted-commenter");
+		Comment deletedComment = addComment(publicHigh.getId(), deletedCommenter.getId(), "deleted-comment");
+		deletedComment.delete();
+		commentJpaRepository.save(deletedComment);
+		flushAndClear();
+
+		FeedDiaryResult detail = feedQueryService.getDiaryWithPhotos(publicHigh.getId(), REQUEST_META_INFO, viewer.getId());
+		FeedCursorPage<FeedDiaryResult> latestPage = feedQueryService.getAllDiaries(
+				new FeedCursorRequest(null, 7, FeedSortMode.LATEST),
+				REQUEST_META_INFO,
+				viewer.getId());
+
+		FeedDiaryResult publicHighItem = latestPage.items().stream()
+				.filter(item -> item.getDiaryId().equals(publicHigh.getId()))
+				.findFirst()
+				.orElseThrow();
+		assertThat(detail.getCommentCount()).isEqualTo(1L);
+		assertThat(publicHighItem.getCommentCount()).isEqualTo(1L);
+	}
+
 	private User saveUser(String suffix) {
 		return userJpaRepository.save(new User(
 				suffix + "@example.com",
@@ -322,7 +345,7 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		likeJpaRepository.save(Like.builder().userId(userId).diaryId(diaryId).build());
 	}
 
-	private void addComment(Long diaryId, String userId, String content) {
-		commentJpaRepository.save(new Comment(content, userId, diaryId));
+	private Comment addComment(Long diaryId, String userId, String content) {
+		return commentJpaRepository.save(new Comment(content, userId, diaryId));
 	}
 }

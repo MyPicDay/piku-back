@@ -27,14 +27,15 @@ public interface CommentJpaRepository extends JpaRepository<Comment, Long> {
 
 	Page<Comment> findByParentIdAndDeletedAtIsNull(Long parentId, Pageable pageable);
 
-	@Query("SELECT COUNT(c) FROM Comment c WHERE c.diaryId = :diaryId")
-	long countAllByDiaryId(@Param("diaryId") Long diaryId);
+	@Query("SELECT COUNT(c) FROM Comment c WHERE c.diaryId = :diaryId AND c.deletedAt IS NULL")
+	long countActiveCommentsByDiaryId(@Param("diaryId") Long diaryId);
 
 	@Query("SELECT c.diaryId AS diaryId, COUNT(c) AS commentCount " +
 			"FROM Comment c " +
 			"WHERE c.diaryId IN :diaryIds " +
+			"AND c.deletedAt IS NULL " +
 			"GROUP BY c.diaryId")
-	List<DiaryCommentCountProjection> countAllByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
+	List<DiaryCommentCountProjection> countActiveCommentsByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 
 	@Query("SELECT DISTINCT c.diaryId " +
 			"FROM Comment c " +

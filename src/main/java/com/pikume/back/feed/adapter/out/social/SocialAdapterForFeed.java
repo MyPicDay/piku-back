@@ -43,7 +43,7 @@ public class SocialAdapterForFeed implements LoadSocialForFeedPort {
 
 	@Override
 	public long countComments(String viewerId, Long diaryId) {
-		return commentUseCase.countAllCommentsByDiaryId(viewerId, diaryId);
+		return commentUseCase.countActiveCommentsByDiaryId(viewerId, diaryId);
 	}
 
 	@Override
