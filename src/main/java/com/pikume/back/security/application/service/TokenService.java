@@ -21,6 +21,7 @@ import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
 import com.pikume.back.security.application.port.out.DeleteRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
+import com.pikume.back.security.application.port.out.RevokeDevicePushTokenPort;
 import com.pikume.back.security.application.port.out.SaveRefreshTokenPort;
 import com.pikume.back.security.domain.RefreshToken;
 @Service
@@ -32,6 +33,7 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	private final LoadRefreshTokenPort loadRefreshTokenPort;
 	private final SaveRefreshTokenPort saveRefreshTokenPort;
 	private final DeleteRefreshTokenPort deleteRefreshTokenPort;
+	private final RevokeDevicePushTokenPort revokeDevicePushTokenPort;
 	private final JwtProvider jwtProvider;
 	private final PasswordEncoder passwordEncoder;
 
@@ -132,18 +134,23 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 	}
 
 	@Override
+	@Transactional
 	public void logout(String userId, String deviceId) {
 		String key = userId + "-" + deviceId;
+		revokeDevicePushTokenIfDeviceIdPresent(userId, deviceId);
 		deleteRefreshTokenPort.deleteById(key);
 		log.info("event=logout_completed outcome=success userId={}", userId);
 	}
 
 	@Override
 	@Transactional
-	public void logoutByRefreshToken(String refreshToken) {
+	public void logoutByRefreshToken(String refreshToken, String deviceId) {
 		if (!StringUtils.hasText(refreshToken)) {
 			return;
 		}
+		RefreshToken tokenEntity = loadRefreshTokenPort.findByRefreshToken(refreshToken)
+				.orElse(null);
+		revokeDevicePushTokenIfSameDevice(tokenEntity, deviceId);
 		deleteRefreshTokenPort.deleteByRefreshToken(refreshToken);
 	}
 
@@ -164,6 +171,31 @@ public class TokenService implements LoginUseCase, ReissueTokenUseCase {
 		saveRefreshTokenPort.save(refreshTokenEntity);
 		log.debug("event=refresh_token_saved userId={}", userId);
 		return newRefreshToken;
+	}
+
+	private void revokeDevicePushTokenIfSameDevice(RefreshToken tokenEntity, String deviceId) {
+		if (tokenEntity == null ||
+				!StringUtils.hasText(tokenEntity.getUserId()) ||
+				!StringUtils.hasText(deviceId)) {
+			return;
+		}
+
+		String expectedKey = tokenEntity.getUserId() + "-" + deviceId;
+		if (!expectedKey.equals(tokenEntity.getKey())) {
+			log.warn("event=logout_push_token_revoke_skipped reason=device_mismatch userId={}",
+					tokenEntity.getUserId());
+			return;
+		}
+
+		revokeDevicePushTokenPort.revokeDevicePushToken(tokenEntity.getUserId(), deviceId);
+	}
+
+	private void revokeDevicePushTokenIfDeviceIdPresent(String userId, String deviceId) {
+		if (!StringUtils.hasText(userId) || !StringUtils.hasText(deviceId)) {
+			return;
+		}
+
+		revokeDevicePushTokenPort.revokeDevicePushToken(userId, deviceId);
 	}
 
 	private String generateAccessTokenForStoredRefreshToken(String refreshToken, RefreshToken tokenEntity) {

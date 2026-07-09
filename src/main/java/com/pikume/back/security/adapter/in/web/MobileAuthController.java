@@ -73,7 +73,8 @@ public class MobileAuthController {
 
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(@RequestBody MobileLogoutRequest dto, HttpServletRequest request) {
-		loginUseCase.logoutByRefreshToken(dto.refreshToken());
+		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
+		loginUseCase.logoutByRefreshToken(dto.refreshToken(), deviceId);
 		return ResponseEntity.ok(new MessageResponse("로그아웃 완료"));
 	}
 

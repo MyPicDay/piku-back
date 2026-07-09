@@ -15,7 +15,13 @@ public class FcmTokenService implements FcmTokenUseCase {
 
 	@Override
 	public void saveToken(String userId, String token, String deviceId) {
-		log.info("FCM 토큰 저장 - userId: {}, deviceId: {}", userId, deviceId);
+		log.info("event=fcm_token_save_requested userId={}", userId);
 		pushNotificationPort.saveToken(userId, token, deviceId);
+	}
+
+	@Override
+	public void revokeTokenForDevice(String userId, String deviceId) {
+		log.info("event=fcm_device_token_revoke_requested userId={}", userId);
+		pushNotificationPort.deleteTokenForDevice(userId, deviceId);
 	}
 }

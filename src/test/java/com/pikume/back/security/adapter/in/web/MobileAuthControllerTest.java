@@ -1,6 +1,5 @@
 package com.pikume.back.security.adapter.in.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
@@ -28,6 +27,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -147,12 +147,29 @@ class MobileAuthControllerTest {
 	@DisplayName("POST /api/mobile/auth/logout은 성공 시 MessageResponse를 반환한다")
 	void logoutReturnsMessageResponseWhenSuccessful() throws Exception {
 		mockMvc.perform(post("/api/mobile/auth/logout")
+						.header("Device-Id", "device-1")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{"refreshToken":"refresh-token"}
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("로그아웃 완료"));
+
+		then(loginUseCase).should().logoutByRefreshToken("refresh-token", "device-1");
+	}
+
+	@Test
+	@DisplayName("POST /api/mobile/auth/logout은 Device-Id가 없어도 성공을 반환한다")
+	void logoutReturnsSuccessWhenDeviceIdIsMissing() throws Exception {
+		mockMvc.perform(post("/api/mobile/auth/logout")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"refreshToken":"refresh-token"}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("로그아웃 완료"));
+
+		then(loginUseCase).should().logoutByRefreshToken("refresh-token", null);
 	}
 
 	@Test

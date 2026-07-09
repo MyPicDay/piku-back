@@ -26,6 +26,11 @@ public class LocalPushAdapter implements PushNotificationPort {
 	}
 
 	@Override
+	public void deleteTokenForDevice(String userId, String deviceId) {
+		log.info("event=local_fcm_device_token_delete_requested userId={}", userId);
+	}
+
+	@Override
 	public void saveToken(String userId, String token, String deviceId) {
 		log.info("[Local] FCM 토큰 저장(가정)");
 	}

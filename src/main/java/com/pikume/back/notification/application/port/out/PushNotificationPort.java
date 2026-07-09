@@ -13,4 +13,6 @@ public interface PushNotificationPort {
 	Set<String> getTokenByUserId(String userId);
 
 	void deleteToken(String token);
+
+	void deleteTokenForDevice(String userId, String deviceId);
 }

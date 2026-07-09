@@ -38,13 +38,19 @@ public class FcmPushAdapter implements PushNotificationPort {
 	}
 
 	@Override
+	public void deleteTokenForDevice(String userId, String deviceId) {
+		fcmTokenJpaRepository.deleteByUserIdAndDeviceId(userId, deviceId);
+		log.info("event=fcm_device_token_deleted userId={}", userId);
+	}
+
+	@Override
 	public void saveToken(String userId, String token, String deviceId) {
 		try {
 			fcmTokenJpaRepository.findByUserIdAndDeviceId(userId, deviceId).ifPresentOrElse(
 					existing -> existing.updateToken(token),
 					() -> fcmTokenJpaRepository.save(new FcmToken(userId, token, deviceId)));
 		} catch (IncorrectResultSizeDataAccessException | NonUniqueResultException e) {
-			log.error("사용자: {} 디바이스: {}에 대한 중복된 토큰이 존재합니다.", userId, deviceId);
+			log.error("event=fcm_token_duplicate_detected userId={}", userId);
 		}
 	}
 

@@ -19,6 +19,7 @@ import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.security.application.port.out.DeleteRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadRefreshTokenPort;
 import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
+import com.pikume.back.security.application.port.out.RevokeDevicePushTokenPort;
 import com.pikume.back.security.application.port.out.SaveRefreshTokenPort;
 import com.pikume.back.security.domain.RefreshToken;
 import java.util.Optional;
@@ -46,6 +47,8 @@ class TokenServiceTest {
 	private SaveRefreshTokenPort saveRefreshTokenPort;
 	@Mock
 	private DeleteRefreshTokenPort deleteRefreshTokenPort;
+	@Mock
+	private RevokeDevicePushTokenPort revokeDevicePushTokenPort;
 	@Mock
 	private JwtProvider jwtProvider;
 	@Mock
@@ -208,23 +211,97 @@ class TokenServiceTest {
 		void logoutSuccess() {
 			tokenService.logout("user-id", "device-1");
 
+			then(revokeDevicePushTokenPort).should().revokeDevicePushToken("user-id", "device-1");
 			then(deleteRefreshTokenPort).should().deleteById("user-id-device-1");
 		}
 
 		@Test
-		@DisplayName("모바일 로그아웃 시 refresh token으로 토큰을 삭제한다")
-		void logoutByRefreshTokenSuccess() {
-			tokenService.logoutByRefreshToken("refresh-token");
+		@DisplayName("로그아웃 시 deviceId가 비어 있으면 FCM 토큰은 삭제하지 않는다")
+		void logoutSkipsPushTokenWhenDeviceIdIsBlank() {
+			tokenService.logout("user-id", "");
 
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteById("user-id-");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 refresh token과 같은 기기의 FCM 토큰을 삭제한다")
+		void logoutByRefreshTokenSuccess() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token"))
+					.willReturn(Optional.of(new RefreshToken("user-id-device-1", "refresh-token", "user-id")));
+
+			tokenService.logoutByRefreshToken("refresh-token", "device-1");
+
+			then(revokeDevicePushTokenPort).should().revokeDevicePushToken("user-id", "device-1");
 			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
 		}
 
 		@Test
 		@DisplayName("모바일 로그아웃 시 빈 refresh token이면 삭제하지 않는다")
 		void logoutByRefreshTokenIgnoresBlank() {
-			tokenService.logoutByRefreshToken("");
+			tokenService.logoutByRefreshToken("", "device-1");
 
 			then(deleteRefreshTokenPort).shouldHaveNoInteractions();
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 저장된 refresh token이 없으면 FCM 토큰은 삭제하지 않는다")
+		void logoutByRefreshTokenSkipsPushTokenWhenRefreshTokenIsMissing() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token")).willReturn(Optional.empty());
+
+			tokenService.logoutByRefreshToken("refresh-token", "device-1");
+
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 legacy refresh token이면 FCM 토큰은 삭제하지 않는다")
+		void logoutByRefreshTokenSkipsPushTokenWhenStoredUserIdIsMissing() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token"))
+					.willReturn(Optional.of(new RefreshToken("legacy-key", "refresh-token", "")));
+
+			tokenService.logoutByRefreshToken("refresh-token", "device-1");
+
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 deviceId가 없으면 FCM 토큰은 삭제하지 않는다")
+		void logoutByRefreshTokenSkipsPushTokenWhenDeviceIdIsMissing() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token"))
+					.willReturn(Optional.of(new RefreshToken("user-id-device-1", "refresh-token", "user-id")));
+
+			tokenService.logoutByRefreshToken("refresh-token", null);
+
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 같은 사용자의 다른 deviceId면 FCM 토큰은 삭제하지 않는다")
+		void logoutByRefreshTokenSkipsPushTokenWhenDeviceDoesNotMatchRefreshToken() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token"))
+					.willReturn(Optional.of(new RefreshToken("user-id-device-1", "refresh-token", "user-id")));
+
+			tokenService.logoutByRefreshToken("refresh-token", "device-2");
+
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
+		}
+
+		@Test
+		@DisplayName("모바일 로그아웃 시 다른 사용자의 deviceId로 보이면 FCM 토큰은 삭제하지 않는다")
+		void logoutByRefreshTokenSkipsPushTokenWhenDeviceBelongsToAnotherUser() {
+			given(loadRefreshTokenPort.findByRefreshToken("refresh-token"))
+					.willReturn(Optional.of(new RefreshToken("user-a-device-a", "refresh-token", "user-a")));
+
+			tokenService.logoutByRefreshToken("refresh-token", "device-b");
+
+			then(revokeDevicePushTokenPort).shouldHaveNoInteractions();
+			then(deleteRefreshTokenPort).should().deleteByRefreshToken("refresh-token");
 		}
 	}
 

@@ -14,5 +14,5 @@ public interface LoginUseCase {
 
 	void logout(String userId, String deviceId);
 
-	void logoutByRefreshToken(String refreshToken);
+	void logoutByRefreshToken(String refreshToken, String deviceId);
 }
