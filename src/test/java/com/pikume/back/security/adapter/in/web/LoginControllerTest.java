@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -33,6 +34,7 @@ import com.pikume.back.security.dto.UserInfo;
 import com.pikume.back.user.auth.constants.AuthConstants;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -141,6 +143,12 @@ class LoginControllerTest {
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Authorization", "Bearer access-token"))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("refreshToken=refresh-token")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=3600")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Path=/")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Secure")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("SameSite=Lax")))
 				.andExpect(jsonPath("$.message").value("로그인 성공"))
 				.andExpect(jsonPath("$.user.id").value("user-1"))
 				.andExpect(jsonPath("$.user.email").doesNotExist())

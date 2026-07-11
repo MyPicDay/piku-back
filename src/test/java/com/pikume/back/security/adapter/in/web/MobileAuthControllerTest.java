@@ -91,7 +91,10 @@ class MobileAuthControllerTest {
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp"))
 				.andExpect(jsonPath("$.tokens.accessToken").value("access-token"))
-				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"));
+				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"))
+				.andExpect(jsonPath("$.tokens.tokenType").value("Bearer"))
+				.andExpect(jsonPath("$.tokens.accessTokenExpiresIn").value(1800L))
+				.andExpect(jsonPath("$.tokens.refreshTokenExpiresIn").value(604800L));
 	}
 
 	@Test
@@ -125,7 +128,10 @@ class MobileAuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 재발급 성공"))
 				.andExpect(jsonPath("$.tokens.accessToken").value("new-access"))
-				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"));
+				.andExpect(jsonPath("$.tokens.refreshToken").value("refresh-token"))
+				.andExpect(jsonPath("$.tokens.tokenType").value("Bearer"))
+				.andExpect(jsonPath("$.tokens.accessTokenExpiresIn").value(1800L))
+				.andExpect(jsonPath("$.tokens.refreshTokenExpiresIn").value(604800L));
 	}
 
 	@Test

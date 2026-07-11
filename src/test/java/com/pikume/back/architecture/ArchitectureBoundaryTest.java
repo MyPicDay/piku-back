@@ -26,6 +26,26 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
+	@DisplayName("user domain은 application, adapter, 다른 context 또는 Spring 기술에 의존하지 않는다.")
+	void userDomainDoesNotDependOnOutsideLayersOrContexts() throws IOException {
+		Path userSources = Path.of("src/main/java/com/pikume/back/user");
+
+		assertThat(findJavaSourceViolations(
+				userSources,
+				path -> path.toString().contains("/domain/")
+						&& (sourceContains(path, "com.pikume.back.user.application")
+						|| sourceContains(path, "com.pikume.back.user.adapter")
+						|| sourceContains(path, "com.pikume.back.character.")
+						|| sourceContains(path, "com.pikume.back.diary.")
+						|| sourceContains(path, "com.pikume.back.social.")
+						|| sourceContains(path, "com.pikume.back.notification.")
+						|| sourceContains(path, "org.springframework.")
+						|| sourceContains(path, "io.jsonwebtoken.")
+						|| sourceContains(path, "jakarta.servlet."))))
+				.isEmpty();
+	}
+
+	@Test
 	@DisplayName("creative application은 웹 보안 principal에 의존하지 않는다.")
 	void creativeApplicationDoesNotDependOnWebSecurityPrincipal() throws IOException {
 		Path creativeApplication = Path.of("src/main/java/com/pikume/back/creative/application");

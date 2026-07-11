@@ -1,11 +1,9 @@
-package com.pikume.back.user.domain.service;
+package com.pikume.back.user.adapter.in.config;
 
+import com.pikume.back.user.domain.service.NicknamePolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * User 도메인 서비스 Bean 설정
- */
 @Configuration
 public class UserDomainConfig {
 

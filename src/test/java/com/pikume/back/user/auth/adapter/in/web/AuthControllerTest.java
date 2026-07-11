@@ -23,11 +23,15 @@ import com.pikume.back.user.auth.exception.AuthErrorCode;
 import com.pikume.back.user.auth.exception.AuthException;
 import com.pikume.back.user.auth.exception.AuthExceptionHandler;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.doNothing;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -67,6 +71,75 @@ class AuthControllerTest {
 						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
 						new AuthExceptionHandler(problemDetailFactory))
 				.build();
+	}
+
+	@Test
+	@DisplayName("POST /api/auth/send-verification/sign-up은 기존 성공 메시지를 반환한다")
+	void sendSignUpVerificationEmailReturnsMessageResponse() throws Exception {
+		mockMvc.perform(post("/api/auth/send-verification/sign-up")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"user@example.com\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("회원가입 인증 이메일이 발송되었습니다."));
+
+		then(verifyEmailUseCase).should().sendSignUpVerificationEmail("user@example.com");
+	}
+
+	@Test
+	@DisplayName("POST /api/auth/send-verification/password-reset은 기존 성공 메시지를 반환한다")
+	void sendPasswordResetVerificationEmailReturnsMessageResponse() throws Exception {
+		mockMvc.perform(post("/api/auth/send-verification/password-reset")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"user@example.com\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("비밀번호 재설정 인증 이메일이 발송되었습니다."));
+
+		then(verifyEmailUseCase).should().sendPasswordResetVerificationEmail("user@example.com");
+	}
+
+	@Test
+	@DisplayName("POST /api/auth/verify-code는 기존 성공 메시지를 반환한다")
+	void verifyCodeReturnsMessageResponse() throws Exception {
+		mockMvc.perform(post("/api/auth/verify-code")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"user@example.com\",\"code\":\"123456\",\"type\":\"SIGN_UP\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("이메일 인증이 완료되었습니다."));
+
+		then(verifyEmailUseCase).should().verifyCode(any());
+	}
+
+	@Test
+	@DisplayName("POST /api/auth/password-reset은 기존 성공 메시지를 반환한다")
+	void resetPasswordReturnsMessageResponse() throws Exception {
+		mockMvc.perform(post("/api/auth/password-reset")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"email\":\"user@example.com\",\"password\":\"newPassword1!\"}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("비밀번호가 재설정되었습니다."));
+
+		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(any());
+	}
+
+	@Test
+	@DisplayName("GET /api/auth/email은 이메일 허용 여부 계약을 유지한다")
+	void isEmailAllowedReturnsAllowedFlag() throws Exception {
+		given(sendVerificationEmailPort.isEmailAllowed("user@example.com")).willReturn(true);
+
+		mockMvc.perform(get("/api/auth/email").param("email", "user@example.com"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.allowed").value(true));
+	}
+
+	@Test
+	@DisplayName("GET /api/auth/email-domains는 허용 도메인 목록 계약을 유지한다")
+	void getAllowedEmailDomainsReturnsDomainList() throws Exception {
+		given(sendVerificationEmailPort.getAllowedEmailDomains()).willReturn(List.of("example.com", "pikume.com"));
+
+		mockMvc.perform(get("/api/auth/email-domains"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0]").value("example.com"))
+				.andExpect(jsonPath("$[1]").value("pikume.com"));
 	}
 
 	@Test
