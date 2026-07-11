@@ -8,7 +8,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.LikeJpaRepository;
 import com.pikume.back.social.application.port.out.PublishEventPort;
@@ -55,10 +54,6 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	private Long diaryId;
 	private Long friendsDiaryId;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "localhost", 8080, "localhost:8080",
-			"https://localhost:8080/api/likes/diary/1", "TestAgent", "127.0.0.1");
-
 	@BeforeEach
 	void setUp() {
 		User owner = userJpaRepository.save(new User("owner@example.com", "password", "owner"));
@@ -80,9 +75,9 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@Test
 	@DisplayName("좋아요한 일기에 다시 좋아요를 누르면 ALREADY_LIKED 예외가 발생한다")
 	void throwsWhenAddLikeToAlreadyLikedDiary() {
-		likeService.addLike(likerId, diaryId, requestMetaInfo);
+		likeService.addLike(likerId, diaryId);
 
-		assertThatThrownBy(() -> likeService.addLike(likerId, diaryId, requestMetaInfo))
+		assertThatThrownBy(() -> likeService.addLike(likerId, diaryId))
 				.isInstanceOf(LikeException.class)
 				.satisfies(e -> assertThat(((LikeException) e).getErrorCode()).isEqualTo(LikeErrorCode.ALREADY_LIKED));
 	}
@@ -98,7 +93,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@Test
 	@DisplayName("좋아요 후 취소한 일기에 다시 좋아요를 누르면 기존 좋아요가 복구된다")
 	void restoresSoftDeletedLikeWhenRelike() {
-		likeService.addLike(likerId, diaryId, requestMetaInfo);
+		likeService.addLike(likerId, diaryId);
 		then(publishEventPort).should().publish(any());
 		flushAndClear();
 		likeService.removeLike(likerId, diaryId);
@@ -110,7 +105,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 		assertThat(softDeletedLike.getDeletedAt()).isNotNull();
 		flushAndClear();
 
-		likeService.addLike(likerId, diaryId, requestMetaInfo);
+		likeService.addLike(likerId, diaryId);
 		flushAndClear();
 
 		Like restoredLike = likeJpaRepository.findAll().get(0);
@@ -123,7 +118,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@Test
 	@DisplayName("비친구는 친구 공개 일기에 좋아요를 누를 수 없다")
 	void strangerCannotLikeFriendsDiary() {
-		assertThatThrownBy(() -> likeService.addLike(strangerId, friendsDiaryId, requestMetaInfo))
+		assertThatThrownBy(() -> likeService.addLike(strangerId, friendsDiaryId))
 				.isInstanceOf(LikeException.class)
 				.satisfies(e -> assertThat(((LikeException) e).getErrorCode()).isEqualTo(LikeErrorCode.DIARY_NOT_FOUND));
 	}
@@ -131,7 +126,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@Test
 	@DisplayName("작성자는 본인 일기에 좋아요를 누를 수 있고 알림 이벤트는 발행되지 않는다")
 	void ownerCanLikeOwnDiaryWithoutNotificationEvent() {
-		var response = likeService.addLike(ownerId, diaryId, requestMetaInfo);
+		var response = likeService.addLike(ownerId, diaryId);
 
 		assertThat(response.diaryId()).isEqualTo(diaryId);
 		assertThat(response.likeCount()).isEqualTo(1L);
@@ -143,7 +138,7 @@ class LikeServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 	@Test
 	@DisplayName("친구는 친구 공개 일기에 좋아요를 누를 수 있다")
 	void friendCanLikeFriendsDiary() {
-		var response = likeService.addLike(friendId, friendsDiaryId, requestMetaInfo);
+		var response = likeService.addLike(friendId, friendsDiaryId);
 
 		assertThat(response.diaryId()).isEqualTo(friendsDiaryId);
 		assertThat(response.likeCount()).isEqualTo(1L);

@@ -5,18 +5,15 @@ import com.pikume.back.diary.application.dto.*;
 import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.port.in.*;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.error.ValidationProblemType;
-import com.pikume.back.global.util.RequestMetaMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
@@ -48,7 +45,6 @@ public class DiaryController {
 	private final GetCalendarUseCase getCalendarUseCase;
 	private final UpdateDiaryUseCase updateDiaryUseCase;
 	private final GetDiaryGalleryUseCase getDiaryGalleryUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 	private final Validator validator;
 	private final ProblemDetailFactory problemDetailFactory;
 
@@ -57,8 +53,7 @@ public class DiaryController {
 	public ResponseEntity<?> createDiary(
 			@Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class)) @RequestPart("diary") DiaryDTO diary,
 			@RequestPart(value = "photos", required = false) List<MultipartFile> photos,
-			@AuthenticationPrincipal CustomUserDetails userDetails,
-			HttpServletRequest request) {
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
 		try {
 			Set<ConstraintViolation<DiaryDTO>> violations = validator.validate(diary);
@@ -66,12 +61,10 @@ public class DiaryController {
 				throw new ConstraintViolationException(violations);
 			}
 
-			RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 			DiaryCreatedResult isSaved = createDiaryUseCase.createDiary(
 					toCreateDiaryCommand(diary),
 					toUploadedFiles(photos),
-					userDetails.getId(),
-					requestMetaInfo);
+					userDetails.getId());
 			if (isSaved != null) {
 				return ResponseEntity.status(HttpStatus.CREATED).body(new ResponseDiaryDTO(isSaved.diaryId(), isSaved.content()));
 			}
@@ -132,12 +125,9 @@ public class DiaryController {
 			@PathVariable String userId,
 			@RequestParam int year,
 			@RequestParam int month,
-			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String viewerId = userDetails != null ? userDetails.getId() : null;
-		List<CalendarDiaryResponseDTO> diaries = getCalendarUseCase.findMonthlyDiaries(userId, viewerId, year, month,
-				requestMetaInfo).stream()
+		List<CalendarDiaryResponseDTO> diaries = getCalendarUseCase.findMonthlyDiaries(userId, viewerId, year, month).stream()
 				.map(this::toCalendarDiaryResponse)
 				.toList();
 

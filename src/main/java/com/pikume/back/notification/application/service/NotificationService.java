@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -41,7 +40,7 @@ public class NotificationService implements NotificationUseCase {
 	@Override
 	@Transactional
 	public void sendNotification(String receiverId, NotificationType type, String senderId,
-			Long diaryId, RequestMetaInfo requestMetaInfo) {
+			Long diaryId) {
 		log.info("알림 저장 요청");
 		LoadDiaryForNotificationPort.DiaryNotificationInfo diaryInfo = loadDiaryNotificationInfo(diaryId);
 		if (diaryId != null && diaryInfo == null) {
@@ -62,7 +61,7 @@ public class NotificationService implements NotificationUseCase {
 		if (!anonymousDiary) {
 			senderNickname = loadUserForNotificationPort.getUserNickname(senderId);
 			String senderAvatar = loadUserForNotificationPort.getUserAvatar(senderId);
-			senderAvatarUrl = loadUserForNotificationPort.getUserAvatarUrl(senderAvatar, requestMetaInfo);
+			senderAvatarUrl = loadUserForNotificationPort.getUserAvatarUrl(senderAvatar);
 			responseSenderId = senderId;
 		}
 
@@ -79,11 +78,10 @@ public class NotificationService implements NotificationUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public PageResult<NotificationResult> getNotifications(String receiverId, RequestMetaInfo requestMetaInfo,
-			PageQuery pageQuery) {
+	public PageResult<NotificationResult> getNotifications(String receiverId, PageQuery pageQuery) {
 		log.info("알림 조회 시작 - receiverId: {}", receiverId);
 		PageResult<NotificationListView> notifications = loadNotificationListViewPort.loadNotifications(receiverId, pageQuery);
-		return notifications.map(notification -> toNotificationResponse(notification, requestMetaInfo));
+		return notifications.map(this::toNotificationResponse);
 	}
 
 	@Override
@@ -193,9 +191,9 @@ public class NotificationService implements NotificationUseCase {
 		}
 	}
 
-	private NotificationResult toNotificationResponse(NotificationListView notification, RequestMetaInfo requestMetaInfo) {
+	private NotificationResult toNotificationResponse(NotificationListView notification) {
 		String senderAvatarUrl = !notification.anonymousDiary() && notification.senderAvatarPath() != null
-				? imagePathToUrlConverter.userAvatarImageUrl(notification.senderAvatarPath(), requestMetaInfo)
+				? imagePathToUrlConverter.userAvatarImageUrl(notification.senderAvatarPath())
 				: null;
 
 		return new NotificationResult(

@@ -76,6 +76,18 @@ class ArchitectureBoundaryTest {
 				.isEmpty();
 	}
 
+	@Test
+	@DisplayName("프로덕션 코드는 사용하지 않는 HTTP 요청 메타데이터 계약에 의존하지 않는다.")
+	void productionCodeDoesNotDependOnUnusedRequestMetadata() throws IOException {
+		Path productionSources = Path.of("src/main/java");
+
+		assertThat(findJavaSourceViolations(
+				productionSources,
+				path -> sourceContains(path, "RequestMetaInfo")
+						|| sourceContains(path, "RequestMetaMapper")))
+				.isEmpty();
+	}
+
 	private List<String> findJavaSourceViolations(Path root, Predicate<Path> violationPredicate) throws IOException {
 		try (var paths = Files.walk(root)) {
 			return paths

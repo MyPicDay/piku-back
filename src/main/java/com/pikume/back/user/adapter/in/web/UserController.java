@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -16,10 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameChangeResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameCheckResponse;
@@ -46,20 +43,17 @@ public class UserController {
 	private final GetUserProfileUseCase getUserProfileUseCase;
 	private final UpdateProfileUseCase updateProfileUseCase;
 	private final CheckNicknameUseCase checkNicknameUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 	private final ProblemDetailFactory problemDetailFactory;
 
 	@Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보기 시 사용될 정보를 조회하여 반환합니다.")
 	@GetMapping("/{userId}/profile-preview")
 	public ResponseEntity<ProfilePreviewResponse> getProfilePreview(
 			@PathVariable String userId,
-			@AuthenticationPrincipal CustomUserDetails userDetails,
-			HttpServletRequest request) {
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("사용자 {}의 프로필 미리보기 조회 요청", userId);
 
-		RequestMetaInfo meta = requestMetaMapper.extractMetaInfo(request);
 		String loginUserId = userDetails != null ? userDetails.getId() : null;
-		ProfilePreviewResult result = getUserProfileUseCase.getProfilePreview(userId, loginUserId, meta);
+		ProfilePreviewResult result = getUserProfileUseCase.getProfilePreview(userId, loginUserId);
 
 		return ResponseEntity.ok(ProfilePreviewResponse.from(result));
 	}
@@ -68,10 +62,8 @@ public class UserController {
 	@GetMapping("/{userId}")
 	public ResponseEntity<UserProfileResponse> getUserProfile(
 			@PathVariable String userId,
-			@AuthenticationPrincipal CustomUserDetails userDetails,
-			HttpServletRequest request) {
-		RequestMetaInfo meta = requestMetaMapper.extractMetaInfo(request);
-		UserProfileResult result = getUserProfileUseCase.getUserProfile(userId, userDetails.getId(), meta);
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		UserProfileResult result = getUserProfileUseCase.getUserProfile(userId, userDetails.getId());
 
 		return ResponseEntity.ok(UserProfileResponse.from(result));
 	}

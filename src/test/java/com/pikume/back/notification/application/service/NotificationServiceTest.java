@@ -10,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -69,10 +68,6 @@ class NotificationServiceTest {
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "localhost", 8080, "localhost:8080",
-			"https://localhost:8080/api/sse", "TestAgent", "127.0.0.1");
-
 	@Nested
 	@DisplayName("sendNotification - 알림 발송")
 	class SendNotification {
@@ -83,14 +78,14 @@ class NotificationServiceTest {
 			given(saveNotificationPort.save(any(Notification.class))).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("avatar-url");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg")).willReturn("avatar-url");
 			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
 					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 
 			TransactionSynchronizationManager.initSynchronization();
 			try {
-				notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
+				notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L);
 
 				ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
 				then(saveNotificationPort).should().save(notificationCaptor.capture());
@@ -123,10 +118,10 @@ class NotificationServiceTest {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("avatar-url");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg")).willReturn("avatar-url");
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of());
 
-			notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
+			notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null);
 
 			then(loadDiaryForNotificationPort).should(never()).getDiaryNotificationInfo(any());
 		}
@@ -137,12 +132,12 @@ class NotificationServiceTest {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg")).willReturn("url");
 			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
 					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of());
 
-			notificationService.sendNotification("receiver-id", NotificationType.LIKE, "sender-id", 1L, null);
+			notificationService.sendNotification("receiver-id", NotificationType.LIKE, "sender-id", 1L);
 
 			then(pushNotificationPort).should(never()).sendMessage(any(), any());
 		}
@@ -155,7 +150,7 @@ class NotificationServiceTest {
 					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", true));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 
-			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, requestMetaInfo);
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L);
 
 			ArgumentCaptor<NotificationStreamMessage> messageCaptor = ArgumentCaptor.forClass(NotificationStreamMessage.class);
 			then(notificationStreamPort).should().sendToUser(eq("receiver-id"), messageCaptor.capture());
@@ -174,7 +169,7 @@ class NotificationServiceTest {
 		void skipsNotificationWhenDiaryInfoIsMissing() {
 			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L)).willReturn(null);
 
-			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, requestMetaInfo);
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L);
 
 			then(saveNotificationPort).shouldHaveNoInteractions();
 			then(loadUserForNotificationPort).shouldHaveNoInteractions();
@@ -188,13 +183,13 @@ class NotificationServiceTest {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg")).willReturn("url");
 			given(loadDiaryForNotificationPort.getDiaryNotificationInfo(1L))
 					.willReturn(new LoadDiaryForNotificationPort.DiaryNotificationInfo(1L, "thumb.jpg", false));
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("bad-token"));
 			doThrow(new RuntimeException("FCM fail")).when(pushNotificationPort).sendMessage(eq("bad-token"), any());
 
-			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L, null);
+			notificationService.sendNotification("receiver-id", NotificationType.COMMENT, "sender-id", 1L);
 
 			then(pushNotificationPort).should().deleteToken("bad-token");
 		}
@@ -205,14 +200,14 @@ class NotificationServiceTest {
 			given(saveNotificationPort.save(any())).willAnswer(inv -> inv.getArgument(0));
 			given(loadUserForNotificationPort.getUserNickname("sender-id")).willReturn("보낸이");
 			given(loadUserForNotificationPort.getUserAvatar("sender-id")).willReturn("avatar.jpg");
-			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg", null)).willReturn("url");
+			given(loadUserForNotificationPort.getUserAvatarUrl("avatar.jpg")).willReturn("url");
 			given(pushNotificationPort.getTokenByUserId("receiver-id")).willReturn(Set.of("fcm-token"));
 			doThrow(new IllegalStateException("SSE fail"))
 					.when(notificationStreamPort).sendToUser(eq("receiver-id"), any());
 
 			TransactionSynchronizationManager.initSynchronization();
 			try {
-				notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null, null);
+				notificationService.sendNotification("receiver-id", NotificationType.FRIEND_REQUEST, "sender-id", null);
 
 				TransactionSynchronization afterCommitSynchronization =
 						TransactionSynchronizationManager.getSynchronizations().get(0);
@@ -261,9 +256,9 @@ class NotificationServiceTest {
 			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
-			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("avatar-url");
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg")).willReturn("avatar-url");
 
-			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", pageQuery);
 
 			assertThat(result.getContent()).hasSize(1);
 			NotificationResult dto = result.getContent().get(0);
@@ -279,7 +274,7 @@ class NotificationServiceTest {
 			PageQuery pageQuery = PageQuery.of(0, 10);
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(PageResult.empty(pageQuery));
 
-			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", pageQuery);
 
 			assertThat(result.getContent()).isEmpty();
 		}
@@ -303,9 +298,9 @@ class NotificationServiceTest {
 			PageResult<NotificationListView> page = new PageResult<>(List.of(notification), 0, 10, 1);
 
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
-			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg", requestMetaInfo)).willReturn("url");
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatar.jpg")).willReturn("url");
 
-			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", pageQuery);
 
 			assertThat(result.getContent().get(0).thumbnailUrl()).isNull();
 			then(loadNotificationListViewPort).should().loadNotifications("receiver-id", pageQuery);
@@ -334,7 +329,7 @@ class NotificationServiceTest {
 
 			given(loadNotificationListViewPort.loadNotifications("receiver-id", pageQuery)).willReturn(page);
 
-			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", requestMetaInfo, pageQuery);
+			PageResult<NotificationResult> result = notificationService.getNotifications("receiver-id", pageQuery);
 
 			NotificationResult dto = result.getContent().get(0);
 			assertThat(dto.nickname()).isEqualTo("익명");

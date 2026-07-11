@@ -4,7 +4,6 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -51,8 +50,7 @@ public class FriendService implements FriendUseCase {
 
 	@Override
 	@Transactional
-	public FriendRequestResult sendFriendRequest(String fromUserId, String toUserId,
-			RequestMetaInfo requestMetaInfo) {
+	public FriendRequestResult sendFriendRequest(String fromUserId, String toUserId) {
 		log.info("사용자 조회 요청");
 		loadUserInfoPort.findUserInfoById(fromUserId)
 				.orElseThrow(() -> new FriendException("사용자를 찾을 수 없습니다."));
@@ -94,25 +92,25 @@ public class FriendService implements FriendUseCase {
 	}
 
 	@Override
-	public PageResult<FriendSummaryResult> findFriendList(PageQuery pageQuery, String id, RequestMetaInfo requestMetaInfo) {
+	public PageResult<FriendSummaryResult> findFriendList(PageQuery pageQuery, String id) {
 		log.info("사용자 친구 조회 요청");
 		PageResult<FriendSummaryView> friendsPage = loadFriendListViewPort.loadFriendList(id, pageQuery);
-		return friendsPage.map(friend -> toFriendsDto(friend, requestMetaInfo));
+		return friendsPage.map(this::toFriendsDto);
 	}
 
 	@Override
-	public List<String> findFriendIdList(PageQuery pageQuery, String userId, RequestMetaInfo requestMetaInfo) {
-		PageResult<FriendSummaryResult> friendsPage = findFriendList(pageQuery, userId, requestMetaInfo);
+	public List<String> findFriendIdList(PageQuery pageQuery, String userId) {
+		PageResult<FriendSummaryResult> friendsPage = findFriendList(pageQuery, userId);
 		return friendsPage.stream()
 				.map(FriendSummaryResult::userId)
 				.collect(Collectors.toList());
 	}
 
 	@Override
-	public PageResult<FriendSummaryResult> findFriendRequests(PageQuery pageQuery, String toUserId, RequestMetaInfo requestMetaInfo) {
+	public PageResult<FriendSummaryResult> findFriendRequests(PageQuery pageQuery, String toUserId) {
 		log.info("사용자에게 온 친구 요청 목록 조회: {}", toUserId);
 		PageResult<FriendSummaryView> requests = loadFriendListViewPort.loadFriendRequests(toUserId, pageQuery);
-		return requests.map(friend -> toFriendsDto(friend, requestMetaInfo));
+		return requests.map(this::toFriendsDto);
 	}
 
 	@Override
@@ -216,9 +214,9 @@ public class FriendService implements FriendUseCase {
 		return new FriendRemovalResult(true, "친구 관계가 해제되었습니다.");
 	}
 
-	private FriendSummaryResult toFriendsDto(FriendSummaryView friend, RequestMetaInfo requestMetaInfo) {
+	private FriendSummaryResult toFriendsDto(FriendSummaryView friend) {
 		String avatarUrl = friend.avatarPath() != null
-				? imagePathToUrlConverter.userAvatarImageUrl(friend.avatarPath(), requestMetaInfo)
+				? imagePathToUrlConverter.userAvatarImageUrl(friend.avatarPath())
 				: null;
 		return new FriendSummaryResult(friend.userId(), friend.nickname(), avatarUrl);
 	}

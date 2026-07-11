@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -21,11 +20,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.application.dto.FriendRemovalResult;
 import com.pikume.back.social.application.dto.FriendRequestResult;
 import com.pikume.back.social.application.dto.FriendSummaryResult;
@@ -40,7 +37,6 @@ import com.pikume.back.social.application.port.in.FriendUseCase;
 public class FriendController {
 
 	private final FriendUseCase friendUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 
 	@Operation(summary = "친구 요청,수락", description = "사용자가 다른 사용자에게 친구 요청을 보내거나, 이미 요청이 있을 경우 수락합니다.")
 	@ApiResponses({
@@ -54,12 +50,10 @@ public class FriendController {
 	@PostMapping
 	public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
-			@RequestBody FriendRequestDto requestDto,
-			HttpServletRequest request) {
+			@RequestBody FriendRequestDto requestDto) {
 		log.info("친구 요청(수락) 요청 {} 가 {}에게", customUserDetails.getId(), requestDto.getToUserId());
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		FriendRequestResult response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
-				requestDto.getToUserId(), requestMetaInfo);
+				requestDto.getToUserId());
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
@@ -71,12 +65,11 @@ public class FriendController {
 	@GetMapping
 	public ResponseEntity<Page<FriendsDTO>> findFriendList(
 			@ParameterObject @PageableDefault(sort = "userId1", direction = Sort.Direction.DESC) Pageable pageable,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails, HttpServletRequest request) {
+			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		log.info("{} 의 친구 목록 조회 요청", customUserDetails.getId());
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<FriendsDTO> friendResults = friendUseCase.findFriendList(pageQuery, customUserDetails.getId(), requestMetaInfo)
+		PageResult<FriendsDTO> friendResults = friendUseCase.findFriendList(pageQuery, customUserDetails.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> friends = SpringPageMapper.toSpringPage(friendResults, pageable);
 
@@ -90,13 +83,12 @@ public class FriendController {
 	})
 	@GetMapping("/requests")
 	public ResponseEntity<Page<FriendsDTO>> findFriendRequests(
-			@ParameterObject @PageableDefault Pageable pageable, @AuthenticationPrincipal CustomUserDetails customUserDetails,
-			HttpServletRequest request) {
+			@ParameterObject @PageableDefault Pageable pageable,
+			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		log.info("{} 의 받은 친구 요청 목록 조회", customUserDetails.getId());
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<FriendsDTO> requestResults = friendUseCase.findFriendRequests(pageQuery, customUserDetails.getId(), requestMetaInfo)
+		PageResult<FriendsDTO> requestResults = friendUseCase.findFriendRequests(pageQuery, customUserDetails.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> requests = SpringPageMapper.toSpringPage(requestResults, pageable);
 

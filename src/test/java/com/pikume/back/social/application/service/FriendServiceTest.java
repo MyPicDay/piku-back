@@ -8,7 +8,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -65,10 +64,6 @@ class FriendServiceTest {
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "localhost", 8080, "localhost:8080",
-			"https://localhost:8080/api/friends", "TestAgent", "127.0.0.1");
-
 	@Nested
 	@DisplayName("areFriends - 친구 여부 확인")
 	class AreFriends {
@@ -107,7 +102,7 @@ class FriendServiceTest {
 					.willReturn(Optional.empty());
 			given(saveFriendRequestPort.saveIfAbsent(any(FriendRequest.class))).willReturn(true);
 
-			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user");
 
 			assertThat(response.accepted()).isFalse();
 			assertThat(response.message()).contains("보냈습니다");
@@ -129,7 +124,7 @@ class FriendServiceTest {
 			given(loadFriendRequestPort.findById(new FriendRequestID("to-user", "from-user")))
 					.willReturn(Optional.of(existingRequest));
 
-			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user");
 
 			assertThat(response.accepted()).isTrue();
 			assertThat(response.message()).contains("수락");
@@ -151,7 +146,7 @@ class FriendServiceTest {
 					.willReturn(Optional.empty());
 			given(saveFriendRequestPort.saveIfAbsent(any(FriendRequest.class))).willReturn(false);
 
-			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user", requestMetaInfo);
+			FriendRequestResult response = friendService.sendFriendRequest("from-user", "to-user");
 
 			assertThat(response.accepted()).isFalse();
 			assertThat(response.message()).contains("보냈습니다");
@@ -166,7 +161,7 @@ class FriendServiceTest {
 			given(loadUserInfoPort.findUserInfoById("user-a"))
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-a", "유저", null)));
 
-			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "user-a", requestMetaInfo))
+			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "user-a"))
 					.isInstanceOf(FriendException.class)
 					.hasMessageContaining("자신에게");
 		}
@@ -180,7 +175,7 @@ class FriendServiceTest {
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-b", "유저B", null)));
 			given(loadFriendPort.existsFriendship("user-a", "user-b")).willReturn(true);
 
-			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "user-b", requestMetaInfo))
+			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "user-b"))
 					.isInstanceOf(FriendException.class)
 					.hasMessageContaining("이미 친구");
 		}
@@ -192,7 +187,7 @@ class FriendServiceTest {
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-a", "유저", null)));
 			given(loadUserInfoPort.findUserInfoById("ghost-id")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "ghost-id", requestMetaInfo))
+			assertThatThrownBy(() -> friendService.sendFriendRequest("user-a", "ghost-id"))
 					.isInstanceOf(FriendException.class)
 					.hasMessageContaining("찾을 수 없습니다");
 		}
@@ -269,10 +264,10 @@ class FriendServiceTest {
 					1);
 
 			given(loadFriendListViewPort.loadFriendList("me", pageQuery)).willReturn(page);
-			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/friend1.png", requestMetaInfo))
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/friend1.png"))
 					.willReturn("https://localhost:8080/api/avatars/friend1.png");
 
-			PageResult<FriendSummaryResult> response = friendService.findFriendList(pageQuery, "me", requestMetaInfo);
+			PageResult<FriendSummaryResult> response = friendService.findFriendList(pageQuery, "me");
 
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0).nickname()).isEqualTo("친구1");
@@ -292,7 +287,7 @@ class FriendServiceTest {
 
 			given(loadFriendListViewPort.loadFriendRequests("me", pageQuery)).willReturn(page);
 
-			PageResult<FriendSummaryResult> response = friendService.findFriendRequests(pageQuery, "me", requestMetaInfo);
+			PageResult<FriendSummaryResult> response = friendService.findFriendRequests(pageQuery, "me");
 
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0).nickname()).isEqualTo("요청자");

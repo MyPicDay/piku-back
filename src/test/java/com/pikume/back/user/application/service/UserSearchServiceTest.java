@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -35,9 +34,6 @@ class UserSearchServiceTest {
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"http", "localhost", 8080, "localhost:8080", "http://localhost:8080", "TestAgent", "127.0.0.1");
-
 	@Nested
 	@DisplayName("searchByKeyword")
 	class SearchByKeyword {
@@ -51,10 +47,10 @@ class UserSearchServiceTest {
 			PageResult<User> userPage = new PageResult<>(List.of(user), 0, 10, 1);
 
 			given(userQueryPort.searchByName("%피쿠%", pageQuery)).willReturn(userPage);
-			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.webp", requestMetaInfo))
+			given(imagePathToUrlConverter.userAvatarImageUrl("characters/fixed/base_image_1.webp"))
 					.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
 
 			assertThat(result.getContent()).hasSize(1);
 			UserSearchResult searchResult = result.getContent().get(0);
@@ -72,7 +68,7 @@ class UserSearchServiceTest {
 
 			given(userQueryPort.searchByName("%" + keyword + "%", pageQuery)).willReturn(emptyPage);
 
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
 
 			assertThat(result.getContent()).isEmpty();
 			assertThat(result.getTotalElements()).isZero();
@@ -87,7 +83,7 @@ class UserSearchServiceTest {
 
 			given(userQueryPort.searchByName(anyString(), eq(pageQuery))).willReturn(emptyPage);
 
-			userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
+			userSearchService.searchByKeyword(keyword, pageQuery);
 
 			then(userQueryPort).should().searchByName("%테스트%", pageQuery);
 		}
@@ -102,18 +98,18 @@ class UserSearchServiceTest {
 			PageResult<User> userPage = new PageResult<>(List.of(user1, user2), 0, 10, 2);
 
 			given(userQueryPort.searchByName("%유저%", pageQuery)).willReturn(userPage);
-			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar1.png", requestMetaInfo))
+			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar1.png"))
 					.willReturn("http://localhost:8080/api/path/avatar1.png");
-			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar2.png", requestMetaInfo))
+			given(imagePathToUrlConverter.userAvatarImageUrl("path/avatar2.png"))
 					.willReturn("http://localhost:8080/api/path/avatar2.png");
 
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery, requestMetaInfo);
+			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
 
 			assertThat(result.getContent()).hasSize(2);
 			assertThat(result.getContent().get(0).avatar()).isEqualTo("http://localhost:8080/api/path/avatar1.png");
 			assertThat(result.getContent().get(1).avatar()).isEqualTo("http://localhost:8080/api/path/avatar2.png");
 
-			then(imagePathToUrlConverter).should(times(2)).userAvatarImageUrl(anyString(), eq(requestMetaInfo));
+			then(imagePathToUrlConverter).should(times(2)).userAvatarImageUrl(anyString());
 		}
 	}
 }

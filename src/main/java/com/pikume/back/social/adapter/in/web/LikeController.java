@@ -3,7 +3,6 @@ package com.pikume.back.social.adapter.in.web;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -11,8 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
@@ -25,17 +22,14 @@ import com.pikume.back.social.application.port.in.LikeUseCase;
 public class LikeController {
 
 	private final LikeUseCase likeUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 
 	@Operation(summary = "좋아요 추가", description = "일기에 좋아요를 추가합니다.")
 	@PostMapping("/diary/{diaryId}")
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<LikeResponse> addLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails,
-			HttpServletRequest request) {
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-		LikeResult response = likeUseCase.addLike(userDetails.getId(), diaryId, requestMetaInfo);
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
+		LikeResult response = likeUseCase.addLike(userDetails.getId(), diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
 

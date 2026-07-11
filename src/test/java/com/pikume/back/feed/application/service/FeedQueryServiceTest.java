@@ -35,7 +35,6 @@ import com.pikume.back.feed.application.port.out.SaveFeedClickPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
-import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -82,16 +81,12 @@ class FeedQueryServiceTest {
 	private Diary publicDiary;
 	private Diary friendsDiary;
 	private Diary privateDiary;
-	private RequestMetaInfo requestMetaInfo;
 
 	@BeforeEach
 	void setUp() {
 		publicDiary = new Diary("공개 일기 내용", DiaryVisibility.PUBLIC, LocalDate.now(), "owner-id");
 		friendsDiary = new Diary("친구 공개 일기", DiaryVisibility.FRIENDS, LocalDate.now(), "owner-id");
 		privateDiary = new Diary("비공개 일기", DiaryVisibility.PRIVATE, LocalDate.now(), "owner-id");
-
-		requestMetaInfo = new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
-				"https://localhost:8080/api/diary", "TestAgent", "127.0.0.1");
 	}
 
 	@Nested
@@ -104,13 +99,13 @@ class FeedQueryServiceTest {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id"))
 					.willReturn(java.util.Optional.of(detailView(publicDiary, List.of("photo1.jpg", "photo2.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
-			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForFeedPort.getUserAvatarUrl(any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(10L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(false);
 			given(loadSocialForFeedPort.countComments(eq("viewer-id"), any())).willReturn(5L);
 
-			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, "viewer-id");
 
 			assertThat(result.getContent()).isEqualTo("공개 일기 내용");
 			assertThat(result.getImgUrls()).hasSize(2);
@@ -123,13 +118,13 @@ class FeedQueryServiceTest {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "owner-id"))
 					.willReturn(java.util.Optional.of(detailView(privateDiary, List.of("photo1.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
-			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForFeedPort.getUserAvatarUrl(any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(0L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(false);
 			given(loadSocialForFeedPort.countComments(eq("owner-id"), any())).willReturn(0L);
 
-			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, "owner-id");
 
 			assertThat(result.getContent()).isEqualTo("비공개 일기");
 		}
@@ -139,7 +134,7 @@ class FeedQueryServiceTest {
 		void privateDiaryHiddenFromOthers() {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "viewer-id")).willReturn(java.util.Optional.empty());
 
-				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id"))
+				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, "viewer-id"))
 						.isInstanceOfSatisfying(FeedDiaryNotFoundException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.DIARY_NOT_FOUND));
 		}
@@ -150,13 +145,13 @@ class FeedQueryServiceTest {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "friend-id"))
 					.willReturn(java.util.Optional.of(detailView(friendsDiary, List.of("photo1.jpg", "photo2.jpg"))));
 			given(loadUserForFeedPort.getUserAvatar(anyString())).willReturn("avatar.jpg");
-			given(loadUserForFeedPort.getUserAvatarUrl(any(), any())).willReturn("avatar-url");
+			given(loadUserForFeedPort.getUserAvatarUrl(any())).willReturn("avatar-url");
 			given(loadUserForFeedPort.getUserNickname(anyString())).willReturn("owner");
 			given(loadSocialForFeedPort.getLikeCount(any())).willReturn(5L);
 			given(loadSocialForFeedPort.isLikedByUser(anyString(), any())).willReturn(true);
 			given(loadSocialForFeedPort.countComments(eq("friend-id"), any())).willReturn(3L);
 
-			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "friend-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, "friend-id");
 
 			assertThat(result.getContent()).isEqualTo("친구 공개 일기");
 			assertThat(result.getImgUrls()).hasSize(2);
@@ -168,7 +163,7 @@ class FeedQueryServiceTest {
 		void friendsDiaryHiddenFromStranger() {
 			given(loadDiaryForFeedPort.findVisibleDiaryById(1L, "stranger-id")).willReturn(java.util.Optional.empty());
 
-				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "stranger-id"))
+				assertThatThrownBy(() -> feedQueryService.getDiaryWithPhotos(1L, "stranger-id"))
 						.isInstanceOfSatisfying(FeedDiaryNotFoundException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.DIARY_NOT_FOUND));
 		}
@@ -184,7 +179,7 @@ class FeedQueryServiceTest {
 			given(loadSocialForFeedPort.isLikedByUser("viewer-id", 1L)).willReturn(false);
 			given(loadSocialForFeedPort.countComments("viewer-id", 1L)).willReturn(4L);
 
-			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "viewer-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, "viewer-id");
 
 			assertThat(result.getStatus()).isEqualTo(FeedVisibility.valueOf("ANONYMOUS"));
 			assertThat(result.getNickname()).isEqualTo("익명");
@@ -207,7 +202,7 @@ class FeedQueryServiceTest {
 			given(loadSocialForFeedPort.isLikedByUser("owner-id", 1L)).willReturn(false);
 			given(loadSocialForFeedPort.countComments("owner-id", 1L)).willReturn(0L);
 
-			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, requestMetaInfo, "owner-id");
+			FeedDiaryResult result = feedQueryService.getDiaryWithPhotos(1L, "owner-id");
 
 			assertThat(result.getNickname()).isEqualTo("익명");
 			assertThat(result.getAvatar()).isNull();
@@ -234,13 +229,12 @@ class FeedQueryServiceTest {
 			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 20L), "viewer-id")).willReturn(List.of(
 					feedItem(30L, "writer-30", FeedFriendStatus.FRIENDS),
 					feedItem(20L, "writer-20", FeedFriendStatus.FRIENDS)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString()))
 					.willAnswer(invocation -> invocation.getArgument(0));
 			given(feedCursorTokenCodec.encode(second.toCursor())).willReturn("next-token");
 
 			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 2),
-					requestMetaInfo,
 					"viewer-id");
 
 			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 20L);
@@ -264,13 +258,12 @@ class FeedQueryServiceTest {
 			given(loadFeedListViewPort.loadFeedListItems(List.of(30L, 10L), "viewer-id")).willReturn(List.of(
 					feedItem(30L, "friend-writer", FeedFriendStatus.FRIENDS),
 					feedItem(10L, "public-writer", FeedFriendStatus.NONE)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString()))
 					.willAnswer(invocation -> invocation.getArgument(0));
 			given(feedCursorTokenCodec.encode(publicDiary.toCursor())).willReturn("next-public-token");
 
 			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 2),
-					requestMetaInfo,
 					"viewer-id");
 
 			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(30L, 10L);
@@ -308,7 +301,6 @@ class FeedQueryServiceTest {
 
 			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 1),
-					requestMetaInfo,
 					"viewer-id");
 
 			assertThat(result.items()).hasSize(1);
@@ -332,9 +324,8 @@ class FeedQueryServiceTest {
 					99L);
 			given(feedCursorTokenCodec.decode("invalid-token")).willReturn(invalidCursor);
 
-				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
 						new FeedCursorRequest("invalid-token", 20),
-						requestMetaInfo,
 						null))
 						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
@@ -355,13 +346,12 @@ class FeedQueryServiceTest {
 			given(loadFeedListViewPort.loadFeedListItems(List.of(90L, 80L), "viewer-id")).willReturn(List.of(
 					feedItem(90L, "public-writer", FeedFriendStatus.NONE),
 					feedItem(80L, "friend-writer", FeedFriendStatus.FRIENDS)));
-			given(loadUserForFeedPort.getUserAvatarUrl(anyString(), eq(requestMetaInfo)))
+			given(loadUserForFeedPort.getUserAvatarUrl(anyString()))
 					.willAnswer(invocation -> invocation.getArgument(0));
 			given(feedCursorTokenCodec.encode(second.toCursor())).willReturn("latest-next-token");
 
 			FeedCursorPage<FeedDiaryResult> result = feedQueryService.getAllDiaries(
 					new FeedCursorRequest(null, 2, FeedSortMode.LATEST),
-					requestMetaInfo,
 					"viewer-id");
 
 			assertThat(result.items()).extracting(FeedDiaryResult::getDiaryId).containsExactly(90L, 80L);
@@ -381,9 +371,8 @@ class FeedQueryServiceTest {
 					99L);
 			given(feedCursorTokenCodec.decode("legacy-token")).willReturn(legacyCursor);
 
-				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
 						new FeedCursorRequest("legacy-token", 20, FeedSortMode.LATEST),
-						requestMetaInfo,
 						"viewer-id"))
 						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
@@ -395,9 +384,8 @@ class FeedQueryServiceTest {
 			FeedCursor latestCursor = FeedCursor.latest(LocalDate.now(), 99L);
 			given(feedCursorTokenCodec.decode("latest-token")).willReturn(latestCursor);
 
-				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
 						new FeedCursorRequest("latest-token", 20),
-						requestMetaInfo,
 						"viewer-id"))
 						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));
@@ -416,9 +404,8 @@ class FeedQueryServiceTest {
 					99L);
 			given(feedCursorTokenCodec.decode("legacy-latest-token")).willReturn(legacyLatestCursor);
 
-				assertThatThrownBy(() -> feedQueryService.getAllDiaries(
+			assertThatThrownBy(() -> feedQueryService.getAllDiaries(
 						new FeedCursorRequest("legacy-latest-token", 20, FeedSortMode.LATEST),
-						requestMetaInfo,
 						"viewer-id"))
 						.isInstanceOfSatisfying(InvalidFeedCursorException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(FeedErrorCode.INVALID_CURSOR));

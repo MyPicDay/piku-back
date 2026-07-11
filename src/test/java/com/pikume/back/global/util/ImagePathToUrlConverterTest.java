@@ -1,6 +1,5 @@
 package com.pikume.back.global.util;
 
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,16 +22,13 @@ class ImagePathToUrlConverterTest {
 	@Mock
 	private ResolveImageUrlPort resolveImageUrlPort;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "api.example.com", 443, "api.example.com", "https://api.example.com", "TestAgent", "127.0.0.1");
-
 	@Test
 	@DisplayName("canonical fixed character object key는 storage public URL로 변환한다")
 	void convertsCanonicalFixedCharacterObjectKeyToPublicStorageUrl() {
 		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
 				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp");
 
 		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
@@ -43,7 +39,7 @@ class ImagePathToUrlConverterTest {
 		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
 				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.fixedCharacterImageUrl("base_image_1.webp", requestMetaInfo);
+		String result = converter.fixedCharacterImageUrl("base_image_1.webp");
 
 		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
@@ -54,7 +50,7 @@ class ImagePathToUrlConverterTest {
 		given(resolveImageUrlPort.getPhotoUrl("public/characters/fixed/base_image_1.webp", true))
 				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
-		String result = converter.userAvatarImageUrl("characters/fixed/base_image_1.webp", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("characters/fixed/base_image_1.webp");
 
 		assertThat(result).isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 	}
@@ -62,7 +58,7 @@ class ImagePathToUrlConverterTest {
 	@Test
 	@DisplayName("absolute avatar URL 입력값은 그대로 반환한다")
 	void returnsAbsoluteAvatarUrlAsIs() {
-		String result = converter.userAvatarImageUrl("https://cdn.example.com/avatar.png", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("https://cdn.example.com/avatar.png");
 
 		assertThat(result).isEqualTo("https://cdn.example.com/avatar.png");
 		then(resolveImageUrlPort).shouldHaveNoInteractions();
@@ -71,7 +67,7 @@ class ImagePathToUrlConverterTest {
 	@Test
 	@DisplayName("blank avatar path는 빈 문자열을 반환한다")
 	void returnsEmptyStringForBlankAvatarPath() {
-		String result = converter.userAvatarImageUrl(" ", requestMetaInfo);
+		String result = converter.userAvatarImageUrl(" ");
 
 		assertThat(result).isEmpty();
 		then(resolveImageUrlPort).shouldHaveNoInteractions();
@@ -80,7 +76,7 @@ class ImagePathToUrlConverterTest {
 	@Test
 	@DisplayName("유효하지 않은 fixed character path는 빈 문자열을 반환한다")
 	void returnsEmptyStringForInvalidFixedCharacterPath() {
-		String result = converter.fixedCharacterImageUrl("group/../bad.png", requestMetaInfo);
+		String result = converter.fixedCharacterImageUrl("group/../bad.png");
 
 		assertThat(result).isEmpty();
 		then(resolveImageUrlPort).shouldHaveNoInteractions();
@@ -89,7 +85,7 @@ class ImagePathToUrlConverterTest {
 	@Test
 	@DisplayName("유효하지 않은 user avatar path는 빈 문자열을 반환한다")
 	void returnsEmptyStringForInvalidUserAvatarPath() {
-		String result = converter.userAvatarImageUrl("characters/fixed/group/../bad.png", requestMetaInfo);
+		String result = converter.userAvatarImageUrl("characters/fixed/group/../bad.png");
 
 		assertThat(result).isEmpty();
 		then(resolveImageUrlPort).shouldHaveNoInteractions();

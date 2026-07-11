@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +21,6 @@ import com.pikume.back.feed.application.dto.FeedDiaryResult;
 import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.util.RequestMetaMapper;
 
 @Tag(name = "Feed", description = "피드 관련 API")
 @RestController
@@ -34,7 +31,6 @@ import com.pikume.back.global.util.RequestMetaMapper;
 public class FeedController {
 
 	private final GetFeedUseCase getFeedUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "200", description = "일기 조회 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = FeedDiaryResult.class))),
@@ -44,13 +40,12 @@ public class FeedController {
 	})
 	@Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
 	@GetMapping("/{diaryId}")
-	public ResponseEntity<FeedDiaryResult> getDiaryWithPhotos(@PathVariable Long diaryId, HttpServletRequest request,
+	public ResponseEntity<FeedDiaryResult> getDiaryWithPhotos(@PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		FeedDiaryResult response = getFeedUseCase.getDiaryWithPhotos(diaryId, requestMetaInfo, userId);
+		FeedDiaryResult response = getFeedUseCase.getDiaryWithPhotos(diaryId, userId);
 		if (userId != null) {
 			getFeedUseCase.logClick(userId, diaryId);
 		}
@@ -72,14 +67,11 @@ public class FeedController {
 			@Parameter(description = "피드 정렬 모드. 생략 시 recommended(추천순)이며, latest는 기록일 최신순입니다.",
 					schema = @Schema(allowableValues = {"recommended", "latest"}, defaultValue = "recommended"))
 			@RequestParam(required = false) String sort,
-			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		FeedSortMode sortMode = FeedSortMode.from(sort);
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String userId = customUserDetails != null ? customUserDetails.getId() : null;
 		FeedCursorPage<FeedDiaryResult> page = getFeedUseCase.getAllDiaries(
 				new FeedCursorRequest(cursor, limit, sortMode),
-				requestMetaInfo,
 				userId);
 		return ResponseEntity.ok(page);
 	}

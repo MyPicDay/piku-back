@@ -1,6 +1,5 @@
 package com.pikume.back.diary.application.service;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,6 @@ import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -90,14 +88,6 @@ class DiaryQueryServiceTest {
 	@DisplayName("findMonthlyDiaries")
 	class FindMonthlyDiaries {
 
-		private RequestMetaInfo requestMetaInfo;
-
-		@BeforeEach
-		void setUp() {
-			requestMetaInfo = new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
-					"https://localhost:8080/api/diary", "TestAgent", "127.0.0.1");
-		}
-
 		@Test
 		@DisplayName("월별 일기 목록을 정상 반환한다")
 		void returnsMonthlyDiaries() {
@@ -116,7 +106,7 @@ class DiaryQueryServiceTest {
 					.willReturn(List.of(diary1, diary2));
 			given(loadDiaryPort.findRepresentPhotoByDiaryId(any())).willReturn(Optional.empty());
 
-			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
+			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6);
 
 			assertThat(result).hasSize(2);
 			assertThat(result.get(0).date()).isEqualTo(date1);
@@ -145,7 +135,7 @@ class DiaryQueryServiceTest {
 			given(photoStoragePort.getPhotoUrl("public/cover.webp", true))
 					.willReturn("https://minio.example.com/public/cover.webp");
 
-			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
+			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6);
 
 			assertThat(result.get(0).coverPhotoUrl()).isEqualTo("https://minio.example.com/public/cover.webp");
 		}
@@ -162,7 +152,7 @@ class DiaryQueryServiceTest {
 					any()))
 					.willReturn(List.of());
 
-			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 1, requestMetaInfo);
+			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 1);
 
 			assertThat(result).isEmpty();
 		}
@@ -179,7 +169,7 @@ class DiaryQueryServiceTest {
 					any()))
 					.willReturn(List.of());
 
-			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
+			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6);
 
 			assertThat(result).isEmpty();
 			then(loadDiaryPort).should(never()).findRepresentPhotoByDiaryId(any());
@@ -197,7 +187,7 @@ class DiaryQueryServiceTest {
 					any()))
 					.willReturn(List.of());
 
-			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
+			List<CalendarDiaryView> result = diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6);
 
 			assertThat(result).isEmpty();
 			then(loadDiaryPort).should(never()).findRepresentPhotoByDiaryId(any());
@@ -221,7 +211,7 @@ class DiaryQueryServiceTest {
 					.willReturn(List.of(diary1, diary2));
 			given(loadDiaryPort.findRepresentPhotoByDiaryId(any())).willReturn(Optional.empty());
 
-			diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6, requestMetaInfo);
+			diaryQueryService.findMonthlyDiaries(USER_ID, "viewer-id", 2025, 6);
 
 			then(diaryVisibilityPolicy).should().visibleStatusesForOwner(USER_ID, "viewer-id");
 			then(diaryVisibilityPolicy).should(never()).isHiddenFromViewer(any(Diary.class), eq("viewer-id"));
@@ -412,14 +402,6 @@ class DiaryQueryServiceTest {
 	@DisplayName("sortPhotos")
 	class SortPhotos {
 
-		private RequestMetaInfo requestMetaInfo;
-
-		@BeforeEach
-		void setUp() {
-			requestMetaInfo = new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
-					"https://localhost:8080/api/diary", "TestAgent", "127.0.0.1");
-		}
-
 		@Test
 		@DisplayName("대표 사진을 첫번째로 정렬하고 URL을 변환한다")
 		void sortsRepresentPhotoFirst() {
@@ -435,7 +417,7 @@ class DiaryQueryServiceTest {
 			given(photoStoragePort.getPhotoUrl("img1.jpg", false)).willReturn("url1");
 
 			List<Photo> photos = new java.util.ArrayList<>(List.of(photo1, photo2));
-			List<String> result = diaryQueryService.sortPhotos(photos, requestMetaInfo);
+			List<String> result = diaryQueryService.sortPhotos(photos);
 
 			assertThat(result).containsExactly("url2", "url1");
 		}

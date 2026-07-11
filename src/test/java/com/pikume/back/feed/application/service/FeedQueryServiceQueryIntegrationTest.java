@@ -156,9 +156,9 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	@DisplayName("피드 cursor 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
 	void feedCursorQueryCountStaysBounded() {
 		long oneItemQueries = measurePreparedStatements(() ->
-				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 1), REQUEST_META_INFO, viewer.getId()));
+				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 1), viewer.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 3), REQUEST_META_INFO, viewer.getId()));
+				feedQueryService.getAllDiaries(new FeedCursorRequest(null, 3), viewer.getId()));
 
 		assertThat(threeItemQueries)
 				.as("cursor limit이 커져도 materialize 단계의 사진/유저/좋아요/댓글/친구 상태 조회는 배치로 제한해야 한다")
@@ -170,7 +170,6 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	void firstPagePrioritizesNotConsumedFriendBucket() {
 		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 4),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -191,12 +190,10 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	void nextCursorContinuesIntoNextBucket() {
 		FeedCursorPage<FeedDiaryResult> firstPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 4),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		FeedCursorPage<FeedDiaryResult> secondPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(firstPage.nextCursor(), 3),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		assertThat(secondPage.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -210,7 +207,6 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	void latestFirstPageReturnsVisibleDiariesByGlobalDateOrder() {
 		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 7, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -231,12 +227,10 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	void latestNextCursorContinuesWithoutDuplicates() {
 		FeedCursorPage<FeedDiaryResult> firstPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 3, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		FeedCursorPage<FeedDiaryResult> secondPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(firstPage.nextCursor(), 3, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		assertThat(firstPage.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -263,7 +257,6 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 
 		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 4, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -275,7 +268,6 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 	void anonymousLatestFeedReturnsPublicDiariesOnly() {
 		FeedCursorPage<FeedDiaryResult> page = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 5, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				null);
 
 		assertThat(page.items()).extracting(FeedDiaryResult::getDiaryId)
@@ -298,10 +290,9 @@ class FeedQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegrat
 		commentJpaRepository.save(deletedComment);
 		flushAndClear();
 
-		FeedDiaryResult detail = feedQueryService.getDiaryWithPhotos(publicHigh.getId(), REQUEST_META_INFO, viewer.getId());
+		FeedDiaryResult detail = feedQueryService.getDiaryWithPhotos(publicHigh.getId(), viewer.getId());
 		FeedCursorPage<FeedDiaryResult> latestPage = feedQueryService.getAllDiaries(
 				new FeedCursorRequest(null, 7, FeedSortMode.LATEST),
-				REQUEST_META_INFO,
 				viewer.getId());
 
 		FeedDiaryResult publicHighItem = latestPage.items().stream()

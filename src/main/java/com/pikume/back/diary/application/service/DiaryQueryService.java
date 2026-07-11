@@ -26,7 +26,6 @@ import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.PhotoStoragePort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
-import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -80,8 +79,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 	}
 
 	@Override
-	public List<CalendarDiaryView> findMonthlyDiaries(String userId, String viewerId, int year, int month,
-			RequestMetaInfo requestMetaInfo) {
+	public List<CalendarDiaryView> findMonthlyDiaries(String userId, String viewerId, int year, int month) {
 		YearMonth yearMonth = YearMonth.of(year, month);
 		LocalDate startOfMonth = yearMonth.atDay(1);
 		LocalDate endOfMonth = yearMonth.atEndOfMonth();
@@ -206,7 +204,7 @@ public class DiaryQueryService implements GetCalendarUseCase, QueryDiaryVisibili
 				diaryVisibilityPolicy.visibleStatusesForOwner(profileId, viewerId));
 	}
 
-	public List<String> sortPhotos(List<Photo> photos, RequestMetaInfo requestMetaInfo) {
+	public List<String> sortPhotos(List<Photo> photos) {
 		for (int i = 0; i < photos.size(); i++) {
 			if (Boolean.TRUE.equals(photos.get(i).getRepresent())) {
 				if (i != 0) {

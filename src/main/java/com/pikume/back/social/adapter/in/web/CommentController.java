@@ -3,7 +3,6 @@ package com.pikume.back.social.adapter.in.web;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -16,11 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.dto.CommentDeleteResponseDto;
 import com.pikume.back.social.application.dto.CommentDeleteResult;
 import com.pikume.back.social.application.dto.CommentListItemResult;
@@ -39,23 +36,19 @@ import com.pikume.back.social.application.port.in.CommentUseCase;
 public class CommentController {
 
 	private final CommentUseCase commentUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 
 	@Operation(summary = "댓글 작성", description = "댓글을 작성합니다.")
 	@SecurityRequirement(name = "JWT")
 	@PostMapping
 	public ResponseEntity<CommentResponseDto> createComment(@RequestBody CommentRequestDto commentRequestDto,
-			@AuthenticationPrincipal CustomUserDetails userDetails, HttpServletRequest request) {
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
-
+			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("사용자 {}님이 {} 일기, {} 댓글에 댓글 등록 요청, 댓글 내용: {}", userDetails.getId(), commentRequestDto.getDiaryId(),
 				commentRequestDto.getParentId(), commentRequestDto.getContent());
 		CommentResult isSaved = commentUseCase.createComment(
 				commentRequestDto.getDiaryId(),
 				commentRequestDto.getContent(),
 				commentRequestDto.getParentId(),
-				userDetails.getId(),
-				requestMetaInfo);
+				userDetails.getId());
 
 		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(isSaved));
 	}
@@ -75,15 +68,13 @@ public class CommentController {
 	public ResponseEntity<Page<CommentListResponseDto>> getRootComments(
 			@RequestParam Long diaryId,
 			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC, size = 10) Pageable pageable,
-			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("일기 {}의 원댓글 조회 요청, page: {}, size: {}", diaryId, pageable.getPageNumber(), pageable.getPageSize());
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String viewerId = userDetails != null ? userDetails.getId() : null;
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
 		PageResult<CommentListResponseDto> rootCommentResults = commentUseCase.getRootCommentsByDiaryId(diaryId, pageQuery,
-				requestMetaInfo, viewerId)
+				viewerId)
 				.map(this::toResponse);
 		Page<CommentListResponseDto> rootCommentsPage = SpringPageMapper.toSpringPage(rootCommentResults, pageable);
 
@@ -95,16 +86,14 @@ public class CommentController {
 	public ResponseEntity<Page<CommentListResponseDto>> getReplies(
 			@PathVariable Long parentCommentId,
 			@ParameterObject @PageableDefault(sort = "createdAt", direction = Sort.Direction.ASC, size = 10) Pageable pageable,
-			HttpServletRequest request,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("부모 댓글 {}에 대한 대댓글 조회 요청, page: {}, size: {}", parentCommentId, pageable.getPageNumber(),
 				pageable.getPageSize());
 
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		String viewerId = userDetails != null ? userDetails.getId() : null;
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
 		PageResult<CommentListResponseDto> replyResults = commentUseCase.getRepliesByParentCommentId(parentCommentId, pageQuery,
-				requestMetaInfo, viewerId)
+				viewerId)
 				.map(this::toResponse);
 		Page<CommentListResponseDto> repliesPage = SpringPageMapper.toSpringPage(replyResults, pageable);
 

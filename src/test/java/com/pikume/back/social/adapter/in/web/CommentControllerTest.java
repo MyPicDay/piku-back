@@ -1,6 +1,5 @@
 package com.pikume.back.social.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,10 +17,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.port.in.CommentUseCase;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
@@ -44,11 +41,7 @@ class CommentControllerTest {
 	@Mock
 	private CommentUseCase commentUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private MockMvc mockMvc;
-	private RequestMetaInfo requestMetaInfo;
 	private CustomUserDetails userDetails;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
@@ -63,21 +56,12 @@ class CommentControllerTest {
 						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
 						new SocialExceptionHandler(problemDetailFactory))
 				.build();
-		requestMetaInfo = new RequestMetaInfo(
-				"https",
-				"localhost",
-				8080,
-				"localhost:8080",
-				"https://localhost:8080/api/comments",
-				"JUnit",
-				"127.0.0.1");
 	}
 
 	@Test
 	@DisplayName("GET /api/comments는 비공개 일기 접근 시 404를 반환한다")
 	void getRootCommentsReturnsNotFoundWhenDiaryIsHidden() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(commentUseCase.getRootCommentsByDiaryId(eq(1L), any(), eq(requestMetaInfo), eq("viewer-id")))
+		given(commentUseCase.getRootCommentsByDiaryId(eq(1L), any(), eq("viewer-id")))
 				.willThrow(new CommentException(CommentErrorCode.DIARY_NOT_FOUND));
 
 		mockMvc.perform(get("/api/comments")

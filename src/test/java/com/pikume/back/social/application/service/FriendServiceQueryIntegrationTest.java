@@ -51,9 +51,9 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		friendJpaRepository.save(new Friend(me.getId(), friend3.getId()));
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendList(PageQuery.of(0, 1), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendList(PageQuery.of(0, 1), me.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendList(PageQuery.of(0, 3), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendList(PageQuery.of(0, 3), me.getId()));
 
 		assertThat(threeItemQueries)
 				.as("친구 row 수가 늘어도 사용자 조회를 배치로 제한해야 한다")
@@ -73,9 +73,9 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		friendRequestJpaRepository.save(new FriendRequest(requester3.getId(), me.getId()));
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendRequests(PageQuery.of(0, 1), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendRequests(PageQuery.of(0, 1), me.getId()));
 		long threeItemQueries = measurePreparedStatements(() ->
-				friendService.findFriendRequests(PageQuery.of(0, 3), me.getId(), REQUEST_META_INFO));
+				friendService.findFriendRequests(PageQuery.of(0, 3), me.getId()));
 
 		assertThat(threeItemQueries)
 				.as("친구 요청 row 수가 늘어도 사용자 조회를 배치로 제한해야 한다")
@@ -117,7 +117,7 @@ class FriendServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegration
 		User toUser = saveUser("tx-flow-to");
 		FriendRequestID id = new FriendRequestID(fromUser.getId(), toUser.getId());
 
-		var result = friendService.sendFriendRequest(fromUser.getId(), toUser.getId(), REQUEST_META_INFO);
+		var result = friendService.sendFriendRequest(fromUser.getId(), toUser.getId());
 
 		assertThat(result.accepted()).isFalse();
 		assertThat(friendRequestJpaRepository.findById(id)).isPresent();

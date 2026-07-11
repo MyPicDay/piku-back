@@ -1,6 +1,5 @@
 package com.pikume.back.user.application.port.in;
 
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.application.dto.UserSearchResult;
@@ -13,5 +12,5 @@ public interface SearchUserUseCase {
 	/**
 	 * 키워드로 사용자를 검색합니다.
 	 */
-	PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery, RequestMetaInfo requestMetaInfo);
+	PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery);
 }

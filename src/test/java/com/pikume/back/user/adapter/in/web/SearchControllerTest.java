@@ -1,6 +1,5 @@
 package com.pikume.back.user.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,8 +11,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
-import com.pikume.back.global.dto.RequestMetaInfo;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.application.dto.UserSearchResult;
@@ -39,25 +36,13 @@ class SearchControllerTest {
 	@Mock
 	private SearchUserUseCase searchUserUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private MockMvc mockMvc;
-	private RequestMetaInfo requestMetaInfo;
 
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(searchController)
 				.setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
 				.build();
-		requestMetaInfo = new RequestMetaInfo(
-				"https",
-				"localhost",
-				8080,
-				"localhost:8080",
-				"https://localhost:8080/api/search",
-				"JUnit",
-				"127.0.0.1");
 	}
 
 	@Test
@@ -69,9 +54,7 @@ class SearchControllerTest {
 				0,
 				20,
 				1);
-
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(searchUserUseCase.searchByKeyword("test", pageQuery, requestMetaInfo)).willReturn(result);
+		given(searchUserUseCase.searchByKeyword("test", pageQuery)).willReturn(result);
 
 		mockMvc.perform(get("/api/search")
 						.param("keyword", "test")
@@ -86,6 +69,6 @@ class SearchControllerTest {
 				.andExpect(jsonPath("$.size").value(20))
 				.andExpect(jsonPath("$.number").value(0));
 
-		verify(searchUserUseCase).searchByKeyword("test", pageQuery, requestMetaInfo);
+		verify(searchUserUseCase).searchByKeyword("test", pageQuery);
 	}
 }

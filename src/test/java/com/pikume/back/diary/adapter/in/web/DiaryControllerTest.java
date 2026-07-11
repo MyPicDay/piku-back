@@ -9,11 +9,8 @@ import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorExce
 import com.pikume.back.diary.application.port.in.*;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,9 +58,6 @@ class DiaryControllerTest {
 	private GetDiaryGalleryUseCase getDiaryGalleryUseCase;
 
 	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
-	@Mock
 	private jakarta.validation.Validator validator;
 
 	private DiaryController diaryController;
@@ -80,7 +74,6 @@ class DiaryControllerTest {
 				getCalendarUseCase,
 				updateDiaryUseCase,
 				getDiaryGalleryUseCase,
-				requestMetaMapper,
 				validator,
 				problemDetailFactory);
 		mockMvc = MockMvcBuilders.standaloneSetup(diaryController)
@@ -228,11 +221,8 @@ class DiaryControllerTest {
 	@Test
 	@DisplayName("POST /api/diary는 일기 요청 검증 예외를 기존 validation/invalid-request로 처리한다")
 	void createDiaryReturnsValidationProblemDetailWhenUseCaseRejectsCommand() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class)))
-				.willReturn(new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
-						"https://localhost:8080/api/diary", "test-agent", "127.0.0.1"));
 		willThrow(new DiaryInvalidRequestException("미래 날짜에 일기를 작성할 수 없습니다: 2099-01-01"))
-				.given(createDiaryUseCase).createDiary(any(), any(), eq("user1"), any());
+				.given(createDiaryUseCase).createDiary(any(), any(), eq("user1"));
 		MockMultipartFile diary = new MockMultipartFile(
 				"diary",
 				"",

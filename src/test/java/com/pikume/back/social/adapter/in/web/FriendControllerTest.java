@@ -1,17 +1,14 @@
 package com.pikume.back.social.adapter.in.web;
 
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 import com.pikume.back.social.domain.friend.exception.AlreadyFriendsException;
 import com.pikume.back.social.domain.friend.exception.FriendException;
 import com.pikume.back.social.domain.friend.exception.FriendNotFoundException;
 import com.pikume.back.social.domain.friend.exception.FriendRequestNotFoundException;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,25 +43,13 @@ class FriendControllerTest {
 	@Mock
 	private FriendUseCase friendUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private MockMvc mockMvc;
 	private CustomUserDetails userDetails;
-	private RequestMetaInfo requestMetaInfo;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
 		userDetails = new CustomUserDetails("user-1", "user");
-		requestMetaInfo = new RequestMetaInfo(
-				"https",
-				"localhost",
-				8080,
-				"localhost:8080",
-				"https://localhost:8080/api/relation",
-				"JUnit",
-				"127.0.0.1");
 		mockMvc = MockMvcBuilders.standaloneSetup(friendController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
 				.setControllerAdvice(
@@ -76,8 +61,7 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("POST /api/relation은 잘못된 친구 요청 시 400 Problem Details를 반환한다")
 	void sendFriendRequestReturnsBadRequestProblemDetail() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2"), eq(requestMetaInfo)))
+		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
 				.willThrow(new FriendException("자신에게 요청 할 수 없습니다."));
 
 		mockMvc.perform(post("/api/relation")
@@ -92,8 +76,7 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("POST /api/relation은 이미 친구인 경우 409 Problem Details를 반환한다")
 	void sendFriendRequestReturnsConflictProblemDetailWhenAlreadyFriends() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2"), eq(requestMetaInfo)))
+		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
 				.willThrow(new AlreadyFriendsException("이미 친구입니다."));
 
 		mockMvc.perform(post("/api/relation")

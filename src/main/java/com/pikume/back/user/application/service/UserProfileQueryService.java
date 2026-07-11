@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
@@ -33,12 +32,11 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Override
-	public ProfilePreviewResult getProfilePreview(String profileId, String currentUserId,
-			RequestMetaInfo requestMetaInfo) {
+	public ProfilePreviewResult getProfilePreview(String profileId, String currentUserId) {
 			User profile = loadUserPort.findById(profileId)
 					.orElseThrow(UserNotFoundException::new);
 
-		String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(profile.getAvatar(), requestMetaInfo);
+		String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(profile.getAvatar());
 		int friendCount = friendPort.countFriends(profileId);
 		long diaryCount = diaryPort.countDiariesByUserId(profileId, currentUserId);
 		String friendshipStatus = friendPort.getFriendshipStatus(currentUserId, profileId);
@@ -51,8 +49,8 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 	}
 
 	@Override
-	public UserProfileResult getUserProfile(String profileId, String currentUserId, RequestMetaInfo requestMetaInfo) {
-		ProfilePreviewResult preview = getProfilePreview(profileId, currentUserId, requestMetaInfo);
+	public UserProfileResult getUserProfile(String profileId, String currentUserId) {
+		ProfilePreviewResult preview = getProfilePreview(profileId, currentUserId);
 		boolean isOwner = profileId.equals(currentUserId);
 		List<UserDiaryPort.MonthlyDiaryCount> monthlyDiaryCount = diaryPort.getMonthlyDiaryCount(profileId, currentUserId);
 

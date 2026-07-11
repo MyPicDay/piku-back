@@ -17,20 +17,16 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.global.pagination.SortQuery;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.notification.adapter.in.web.dto.NotificationResponseDTO;
 import com.pikume.back.notification.application.dto.NotificationResult;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.application.port.in.SseUseCase;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequiredArgsConstructor
@@ -41,7 +37,6 @@ public class NotificationController {
 
 	private final NotificationUseCase notificationUseCase;
 	private final SseUseCase sseUseCase;
-	private final RequestMetaMapper requestMetaMapper;
 	private final ProblemDetailFactory problemDetailFactory;
 	private static final long DEFAULT_SSE_TIMEOUT = 60L * 1000 * 60;
 
@@ -59,18 +54,16 @@ public class NotificationController {
 	@GetMapping("/notifications")
 	public ResponseEntity<Page<NotificationResponseDTO>> getNotifications(
 			@AuthenticationPrincipal CustomUserDetails userDetails,
-			@PageableDefault Pageable pageable,
-			HttpServletRequest request) {
+			@PageableDefault Pageable pageable) {
 		Pageable sortedPageable = PageRequest.of(
 				pageable.getPageNumber(), pageable.getPageSize(),
 				Sort.by(Sort.Direction.DESC, "createdAt"));
-		RequestMetaInfo requestMetaInfo = requestMetaMapper.extractMetaInfo(request);
 		PageQuery pageQuery = new PageQuery(
 				sortedPageable.getPageNumber(),
 				sortedPageable.getPageSize(),
 				java.util.List.of(SortQuery.desc("createdAt")));
 		PageResult<NotificationResponseDTO> notificationResults = notificationUseCase.getNotifications(
-				userDetails.getId(), requestMetaInfo, pageQuery)
+				userDetails.getId(), pageQuery)
 				.map(this::toResponseDto);
 		Page<NotificationResponseDTO> notifications = SpringPageMapper.toSpringPage(notificationResults, sortedPageable);
 		return ResponseEntity.ok(notifications);

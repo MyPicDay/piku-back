@@ -7,7 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -58,10 +57,6 @@ class CommentServiceTest {
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "localhost", 8080, "localhost:8080",
-			"https://localhost:8080/api/comments", "TestAgent", "127.0.0.1");
-
 	@Nested
 	@DisplayName("createComment - 댓글 생성")
 	class CreateComment {
@@ -76,7 +71,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
-			CommentResult response = commentService.createComment(1L, "댓글 내용", null, "user-id", requestMetaInfo);
+			CommentResult response = commentService.createComment(1L, "댓글 내용", null, "user-id");
 
 			assertThat(response.content()).isEqualTo("댓글 내용");
 			then(publishEventPort).should().publish(any(SocialEvent.CommentCreatedEvent.class));
@@ -92,7 +87,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, true)));
 			given(saveCommentPort.save(any(Comment.class))).willReturn(savedComment);
 
-			commentService.createComment(1L, "댓글 내용", null, "owner-id", requestMetaInfo);
+			commentService.createComment(1L, "댓글 내용", null, "owner-id");
 
 			then(publishEventPort).should(never()).publish(any());
 		}
@@ -102,7 +97,7 @@ class CommentServiceTest {
 		void failsUserNotFound() {
 			given(loadUserInfoPort.findUserInfoById("ghost-id")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "댓글", null, "ghost-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "댓글", null, "ghost-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.INVALID_REQUEST));
@@ -115,7 +110,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadUserInfoPort.UserInfo("user-id", "유저", null)));
 			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(999L, "user-id")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> commentService.createComment(999L, "댓글", null, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(999L, "댓글", null, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.DIARY_NOT_FOUND));
@@ -130,7 +125,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(99L)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 99L, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 99L, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.COMMENT_NOT_FOUND));
@@ -148,7 +143,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(10L)).willReturn(Optional.of(deletedParent));
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 10L, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 10L, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.DELETED_COMMENT));
@@ -167,7 +162,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(20L)).willReturn(Optional.of(replyComment));
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "대대댓글", 20L, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "대대댓글", 20L, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.INVALID_PARENT_COMMENT));
@@ -184,7 +179,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", false, false)));
 			given(loadCommentPort.findById(30L)).willReturn(Optional.of(parentInOtherDiary));
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.PARENT_COMMENT_NOT_IN_SAME_DIARY));
@@ -201,7 +196,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(1L, "owner-id", true, false)));
 			given(loadCommentPort.findById(30L)).willReturn(Optional.of(othersRootComment));
 
-			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id", requestMetaInfo))
+			assertThatThrownBy(() -> commentService.createComment(1L, "대댓글", 30L, "user-id"))
 					.isInstanceOf(CommentException.class)
 					.satisfies(e -> assertThat(((CommentException) e).getErrorCode())
 							.isEqualTo(CommentErrorCode.UNAUTHORIZED_ACCESS));
@@ -302,10 +297,10 @@ class CommentServiceTest {
 			given(loadDiaryInfoPort.findVisibleDiaryInfoByDiaryId(10L, "viewer-id"))
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", false, false)));
 			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
-			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png", requestMetaInfo))
+			given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png"))
 					.willReturn("https://localhost:8080/api/avatars/user.png");
 
-			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "viewer-id");
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0).nickname()).isEqualTo("닉네임");
@@ -338,7 +333,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(11L, "owner-id", false, false)));
 			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageQuery)).willReturn(page);
 
-			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, requestMetaInfo, "viewer-id");
+			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(1);
 			assertThat(response.getContent().get(0).nickname()).isEqualTo("me");
@@ -369,7 +364,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, false)));
 			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
 
-			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, null);
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, null);
 
 			CommentListItemResult result = response.getContent().get(0);
 			assertThat(result.userId()).isNull();
@@ -405,7 +400,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, true)));
 			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
 
-			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "owner-id");
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, "owner-id");
 
 			CommentListItemResult result = response.getContent().get(0);
 			assertThat(result.userId()).isNull();
@@ -452,7 +447,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(10L, "owner-id", true, false)));
 			given(loadCommentListViewPort.loadRootCommentsByDiaryId(10L, pageQuery)).willReturn(page);
 
-			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, requestMetaInfo, "viewer-id");
+			PageResult<CommentListItemResult> response = commentService.getRootCommentsByDiaryId(10L, pageQuery, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(2);
 			CommentListItemResult visible = response.getContent().get(0);
@@ -507,7 +502,7 @@ class CommentServiceTest {
 					.willReturn(Optional.of(new LoadDiaryInfoPort.DiaryInfo(11L, "owner-id", true, false)));
 			given(loadCommentListViewPort.loadRepliesByParentCommentId(1L, pageQuery)).willReturn(page);
 
-			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, requestMetaInfo, "viewer-id");
+			PageResult<CommentListItemResult> response = commentService.getRepliesByParentCommentId(1L, pageQuery, "viewer-id");
 
 			assertThat(response.getContent()).hasSize(2);
 			CommentListItemResult visible = response.getContent().get(0);

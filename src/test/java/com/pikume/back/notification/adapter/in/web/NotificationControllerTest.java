@@ -10,7 +10,6 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.application.port.in.SseUseCase;
 
@@ -27,9 +26,6 @@ class NotificationControllerTest {
 	@Mock
 	private SseUseCase sseUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private NotificationController notificationController;
 
 	@BeforeEach
@@ -37,7 +33,6 @@ class NotificationControllerTest {
 		notificationController = new NotificationController(
 				notificationUseCase,
 				sseUseCase,
-				requestMetaMapper,
 				new ProblemDetailFactory());
 	}
 

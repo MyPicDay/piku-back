@@ -1,6 +1,5 @@
 package com.pikume.back.diary.application.service;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,6 @@ import com.pikume.back.diary.application.exception.DiaryNotFoundException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.util.FileUtil;
 import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
@@ -83,13 +81,6 @@ class DiaryCommandServiceTest {
 	private FileUtil fileUtil;
 
 	private static final String USER_ID = "user-1";
-	private RequestMetaInfo requestMetaInfo;
-
-	@BeforeEach
-	void setUp() {
-		requestMetaInfo = new RequestMetaInfo("https", "localhost", 8080, "localhost:8080",
-				"https://localhost:8080/api/diary", "TestAgent", "127.0.0.1");
-	}
 
 	@Nested
 	@DisplayName("createDiary")
@@ -110,7 +101,7 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 
-			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID);
 
 			assertThat(result).isNotNull();
 			assertThat(result.content()).isEqualTo("오늘의 일기");
@@ -133,7 +124,7 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 
-			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, photos, USER_ID);
 
 			assertThat(result).isNotNull();
 			assertThat(result.content()).isEqualTo("오늘의 일기");
@@ -157,7 +148,7 @@ class DiaryCommandServiceTest {
 			given(photoStoragePort.moveToPublic("private/diary-images/ai/ab/cd/image.png"))
 					.willReturn("public/diary-images/ai/ab/cd/image.png");
 
-			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, null, USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, null, USER_ID);
 
 			assertThat(result).isNotNull();
 			then(saveDiaryPort).should().savePhoto(any());
@@ -179,10 +170,10 @@ class DiaryCommandServiceTest {
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 			given(friendUseCase.getFriends(USER_ID)).willReturn(List.of("friend-1", "friend-2"));
 
-			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
+			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID);
 
 			then(sendDiaryNotificationPort).should().notifyFriendsOfNewDiary(
-					eq(List.of("friend-1", "friend-2")), eq(USER_ID), any(Diary.class), eq(requestMetaInfo));
+					eq(List.of("friend-1", "friend-2")), eq(USER_ID), any(Diary.class));
 		}
 
 		@Test
@@ -199,7 +190,7 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 
-			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
+			diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID);
 
 			then(sendDiaryNotificationPort).shouldHaveNoInteractions();
 		}
@@ -219,7 +210,7 @@ class DiaryCommandServiceTest {
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, date))
 					.willReturn(Optional.of(new Diary("기존 일기", DiaryVisibility.PUBLIC, date, USER_ID)));
 
-				assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
+				assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID))
 						.isInstanceOfSatisfying(DuplicateDiaryException.class,
 								ex -> assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DUPLICATE_DIARY));
 		}
@@ -238,7 +229,7 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("test.jpg")).willReturn("image/jpeg");
 			given(loadDiaryPort.findByUserIdAndDate(USER_ID, futureDate)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID))
 					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
 						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
 						assertThat(ex).hasMessageContaining("미래 날짜");
@@ -262,7 +253,7 @@ class DiaryCommandServiceTest {
 			given(fileUtil.getContentType("b.jpg")).willReturn("image/jpeg");
 			given(loadDiaryPort.findByUserIdAndDate(eq(USER_ID), any())).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo1, photo2), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo1, photo2), USER_ID))
 					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
 						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
 						assertThat(ex).hasMessageContaining("중복");
@@ -281,7 +272,7 @@ class DiaryCommandServiceTest {
 
 			given(fileUtil.getContentType("test.pdf")).willReturn("application/pdf");
 
-			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo))
+			assertThatThrownBy(() -> diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID))
 					.isInstanceOfSatisfying(DiaryInvalidRequestException.class, ex -> {
 						assertThat(ex.getErrorCode()).isEqualTo(DiaryErrorCode.DIARY_INVALID_REQUEST);
 						assertThat(ex).hasMessageContaining("허용되지 않는");
@@ -303,7 +294,7 @@ class DiaryCommandServiceTest {
 			given(saveDiaryPort.save(any(Diary.class))).willAnswer(inv -> inv.getArgument(0));
 			willThrow(new RuntimeException("분석 오류")).given(analyzeDiaryContentUseCase).analyzeAndSave(anyLong(), anyString());
 
-			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID, requestMetaInfo);
+			DiaryCreatedResult result = diaryCommandService.createDiary(diaryCommand, List.of(photo), USER_ID);
 
 			assertThat(result).isNotNull();
 		}

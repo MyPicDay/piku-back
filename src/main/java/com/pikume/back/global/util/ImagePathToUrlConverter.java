@@ -1,6 +1,5 @@
 package com.pikume.back.global.util;
 
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,10 +18,9 @@ public class ImagePathToUrlConverter {
      * Character 이미지 경로를 storage public URL로 변환합니다.
      *
      * @param imagePath DB에 저장된 이미지 경로 (예: "character_image.png")
-     * @param requestMetaInfo HttpRequest 정보
      * @return 완성된 storage public URL, 변환 불가 시 빈 문자열
      */
-    public String fixedCharacterImageUrl(String imagePath, RequestMetaInfo requestMetaInfo){
+    public String fixedCharacterImageUrl(String imagePath){
         if (imagePath == null || imagePath.isBlank()) {
             // TODO: 기본 이미지 URL 반환 등 예외 처리
             return "";
@@ -42,18 +40,7 @@ public class ImagePathToUrlConverter {
         return resolveImageUrlPort.getPhotoUrl(objectKey, true);
     }
 
-    public String userAvatarImageUrl(String imagePath) {
-        return userAvatarImageUrl(imagePath, null);
-    }
-
-    /**
-     * Character 이미지 경로를 storage public URL로 변환합니다.
-     *
-     * @param imagePath DB에 저장된 이미지 경로 (예: "characters/fixed/base_image_1.webp")
-     * @param requestMetaInfo HttpRequest 정보
-     * @return 완성된 storage public URL, 변환 불가 시 빈 문자열
-     */
-    public String userAvatarImageUrl(String imagePath, RequestMetaInfo requestMetaInfo){
+    public String userAvatarImageUrl(String imagePath){
         if (imagePath == null || imagePath.isBlank()) {
             // TODO: 기본 이미지 URL 반환 등 예외 처리
             return "";

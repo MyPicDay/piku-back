@@ -1,14 +1,11 @@
 package com.pikume.back.social.adapter.in.web;
 
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,11 +38,7 @@ class LikeControllerTest {
 	@Mock
 	private LikeUseCase likeUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private MockMvc mockMvc;
-	private RequestMetaInfo requestMetaInfo;
 	private CustomUserDetails userDetails;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
@@ -58,21 +51,12 @@ class LikeControllerTest {
 						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
 						new SocialExceptionHandler(problemDetailFactory))
 				.build();
-		requestMetaInfo = new RequestMetaInfo(
-				"https",
-				"localhost",
-				8080,
-				"localhost:8080",
-				"https://localhost:8080/api/likes/diary/1",
-				"JUnit",
-				"127.0.0.1");
 	}
 
 	@Test
 	@DisplayName("POST /api/likes/diary/{diaryId}는 중복 좋아요 충돌 시 409를 반환한다")
 	void addLikeReturnsConflictWhenDuplicateLikeExceptionOccurs() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(likeUseCase.addLike(eq("user-1"), anyLong(), eq(requestMetaInfo)))
+		given(likeUseCase.addLike(eq("user-1"), anyLong()))
 				.willThrow(new DuplicateLikeException("좋아요 중복 저장이 감지되었습니다.", null));
 
 		mockMvc.perform(post("/api/likes/diary/1")

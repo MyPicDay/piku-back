@@ -25,7 +25,6 @@ import com.pikume.back.diary.domain.Photo;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.util.FileUtil;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
 import com.pikume.back.social.application.port.in.FriendUseCase;
@@ -262,8 +261,8 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 
 	@Override
 	@Transactional
-	public DiaryCreatedResult createDiary(CreateDiaryCommand diaryCommand, List<UploadedFileData> photos, String userId,
-			RequestMetaInfo requestMetaInfo) throws IOException {
+	public DiaryCreatedResult createDiary(CreateDiaryCommand diaryCommand, List<UploadedFileData> photos, String userId)
+			throws IOException {
 
 		validateDiaryCommand(diaryCommand, photos, userId);
 
@@ -287,7 +286,7 @@ public class DiaryCommandService implements CreateDiaryUseCase, DeleteDiaryUseCa
 
 		if (diary.getStatus() == DiaryVisibility.FRIENDS) {
 			List<String> friends = friendUseCase.getFriends(userId);
-			sendDiaryNotificationPort.notifyFriendsOfNewDiary(friends, userId, diary, requestMetaInfo);
+			sendDiaryNotificationPort.notifyFriendsOfNewDiary(friends, userId, diary);
 			log.info("친구에게 새 일기 공개 알림 전송 완료. 친구 수: {}", friends.size());
 		}
 

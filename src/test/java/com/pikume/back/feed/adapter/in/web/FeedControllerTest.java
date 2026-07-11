@@ -1,6 +1,5 @@
 package com.pikume.back.feed.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,10 +18,8 @@ import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.port.in.GetFeedUseCase;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
-import com.pikume.back.global.util.RequestMetaMapper;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -45,11 +42,7 @@ class FeedControllerTest {
 	@Mock
 	private GetFeedUseCase getFeedUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private MockMvc mockMvc;
-	private RequestMetaInfo requestMetaInfo;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
@@ -59,14 +52,6 @@ class FeedControllerTest {
 						new GlobalExceptionHandler(java.util.Optional.empty(), problemDetailFactory),
 						new FeedExceptionHandler(problemDetailFactory))
 				.build();
-		requestMetaInfo = new RequestMetaInfo(
-				"https",
-				"localhost",
-				8080,
-				"localhost:8080",
-				"https://localhost:8080/api/diary",
-				"JUnit",
-				"127.0.0.1");
 	}
 
 	@Test
@@ -90,9 +75,7 @@ class FeedControllerTest {
 						.build()),
 				"opaque-next-cursor",
 				true);
-
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest("cursor-token", 10), requestMetaInfo, null))
+		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest("cursor-token", 10), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -105,16 +88,14 @@ class FeedControllerTest {
 				.andExpect(jsonPath("$.nextCursor").value("opaque-next-cursor"))
 				.andExpect(jsonPath("$.hasNext").value(true));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest("cursor-token", 10), requestMetaInfo, null);
+		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest("cursor-token", 10), null);
 	}
 
 	@Test
 	@DisplayName("GET /api/diary?sort=latest는 최신순 모드로 피드 목록을 요청한다")
 	void getAllDiariesPassesLatestSortMode() throws Exception {
 		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
-
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), requestMetaInfo, null))
+		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -123,16 +104,14 @@ class FeedControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.hasNext").value(false));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), requestMetaInfo, null);
+		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null);
 	}
 
 	@Test
 	@DisplayName("GET /api/diary?sort=recommended는 추천순 모드로 피드 목록을 요청한다")
 	void getAllDiariesPassesRecommendedSortMode() throws Exception {
 		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
-
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), requestMetaInfo, null))
+		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -141,7 +120,7 @@ class FeedControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.hasNext").value(false));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), requestMetaInfo, null);
+		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null);
 	}
 
 	@Test
@@ -159,8 +138,7 @@ class FeedControllerTest {
 	@Test
 	@DisplayName("GET /api/diary/{diaryId}는 비공개 일기 접근 시 404를 반환한다")
 	void getDiaryWithPhotosReturnsNotFoundWhenDiaryIsHidden() throws Exception {
-		given(requestMetaMapper.extractMetaInfo(any(HttpServletRequest.class))).willReturn(requestMetaInfo);
-		given(getFeedUseCase.getDiaryWithPhotos(1L, requestMetaInfo, null))
+		given(getFeedUseCase.getDiaryWithPhotos(1L, null))
 				.willThrow(new FeedDiaryNotFoundException());
 
 		mockMvc.perform(get("/api/diary/1")

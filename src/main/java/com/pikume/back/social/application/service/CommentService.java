@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -42,8 +41,7 @@ public class CommentService implements CommentUseCase {
 
 	@Override
 	@Transactional
-	public CommentResult createComment(Long diaryId, String content, Long parentId, String userId,
-			RequestMetaInfo requestMetaInfo) {
+	public CommentResult createComment(Long diaryId, String content, Long parentId, String userId) {
 		// 사용자/일기 존재 확인
 		loadUserInfoPort.findUserInfoById(userId)
 				.orElseThrow(() -> new CommentException(CommentErrorCode.INVALID_REQUEST));
@@ -124,24 +122,24 @@ public class CommentService implements CommentUseCase {
 	@Override
 	@Transactional(readOnly = true)
 	public PageResult<CommentListItemResult> getRootCommentsByDiaryId(Long diaryId, PageQuery pageQuery,
-			RequestMetaInfo requestMetaInfo, String viewerId) {
+			String viewerId) {
 		LoadDiaryInfoPort.DiaryInfo diaryInfo = loadVisibleDiaryInfo(diaryId, viewerId);
 		PageResult<CommentListView> rootCommentsPage = loadCommentListViewPort.loadRootCommentsByDiaryId(diaryId, pageQuery);
 		log.info("일기 ID {}에 대한 루트 댓글 {}개 조회 완료.", diaryId, rootCommentsPage.getTotalElements());
 
-		return rootCommentsPage.map(comment -> toCommentListResponse(comment, requestMetaInfo, diaryInfo, viewerId, null));
+		return rootCommentsPage.map(comment -> toCommentListResponse(comment, diaryInfo, viewerId, null));
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public PageResult<CommentListItemResult> getRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery,
-			RequestMetaInfo requestMetaInfo, String viewerId) {
+			String viewerId) {
 		Comment parentComment = validateCommentExists(parentCommentId);
 		LoadDiaryInfoPort.DiaryInfo diaryInfo = loadVisibleDiaryInfo(parentComment.getDiaryId(), viewerId);
 		PageResult<CommentListView> repliesPage = loadCommentListViewPort.loadRepliesByParentCommentId(parentCommentId, pageQuery);
 		log.info("부모 댓글 ID {}에 대한 대댓글 {}개 조회 완료.", parentCommentId, repliesPage.getTotalElements());
 
-		return repliesPage.map(comment -> toCommentListResponse(comment, requestMetaInfo, diaryInfo, viewerId, parentComment));
+		return repliesPage.map(comment -> toCommentListResponse(comment, diaryInfo, viewerId, parentComment));
 	}
 
 	@Override
@@ -217,8 +215,8 @@ public class CommentService implements CommentUseCase {
 		throw new CommentException(CommentErrorCode.UNAUTHORIZED_ACCESS);
 	}
 
-	private CommentListItemResult toCommentListResponse(CommentListView comment, RequestMetaInfo requestMetaInfo,
-			LoadDiaryInfoPort.DiaryInfo diaryInfo, String viewerId, Comment parentComment) {
+	private CommentListItemResult toCommentListResponse(CommentListView comment, LoadDiaryInfoPort.DiaryInfo diaryInfo,
+			String viewerId, Comment parentComment) {
 		if (diaryInfo.anonymous()) {
 			return toAnonymousCommentListResponse(comment, diaryInfo, viewerId, parentComment);
 		}
@@ -241,7 +239,7 @@ public class CommentService implements CommentUseCase {
 
 		String nickname = comment.nickname() != null ? comment.nickname() : "me";
 		String avatarUrl = comment.avatarPath() != null
-				? imagePathToUrlConverter.userAvatarImageUrl(comment.avatarPath(), requestMetaInfo)
+				? imagePathToUrlConverter.userAvatarImageUrl(comment.avatarPath())
 				: null;
 
 		return new CommentListItemResult(

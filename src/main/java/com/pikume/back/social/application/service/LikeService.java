@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.application.port.out.*;
@@ -33,7 +32,7 @@ public class LikeService implements LikeUseCase {
 
 	@Override
 	@Transactional
-	public LikeResult addLike(String userId, Long diaryId, RequestMetaInfo requestMetaInfo) {
+	public LikeResult addLike(String userId, Long diaryId) {
 		log.info("[좋아요 추가 요청] userId: {}, diaryId: {}", userId, diaryId);
 
 		String diaryOwnerId = loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(diaryId, userId)

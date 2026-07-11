@@ -10,7 +10,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.util.RequestMetaMapper;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
@@ -35,9 +34,6 @@ class UserControllerTest {
 	@Mock
 	private CheckNicknameUseCase checkNicknameUseCase;
 
-	@Mock
-	private RequestMetaMapper requestMetaMapper;
-
 	private UserController userController;
 
 	@BeforeEach
@@ -46,7 +42,6 @@ class UserControllerTest {
 				getUserProfileUseCase,
 				updateProfileUseCase,
 				checkNicknameUseCase,
-				requestMetaMapper,
 				new ProblemDetailFactory());
 	}
 

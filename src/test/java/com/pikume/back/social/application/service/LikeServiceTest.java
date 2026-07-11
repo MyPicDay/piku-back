@@ -8,7 +8,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.out.LoadDiaryInfoPort;
 import com.pikume.back.social.application.port.out.LoadLikePort;
@@ -49,10 +48,6 @@ class LikeServiceTest {
 	@Mock
 	private PublishEventPort publishEventPort;
 
-	private final RequestMetaInfo requestMetaInfo = new RequestMetaInfo(
-			"https", "localhost", 8080, "localhost:8080",
-			"https://localhost:8080/api/likes/diary/1", "TestAgent", "127.0.0.1");
-
 	@Nested
 	@DisplayName("addLike - 좋아요 추가")
 	class AddLike {
@@ -64,7 +59,7 @@ class LikeServiceTest {
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			LikeResult response = likeService.addLike("liker-id", 1L, requestMetaInfo);
+			LikeResult response = likeService.addLike("liker-id", 1L);
 
 			assertThat(response.diaryId()).isEqualTo(1L);
 			assertThat(response.likeCount()).isEqualTo(1L);
@@ -78,7 +73,7 @@ class LikeServiceTest {
 		void failsDiaryNotFound() {
 			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(999L, "liker-id")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> likeService.addLike("liker-id", 999L, requestMetaInfo))
+			assertThatThrownBy(() -> likeService.addLike("liker-id", 999L))
 					.isInstanceOf(LikeException.class)
 					.satisfies(e -> assertThat(((LikeException) e).getErrorCode())
 							.isEqualTo(LikeErrorCode.DIARY_NOT_FOUND));
@@ -91,7 +86,7 @@ class LikeServiceTest {
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("owner-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			LikeResult response = likeService.addLike("owner-id", 1L, requestMetaInfo);
+			LikeResult response = likeService.addLike("owner-id", 1L);
 
 			assertThat(response.diaryId()).isEqualTo(1L);
 			assertThat(response.likeCount()).isEqualTo(1L);
@@ -107,7 +102,7 @@ class LikeServiceTest {
 			given(loadDiaryInfoPort.findVisibleOwnerUserIdByDiaryId(1L, "liker-id")).willReturn(Optional.of("owner-id"));
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(existingLike));
 
-			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L, requestMetaInfo))
+			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L))
 					.isInstanceOf(LikeException.class)
 					.satisfies(e -> assertThat(((LikeException) e).getErrorCode())
 							.isEqualTo(LikeErrorCode.ALREADY_LIKED));
@@ -120,7 +115,7 @@ class LikeServiceTest {
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.empty());
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			likeService.addLike("liker-id", 1L, requestMetaInfo);
+			likeService.addLike("liker-id", 1L);
 
 			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
 		}
@@ -133,7 +128,7 @@ class LikeServiceTest {
 			given(saveLikePort.saveAndFlush(any(Like.class)))
 					.willThrow(new DataIntegrityViolationException("Duplicate entry for key 'likes.uk_user_diary'"));
 
-			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L, requestMetaInfo))
+			assertThatThrownBy(() -> likeService.addLike("liker-id", 1L))
 					.isInstanceOf(DuplicateLikeException.class)
 					.hasMessage("좋아요 중복 저장이 감지되었습니다.");
 		}
@@ -147,7 +142,7 @@ class LikeServiceTest {
 			given(loadLikePort.findAnyByUserIdAndDiaryIdForUpdate("liker-id", 1L)).willReturn(Optional.of(softDeletedLike));
 			given(loadLikePort.countByDiaryId(1L)).willReturn(1L);
 
-			LikeResult response = likeService.addLike("liker-id", 1L, requestMetaInfo);
+			LikeResult response = likeService.addLike("liker-id", 1L);
 
 			assertThat(response.liked()).isTrue();
 			assertThat(softDeletedLike.getDeletedAt()).isNull();

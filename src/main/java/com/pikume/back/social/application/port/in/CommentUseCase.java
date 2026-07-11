@@ -1,6 +1,5 @@
 package com.pikume.back.social.application.port.in;
 
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.social.application.dto.CommentDeleteResult;
@@ -13,18 +12,17 @@ import java.util.Set;
 
 public interface CommentUseCase {
 
-	CommentResult createComment(Long diaryId, String content, Long parentId, String userId,
-			RequestMetaInfo requestMetaInfo);
+	CommentResult createComment(Long diaryId, String content, Long parentId, String userId);
 
 	CommentResult updateComment(Long commentId, String content, String userId);
 
 	CommentDeleteResult deleteComment(Long commentId, String userId);
 
 	PageResult<CommentListItemResult> getRootCommentsByDiaryId(Long diaryId, PageQuery pageQuery,
-			RequestMetaInfo requestMetaInfo, String viewerId);
+			String viewerId);
 
 	PageResult<CommentListItemResult> getRepliesByParentCommentId(Long parentCommentId, PageQuery pageQuery,
-			RequestMetaInfo requestMetaInfo, String viewerId);
+			String viewerId);
 
 	long countActiveCommentsByDiaryId(String viewerId, Long diaryId);
 

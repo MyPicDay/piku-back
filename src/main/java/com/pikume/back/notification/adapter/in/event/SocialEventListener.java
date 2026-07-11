@@ -26,7 +26,7 @@ public class SocialEventListener {
 
 		NotificationType type = event.isReply() ? NotificationType.REPLY : NotificationType.COMMENT;
 		notificationUseCase.sendNotification(
-				event.receiverId(), type, event.senderId(), event.diaryId(), null);
+				event.receiverId(), type, event.senderId(), event.diaryId());
 	}
 
 	@EventListener
@@ -36,7 +36,7 @@ public class SocialEventListener {
 
 		notificationUseCase.sendNotification(
 				event.receiverId(), NotificationType.LIKE,
-				event.senderId(), event.diaryId(), null);
+				event.senderId(), event.diaryId());
 	}
 
 	@EventListener
@@ -46,7 +46,7 @@ public class SocialEventListener {
 
 		notificationUseCase.sendNotification(
 				event.receiverId(), NotificationType.FRIEND_REQUEST,
-				event.senderId(), null, null);
+				event.senderId(), null);
 	}
 
 	@EventListener
@@ -56,6 +56,6 @@ public class SocialEventListener {
 
 		notificationUseCase.sendNotification(
 				event.receiverId(), NotificationType.FRIEND_ACCEPT,
-				event.senderId(), null, null);
+				event.senderId(), null);
 	}
 }

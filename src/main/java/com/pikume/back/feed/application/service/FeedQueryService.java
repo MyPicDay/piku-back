@@ -20,7 +20,6 @@ import com.pikume.back.feed.application.port.out.*;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedListItemView;
 import com.pikume.back.feed.domain.FeedClick;
-import com.pikume.back.global.dto.RequestMetaInfo;
 
 import java.util.*;
 
@@ -53,33 +52,33 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public FeedDiaryResult getDiaryWithPhotos(Long diaryId, RequestMetaInfo requestMetaInfo, String userId) {
+	public FeedDiaryResult getDiaryWithPhotos(Long diaryId, String userId) {
 		log.info("일기 상세 조회 요청 - diaryId: {}", diaryId);
 
 		FeedDiaryDetailView diary = loadDiaryForFeedPort.findVisibleDiaryById(diaryId, userId)
 				.orElseThrow(FeedDiaryNotFoundException::new);
-		return buildResponseDTO(diary, requestMetaInfo, userId, null);
+		return buildResponseDTO(diary, userId, null);
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public FeedCursorPage<FeedDiaryResult> getAllDiaries(FeedCursorRequest request, RequestMetaInfo requestMetaInfo, String userId) {
+	public FeedCursorPage<FeedDiaryResult> getAllDiaries(FeedCursorRequest request, String userId) {
 		FeedCursor cursor = decodeCursor(request.cursor(), userId, request.sortMode());
 		if (request.sortMode() == FeedSortMode.LATEST) {
-			return getLatestDiaries(request, requestMetaInfo, userId, cursor);
+			return getLatestDiaries(request, userId, cursor);
 		}
-		return getRecommendedDiaries(request, requestMetaInfo, userId, cursor);
+		return getRecommendedDiaries(request, userId, cursor);
 	}
 
-	private FeedCursorPage<FeedDiaryResult> getRecommendedDiaries(FeedCursorRequest request,
-			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor) {
+	private FeedCursorPage<FeedDiaryResult> getRecommendedDiaries(FeedCursorRequest request, String userId,
+			FeedCursor cursor) {
 		List<FeedCursorCandidate> candidates = loadRecommendedPageCandidates(userId, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedCursorCandidate::diaryId)
 				.toList();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
-				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo, userId))
+				.map(feedItem -> toResponseDTO(feedItem, userId))
 				.toList();
 		boolean hasNext = hasNextRecommended(userId, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
@@ -89,8 +88,8 @@ public class FeedQueryService implements GetFeedUseCase {
 		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
 	}
 
-	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request,
-			RequestMetaInfo requestMetaInfo, String userId, FeedCursor cursor) {
+	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request, String userId,
+			FeedCursor cursor) {
 		List<String> friendUserIds = resolveFriendUserIds(userId);
 		List<FeedLatestCursorCandidate> candidates = loadLatestPageCandidates(userId, friendUserIds, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
@@ -98,7 +97,7 @@ public class FeedQueryService implements GetFeedUseCase {
 				.toList();
 		List<FeedListItemView> feedItems = loadFeedListViewPort.loadFeedListItems(diaryIds, userId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
-				.map(feedItem -> toResponseDTO(feedItem, requestMetaInfo, userId))
+				.map(feedItem -> toResponseDTO(feedItem, userId))
 				.toList();
 		boolean hasNext = hasNextLatest(userId, friendUserIds, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
@@ -253,8 +252,7 @@ public class FeedQueryService implements GetFeedUseCase {
 
 	// ==================== DTO Builders ====================
 
-	private FeedDiaryResult buildResponseDTO(FeedDiaryDetailView diary, RequestMetaInfo requestMetaInfo,
-			String userId, FeedFriendStatus friendStatus) {
+	private FeedDiaryResult buildResponseDTO(FeedDiaryDetailView diary, String userId, FeedFriendStatus friendStatus) {
 		long likeCount = loadSocialForFeedPort.getLikeCount(diary.diaryId());
 		boolean isLiked = loadSocialForFeedPort.isLikedByUser(userId, diary.diaryId());
 		boolean isOwner = Objects.equals(diary.userId(), userId);
@@ -266,7 +264,7 @@ public class FeedQueryService implements GetFeedUseCase {
 
 		if (!anonymous) {
 			String avatar = loadUserForFeedPort.getUserAvatar(diary.userId());
-			avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar, requestMetaInfo);
+			avatarUrl = loadUserForFeedPort.getUserAvatarUrl(avatar);
 			nickname = loadUserForFeedPort.getUserNickname(diary.userId());
 			responseUserId = diary.userId();
 			responseFriendStatus = friendStatus;
@@ -290,11 +288,11 @@ public class FeedQueryService implements GetFeedUseCase {
 				.build();
 	}
 
-	private FeedDiaryResult toResponseDTO(FeedListItemView feedItem, RequestMetaInfo requestMetaInfo, String currentUserId) {
+	private FeedDiaryResult toResponseDTO(FeedListItemView feedItem, String currentUserId) {
 		boolean anonymous = isAnonymous(feedItem.status());
 		boolean isOwner = Objects.equals(feedItem.userId(), currentUserId);
 		String avatarUrl = !anonymous && feedItem.avatarPath() != null
-				? loadUserForFeedPort.getUserAvatarUrl(feedItem.avatarPath(), requestMetaInfo)
+				? loadUserForFeedPort.getUserAvatarUrl(feedItem.avatarPath())
 				: null;
 
 		return FeedDiaryResult.builder()

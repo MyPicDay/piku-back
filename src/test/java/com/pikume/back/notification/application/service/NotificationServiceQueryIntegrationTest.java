@@ -58,9 +58,9 @@ class NotificationServiceQueryIntegrationTest extends AbstractJpaQueryCountInteg
 		notificationJpaRepository.save(new Notification(receiver.getId(), sender3.getId(), NotificationType.COMMENT, diary3.getId()));
 
 		long oneItemQueries = measurePreparedStatements(() ->
-				notificationService.getNotifications(receiver.getId(), REQUEST_META_INFO, PageQuery.of(0, 1)));
+				notificationService.getNotifications(receiver.getId(), PageQuery.of(0, 1)));
 		long threeItemQueries = measurePreparedStatements(() ->
-				notificationService.getNotifications(receiver.getId(), REQUEST_META_INFO, PageQuery.of(0, 3)));
+				notificationService.getNotifications(receiver.getId(), PageQuery.of(0, 3)));
 
 		assertThat(threeItemQueries)
 				.as("알림 row 수가 늘어도 발신자/썸네일 조회를 배치로 제한해야 한다")

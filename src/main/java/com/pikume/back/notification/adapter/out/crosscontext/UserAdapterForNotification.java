@@ -2,7 +2,6 @@ package com.pikume.back.notification.adapter.out.crosscontext;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.notification.application.port.out.LoadUserForNotificationPort;
 import com.pikume.back.user.application.exception.UserNotFoundException;
@@ -31,7 +30,7 @@ public class UserAdapterForNotification implements LoadUserForNotificationPort {
 	}
 
 	@Override
-	public String getUserAvatarUrl(String avatar, RequestMetaInfo requestMetaInfo) {
-		return imagePathToUrlConverter.userAvatarImageUrl(avatar, requestMetaInfo);
+	public String getUserAvatarUrl(String avatar) {
+		return imagePathToUrlConverter.userAvatarImageUrl(avatar);
 	}
 }

@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.pikume.back.global.dto.RequestMetaInfo;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -26,12 +25,12 @@ public class UserSearchService implements SearchUserUseCase {
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Override
-	public PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery, RequestMetaInfo requestMetaInfo) {
+	public PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery) {
 		String formattedKeyword = "%" + keyword + "%";
 
 		return userQueryPort.searchByName(formattedKeyword, pageQuery)
 				.map(user -> {
-					String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(user.getAvatar(), requestMetaInfo);
+					String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(user.getAvatar());
 					return new UserSearchResult(user.getId(), user.getNickname(), avatarUrl);
 				});
 	}
