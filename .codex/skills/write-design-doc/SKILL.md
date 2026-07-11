@@ -1,11 +1,13 @@
 ---
 name: write-design-doc
-description: Use when planning piku-back work before implementation and creating or editing the corresponding design, implementation, migration, rollout, or task planning document.
+description: Use when planning piku-back work before implementation and creating or editing the corresponding design, implementation, migration, rollout, or task planning document; not for general documentation work unrelated to pre-implementation planning.
 ---
 
 # Write Design Doc
 
 Use this skill for `piku-back` planning documentation work before implementation begins.
+
+Do not use this skill for general documentation work that is not part of pre-implementation design or planning, such as README updates, guides, meeting minutes, or routine documentation maintenance.
 
 Do not use this skill for code review, document review, post-implementation review, or retrospective assessment.
 
