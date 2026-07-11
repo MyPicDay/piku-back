@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-05-28
+- Last Reviewed: 2026-07-11
 
 ## 목적
 
@@ -34,3 +34,8 @@
 - 재사용 가치가 낮은 legacy 문서는 archive 대신 삭제할 수 있다.
 - `docs/superpowers/`는 공식 문서가 아니다.
 - 새 공식 문서를 만들면 반드시 해당 index에 연결한다.
+- 문서 목록, 분류와 문서 간 이동은 `docs/README.md`와 `docs/indexes/`가 전담한다.
+- 개별 공식 문서는 다른 공식 문서의 링크나 관련 문서 목록을 포함하지 않고 자신의 주제만 독립적으로 설명한다.
+- 공식 문서에는 구현 소스코드 본문, 소스 파일 링크, 로컬 절대 경로와 소스 파일 위치를 포함하지 않는다.
+- API 오류 응답의 중복 구현을 방지하기 위한 공용 Factory 코드는 `api-error-responses.md`에만 예외로 둘 수 있다.
+- API 요청·응답 예시, 운영 명령, 설정 예시와 Mermaid 다이어그램은 문서 목적에 필요하면 사용할 수 있다.

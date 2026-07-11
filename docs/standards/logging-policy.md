@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-07-11
 
 ## 목표
 
@@ -19,12 +19,7 @@ Piku 백엔드의 애플리케이션 로그를 개인정보 최소화 원칙에 
 
 ## 배경
 
-현재 코드에는 이메일이 raw 값으로 직접 로그에 남는 구간이 존재한다.
-
-- [AuthService.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/user/auth/application/service/AuthService.java)
-- [TokenService.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/application/service/TokenService.java)
-- [JwtProvider.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/jwt/JwtProvider.java)
-- [JwtFilter.java](/Users/yk/piku/piku-back/src/main/java/com/pikume/back/security/jwt/JwtFilter.java)
+현재 인증, 이메일 검증과 토큰 처리 흐름에는 이메일 등 개인정보가 raw 값으로 기록될 수 있는 기존 로그가 남아 있다.
 
 또한 JWT 생성/파싱/필터 통과처럼 요청 수에 비례해 매우 자주 발생하는 성공 로그도 `info` 레벨로 남고 있다. 이 방식은 다음 문제를 만든다.
 

@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-04-12
+- Last Reviewed: 2026-07-11
 
 ## 목적
 
@@ -15,11 +15,20 @@
 - ad hoc 문자열 body와 bespoke error DTO는 새로 추가하지 않는다.
 - 임시 호환이 필요하면 문서화된 예외로만 허용한다.
 
-## 현재 구현 기준점
+## 공통 생성 원칙
 
-현재 공통 Problem Details 생성 기준점은 `src/main/java/com/pikume/back/global/error/ProblemDetailFactory.java` 이다.
+- 모든 Web Adapter는 공용 Problem Details 생성 경로를 사용한다.
+- 모듈마다 Problem Details 조립 규칙을 중복 구현하지 않는다.
+- Application과 Domain 오류를 HTTP 표현으로 변환하는 책임은 Web Adapter 경계에 둔다.
+
+## 공용 구현 기준
+
+`ProblemDetailFactory`는 API 실패 응답을 생성하는 유일한 공용 Factory다. 모듈별 Factory나 별도의 Problem Details 조립 코드를 새로 만들지 않는다.
+
+아래 코드는 문서 소스코드 금지 원칙의 예외이며 현재 공용 구현과 함께 유지한다.
 
 ```java
+@Component
 public class ProblemDetailFactory {
 
 	public ProblemDetail create(ApiProblemType problemType, String detail, String instance) {
@@ -29,8 +38,16 @@ public class ProblemDetailFactory {
 		problemDetail.setInstance(URI.create(instance));
 		return problemDetail;
 	}
+
+	public ProblemDetail validation(String detail, String instance, Map<String, String> fieldErrors) {
+		ProblemDetail problemDetail = create(ValidationProblemType.INVALID_REQUEST, detail, instance);
+		problemDetail.setProperty("fieldErrors", fieldErrors);
+		return problemDetail;
+	}
 }
 ```
+
+공용 Factory의 필드 구성이나 검증 오류 확장 방식이 변경되면 이 코드와 API 오류 응답 테스트를 함께 갱신한다.
 
 ## 필수 원칙
 

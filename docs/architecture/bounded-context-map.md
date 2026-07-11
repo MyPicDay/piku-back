@@ -3,42 +3,83 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-10
+- Last Reviewed: 2026-07-11
 
 ## 목적
 
-이 문서는 `piku-back`에 현재 존재하는 비즈니스 모듈의 책임과 주요 호출 관계를 정리한다. Context 경계를 이해하고 Cross-Context 의존 방향을 판단하기 위한 문서이며, 새로운 Aggregate·테이블·API 또는 패키지 구조를 도입하는 설계 문서가 아니다.
+이 문서는 `piku-back`에서 현재 식별한 모델 경계, 경계의 확신도, Context 간 접점과 번역 상태를 기록한다.
 
-계층과 Port·Adapter 규칙은 [DDD + 헥사고날 아키텍처](ddd-hexagonal-architecture.md), 구현된 도메인 모델의 상세 규칙은 [Domain Models](../domain-models/README.md)를 따른다.
+Context Map은 Java 패키지 목록이나 런타임 호출 그래프와 같지 않다. 패키지와 호출은 모델 경계를 찾는 근거 중 하나이며, Bounded Context는 특정 모델과 Ubiquitous Language가 정의되고 적용되는 경계다.
 
-## 1. 비즈니스 Context와 모듈
+이 문서는 현재 합의된 모델 지형을 기록한다. 구현이 합의된 경계를 따르지 않는 상태는 모델 정의와 구분하며, Context 분할·병합과 데이터 마이그레이션은 별도 설계에서 결정한다.
 
-| Context 또는 모듈 | 현재 책임 | 상세 문서 |
+## 1. Domain Vision과 Core Domain
+
+Piku는 사용자가 하루의 감정과 상황을 일기 내용과 생성 이미지로 기록하고, 시간이 지나 쌓인 기록을 달력·일기 수·사진 모아보기로 다시 발견하면서 자신의 변화와 성취를 느끼도록 돕는다.
+
+현재 Core Domain은 **감정 일기 기록과 시각적 회고**다. Diary Context가 일기 내용, 날짜, 생성 이미지와 사용자 사진의 연결, 공개 범위, 기록 생명주기, 달력과 기록 조회 정책을 소유한다.
+
+현재 모델은 감정을 별도 값이나 통계로 저장하지 않는다. 감정은 사용자가 작성한 일기 내용과 AI 생성 이미지로 표현된다. 감정 입력과 통계는 향후 제품 결정이 있기 전까지 현재 모델과 규칙에 포함하지 않는다.
+
+Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력이더라도 Supporting Subdomain으로 분류한다. Creative는 이미지 생성 과정과 이력을 소유하고, 기록과 회고의 의미 및 정책은 Diary가 소유한다.
+
+## 2. 경계 상태
+
+| 상태 | 의미 | 사용 방법 |
 | --- | --- | --- |
-| **Admin** | 관리자 계정, 관리자 인증·세션, 감사와 운영 통계 | [Admin](../domain-models/admin.md) |
-| **Character** | 고정·사용자 캐릭터와 캐릭터 이미지 자산 | - |
-| **Creative** | AI 일기 이미지 생성과 생성 이력 | [Creative](../domain-models/creative.md) |
-| **Diary** | 일기, 사진, 공개 범위와 일기 생명주기 | [Diary](../domain-models/diary.md) |
-| **Feed** | 피드 후보·목록 구성, 정렬과 열람 행위 기록 | [Feed](../domain-models/feed.md) |
-| **Notification** | 알림 이력, 읽음·삭제, SSE·FCM 전달과 기기 토큰 | [Notification](../domain-models/notification.md) |
-| **Recommendation** | 일기 메타데이터, 사용자 선호와 추천 정보 | - |
-| **Social** | 친구 요청·관계, 댓글, 답글과 좋아요 | [Social](../domain-models/social.md) |
-| **Support** | 사용자 문의, 문의 이미지와 피드백 전달 | - |
-| **User** | 사용자 식별 정보, 프로필, 닉네임 점유와 회원 탈퇴 | [User](../domain-models/user.md) |
+| **Working Context** | 현재 모델·책임 문서와 코드 소유권을 근거로 리팩터링 기준 경계로 사용한다. | 경계를 넘을 때 내부 모델과 저장소를 직접 사용하지 않는다. |
+| **Boundary Candidate** | 독립된 책임과 코드 구조는 있으나 고유 언어·불변식·소유권 검증이 충분하지 않다. | 별도 Context라고 단정하지 않고 모델 탐구 결과에 따라 유지·병합한다. |
+| **Unresolved Boundary** | 인접 영역 사이의 모델과 책임이 현재 겹치거나 기술 책임과 비즈니스 책임이 섞여 있다. | 구조를 먼저 확정하지 않고 유스케이스와 용어 소유권을 검증한다. |
+| **Technical Module** | 비즈니스 모델 경계가 아니라 여러 영역을 지원하는 기술 모듈이다. | 비즈니스 규칙과 특정 Context 모델을 소유하지 않게 한다. |
 
-`user.auth`는 현재 `user` 아래에서 회원가입, 이메일 인증과 비밀번호 재설정을 처리하는 하위 모듈이다. `security`는 아래와 같이 로그인·토큰 유스케이스와 보안 기술 책임이 함께 있는 현재 구조로 기록한다. 둘의 책임을 재편하거나 User 모델을 분리하는 결정은 이 Context Map의 범위가 아니다.
+`Working Context`는 영구 확정 선언이 아니다. 현재 리팩터링에서 모델 누출을 방지하기 위한 운영상 기준이며 도메인 통찰이 바뀌면 함께 변경한다.
 
-## 2. 지원·기술 모듈
+## 3. 현재 모델 경계
 
-| 모듈 | 현재 책임 |
+| 영역 | 경계 상태 | 전략 분류 | 현재 모델과 책임 | 확인할 경계 질문 |
+| --- | --- | --- | --- | --- |
+| **Admin** | Working Context | 미분류 | 관리자 계정, 자격 증명, OTP, 세션, 감사와 운영 통계 | 운영 통계가 독립된 언어와 생명주기를 가져 별도 분석 영역으로 분리되어야 하는가? |
+| **Character** | Boundary Candidate | 미분류 | 고정·사용자 캐릭터와 이미지 자산 | 캐릭터 자산이 Creative·User와 구분되는 고유한 생명주기와 언어를 가지는가? |
+| **Creative** | Working Context | Supporting | AI 일기 이미지 생성, 생성 상태, 할당량, 생성 자산과 이력 | 생성 자산과 Diary 기록 표현의 소유권이 계속 분리되어 있는가? |
+| **Diary** | Working Context | Core | 일기 내용, 날짜, 사진, 생성 이미지 연결, 공개 범위, 기록 생명주기, 달력과 회고 조회 | 공개·피드·소셜 정책 중 어떤 규칙을 Diary가 소유해야 하는가? |
+| **Feed** | Working Context | 미분류 | 피드 후보·목록 구성, 정렬과 열람 행위 | Feed가 독립된 도메인 모델인가, Application Read Model 영역인가? |
+| **Notification** | Working Context | 미분류 | 알림 이력, 읽음·삭제, 전달 상태와 기기 토큰 | 알림 기록 모델과 SSE·FCM 전달 기술의 책임이 분리되어 있는가? |
+| **Recommendation** | Boundary Candidate | 미분류 | 일기 메타데이터, 사용자 선호와 추천 정보 | 추천 모델과 기술적 계산·캐시 책임이 분리되어 있는가? |
+| **Social** | Working Context | 미분류 | 친구 요청·관계, 댓글, 답글과 좋아요 | 친구 관계와 일기 반응이 하나의 언어와 모델에 속하는가? |
+| **Support** | Boundary Candidate | 미분류 | 사용자 문의, 문의 이미지와 피드백 전달 | Support가 독립된 모델 경계를 가져야 하는가, 단순 지원 유스케이스인가? |
+| **User** | Working Context | 미분류 | 일반 사용자 계정 생명주기, 자격 증명, 이메일 검증, 인증 유스케이스, 프로필과 닉네임 점유 | 계정·인증 Application과 Security Adapter의 기술 책임이 분리되어 있는가? |
+
+`미분류`는 중요도가 낮다는 의미가 아니라 제품 전략과 모델 근거를 대화로 더 확인해야 한다는 뜻이다. 코드 규모, 트래픽과 현재 패키지 구조만으로 전략 분류를 대신하지 않는다.
+
+## 4. 일반 사용자 계정과 인증 경계
+
+일반 사용자 계정과 인증 Application은 User Context가 소유한다.
+
+| 책임 | 소유 경계 |
 | --- | --- |
-| **security** | 일반 사용자 로그인, 토큰 발급·재발급·로그아웃과 Spring Security, JWT 등 보안 구현 |
-| **global** | 공통 오류 처리, 설정, 유틸리티와 도메인 중립 기반 기능 |
-| **tools** | 운영·개발용 생성기와 변환 도구 |
+| 계정 등록·탈퇴, 이메일·비밀번호와 로그인 가능 상태 | User Domain |
+| 이메일 검증과 비밀번호 재설정 정책 | User Domain |
+| 회원가입, 로그인, 세션 재발급과 로그아웃 흐름 | User Application |
+| 비밀번호 해시·검증, 토큰 생성·검증, 보안 필터와 쿠키 변환 | Security Adapter |
+| 갱신 세션 저장과 조회 기술 | Security·Persistence Adapter |
 
-지원·기술 모듈도 Application과 Adapter를 함께 포함할 수 있다. 실제 책임과 이상적인 책임이 혼재한 위치는 Context 이름을 바꾸거나 새 모델을 추가하지 않고 갭 분석에서 의존성 문제로 추적한다.
+현재 `user.auth`는 별도 Bounded Context가 아니라 User Context 내부의 계정 등록·자격 증명 관리 기능으로 해석한다. 현재 `security`에 있는 일반 사용자 로그인·재발급·로그아웃 조정 책임은 User Application으로 이동할 대상이며, Security에는 기술 구현만 남긴다.
 
-## 3. 주요 관계
+관리자 계정과 인증 정책은 Admin Context가 소유한다. 일반 사용자 인증과 기술 구현을 재사용할 수는 있지만 계정 모델, 세션 정책과 Ubiquitous Language를 공유하지 않는다.
+
+## 5. 기술 모듈
+
+| 모듈 | 현재 책임 | 경계 원칙 |
+| --- | --- | --- |
+| **global** | 공통 오류 처리, 설정, 저장소 기반 기능과 유틸리티 | 특정 Context의 Domain 타입과 비즈니스 규칙을 소유하지 않는다. |
+| **tools** | 운영·개발용 생성기와 변환 도구 | 제품 Domain 모델과 분리한다. |
+| **security** | 비밀번호 보호, 토큰, 보안 필터, 쿠키와 세션 저장 기술 | User와 Admin의 Application Port를 구현하는 기술 Adapter이며 Domain 모델과 유스케이스를 소유하지 않는다. |
+
+`global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
+
+## 6. 현재 런타임 접점
+
+아래 화살표는 **소비자 또는 요청자 → 정보 공급자 또는 동작 수행자** 방향이다. upstream/downstream 영향력, 팀 관계나 데이터 소유권을 뜻하지 않는다.
 
 ```mermaid
 flowchart LR
@@ -67,38 +108,57 @@ flowchart LR
     User --> Social
 ```
 
-화살표는 호출하는 모듈이 대상 모듈의 정보나 동작을 사용한다는 뜻이다. 데이터베이스 테이블 소유권이나 트랜잭션 분리를 뜻하지 않으며, 반대 방향의 호출이 존재하더라도 한 요청 안에서 순환 호출을 만들어서는 안 된다.
+## 7. 접점과 번역 상태
 
-## 4. 주요 통합 목적
+| 소비자·요청자 | 공급자·수행자 | 현재 목적 | 현재 경계 상태 |
+| --- | --- | --- | --- |
+| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | 공개 Application 계약과 내부 Out Port 접근이 혼재한다. |
+| Creative | Character | 이미지 생성용 캐릭터 자산 조회 | 소비자 Port와 대상 공개 Application 계약을 사용한다. |
+| Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
+| Diary | User | 작성자 확인 | 소비자 Adapter가 대상 Entity·Out Port를 사용하는 경로가 남아 있다. |
+| Diary | Social | 친구 관계와 알림 대상 조회 | 소비자 Out Port 경로와 대상 In Port 직접 호출이 혼재한다. |
+| Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
+| Diary | Notification | 친구 공개 일기 알림 요청 | 소비자 Adapter가 대상 계약을 호출하지만 대상 Domain 타입이 일부 노출된다. |
+| Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Application Service가 대상 In Port에 직접 결합한다. |
+| Feed | User, Diary, Social, Recommendation | 피드 구성용 사용자·일기·소셜·추천 정보 조회 | 소비자 Port가 있으나 대상 또는 다른 소비자 모델 타입이 일부 노출된다. |
+| Notification | User, Diary | 알림 응답용 발신자·일기 정보 조회 | 대상 Entity·Out Port 접근과 공개 조회 계약이 혼재한다. |
+| Social | User, Diary | 친구·댓글·좋아요 대상과 응답 정보 조회 | 대상 Out Port 또는 공개 계약 직접 사용이 혼재한다. |
+| Social | Notification | 친구·댓글·좋아요 알림 요청 | 이벤트 Port가 있으나 전달 의미와 보장 수준을 명시해야 한다. |
+| Support | User | 문의 제출 사용자 확인 | 대상 Out Port 직접 호출이 남아 있다. |
+| User | Character, Diary, Social | 프로필 아바타와 일기·친구 정보 조회 | 소비자 Port는 있으나 상호 의존 방향을 검토해야 한다. |
 
-| 호출 Context | 대상 Context | 현재 호출 목적 |
-| --- | --- | --- |
-| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 |
-| Creative | Character | AI 이미지 생성에 필요한 캐릭터 자산 조회 |
-| Creative | Admin | AI 이미지 요청·실패 통계 기록 |
-| Diary | User | 작성자 존재 확인 |
-| Diary | Social | 친구 관계와 친구 공개 알림 대상 조회 |
-| Diary | Creative | 생성 이미지 조회와 일기 연결 |
-| Diary | Notification | 친구 공개 일기 알림 요청 |
-| Diary | Recommendation | 일기 본문 메타데이터 분석 요청 |
-| Feed | User | 작성자 닉네임·아바타 조회 |
-| Feed | Diary | 피드 후보와 상세 일기 조회 |
-| Feed | Social | 친구 관계, 좋아요와 댓글 정보 조회 |
-| Feed | Recommendation | 추천 정보 조회와 열람 선호 기록 |
-| Notification | User, Diary | 알림 응답에 필요한 발신자와 일기 정보 조회 |
-| Social | User | 친구·댓글 응답에 필요한 사용자 정보 조회 |
-| Social | Diary | 댓글·좋아요 대상 일기 확인 |
-| Social | Notification | 친구·댓글·좋아요 알림 요청 |
-| Support | User | 문의 제출 사용자 확인 |
-| User | Character | 프로필 아바타로 사용할 캐릭터 조회 |
-| User | Diary, Social | 프로필 응답에 필요한 일기·친구 정보 조회 |
+## 8. 전략 관계 해석
 
-이 표는 현재 구현의 업무 관계를 요약한다. 호출 방식이 아키텍처 규칙을 위반하는지는 [미비점 분석](ddd-hexagonal-architecture-gap-analysis.md)에서 별도로 판정한다.
+현재 저장소는 대부분 한 팀과 한 배포 단위 안의 동기 호출이므로 다음 관계를 아직 확정하지 않는다.
 
-## 5. 경계 해석 원칙
+- Partnership
+- Customer/Supplier
+- Conformist
+- Open Host Service와 Published Language
+- Shared Kernel
+- Separate Ways
 
-- 호출 Context는 필요한 능력을 자신의 Out Port로 표현하고 Cross-Context Adapter에서 대상 In Port를 호출한다.
-- 대상 Context의 Entity, Out Port, Repository와 Persistence Adapter는 다른 Context에 공개하지 않는다.
-- `User`, `user.auth`, `security`처럼 현재 책임이 인접한 모듈은 실제 동작을 우선 기록하고, 문서만으로 새 경계나 모델을 확정하지 않는다.
-- 이 문서의 수정만으로 기존 기능, 데이터 소유권과 트랜잭션 동작이 변경되지는 않는다.
-- 새로운 경계나 모델 분리가 필요하면 영향 범위와 마이그레이션을 포함한 별도 설계에서 결정한다.
+코드 호출 방향만으로 위 패턴을 붙이지 않는다. 전략 관계를 확정하려면 모델 변경을 누가 주도하는지, 상대 변경이 어느 팀의 일정과 성공에 영향을 주는지, 어떤 계약을 협의하는지를 확인해야 한다.
+
+소비자 관점의 Out Port와 변환 Adapter가 있는 곳은 Anti-Corruption Layer의 일부 역할을 할 수 있다. 그러나 대상 Context 타입이 계약 밖으로 노출되거나 단순 전달만 한다면 완전한 모델 보호 경계로 보지 않는다.
+
+## 9. 상호 의존 위험
+
+현재 런타임 접점에는 `User ↔ Diary`, `User ↔ Social`, `Diary ↔ Social`처럼 양방향 관계가 있다.
+
+양방향 화살표 자체가 즉시 잘못은 아니지만 다음 위험을 확인해야 한다.
+
+- 하나의 요청이 같은 Context로 다시 진입하는 순환 호출
+- 두 모델이 서로의 내부 타입과 저장 구조를 알아야 하는 변경 결합
+- 트랜잭션과 생명주기 소유권의 불명확성
+- 응답 조합 편의를 위해 상태 변경 경계가 흐려지는 문제
+
+조회 조합은 전용 Read Model이나 Application 조정으로 분리할 수 있다. 상태 변경이 양쪽 모델의 동기 원자성을 계속 요구한다면 Context 또는 Aggregate 경계가 잘못 나뉘었는지 먼저 검토한다.
+
+## 10. 유지 원칙
+
+- 새 최상위 패키지를 추가했다고 Context Map에 즉시 Bounded Context로 등록하지 않는다.
+- 경계 상태를 변경할 때 모델, 언어, 불변식, 소유권과 통합 근거를 함께 기록한다.
+- 새로운 Cross-Context 접점을 추가하면 소비자·공급자, 계약, 번역 위치와 실패 정책을 기록한다.
+- 현재 지형과 목표 구조를 한 그림에 섞지 않는다.
+- 전용 Domain Model 문서를 추가하면 Domain Models Index도 함께 갱신한다.

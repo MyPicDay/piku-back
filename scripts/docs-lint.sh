@@ -67,7 +67,25 @@ grep -q "indexes/domain-models-index.md" docs/README.md || fail "docs/README.md 
 grep -q "indexes/references-index.md" docs/README.md || fail "docs/README.md missing references index link"
 
 grep -q "RFC 9457" docs/standards/api-error-responses.md || fail "api-error-responses.md missing RFC 9457"
-grep -q "ProblemDetailFactory" docs/standards/api-error-responses.md || fail "api-error-responses.md missing ProblemDetailFactory reference"
+grep -q "class ProblemDetailFactory" docs/standards/api-error-responses.md || fail "api-error-responses.md missing canonical ProblemDetailFactory"
+grep -q "ProblemDetail validation" docs/standards/api-error-responses.md || fail "api-error-responses.md missing validation Problem Details factory method"
+
+SOURCE_CODE_BLOCK_EXCEPTION="docs/standards/api-error-responses.md"
+
+while IFS= read -r file; do
+  if grep -Eiq '\[[^]]+\]\([^)]*\.md([#][^)]*)?\)' "$file"; then
+    fail "non-index document link: $file"
+  fi
+
+  if grep -Eq 'src/(main|test)/|/Users/[^ )]+|\.java([)`[:space:]]|$)' "$file"; then
+    fail "source file reference in official document: $file"
+  fi
+
+  if [[ "$file" != "$SOURCE_CODE_BLOCK_EXCEPTION" ]] &&
+      grep -Eiq '^```(java|kotlin|groovy|scala|python|javascript|typescript|jsx|tsx|go|rust|c|cpp|csharp|php|ruby|swift)([[:space:]]*)$' "$file"; then
+    fail "source code block in official document: $file"
+  fi
+done < <(find docs/architecture docs/standards docs/product-specs docs/handoffs docs/runbooks docs/incident-retrospectives docs/domain-models docs/references docs/archive -type f -name '*.md' | sort)
 
 [[ ! -d docs/domain_models ]] || fail "legacy docs/domain_models directory still exists"
 [[ ! -d docs/tasks ]] || fail "legacy docs/tasks directory still exists"
