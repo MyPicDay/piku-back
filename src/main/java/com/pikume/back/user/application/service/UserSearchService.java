@@ -6,10 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.application.dto.UserSearchResult;
 import com.pikume.back.user.application.port.in.SearchUserUseCase;
-import com.pikume.back.user.application.port.out.UserQueryPort;
+import com.pikume.back.user.application.port.out.SearchUserPort;
 
 /**
  * 사용자 검색 Application Service
@@ -21,17 +20,13 @@ import com.pikume.back.user.application.port.out.UserQueryPort;
 @Transactional(readOnly = true)
 public class UserSearchService implements SearchUserUseCase {
 
-	private final UserQueryPort userQueryPort;
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final SearchUserPort searchUserPort;
 
 	@Override
 	public PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery) {
 		String formattedKeyword = "%" + keyword + "%";
 
-		return userQueryPort.searchByName(formattedKeyword, pageQuery)
-				.map(user -> {
-					String avatarUrl = imagePathToUrlConverter.userAvatarImageUrl(user.getAvatar());
-					return new UserSearchResult(user.getId(), user.getNickname(), avatarUrl);
-				});
+		return searchUserPort.searchByName(formattedKeyword, pageQuery)
+				.map(user -> new UserSearchResult(user.getId(), user.getNickname(), user.getAvatar()));
 	}
 }

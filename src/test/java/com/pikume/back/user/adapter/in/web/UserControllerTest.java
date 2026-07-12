@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.ProfilePreviewResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.UserProfileResponse;
@@ -21,7 +22,6 @@ import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
 import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
 import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
-import com.pikume.back.user.application.port.out.UserDiaryPort;
 
 import java.util.List;
 
@@ -41,6 +41,9 @@ class UserControllerTest {
 	@Mock
 	private CheckNicknameUseCase checkNicknameUseCase;
 
+	@Mock
+	private ImagePathToUrlConverter imagePathToUrlConverter;
+
 	private UserController userController;
 
 	@BeforeEach
@@ -49,7 +52,8 @@ class UserControllerTest {
 				getUserProfileUseCase,
 				updateProfileUseCase,
 				checkNicknameUseCase,
-				new ProblemDetailFactory());
+				new ProblemDetailFactory(),
+				imagePathToUrlConverter);
 	}
 
 	@Test
@@ -58,16 +62,18 @@ class UserControllerTest {
 		ProfilePreviewResult result = new ProfilePreviewResult(
 				"user1",
 				"pikume",
-				"https://assets.example.com/avatar.webp",
+				"avatar-object-key",
 				3,
 				12L,
 				"NONE");
 		given(getUserProfileUseCase.getProfilePreview("user1", null)).willReturn(result);
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+				.willReturn("https://assets.example.com/avatar.webp");
 
 		ResponseEntity<?> response = userController.getProfilePreview("user1", null);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
-		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result));
+		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Test
@@ -76,20 +82,22 @@ class UserControllerTest {
 		UserProfileResult result = new UserProfileResult(
 				"user1",
 				"pikume",
-				"https://assets.example.com/avatar.webp",
+				"avatar-object-key",
 				3,
 				12L,
 				"FRIEND",
 				true,
-				List.of(new UserDiaryPort.MonthlyDiaryCount(2026, 7, 4L)));
+				List.of(new UserProfileResult.MonthlyDiaryCount(2026, 7, 4L)));
 		given(getUserProfileUseCase.getUserProfile("user1", "user1")).willReturn(result);
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+				.willReturn("https://assets.example.com/avatar.webp");
 
 		ResponseEntity<?> response = userController.getUserProfile(
 				"user1",
 				new CustomUserDetails("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
-		assertThat(response.getBody()).isEqualTo(UserProfileResponse.from(result));
+		assertThat(response.getBody()).isEqualTo(UserProfileResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Test
@@ -99,16 +107,9 @@ class UserControllerTest {
 				.given(updateProfileUseCase)
 				.updateProfileImage("user1", 10L);
 
-		ResponseEntity<?> response = userController.updateProfileImage(
-				new CustomUserDetails("user1", "pikume"),
-				10L);
-
-		assertThat(response.getStatusCode().value()).isEqualTo(404);
-		assertThat(response.getBody()).isInstanceOf(org.springframework.http.ProblemDetail.class);
-		org.springframework.http.ProblemDetail problemDetail = (org.springframework.http.ProblemDetail) response.getBody();
-		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/resource-not-found");
-		assertThat(problemDetail.getStatus()).isEqualTo(404);
-		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/users/profile-image");
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> userController.updateProfileImage(
+				new CustomUserDetails("user1", "pikume"), 10L))
+				.isInstanceOf(ProfileImageNotFoundException.class);
 	}
 
 	@Test

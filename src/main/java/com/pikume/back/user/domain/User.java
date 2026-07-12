@@ -1,8 +1,5 @@
 package com.pikume.back.user.domain;
 
-import com.pikume.back.user.adapter.out.persistence.converter.AvatarAttributeConverter;
-import com.pikume.back.user.adapter.out.persistence.converter.EmailAttributeConverter;
-import com.pikume.back.user.adapter.out.persistence.converter.NicknameAttributeConverter;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -11,8 +8,6 @@ import com.pikume.back.global.entity.BaseEntity;
 import com.pikume.back.user.domain.vo.Avatar;
 import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.domain.vo.Nickname;
-import org.bouncycastle.crypto.PasswordConverter;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -33,12 +28,10 @@ public class User extends BaseEntity {
 	private String password;
 
 	@Column(unique = true, nullable = false)
-	@Convert(converter = NicknameAttributeConverter.class)
 	@Getter(AccessLevel.NONE)
 	private Nickname nickname;
 
 	@Getter(AccessLevel.NONE)
-	@Convert(converter = AvatarAttributeConverter.class)
 	private Avatar avatar;
 
 	@Column(name = "deleted_at")

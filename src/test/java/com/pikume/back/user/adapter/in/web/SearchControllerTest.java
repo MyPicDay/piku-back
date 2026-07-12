@@ -15,6 +15,7 @@ import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.application.dto.UserSearchResult;
 import com.pikume.back.user.application.port.in.SearchUserUseCase;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 
 import java.util.List;
 
@@ -36,6 +37,9 @@ class SearchControllerTest {
 	@Mock
 	private SearchUserUseCase searchUserUseCase;
 
+	@Mock
+	private ImagePathToUrlConverter imagePathToUrlConverter;
+
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -50,11 +54,13 @@ class SearchControllerTest {
 	void searchUsersReturnsPagedResults() throws Exception {
 		PageQuery pageQuery = PageQuery.of(0, 20);
 		PageResult<UserSearchResult> result = new PageResult<>(
-				List.of(new UserSearchResult("user-1", "테스트유저", "https://cdn.example/avatar.png")),
+				List.of(new UserSearchResult("user-1", "테스트유저", "avatar-object-key")),
 				0,
 				20,
 				1);
 		given(searchUserUseCase.searchByKeyword("test", pageQuery)).willReturn(result);
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+				.willReturn("https://cdn.example/avatar.png");
 
 		mockMvc.perform(get("/api/search")
 						.param("keyword", "test")

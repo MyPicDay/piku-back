@@ -1,6 +1,6 @@
 package com.pikume.back.user.application.service;
 
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.out.QueryUserStatisticsPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +19,7 @@ import static org.mockito.BDDMockito.given;
 class UserDashboardStatisticsQueryServiceTest {
 
 	@Mock
-	private LoadUserPort loadUserPort;
+	private QueryUserStatisticsPort queryUserStatisticsPort;
 
 	@Test
 	@DisplayName("누적 회원 수와 탈퇴 여부를 무시한 일간 가입 집계를 사용자 조회 포트에 위임한다")
@@ -27,12 +27,12 @@ class UserDashboardStatisticsQueryServiceTest {
 		LocalDate startDate = LocalDate.of(2026, 6, 16);
 		LocalDate endDate = LocalDate.of(2026, 6, 22);
 		LocalDateTime cutoff = startDate.atStartOfDay();
-		given(loadUserPort.countAllMembers()).willReturn(100L);
-		given(loadUserPort.countMembersBefore(cutoff)).willReturn(90L);
-		given(loadUserPort.countAllSignupMembersByDate(startDate, endDate))
-				.willReturn(List.of(new LoadUserPort.DailyCount(startDate, 2)));
+		given(queryUserStatisticsPort.countAllMembers()).willReturn(100L);
+		given(queryUserStatisticsPort.countMembersBefore(cutoff)).willReturn(90L);
+		given(queryUserStatisticsPort.countAllSignupMembersByDate(startDate, endDate))
+				.willReturn(List.of(new QueryUserStatisticsPort.DailyCount(startDate, 2)));
 
-		UserDashboardStatisticsQueryService service = new UserDashboardStatisticsQueryService(loadUserPort);
+		UserDashboardStatisticsQueryService service = new UserDashboardStatisticsQueryService(queryUserStatisticsPort);
 
 		assertThat(service.countCurrentCumulativeMembers()).isEqualTo(100);
 		assertThat(service.countCumulativeMembersBefore(cutoff)).isEqualTo(90);

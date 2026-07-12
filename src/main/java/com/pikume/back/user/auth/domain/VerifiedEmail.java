@@ -43,4 +43,12 @@ public class VerifiedEmail {
 		}
 		this.used = true;
 	}
+
+	public boolean isFor(String requestedEmail, VerificationType requestedType) {
+		return email.equals(requestedEmail) && type == requestedType;
+	}
+
+	public boolean isUsed() {
+		return Boolean.TRUE.equals(used);
+	}
 }

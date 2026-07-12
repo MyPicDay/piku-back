@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.pikume.back.user.application.port.out.QueryUserStatisticsPort;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -30,9 +31,10 @@ class UserDashboardStatisticsJpaRepositoryTest {
 		insertUser("deleted-after", LocalDateTime.of(2026, 6, 2, 10, 0), cutoff.plusDays(1));
 		insertUser("deleted-before", LocalDateTime.of(2026, 6, 3, 10, 0), cutoff.minusDays(1));
 		insertUser("joined-after", cutoff.plusHours(1), null);
+		UserStatisticsPersistenceAdapter adapter = new UserStatisticsPersistenceAdapter(userJpaRepository);
 
-		assertThat(userJpaRepository.count()).isEqualTo(4);
-		assertThat(userJpaRepository.countByCreatedAtBefore(cutoff)).isEqualTo(3);
+		assertThat(adapter.countAllMembers()).isEqualTo(4);
+		assertThat(adapter.countMembersBefore(cutoff)).isEqualTo(3);
 	}
 
 	@Test
@@ -42,17 +44,14 @@ class UserDashboardStatisticsJpaRepositoryTest {
 		insertUser("active", date.atTime(10, 0), null);
 		insertUser("deleted", date.atTime(11, 0), date.plusDays(1).atStartOfDay());
 
-		var rows = userJpaRepository.countAllSignupMembersByDate(
-				date.atStartOfDay(),
-				date.plusDays(1).atStartOfDay());
-		var activeRows = userJpaRepository.countSignupMembersByDate(
-				date.atStartOfDay(),
-				date.plusDays(1).atStartOfDay());
+		UserStatisticsPersistenceAdapter adapter = new UserStatisticsPersistenceAdapter(userJpaRepository);
+		var rows = adapter.countAllSignupMembersByDate(date, date);
+		var activeRows = adapter.countActiveSignupMembersByDate(date, date);
 
 		assertThat(rows).singleElement().satisfies(row ->
-				assertThat(row.getMetricCount()).isEqualTo(2L));
+				assertThat(row).isEqualTo(new QueryUserStatisticsPort.DailyCount(date, 2L)));
 		assertThat(activeRows).singleElement().satisfies(row ->
-				assertThat(row.getMetricCount()).isEqualTo(1L));
+				assertThat(row).isEqualTo(new QueryUserStatisticsPort.DailyCount(date, 1L)));
 	}
 
 	private void insertUser(String suffix, LocalDateTime createdAt, LocalDateTime deletedAt) {

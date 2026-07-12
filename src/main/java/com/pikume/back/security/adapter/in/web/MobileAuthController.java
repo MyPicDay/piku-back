@@ -3,18 +3,20 @@ package com.pikume.back.security.adapter.in.web;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
-import com.pikume.back.security.application.dto.LoginResult;
-import com.pikume.back.security.application.dto.ReissueResult;
-import com.pikume.back.security.application.exception.InvalidCredentialsException;
-import com.pikume.back.security.application.port.in.LoginUseCase;
-import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
-import com.pikume.back.security.dto.request.LoginRequest;
-import com.pikume.back.security.dto.request.MobileLogoutRequest;
-import com.pikume.back.security.dto.request.MobileReissueRequest;
-import com.pikume.back.security.dto.response.MobileLoginResponse;
-import com.pikume.back.security.dto.response.MobileReissueResponse;
-import com.pikume.back.security.dto.response.MobileTokenBundle;
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.user.auth.application.dto.LoginCommand;
+import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.auth.application.dto.ReissueSessionResult;
+import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
+import com.pikume.back.user.auth.application.port.in.LoginUseCase;
+import com.pikume.back.user.auth.application.port.in.LogoutUseCase;
+import com.pikume.back.user.auth.application.port.in.ReissueSessionUseCase;
+import com.pikume.back.security.adapter.in.web.dto.request.LoginRequest;
+import com.pikume.back.security.adapter.in.web.dto.request.MobileLogoutRequest;
+import com.pikume.back.security.adapter.in.web.dto.request.MobileReissueRequest;
+import com.pikume.back.security.adapter.in.web.dto.response.MobileLoginResponse;
+import com.pikume.back.security.adapter.in.web.dto.response.MobileReissueResponse;
+import com.pikume.back.security.adapter.in.web.dto.response.MobileTokenBundle;
+import com.pikume.back.security.config.UserTokenSettings;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ProblemDetail;
@@ -30,25 +32,26 @@ import org.springframework.web.bind.annotation.RestController;
 public class MobileAuthController {
 
 	private final LoginUseCase loginUseCase;
-	private final ReissueTokenUseCase reissueTokenUseCase;
+	private final ReissueSessionUseCase reissueSessionUseCase;
+	private final LogoutUseCase logoutUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
 	private final AuthUserResponseMapper authUserResponseMapper;
 
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
-		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
+		String deviceId = request.getHeader(AuthWebConstants.DEVICE_ID_HEADER);
 
 		try {
-			LoginResult loginResult = loginUseCase.login(dto, deviceId);
+			LoginResult loginResult = loginUseCase.login(new LoginCommand(dto.getEmail(), dto.getPassword(), deviceId));
 			return ResponseEntity.ok(new MobileLoginResponse(
 					"로그인 성공",
 					authUserResponseMapper.toDisplayUserInfo(loginResult.userInfo()),
 					new MobileTokenBundle(
 							"Bearer",
-							loginResult.tokens().getAccessToken(),
-							loginResult.tokens().getRefreshToken(),
-							AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME / 1000L,
-							AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME / 1000L)));
+							loginResult.accessToken(),
+							loginResult.refreshToken(),
+							UserTokenSettings.ACCESS_TOKEN_EXPIRATION_MILLIS / 1000L,
+							UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS / 1000L)));
 		} catch (InvalidCredentialsException e) {
 			return buildProblem(SecurityProblemType.INVALID_CREDENTIALS, e.getMessage(), request);
 		}
@@ -56,7 +59,7 @@ public class MobileAuthController {
 
 	@PostMapping("/reissue")
 	public ResponseEntity<?> reissue(@RequestBody MobileReissueRequest dto, HttpServletRequest request) {
-		ReissueResult result = reissueTokenUseCase.reissueTokens(dto.refreshToken());
+		ReissueSessionResult result = reissueSessionUseCase.reissueSession(dto.refreshToken());
 		if (result == null) {
 			return buildProblem(SecurityProblemType.INVALID_REFRESH_TOKEN, "유효하지 않은 Refresh Token입니다.", request);
 		}
@@ -73,8 +76,8 @@ public class MobileAuthController {
 
 	@PostMapping("/logout")
 	public ResponseEntity<?> logout(@RequestBody MobileLogoutRequest dto, HttpServletRequest request) {
-		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
-		loginUseCase.logoutByRefreshToken(dto.refreshToken(), deviceId);
+		String deviceId = request.getHeader(AuthWebConstants.DEVICE_ID_HEADER);
+		logoutUseCase.logoutByRefreshToken(dto.refreshToken(), deviceId);
 		return ResponseEntity.ok(new MessageResponse("로그아웃 완료"));
 	}
 

@@ -5,9 +5,9 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.security.application.dto.AuthUserView;
-import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.user.application.dto.UserIdentityView;
+import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
+import com.pikume.back.security.adapter.in.web.AuthWebConstants;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,14 +40,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class JwtFilterTest {
 
 	@Mock private JwtProvider jwtProvider;
-	@Mock private LoadUserForAuthPort loadUserForAuthPort;
+	@Mock private QueryUserIdentityUseCase queryUserIdentityUseCase;
 	@Mock private AuthenticationEntryPoint authenticationEntryPoint;
 	@Mock private FilterChain filterChain;
 	private JwtFilter jwtFilter;
 
 	@BeforeEach
 	void setUp() {
-		jwtFilter = new JwtFilter(jwtProvider, loadUserForAuthPort, authenticationEntryPoint);
+		jwtFilter = new JwtFilter(jwtProvider, queryUserIdentityUseCase, authenticationEntryPoint);
 	}
 
 	@AfterEach
@@ -64,7 +64,7 @@ class JwtFilterTest {
 		jwtFilter.doFilter(request, response, filterChain);
 
 		then(filterChain).should().doFilter(request, response);
-		verifyNoInteractions(jwtProvider, loadUserForAuthPort, authenticationEntryPoint);
+		verifyNoInteractions(jwtProvider, queryUserIdentityUseCase, authenticationEntryPoint);
 	}
 
 	@Test
@@ -123,7 +123,7 @@ class JwtFilterTest {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		given(jwtProvider.validateToken("access-token")).willReturn(true);
 		given(jwtProvider.getUserIdFromToken("access-token")).willReturn("missing-user");
-		given(loadUserForAuthPort.findById("missing-user")).willReturn(Optional.empty());
+		given(queryUserIdentityUseCase.findById("missing-user")).willReturn(Optional.empty());
 
 		jwtFilter.doFilter(request, response, filterChain);
 
@@ -137,10 +137,10 @@ class JwtFilterTest {
 	void validUserJwtAuthenticatesAndContinuesFilterChain() throws Exception {
 		MockHttpServletRequest request = bearerRequest("access-token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		AuthUserView user = new AuthUserView("user-1", "password", "nickname", "avatar.webp");
+		UserIdentityView user = new UserIdentityView("user-1", "password", "nickname", "avatar.webp");
 		given(jwtProvider.validateToken("access-token")).willReturn(true);
 		given(jwtProvider.getUserIdFromToken("access-token")).willReturn("user-1");
-		given(loadUserForAuthPort.findById("user-1")).willReturn(Optional.of(user));
+		given(queryUserIdentityUseCase.findById("user-1")).willReturn(Optional.of(user));
 
 		jwtFilter.doFilter(request, response, filterChain);
 
@@ -154,7 +154,7 @@ class JwtFilterTest {
 
 	private MockHttpServletRequest bearerRequest(String token) {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/auth/me");
-		request.addHeader(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + token);
+		request.addHeader(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + token);
 		return request;
 	}
 }

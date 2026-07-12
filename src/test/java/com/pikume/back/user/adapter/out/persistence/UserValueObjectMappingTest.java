@@ -2,6 +2,7 @@ package com.pikume.back.user.adapter.out.persistence;
 
 import com.pikume.back.user.domain.User;
 import com.pikume.back.global.pagination.PageQuery;
+import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @DisplayName("User value object persistence mapping")
@@ -59,13 +61,26 @@ class UserValueObjectMappingTest {
 				"public/characters/fixed/base.webp"));
 		entityManager.clear();
 
-		UserPersistenceAdapter adapter = new UserPersistenceAdapter(userJpaRepository);
+		UserAccountPersistenceAdapter accountAdapter = new UserAccountPersistenceAdapter(userJpaRepository);
+		UserSearchPersistenceAdapter searchAdapter = new UserSearchPersistenceAdapter(userJpaRepository);
 
-		assertThat(adapter.findByEmail("user@example.com")).isPresent();
-		assertThat(adapter.existsByEmail("user@example.com")).isTrue();
-		assertThat(adapter.existsByNickname("pikume-user")).isTrue();
-		assertThat(adapter.searchByName("%pikume%", PageQuery.of(0, 20)).getContent())
+		assertThat(accountAdapter.findByEmail("user@example.com")).isPresent();
+		assertThat(accountAdapter.existsByEmail("user@example.com")).isTrue();
+		assertThat(accountAdapter.existsByNickname("pikume-user")).isTrue();
+		assertThat(searchAdapter.searchByName("%pikume%", PageQuery.of(0, 20)).getContent())
 				.singleElement()
 				.satisfies(user -> assertThat(user.getNickname()).isEqualTo("pikume-user"));
+	}
+
+	@Test
+	@DisplayName("실제 nickname 유일 제약 위반을 User 충돌 의미로 번역한다")
+	void translatesNicknameConstraintViolationAtPersistenceBoundary() {
+		userJpaRepository.saveAndFlush(new User(
+				"first@example.com", "password", "duplicate-nickname", "avatar"));
+		User duplicate = new User(
+				"second@example.com", "password", "duplicate-nickname", "avatar");
+
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(duplicate))
+				.isInstanceOf(NicknameAlreadyExistsException.class);
 	}
 }

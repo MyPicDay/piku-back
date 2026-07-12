@@ -17,11 +17,11 @@ import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
-import com.pikume.back.user.auth.application.port.out.SendVerificationEmailPort;
-import com.pikume.back.user.auth.dto.request.SignupRequest;
-import com.pikume.back.user.auth.exception.AuthErrorCode;
-import com.pikume.back.user.auth.exception.AuthException;
-import com.pikume.back.user.auth.exception.AuthExceptionHandler;
+import com.pikume.back.user.auth.application.port.in.QueryAllowedEmailUseCase;
+import com.pikume.back.user.auth.application.dto.SignUpCommand;
+import com.pikume.back.user.auth.adapter.in.web.dto.request.SignupRequest;
+import com.pikume.back.user.auth.application.exception.AuthErrorCode;
+import com.pikume.back.user.auth.application.exception.AuthException;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +53,7 @@ class AuthControllerTest {
 	private ResetPasswordUseCase resetPasswordUseCase;
 
 	@Mock
-	private SendVerificationEmailPort sendVerificationEmailPort;
+	private QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 
 	private MockMvc mockMvc;
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -64,7 +64,7 @@ class AuthControllerTest {
 				signUpUseCase,
 				verifyEmailUseCase,
 				resetPasswordUseCase,
-				sendVerificationEmailPort);
+				queryAllowedEmailUseCase);
 		ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		mockMvc = MockMvcBuilders.standaloneSetup(authController)
 				.setControllerAdvice(
@@ -124,7 +124,7 @@ class AuthControllerTest {
 	@Test
 	@DisplayName("GET /api/auth/email은 이메일 허용 여부 계약을 유지한다")
 	void isEmailAllowedReturnsAllowedFlag() throws Exception {
-		given(sendVerificationEmailPort.isEmailAllowed("user@example.com")).willReturn(true);
+		given(queryAllowedEmailUseCase.isEmailAllowed("user@example.com")).willReturn(true);
 
 		mockMvc.perform(get("/api/auth/email").param("email", "user@example.com"))
 				.andExpect(status().isOk())
@@ -134,7 +134,7 @@ class AuthControllerTest {
 	@Test
 	@DisplayName("GET /api/auth/email-domains는 허용 도메인 목록 계약을 유지한다")
 	void getAllowedEmailDomainsReturnsDomainList() throws Exception {
-		given(sendVerificationEmailPort.getAllowedEmailDomains()).willReturn(List.of("example.com", "pikume.com"));
+		given(queryAllowedEmailUseCase.getAllowedEmailDomains()).willReturn(List.of("example.com", "pikume.com"));
 
 		mockMvc.perform(get("/api/auth/email-domains"))
 				.andExpect(status().isOk())
@@ -146,7 +146,7 @@ class AuthControllerTest {
 	@DisplayName("POST /api/auth/signup은 성공 시 MessageResponse를 반환한다")
 	void signupReturnsMessageResponseWhenSuccessful() throws Exception {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
-		doNothing().when(signUpUseCase).signup(any(SignupRequest.class));
+		doNothing().when(signUpUseCase).signup(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -161,7 +161,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
 		willThrow(new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS))
 				.given(signUpUseCase)
-				.signup(any(SignupRequest.class));
+				.signup(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -180,7 +180,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 999L);
 		willThrow(new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND))
 				.given(signUpUseCase)
-				.signup(any(SignupRequest.class));
+				.signup(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)

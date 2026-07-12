@@ -9,6 +9,7 @@ public enum AuthProblemType implements ApiProblemType {
 	USER_NOT_FOUND("https://api.pikume.com/problems/auth/user-not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	FIXED_CHARACTER_NOT_FOUND("https://api.pikume.com/problems/auth/fixed-character-not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	EMAIL_ALREADY_EXISTS("https://api.pikume.com/problems/auth/email-already-exists", HttpStatus.CONFLICT, "Conflict"),
+	NICKNAME_CONFLICT("https://api.pikume.com/problems/user/nickname-conflict", HttpStatus.CONFLICT, "Conflict"),
 	EMAIL_VERIFICATION_REQUIRED("https://api.pikume.com/problems/auth/email-verification-required", HttpStatus.FORBIDDEN, "Forbidden"),
 	CODE_INVALID("https://api.pikume.com/problems/auth/code-invalid", HttpStatus.BAD_REQUEST, "Bad Request"),
 	EMAIL_SEND_FAILURE("https://api.pikume.com/problems/auth/email-send-failure", HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");

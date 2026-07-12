@@ -53,4 +53,26 @@ class UserTest {
 		assertThat(user.getDeletedAt()).isNotNull();
 		assertThat(user.isWithdrawn()).isTrue();
 	}
+
+	@Test
+	@DisplayName("캡슐화된 행위로 닉네임과 아바타를 변경한다")
+	void changesProfileThroughAggregateBehavior() {
+		User user = new User("user@example.com", "password", "nickname", "old-avatar");
+
+		user.changeNickname("new-nickname");
+		user.changeAvatar("new-avatar");
+
+		assertThat(user.getNickname()).isEqualTo("new-nickname");
+		assertThat(user.getAvatar()).isEqualTo("new-avatar");
+	}
+
+	@Test
+	@DisplayName("캡슐화된 행위로 보호된 비밀번호를 변경한다")
+	void changesProtectedPasswordThroughAggregateBehavior() {
+		User user = new User("user@example.com", "old-password", "nickname");
+
+		user.updatePassword("new-password");
+
+		assertThat(user.getPassword()).isEqualTo("new-password");
+	}
 }

@@ -6,7 +6,7 @@ package com.pikume.back.user.application.dto;
 public record ProfilePreviewResult(
 		String id,
 		String nickname,
-		String avatar,
+		String avatarObjectKey,
 		int friendCount,
 		long diaryCount,
 		String friendStatus) {

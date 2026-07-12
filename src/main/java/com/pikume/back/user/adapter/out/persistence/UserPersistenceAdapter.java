@@ -1,112 +1,47 @@
 package com.pikume.back.user.adapter.out.persistence;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
-import com.pikume.back.global.pagination.PageQuery;
-import com.pikume.back.global.pagination.PageResult;
-import com.pikume.back.global.pagination.SpringPageMapper;
-import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
-import com.pikume.back.user.application.port.out.UserQueryPort;
 import com.pikume.back.user.domain.User;
-import com.pikume.back.user.domain.vo.Email;
-import com.pikume.back.user.domain.vo.Nickname;
-
-import java.sql.Date;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
+import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Repository;
 
 /**
- * User 영속성 어댑터
- * LoadUserPort, SaveUserPort, UserQueryPort를 구현하는 JPA 어댑터입니다.
+ * User Aggregate 저장 어댑터입니다.
  */
 @Repository
 @RequiredArgsConstructor
-public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQueryPort {
+public class UserPersistenceAdapter implements SaveUserPort {
 
 	private final UserJpaRepository jpaRepository;
 
 	@Override
-	public Optional<User> findById(String userId) {
-		return jpaRepository.findById(userId);
-	}
-
-	@Override
-	public Optional<User> findByEmail(String email) {
-		return jpaRepository.findByEmail(new Email(email));
-	}
-
-	@Override
-	public List<User> findAllByIds(Collection<String> userIds) {
-		return jpaRepository.findAllById(userIds);
-	}
-
-	@Override
-	public long countActiveMembers() {
-		return jpaRepository.countByDeletedAtIsNull();
-	}
-
-	@Override
-	public long countAllMembers() {
-		return jpaRepository.count();
-	}
-
-	@Override
-	public long countMembersBefore(LocalDateTime cutoffExclusive) {
-		return jpaRepository.countByCreatedAtBefore(cutoffExclusive);
-	}
-
-	@Override
-	public List<LoadUserPort.DailyCount> countSignupMembersByDate(LocalDate startDate, LocalDate endDate) {
-		return jpaRepository.countSignupMembersByDate(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay())
-				.stream()
-				.map(row -> new LoadUserPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
-				.toList();
-	}
-
-	@Override
-	public List<LoadUserPort.DailyCount> countAllSignupMembersByDate(LocalDate startDate, LocalDate endDate) {
-		return jpaRepository.countAllSignupMembersByDate(
-						startDate.atStartOfDay(),
-						endDate.plusDays(1).atStartOfDay())
-				.stream()
-				.map(row -> new LoadUserPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
-				.toList();
-	}
-
-	@Override
 	public User save(User user) {
-		return jpaRepository.save(user);
-	}
-
-	@Override
-	public boolean existsByNickname(String nickname) {
-		return jpaRepository.existsByNickname(new Nickname(nickname));
-	}
-
-	@Override
-	public boolean existsByEmail(String email) {
-		return jpaRepository.existsByEmail(new Email(email));
-	}
-
-	@Override
-	public PageResult<User> searchByName(String keyword, PageQuery pageQuery) {
-		return SpringPageMapper.toPageResult(jpaRepository.searchByName(keyword, SpringPageMapper.toPageable(pageQuery)));
-	}
-
-	private LocalDate toLocalDate(Object value) {
-		if (value instanceof LocalDate localDate) {
-			return localDate;
+		try {
+			return jpaRepository.saveAndFlush(user);
+		} catch (DataIntegrityViolationException exception) {
+			if (containsNicknameConstraint(exception)) {
+				throw new NicknameAlreadyExistsException(user.getNickname());
+			}
+			if (containsConstraint(exception, "email")) {
+				throw new EmailAlreadyExistsException();
+			}
+			throw exception;
 		}
-		if (value instanceof Date date) {
-			return date.toLocalDate();
+	}
+
+	private boolean containsNicknameConstraint(Throwable throwable) {
+		return containsConstraint(throwable, "nickname");
+	}
+
+	private boolean containsConstraint(Throwable throwable, String columnName) {
+		for (Throwable current = throwable; current != null; current = current.getCause()) {
+			if (current.getMessage() != null && current.getMessage().toLowerCase().contains(columnName)) {
+				return true;
+			}
 		}
-		if (value instanceof LocalDateTime dateTime) {
-			return dateTime.toLocalDate();
-		}
-		return LocalDate.parse(String.valueOf(value));
+		return false;
 	}
 }

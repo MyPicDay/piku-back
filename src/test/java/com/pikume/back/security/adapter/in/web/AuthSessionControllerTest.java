@@ -3,7 +3,7 @@ package com.pikume.back.security.adapter.in.web;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
-import com.pikume.back.security.dto.UserInfo;
+import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;

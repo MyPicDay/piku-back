@@ -3,7 +3,7 @@ package com.pikume.back.security.adapter.in.web;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
-import com.pikume.back.security.dto.response.LoginResponse;
+import com.pikume.back.security.adapter.in.web.dto.response.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

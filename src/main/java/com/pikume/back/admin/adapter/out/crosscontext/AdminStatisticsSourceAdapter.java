@@ -4,7 +4,7 @@ import com.pikume.back.admin.application.port.out.QueryAdminStatisticsSourcePort
 import com.pikume.back.admin.application.service.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,18 +15,18 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminStatisticsSourceAdapter implements QueryAdminStatisticsSourcePort {
 
-	private final LoadUserPort loadUserPort;
+	private final QueryUserDashboardStatisticsUseCase queryUserDashboardStatisticsUseCase;
 	private final LoadDiaryPort loadDiaryPort;
 	private final QueryAiPhotoDashboardStatisticsUseCase aiPhotoStatisticsUseCase;
 
 	@Override
 	public long countCurrentMembers() {
-		return loadUserPort.countActiveMembers();
+		return queryUserDashboardStatisticsUseCase.countCurrentActiveMembers();
 	}
 
 	@Override
 	public List<AdminDailyCount> countSignupMembersByDate(LocalDate startDate, LocalDate endDate) {
-		return loadUserPort.countSignupMembersByDate(startDate, endDate)
+		return queryUserDashboardStatisticsUseCase.countActiveSignupMembersByDate(startDate, endDate)
 				.stream()
 				.map(row -> new AdminDailyCount(row.date(), row.count()))
 				.toList();

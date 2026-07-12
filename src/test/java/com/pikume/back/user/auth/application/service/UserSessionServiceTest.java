@@ -1,0 +1,56 @@
+package com.pikume.back.user.auth.application.service;
+
+import com.pikume.back.user.auth.application.port.out.AuthenticationTokenPort;
+import com.pikume.back.user.auth.application.port.out.RefreshSessionPort;
+import com.pikume.back.user.auth.application.port.out.RevokeDevicePushTokenPort;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+
+@DisplayName("UserSessionService")
+class UserSessionServiceTest {
+
+	private final AuthenticationTokenPort tokens = mock(AuthenticationTokenPort.class);
+	private final RefreshSessionPort sessions = mock(RefreshSessionPort.class);
+	private final RevokeDevicePushTokenPort pushTokens = mock(RevokeDevicePushTokenPort.class);
+	private final UserSessionService service = new UserSessionService(tokens, sessions, pushTokens);
+
+	@Test
+	@DisplayName("유효한 저장 갱신 세션으로 Access Token을 재발급한다")
+	void reissuesAccessTokenForStoredSession() {
+		given(tokens.isValid("refresh")).willReturn(true);
+		given(sessions.findByRefreshToken("refresh")).willReturn(Optional.of(
+				new RefreshSessionPort.RefreshSession("user-1-device-1", "refresh", "user-1")));
+		given(tokens.generateAccessToken("user-1")).willReturn("new-access");
+
+		assertThat(service.reissueAccessToken("refresh")).isEqualTo("new-access");
+	}
+
+	@Test
+	@DisplayName("유효하지 않은 토큰은 저장소에서 삭제한다")
+	void deletesInvalidRefreshToken() {
+		given(tokens.isValid("invalid")).willReturn(false);
+
+		assertThat(service.reissueAccessToken("invalid")).isNull();
+		then(sessions).should().deleteByRefreshToken("invalid");
+	}
+
+	@Test
+	@DisplayName("모바일 로그아웃은 갱신 세션의 기기가 일치할 때만 푸시 토큰을 해제한다")
+	void revokesPushTokenOnlyForMatchingDevice() {
+		given(sessions.findByRefreshToken("refresh")).willReturn(Optional.of(
+				new RefreshSessionPort.RefreshSession("user-1-device-a", "refresh", "user-1")));
+
+		service.logoutByRefreshToken("refresh", "device-b");
+
+		then(pushTokens).should(never()).revokeDevicePushToken("user-1", "device-b");
+		then(sessions).should().deleteByRefreshToken("refresh");
+	}
+}

@@ -1,8 +1,8 @@
 package com.pikume.back.user.auth.application.port.in;
 
-import com.pikume.back.user.auth.dto.request.SignupRequest;
+import com.pikume.back.user.auth.application.dto.SignUpCommand;
 
 public interface SignUpUseCase {
 
-	void signup(SignupRequest dto);
+	void signup(SignUpCommand command);
 }

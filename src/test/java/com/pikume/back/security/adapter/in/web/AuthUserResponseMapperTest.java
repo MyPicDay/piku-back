@@ -2,8 +2,8 @@ package com.pikume.back.security.adapter.in.web;
 
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
-import com.pikume.back.security.dto.UserInfo;
+import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +27,7 @@ class AuthUserResponseMapperTest {
 	@Test
 	@DisplayName("로그인 사용자 정보의 avatar path를 display URL로 변환한다")
 	void convertsLoginUserAvatarPathToDisplayUrl() {
-		AuthenticatedUserInfo rawUserInfo = new AuthenticatedUserInfo(
+		LoginResult.UserInfo rawUserInfo = new LoginResult.UserInfo(
 				"user-1",
 				"pikume",
 				"public/characters/fixed/base_image_1.webp");

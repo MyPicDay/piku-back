@@ -11,7 +11,6 @@ import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.jwt.JwtProvider;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
-import com.pikume.back.user.auth.constants.AuthConstants;
 import com.pikume.back.user.domain.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -94,7 +93,7 @@ class AuthSessionSecurityIntegrationTest {
 		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/auth/me")
-						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
+						.header(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + accessToken)
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 검증 성공"))
@@ -130,7 +129,7 @@ class AuthSessionSecurityIntegrationTest {
 		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")
-						.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + accessToken)
+						.header(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + accessToken)
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isUnauthorized())
 				.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()

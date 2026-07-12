@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 import com.pikume.back.user.application.exception.UserException;
+import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
+import com.pikume.back.global.error.CommonProblemType;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -21,5 +23,15 @@ public class UserExceptionHandler {
 		UserProblemType problemType = UserProblemType.from(ex.getErrorCode());
 		ProblemDetail problemDetail = problemDetailFactory.create(problemType, ex.getMessage(), request.getRequestURI());
 		return ResponseEntity.status(problemType.status()).body(problemDetail);
+	}
+
+	@ExceptionHandler(ProfileImageNotFoundException.class)
+	public ResponseEntity<ProblemDetail> handleProfileImageNotFound(
+			ProfileImageNotFoundException exception, HttpServletRequest request) {
+		ProblemDetail detail = problemDetailFactory.create(
+				CommonProblemType.RESOURCE_NOT_FOUND,
+				"존재하지 않는 프로필 이미지입니다.",
+				request.getRequestURI());
+		return ResponseEntity.status(CommonProblemType.RESOURCE_NOT_FOUND.status()).body(detail);
 	}
 }

@@ -1,38 +1,30 @@
 package com.pikume.back.security.adapter.out.persistence;
 
+import com.pikume.back.user.auth.application.port.out.RefreshSessionPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.security.application.port.out.DeleteRefreshTokenPort;
-import com.pikume.back.security.application.port.out.LoadRefreshTokenPort;
-import com.pikume.back.security.application.port.out.SaveRefreshTokenPort;
-import com.pikume.back.security.domain.RefreshToken;
 
 import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class RefreshTokenPersistenceAdapter
-		implements LoadRefreshTokenPort, SaveRefreshTokenPort, DeleteRefreshTokenPort {
-
-	private final RefreshTokenJpaRepository refreshTokenJpaRepository;
+public class RefreshTokenPersistenceAdapter implements RefreshSessionPort {
+	private final RefreshTokenJpaRepository repository;
 
 	@Override
-	public Optional<RefreshToken> findByRefreshToken(String refreshToken) {
-		return refreshTokenJpaRepository.findByRefreshToken(refreshToken);
+	public Optional<RefreshSession> findByRefreshToken(String refreshToken) {
+		return repository.findByRefreshToken(refreshToken)
+				.map(entity -> new RefreshSession(entity.getKey(), entity.getRefreshToken(), entity.getUserId()));
 	}
 
 	@Override
-	public RefreshToken save(RefreshToken refreshToken) {
-		return refreshTokenJpaRepository.save(refreshToken);
+	public void save(RefreshSession session) {
+		repository.save(new RefreshSessionEntity(session.key(), session.refreshToken(), session.userId()));
 	}
 
 	@Override
-	public void deleteByRefreshToken(String refreshToken) {
-		refreshTokenJpaRepository.deleteByRefreshToken(refreshToken);
-	}
+	public void deleteByRefreshToken(String refreshToken) { repository.deleteByRefreshToken(refreshToken); }
 
 	@Override
-	public void deleteById(String key) {
-		refreshTokenJpaRepository.deleteById(key);
-	}
+	public void deleteByKey(String key) { repository.deleteById(key); }
 }

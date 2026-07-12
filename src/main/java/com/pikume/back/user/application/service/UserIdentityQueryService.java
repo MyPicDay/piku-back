@@ -2,7 +2,7 @@ package com.pikume.back.user.application.service;
 
 import com.pikume.back.user.application.dto.UserIdentityView;
 import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.out.LoadUserAccountPort;
 import com.pikume.back.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,17 +15,17 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class UserIdentityQueryService implements QueryUserIdentityUseCase {
 
-	private final LoadUserPort loadUserPort;
+	private final LoadUserAccountPort loadUserAccountPort;
 
 	@Override
 	public Optional<UserIdentityView> findByEmail(String email) {
-		return loadUserPort.findByEmail(email)
+		return loadUserAccountPort.findByEmail(email)
 				.map(this::toIdentityView);
 	}
 
 	@Override
 	public Optional<UserIdentityView> findById(String userId) {
-		return loadUserPort.findById(userId)
+		return loadUserAccountPort.findById(userId)
 				.map(this::toIdentityView);
 	}
 

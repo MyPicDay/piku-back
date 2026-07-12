@@ -1,6 +1,7 @@
 package com.pikume.back.security.jwt;
 
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.security.adapter.in.web.AuthWebConstants;
+import com.pikume.back.security.config.UserTokenSettings;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -28,7 +29,7 @@ public class JwtProvider {
 
 		Claims claims = Jwts.claims().setSubject(userId);
 		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AuthConstants.ACCESS_TOKEN_EXPIRATION_TIME);
+		Date expiry = new Date(now.getTime() + UserTokenSettings.ACCESS_TOKEN_EXPIRATION_MILLIS);
 
 		claims.put("roles", List.of("ROLE_USER"));
 
@@ -50,7 +51,7 @@ public class JwtProvider {
 		log.debug("event=refresh_token_generation_requested");
 
 		Date now = new Date();
-		Date expiry = new Date(now.getTime() + AuthConstants.REFRESH_TOKEN_EXPIRATION_TIME);
+		Date expiry = new Date(now.getTime() + UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS);
 
 		log.debug("event=refresh_token_generated expiresAt={}", expiry);
 
@@ -94,8 +95,8 @@ public class JwtProvider {
 	}
 
 	public String cleanToken(String token) {
-		if (token != null && token.startsWith(AuthConstants.BEARER_PREFIX)) {
-			return token.substring(AuthConstants.BEARER_PREFIX.length());
+		if (token != null && token.startsWith(AuthWebConstants.BEARER_PREFIX)) {
+			return token.substring(AuthWebConstants.BEARER_PREFIX.length());
 		}
 		return token;
 	}

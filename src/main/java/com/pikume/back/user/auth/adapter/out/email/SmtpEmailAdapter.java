@@ -7,14 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import com.pikume.back.user.auth.application.port.out.SendVerificationEmailPort;
-import com.pikume.back.user.auth.domain.AllowedEmail;
-import com.pikume.back.user.auth.adapter.out.persistence.AllowedEmailDomainJpaRepository;
 import com.pikume.back.user.auth.constants.EmailConstants;
+import com.pikume.back.user.auth.application.exception.AuthErrorCode;
+import com.pikume.back.user.auth.application.exception.AuthException;
 
 import java.io.UnsupportedEncodingException;
-import java.util.List;
 import java.util.Random;
 
 @Component
@@ -22,7 +20,6 @@ import java.util.Random;
 public class SmtpEmailAdapter implements SendVerificationEmailPort {
 
 	private final JavaMailSender mailSender;
-	private final AllowedEmailDomainJpaRepository allowedEmailDomainRepository;
 
 	@Value("${spring.mail.username}")
 	private String adminEmail;
@@ -45,26 +42,12 @@ public class SmtpEmailAdapter implements SendVerificationEmailPort {
 
 			mailSender.send(mimeMessage);
 		} catch (MessagingException | UnsupportedEncodingException e) {
-			throw new RuntimeException("이메일 발송에 실패했습니다.", e);
+			throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
+		} catch (RuntimeException e) {
+			throw new AuthException(AuthErrorCode.EMAIL_SEND_FAILURE);
 		}
 
 		return code;
-	}
-
-	@Override
-	public boolean isEmailAllowed(String email) {
-		if (!StringUtils.hasText(email) || !email.contains("@")) {
-			return false;
-		}
-		String domain = email.substring(email.indexOf("@") + 1);
-		return allowedEmailDomainRepository.existsByDomain(domain);
-	}
-
-	@Override
-	public List<String> getAllowedEmailDomains() {
-		return allowedEmailDomainRepository.findAll().stream()
-				.map(AllowedEmail::getDomain)
-				.toList();
 	}
 
 	private String createVerificationCode() {

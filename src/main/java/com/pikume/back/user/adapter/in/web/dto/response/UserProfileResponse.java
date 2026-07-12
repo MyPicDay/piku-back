@@ -2,6 +2,7 @@ package com.pikume.back.user.adapter.in.web.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import com.pikume.back.user.application.dto.UserProfileResult;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 
 import java.util.List;
 
@@ -15,14 +16,14 @@ public record UserProfileResponse(
 		@Schema(description = "친구 관계 상태") String friendStatus,
 		@Schema(description = "본인 프로필 여부") boolean isOwner,
 		@Schema(description = "월별 일기 개수 리스트") List<MonthlyDiaryCountResponse> monthlyDiaryCount) {
-	public static UserProfileResponse from(UserProfileResult result) {
+	public static UserProfileResponse from(UserProfileResult result, ImagePathToUrlConverter imageConverter) {
 		List<MonthlyDiaryCountResponse> monthlyCounts = result.monthlyDiaryCount().stream()
 				.map(m -> new MonthlyDiaryCountResponse(m.year(), m.month(), m.count()))
 				.toList();
 		return new UserProfileResponse(
 				result.id(),
 				result.nickname(),
-				result.avatar(),
+				imageConverter.userAvatarImageUrl(result.avatarObjectKey()),
 				result.friendCount(),
 				result.diaryCount(),
 				result.friendStatus(),

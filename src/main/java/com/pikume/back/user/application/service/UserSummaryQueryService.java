@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.user.application.dto.UserSummaryView;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.out.LoadUserAccountPort;
 import com.pikume.back.user.domain.User;
 
 import java.util.Map;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class UserSummaryQueryService implements QueryUserSummaryUseCase {
 
-	private final LoadUserPort loadUserPort;
+	private final LoadUserAccountPort loadUserAccountPort;
 
 	@Override
 	public Map<String, UserSummaryView> getUserSummaries(Set<String> userIds) {
@@ -26,7 +26,7 @@ public class UserSummaryQueryService implements QueryUserSummaryUseCase {
 			return Map.of();
 		}
 
-		return loadUserPort.findAllByIds(userIds).stream()
+		return loadUserAccountPort.findAllByIds(userIds).stream()
 				.collect(Collectors.toMap(
 						User::getId,
 						user -> new UserSummaryView(user.getId(), user.getNickname(), user.getAvatar()),

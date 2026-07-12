@@ -16,28 +16,25 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.dto.CookieSpec;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.ProblemDetailFallbackExceptionResolver;
 import com.pikume.back.global.util.CookieUtils;
-import com.pikume.back.security.application.dto.AuthenticatedUserInfo;
-import com.pikume.back.security.application.dto.LoginResult;
-import com.pikume.back.security.application.dto.ReissueResult;
-import com.pikume.back.security.application.exception.InvalidCredentialsException;
-import com.pikume.back.security.application.port.in.LoginUseCase;
-import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
-import com.pikume.back.security.dto.TokenDto;
-import com.pikume.back.security.dto.request.LoginRequest;
-import com.pikume.back.security.dto.UserInfo;
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.user.auth.application.dto.LoginCommand;
+import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.auth.application.dto.ReissueSessionResult;
+import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
+import com.pikume.back.user.auth.application.port.in.LoginUseCase;
+import com.pikume.back.user.auth.application.port.in.LogoutUseCase;
+import com.pikume.back.user.auth.application.port.in.ReissueSessionUseCase;
+import com.pikume.back.security.adapter.in.web.dto.request.LoginRequest;
+import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,7 +53,10 @@ class LoginControllerTest {
 	private LoginUseCase loginUseCase;
 
 	@Mock
-	private ReissueTokenUseCase reissueTokenUseCase;
+	private ReissueSessionUseCase reissueSessionUseCase;
+
+	@Mock
+	private LogoutUseCase logoutUseCase;
 
 	@Mock
 	private CookieUtils cookieUtils;
@@ -72,7 +72,8 @@ class LoginControllerTest {
 	void setUp() {
 		loginController = new LoginController(
 				loginUseCase,
-				reissueTokenUseCase,
+				reissueSessionUseCase,
+				logoutUseCase,
 				cookieUtils,
 				problemDetailFactory,
 				authUserResponseMapper);
@@ -89,8 +90,8 @@ class LoginControllerTest {
 	@DisplayName("POST /api/auth/login은 로그인 실패 시 Problem Details를 반환한다")
 	void loginReturnsProblemDetailWhenAuthenticationFails() throws Exception {
 		LoginRequest request = new LoginRequest("user@example.com", "wrong-password");
-		given(loginUseCase.login(any(LoginRequest.class), nullable(String.class)))
-				.willThrow(new InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다."));
+		given(loginUseCase.login(any(LoginCommand.class)))
+				.willThrow(new InvalidCredentialsException());
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -106,7 +107,7 @@ class LoginControllerTest {
 	@DisplayName("POST /api/auth/login은 예상치 못한 런타임 예외를 500 Problem Details로 반환한다")
 	void loginReturnsInternalServerErrorWhenUnexpectedRuntimeOccurs() throws Exception {
 		LoginRequest request = new LoginRequest("user@example.com", "password");
-		given(loginUseCase.login(any(LoginRequest.class), nullable(String.class)))
+		given(loginUseCase.login(any(LoginCommand.class)))
 				.willThrow(new IllegalStateException("리프레시 토큰 저장 실패"));
 
 		mockMvc.perform(post("/api/auth/login")
@@ -124,8 +125,8 @@ class LoginControllerTest {
 	void loginReturnsSuccessWithoutAdditionalLookup() throws Exception {
 		LoginRequest request = new LoginRequest("user@example.com", "password");
 		LoginResult loginResult = new LoginResult(
-				new TokenDto("access-token", "refresh-token"),
-				new AuthenticatedUserInfo(
+				"access-token", "refresh-token",
+				new LoginResult.UserInfo(
 						"user-1",
 						"pikume",
 						"public/characters/fixed/base_image_1.webp"));
@@ -133,9 +134,7 @@ class LoginControllerTest {
 				"user-1",
 				"pikume",
 				"https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
-		CookieSpec cookieSpec = new CookieSpec("refreshToken", "refresh-token", true, true, "/", 3600, "Lax");
-		given(loginUseCase.login(any(LoginRequest.class), nullable(String.class))).willReturn(loginResult);
-		given(loginUseCase.newCookieRefreshToken("refresh-token")).willReturn(cookieSpec);
+		given(loginUseCase.login(any(LoginCommand.class))).willReturn(loginResult);
 		given(authUserResponseMapper.toDisplayUserInfo(loginResult.userInfo())).willReturn(displayUserInfo);
 
 		mockMvc.perform(post("/api/auth/login")
@@ -143,8 +142,8 @@ class LoginControllerTest {
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Authorization", "Bearer access-token"))
-				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("refreshToken=refresh-token")))
-				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=3600")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("rn=refresh-token")))
+				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Max-Age=604800")))
 				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Path=/")))
 				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("Secure")))
 				.andExpect(header().string(HttpHeaders.SET_COOKIE, containsString("HttpOnly")))
@@ -159,10 +158,8 @@ class LoginControllerTest {
 	@Test
 	@DisplayName("POST /api/auth/reissue는 실패 시 Problem Details를 반환한다")
 	void reissueReturnsProblemDetailWhenRefreshTokenIsInvalid() throws Exception {
-		CookieSpec deleteCookie = new CookieSpec("refreshToken", "", true, true, "/", 0, "None");
 		given(cookieUtils.getCookieValue(any(), anyString())).willReturn("invalid-refresh-token");
-		given(reissueTokenUseCase.reissueTokens("invalid-refresh-token")).willReturn(null);
-		given(loginUseCase.removeCookieRefreshToken()).willReturn(deleteCookie);
+		given(reissueSessionUseCase.reissueSession("invalid-refresh-token")).willReturn(null);
 
 		mockMvc.perform(post("/api/auth/reissue"))
 				.andExpect(status().isUnauthorized())
@@ -171,22 +168,22 @@ class LoginControllerTest {
 				.andExpect(jsonPath("$.status").value(401))
 				.andExpect(jsonPath("$.instance").value("/api/auth/reissue"));
 
-		then(reissueTokenUseCase).should().reissueTokens("invalid-refresh-token");
+		then(reissueSessionUseCase).should().reissueSession("invalid-refresh-token");
 	}
 
 	@Test
 	@DisplayName("POST /api/auth/reissue는 성공 시 MessageResponse를 반환한다")
 	void reissueReturnsMessageResponseWhenSuccessful() throws Exception {
 		given(cookieUtils.getCookieValue(any(), anyString())).willReturn("valid-refresh-token");
-		given(reissueTokenUseCase.reissueTokens("valid-refresh-token"))
-				.willReturn(new ReissueResult("new-access-token", "valid-refresh-token", 1800L, 604800L));
+		given(reissueSessionUseCase.reissueSession("valid-refresh-token"))
+				.willReturn(new ReissueSessionResult("new-access-token", "valid-refresh-token", 1800L, 604800L));
 
 		mockMvc.perform(post("/api/auth/reissue"))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Authorization", "Bearer new-access-token"))
 				.andExpect(jsonPath("$.message").value("토큰 재발급 성공"));
 
-		then(reissueTokenUseCase).should().reissueTokens("valid-refresh-token");
+		then(reissueSessionUseCase).should().reissueSession("valid-refresh-token");
 	}
 
 	@Test
@@ -202,10 +199,8 @@ class LoginControllerTest {
 	@Test
 	@DisplayName("POST /api/auth/logout은 성공 시 MessageResponse를 반환한다")
 	void logoutReturnsMessageResponseWhenSuccessful() {
-		CookieSpec deleteCookie = new CookieSpec("refreshToken", "", true, true, "/", 0, "None");
-		given(loginUseCase.removeCookieRefreshToken()).willReturn(deleteCookie);
 		MockHttpServletRequest request = new MockHttpServletRequest();
-		request.addHeader(AuthConstants.DEVICE_ID_HEADER, "ios");
+		request.addHeader(AuthWebConstants.DEVICE_ID_HEADER, "ios");
 
 		ResponseEntity<?> response = loginController.logout(
 				new CustomUserDetails("user1", "pikume"),
@@ -214,6 +209,6 @@ class LoginControllerTest {
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getHeaders().containsKey("Set-Cookie")).isTrue();
 		assertThat(response.getBody()).isEqualTo(new MessageResponse("로그아웃 완료"));
-		then(loginUseCase).should().logout("user1", "ios");
+		then(logoutUseCase).should().logout("user1", "ios");
 	}
 }

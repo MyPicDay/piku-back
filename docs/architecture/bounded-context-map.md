@@ -63,7 +63,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | 비밀번호 해시·검증, 토큰 생성·검증, 보안 필터와 쿠키 변환 | Security Adapter |
 | 갱신 세션 저장과 조회 기술 | Security·Persistence Adapter |
 
-현재 `user.auth`는 별도 Bounded Context가 아니라 User Context 내부의 계정 등록·자격 증명 관리 기능으로 해석한다. 현재 `security`에 있는 일반 사용자 로그인·재발급·로그아웃 조정 책임은 User Application으로 이동할 대상이며, Security에는 기술 구현만 남긴다.
+현재 `user.auth`는 별도 Bounded Context가 아니라 User Context 내부의 계정 등록·자격 증명 관리 기능으로 해석한다. 일반 사용자 로그인·재발급·로그아웃 조정 책임은 User Application이 소유하며, Security에는 비밀번호·JWT·갱신 세션과 Web 인증 표현의 기술 구현만 남는다.
 
 관리자 계정과 인증 정책은 Admin Context가 소유한다. 일반 사용자 인증과 기술 구현을 재사용할 수는 있지만 계정 모델, 세션 정책과 Ubiquitous Language를 공유하지 않는다.
 
@@ -106,26 +106,28 @@ flowchart LR
     User --> Character
     User --> Diary
     User --> Social
+    User --> Notification
 ```
 
 ## 7. 접점과 번역 상태
 
 | 소비자·요청자 | 공급자·수행자 | 현재 목적 | 현재 경계 상태 |
 | --- | --- | --- | --- |
-| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | 공개 Application 계약과 내부 Out Port 접근이 혼재한다. |
+| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | 공급자의 공개 Application 계약을 사용하고 관리자 통계 의미로 변환한다. |
 | Creative | Character | 이미지 생성용 캐릭터 자산 조회 | 소비자 Port와 대상 공개 Application 계약을 사용한다. |
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
-| Diary | User | 작성자 확인 | 소비자 Adapter가 대상 Entity·Out Port를 사용하는 경로가 남아 있다. |
+| Diary | User | 작성자 확인 | Diary 소유 Out Port와 Adapter가 User 공개 참조 계약을 사용한다. |
 | Diary | Social | 친구 관계와 알림 대상 조회 | 소비자 Out Port 경로와 대상 In Port 직접 호출이 혼재한다. |
 | Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
 | Diary | Notification | 친구 공개 일기 알림 요청 | 소비자 Adapter가 대상 계약을 호출하지만 대상 Domain 타입이 일부 노출된다. |
 | Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Application Service가 대상 In Port에 직접 결합한다. |
-| Feed | User, Diary, Social, Recommendation | 피드 구성용 사용자·일기·소셜·추천 정보 조회 | 소비자 Port가 있으나 대상 또는 다른 소비자 모델 타입이 일부 노출된다. |
-| Notification | User, Diary | 알림 응답용 발신자·일기 정보 조회 | 대상 Entity·Out Port 접근과 공개 조회 계약이 혼재한다. |
-| Social | User, Diary | 친구·댓글·좋아요 대상과 응답 정보 조회 | 대상 Out Port 또는 공개 계약 직접 사용이 혼재한다. |
+| Feed | User, Diary, Social, Recommendation | 피드 구성용 사용자·일기·소셜·추천 정보 조회 | 사용자 정보는 Feed 소유 Out Port와 User 공개 계약으로 변환한다. 다른 공급자 경계는 별도 정리 대상이다. |
+| Notification | User, Diary | 알림 응답용 발신자·일기 정보 조회 | 사용자 정보는 Notification 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |
+| Social | User, Diary | 친구·댓글·좋아요 대상과 응답 정보 조회 | 사용자 정보는 Social 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |
 | Social | Notification | 친구·댓글·좋아요 알림 요청 | 이벤트 Port가 있으나 전달 의미와 보장 수준을 명시해야 한다. |
-| Support | User | 문의 제출 사용자 확인 | 대상 Out Port 직접 호출이 남아 있다. |
-| User | Character, Diary, Social | 프로필 아바타와 일기·친구 정보 조회 | 소비자 Port는 있으나 상호 의존 방향을 검토해야 한다. |
+| Support | User | 문의 제출 사용자 확인 | Support 소유 Out Port와 User 공개 참조 계약을 사용한다. |
+| User | Character, Diary, Social | 프로필 아바타와 일기·친구 정보 조회 | User 소유 목적 중심 Out Port와 공급자 공개 계약을 사용하며 조회 결과만 Application Read Model로 조합한다. |
+| User | Notification | 로그아웃 기기의 푸시 토큰 해제 | User 소유 Out Port와 Notification 공개 계약을 사용한다. 푸시 토큰 해제 실패는 로그아웃 세션 삭제를 되돌리지 않는 부가 작업으로 취급한다. |
 
 ## 8. 전략 관계 해석
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameChangeResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameCheckResponse;
@@ -44,18 +45,19 @@ public class UserController {
 	private final UpdateProfileUseCase updateProfileUseCase;
 	private final CheckNicknameUseCase checkNicknameUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
+	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보기 시 사용될 정보를 조회하여 반환합니다.")
 	@GetMapping("/{userId}/profile-preview")
 	public ResponseEntity<ProfilePreviewResponse> getProfilePreview(
 			@PathVariable String userId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		log.info("사용자 {}의 프로필 미리보기 조회 요청", userId);
+		log.info("event=profile_preview_requested outcome=accepted userId={}", userId);
 
 		String loginUserId = userDetails != null ? userDetails.getId() : null;
 		ProfilePreviewResult result = getUserProfileUseCase.getProfilePreview(userId, loginUserId);
 
-		return ResponseEntity.ok(ProfilePreviewResponse.from(result));
+		return ResponseEntity.ok(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Operation(summary = "사용자 프로필 조회")
@@ -65,7 +67,7 @@ public class UserController {
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		UserProfileResult result = getUserProfileUseCase.getUserProfile(userId, userDetails.getId());
 
-		return ResponseEntity.ok(UserProfileResponse.from(result));
+		return ResponseEntity.ok(UserProfileResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Operation(summary = "닉네임 중복조회 검사", responses = {
@@ -119,16 +121,8 @@ public class UserController {
 	public ResponseEntity<?> updateProfileImage(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@RequestParam Long imageId) {
-		try {
-			updateProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
-			return ResponseEntity.ok().build();
-		} catch (ProfileImageNotFoundException e) {
-			ProblemDetail problemDetail = problemDetailFactory.create(
-					CommonProblemType.RESOURCE_NOT_FOUND,
-					"존재하지 않는 프로필 이미지입니다.",
-					"/api/users/profile-image");
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problemDetail);
-		}
+		updateProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
+		return ResponseEntity.ok().build();
 	}
 
 	private ResponseEntity<ProblemDetail> buildUpdateProfileFailureResponse(UpdateProfileResult result) {

@@ -17,20 +17,21 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.pikume.back.user.auth.constants.AuthConstants;
-import com.pikume.back.global.dto.CookieSpec;
+import com.pikume.back.security.config.UserTokenSettings;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.security.application.dto.LoginResult;
-import com.pikume.back.security.application.dto.ReissueResult;
-import com.pikume.back.security.application.exception.InvalidCredentialsException;
-import com.pikume.back.security.dto.request.LoginRequest;
-import com.pikume.back.security.dto.response.LoginResponse;
+import com.pikume.back.user.auth.application.dto.LoginCommand;
+import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.auth.application.dto.ReissueSessionResult;
+import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
+import com.pikume.back.security.adapter.in.web.dto.request.LoginRequest;
+import com.pikume.back.security.adapter.in.web.dto.response.LoginResponse;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.util.CookieUtils;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
-import com.pikume.back.security.application.port.in.LoginUseCase;
-import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
+import com.pikume.back.user.auth.application.port.in.LoginUseCase;
+import com.pikume.back.user.auth.application.port.in.LogoutUseCase;
+import com.pikume.back.user.auth.application.port.in.ReissueSessionUseCase;
 
 @Tag(name = "Login", description = "로그인/로그아웃/토큰 재발급 API")
 @Slf4j
@@ -40,7 +41,8 @@ import com.pikume.back.security.application.port.in.ReissueTokenUseCase;
 public class LoginController {
 
 	private final LoginUseCase loginUseCase;
-	private final ReissueTokenUseCase reissueTokenUseCase;
+	private final ReissueSessionUseCase reissueSessionUseCase;
+	private final LogoutUseCase logoutUseCase;
 	private final CookieUtils cookieUtils;
 	private final ProblemDetailFactory problemDetailFactory;
 	private final AuthUserResponseMapper authUserResponseMapper;
@@ -52,15 +54,14 @@ public class LoginController {
 	})
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
-		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
+		String deviceId = request.getHeader(AuthWebConstants.DEVICE_ID_HEADER);
 		log.info("event=login_request_received outcome=accepted");
 
 		try {
-			LoginResult loginResult = loginUseCase.login(dto, deviceId);
+			LoginResult loginResult = loginUseCase.login(new LoginCommand(dto.getEmail(), dto.getPassword(), deviceId));
 			log.info("event=login_response_ready outcome=success userId={}", loginResult.userInfo().id());
 
-			ResponseCookie responseCookie = toResponseCookie(
-					loginUseCase.newCookieRefreshToken(loginResult.tokens().getRefreshToken()));
+			ResponseCookie responseCookie = newRefreshCookie(loginResult.refreshToken());
 
 			LoginResponse loginResponse = new LoginResponse(
 					"로그인 성공",
@@ -68,7 +69,7 @@ public class LoginController {
 
 			return ResponseEntity.ok()
 					.header(HttpHeaders.AUTHORIZATION,
-							AuthConstants.BEARER_PREFIX + loginResult.tokens().getAccessToken())
+							AuthWebConstants.BEARER_PREFIX + loginResult.accessToken())
 					.header(HttpHeaders.SET_COOKIE, responseCookie.toString())
 					.body(loginResponse);
 		} catch (InvalidCredentialsException e) {
@@ -84,11 +85,11 @@ public class LoginController {
 	})
 	@PostMapping("/reissue")
 	public ResponseEntity<?> reissue(HttpServletRequest request) {
-		String refreshToken = cookieUtils.getCookieValue(request, AuthConstants.REFRESH_TOKEN);
+		String refreshToken = cookieUtils.getCookieValue(request, AuthWebConstants.REFRESH_TOKEN_COOKIE);
 
-		ReissueResult reissueResult = reissueTokenUseCase.reissueTokens(refreshToken);
+		ReissueSessionResult reissueResult = reissueSessionUseCase.reissueSession(refreshToken);
 		if (reissueResult == null) {
-			ResponseCookie resetCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
+			ResponseCookie resetCookie = deleteRefreshCookie();
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 					.header(HttpHeaders.SET_COOKIE, resetCookie.toString())
 					.body(problemDetailFactory.create(
@@ -97,7 +98,7 @@ public class LoginController {
 							request.getRequestURI()));
 		}
 		return ResponseEntity.ok()
-				.header(HttpHeaders.AUTHORIZATION, AuthConstants.BEARER_PREFIX + reissueResult.accessToken())
+				.header(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + reissueResult.accessToken())
 				.body(new MessageResponse("토큰 재발급 성공"));
 	}
 
@@ -111,10 +112,10 @@ public class LoginController {
 		if (user == null || user.getId() == null) {
 			return buildProblem(SecurityProblemType.UNAUTHENTICATED, "로그인 상태가 아닙니다.", request);
 		}
-		String deviceId = request.getHeader(AuthConstants.DEVICE_ID_HEADER);
-		loginUseCase.logout(user.getId(), deviceId);
+		String deviceId = request.getHeader(AuthWebConstants.DEVICE_ID_HEADER);
+		logoutUseCase.logout(user.getId(), deviceId);
 
-		ResponseCookie deleteCookie = toResponseCookie(loginUseCase.removeCookieRefreshToken());
+		ResponseCookie deleteCookie = deleteRefreshCookie();
 
 		return ResponseEntity.ok()
 				.header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
@@ -127,13 +128,16 @@ public class LoginController {
 		return ResponseEntity.status(problemType.status()).body(problemDetail);
 	}
 
-	private ResponseCookie toResponseCookie(CookieSpec cookieSpec) {
-		return ResponseCookie.from(cookieSpec.name(), cookieSpec.value())
-				.httpOnly(cookieSpec.httpOnly())
-				.secure(cookieSpec.secure())
-				.path(cookieSpec.path())
-				.maxAge(cookieSpec.maxAgeSeconds())
-				.sameSite(cookieSpec.sameSite())
+	private ResponseCookie newRefreshCookie(String refreshToken) {
+		return ResponseCookie.from(AuthWebConstants.REFRESH_TOKEN_COOKIE, refreshToken)
+				.httpOnly(true).secure(true).path("/")
+				.maxAge(UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS / 1000L).sameSite("Lax")
+				.build();
+	}
+
+	private ResponseCookie deleteRefreshCookie() {
+		return ResponseCookie.from(AuthWebConstants.REFRESH_TOKEN_COOKIE, "")
+				.httpOnly(true).secure(true).path("/").maxAge(0).sameSite("Lax")
 				.build();
 	}
 }
