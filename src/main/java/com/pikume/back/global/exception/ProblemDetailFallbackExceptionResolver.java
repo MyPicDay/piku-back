@@ -46,7 +46,8 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 			return null;
 		}
 
-		log.error("Unhandled Exception occurred: {}", ex.getMessage(), ex);
+		log.error("event=request_failed outcome=failed reason=unhandled_exception exception={}",
+				ex.getClass().getSimpleName());
 		discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
 
 		ProblemDetail problemDetail = problemDetailFactory.create(
@@ -60,9 +61,15 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 		try {
 			objectMapper.writeValue(response.getWriter(), problemDetail);
 		} catch (IOException writeFailure) {
-			log.error("Failed to write fallback Problem Details response: {}", writeFailure.getMessage(), writeFailure);
+			log.error("event=problem_details_write outcome=failed exception={}",
+					writeFailure.getClass().getSimpleName());
 			return null;
 		}
 		return new ModelAndView();
+	}
+
+	@Override
+	protected String buildLogMessage(Exception exception, HttpServletRequest request) {
+		return "event=request_resolved outcome=handled exception=" + exception.getClass().getSimpleName();
 	}
 }

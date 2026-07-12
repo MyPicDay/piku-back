@@ -14,7 +14,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -61,9 +60,6 @@ class UserLoginServiceTest {
 	@Test
 	@DisplayName("잘못된 이메일 형식은 자격 증명 오류로 변환한다")
 	void rejectsMalformedEmailAsInvalidCredentials() {
-		given(users.findByEmail("not-an-email"))
-				.willThrow(new IllegalArgumentException("올바르지 않은 이메일 형식입니다: not-an-email"));
-
 		assertThatThrownBy(() -> service.login(new LoginCommand("not-an-email", "raw", "device-1")))
 				.isInstanceOf(InvalidCredentialsException.class);
 		then(users).shouldHaveNoInteractions();

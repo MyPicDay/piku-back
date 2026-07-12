@@ -17,7 +17,8 @@ public enum AuthErrorCode {
 	EMAIL_VERIFICATION_EXPIRED("이메일 인증이 만료되었습니다."),
 	EMAIL_VERIFICATION_ALREADY_USED("이메일 인증이 이미 사용되었습니다."),
 	EMAIL_SEND_FAILURE("이메일 발송에 실패했습니다."),
-	INVALID_EMAIL("지원하지 않는 이메일 형식입니다.");
+	INVALID_EMAIL("지원하지 않는 이메일 형식입니다."),
+	INVALID_PASSWORD("올바르지 않은 비밀번호 형식입니다.");
 
 	private final String message;
 }

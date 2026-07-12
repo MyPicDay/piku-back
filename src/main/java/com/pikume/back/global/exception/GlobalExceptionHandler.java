@@ -23,13 +23,14 @@ import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.error.ValidationProblemType;
 import com.pikume.back.global.notification.DiscordWebhookService;
-import com.pikume.back.global.util.RequestUtil;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -53,8 +54,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidationException(MethodArgumentNotValidException e,
             HttpServletRequest request) {
-        log.warn("Validation failed: {}", e.getMessage());
-
         Map<String, String> errors = e.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -62,8 +61,10 @@ public class GlobalExceptionHandler {
                         FieldError::getField,
                         error -> error.getDefaultMessage() != null
                                 ? error.getDefaultMessage()
-                                : "메시지가 null입니다."));
-        log.info("프론트에서 보내지는 에러: {}", errors);
+                                : "입력값을 확인해주세요.",
+                        (firstMessage, ignored) -> firstMessage));
+        log.debug("event=request_validation_failed outcome=denied reason=invalid_request fieldCount={}",
+                errors.size());
 
         return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
@@ -80,12 +81,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ProblemDetail> handleConstraintViolationException(ConstraintViolationException e,
             HttpServletRequest request) {
-        log.warn("Constraint violation failed: {}", e.getMessage());
-
         Map<String, String> errors = e.getConstraintViolations().stream()
-                .collect(Collectors.toMap(
+                .collect(Collectors.groupingBy(
                         violation -> violation.getPropertyPath().toString(),
-                        ConstraintViolation::getMessage));
+                        TreeMap::new,
+                        Collectors.collectingAndThen(
+                                Collectors.mapping(
+                                        ConstraintViolation::getMessage,
+                                        Collectors.toCollection(TreeSet::new)),
+                                messages -> String.join(", ", messages))));
+        log.debug("event=request_validation_failed outcome=denied reason=constraint_violation fieldCount={}",
+                errors.size());
 
         return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
@@ -93,8 +99,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ProblemDetail> handleMethodValidationException(HandlerMethodValidationException e,
             HttpServletRequest request) {
-        log.warn("Validation failed for method parameters: {}", e.getMessage());
-
         Map<String, String> errors = new HashMap<>();
         for (ParameterValidationResult result : e.getParameterValidationResults()) {
             String parameterName = result.getMethodParameter().getParameterName();
@@ -103,14 +107,16 @@ public class GlobalExceptionHandler {
                     .collect(Collectors.joining(", "));
             errors.put(parameterName, message);
         }
+        log.debug("event=request_validation_failed outcome=denied reason=invalid_method_argument fieldCount={}",
+                errors.size());
 
         return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ProblemDetail> handleHttpMessageNotReadable(HttpMessageNotReadableException e,
+    public ResponseEntity<ProblemDetail> handleHttpMessageNotReadable(HttpMessageNotReadableException ignored,
             HttpServletRequest request) {
-        log.warn("Malformed request body: {}", e.getMessage());
+        log.debug("event=request_body_parse_failed outcome=denied reason=malformed_request");
         return buildProblem(CommonProblemType.MALFORMED_REQUEST, "요청 본문을 해석할 수 없습니다.", request);
     }
 
@@ -123,8 +129,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<ProblemDetail> handleIOException(IOException ex, HttpServletRequest request) {
-        String message = ex.getMessage();
-
         if (isClientDisconnected(ex)) {
             // 클라이언트가 스트림 중간에 연결을 끊은 케이스
             log.debug("스트림 중단: 클라이언트 연결 끊김 - {} {}", request.getMethod(), request.getRequestURI());
@@ -133,7 +137,8 @@ public class GlobalExceptionHandler {
 
         // 그 외 IOException은 다시 던져서 기본 처리
         discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
-        log.error("IOException occurred: {}", message, ex);
+        log.error("event=request_failed outcome=failed reason=io_exception exception={}",
+                ex.getClass().getSimpleName());
         return buildProblem(CommonProblemType.INTERNAL_SERVER_ERROR, "파일 처리 중 오류가 발생했습니다.", request);
     }
 
@@ -144,12 +149,8 @@ public class GlobalExceptionHandler {
             return;
         }
 
-        log.error("비동기 요청을 사용할 수 없습니다. IP: {}, User-Agent: {}, API: {} {}, 원인: {}",
-                RequestUtil.getClientIp(request),
-                request.getHeader("User-Agent"),
-                request.getMethod(),
-                request.getRequestURI(),
-                e.getMessage());
+        log.error("event=request_failed outcome=failed reason=async_request_unusable exception={}",
+                e.getClass().getSimpleName());
     }
 
     private boolean isClientDisconnected(Throwable throwable) {

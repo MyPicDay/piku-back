@@ -24,6 +24,7 @@ import com.pikume.back.user.auth.application.exception.AuthErrorCode;
 import com.pikume.back.user.auth.application.exception.AuthException;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
+import com.pikume.back.user.domain.service.PasswordPolicy;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -68,10 +69,41 @@ class AuthServiceTest {
 	private QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	@Spy
 	private EmailVerificationPolicy emailVerificationPolicy = new EmailVerificationPolicy();
+	@Spy
+	private PasswordPolicy passwordPolicy = new PasswordPolicy();
 
 	@Nested
 	@DisplayName("signup")
 	class Signup {
+
+		@Test
+		@DisplayName("잘못된 이메일 형식을 계정 오류로 변환하고 Port를 호출하지 않는다")
+		void rejectsInvalidEmailBeforeCallingPorts() {
+			SignUpCommand command = new SignUpCommand("not-an-email", "abc@123", "테스트", 1L);
+
+			assertThatThrownBy(() -> authService.signup(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
+
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(passwordProtectionPort).shouldHaveNoInteractions();
+			then(saveUserPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("잘못된 비밀번호 형식을 계정 오류로 변환하고 Port를 호출하지 않는다")
+		void rejectsInvalidPasswordBeforeCallingPorts() {
+			SignUpCommand command = new SignUpCommand("test@piku.store", "plainPassword", "테스트", 1L);
+
+			assertThatThrownBy(() -> authService.signup(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode())
+									.isEqualTo(AuthErrorCode.INVALID_PASSWORD));
+
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(passwordProtectionPort).shouldHaveNoInteractions();
+			then(saveUserPort).shouldHaveNoInteractions();
+		}
 
 		@Test
 		@DisplayName("유효한 요청으로 회원가입에 성공한다")
@@ -174,6 +206,18 @@ class AuthServiceTest {
 	class SendSignUpVerification {
 
 		@Test
+		@DisplayName("잘못된 이메일 형식을 계정 오류로 변환하고 발송하지 않는다")
+		void rejectsInvalidEmailBeforeSending() {
+			assertThatThrownBy(() -> authService.sendSignUpVerificationEmail("not-an-email"))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
+
+			then(queryAllowedEmailUseCase).shouldHaveNoInteractions();
+			then(sendVerificationEmailPort).shouldHaveNoInteractions();
+			then(saveVerificationPort).shouldHaveNoInteractions();
+		}
+
+		@Test
 		@DisplayName("인증 이메일 발송에 성공한다")
 		void sendSuccess() {
 			given(queryAllowedEmailUseCase.isEmailAllowed("test@piku.store")).willReturn(true);
@@ -186,8 +230,39 @@ class AuthServiceTest {
 	}
 
 	@Nested
+	@DisplayName("sendPasswordResetVerificationEmail")
+	class SendPasswordResetVerification {
+
+		@Test
+		@DisplayName("잘못된 이메일 형식을 계정 오류로 변환하고 발송하지 않는다")
+		void rejectsInvalidEmailBeforeSending() {
+			assertThatThrownBy(() -> authService.sendPasswordResetVerificationEmail("not-an-email"))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
+
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(sendVerificationEmailPort).shouldHaveNoInteractions();
+			then(saveVerificationPort).shouldHaveNoInteractions();
+		}
+	}
+
+	@Nested
 	@DisplayName("verifyCode")
 	class VerifyCode {
+
+		@Test
+		@DisplayName("잘못된 이메일 형식을 계정 오류로 변환하고 인증 기록을 조회하지 않는다")
+		void rejectsInvalidEmailBeforeLoadingVerification() {
+			VerifyEmailCommand command =
+					new VerifyEmailCommand("not-an-email", "123456", VerificationType.SIGN_UP);
+
+			assertThatThrownBy(() -> authService.verifyCode(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
+
+			then(loadVerificationPort).shouldHaveNoInteractions();
+			then(saveVerificationPort).shouldHaveNoInteractions();
+		}
 
 		@Test
 		@DisplayName("유효한 인증 코드 검증에 성공한다")
@@ -251,6 +326,33 @@ class AuthServiceTest {
 	@Nested
 	@DisplayName("verifyCodeAndResetPwd")
 	class ResetPassword {
+
+		@Test
+		@DisplayName("잘못된 이메일 형식을 계정 오류로 변환하고 사용자를 조회하지 않는다")
+		void rejectsInvalidEmailBeforeLoadingUser() {
+			ResetPasswordCommand command = new ResetPasswordCommand("not-an-email", "newPwd@1");
+
+			assertThatThrownBy(() -> authService.verifyCodeAndResetPwd(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
+
+			then(loadUserAccountPort).shouldHaveNoInteractions();
+			then(passwordProtectionPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("잘못된 비밀번호 형식을 계정 오류로 변환하고 사용자를 조회하지 않는다")
+		void rejectsInvalidPasswordBeforeLoadingUser() {
+			ResetPasswordCommand command = new ResetPasswordCommand("test@piku.store", "plainPassword");
+
+			assertThatThrownBy(() -> authService.verifyCodeAndResetPwd(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode())
+									.isEqualTo(AuthErrorCode.INVALID_PASSWORD));
+
+			then(loadUserAccountPort).shouldHaveNoInteractions();
+			then(passwordProtectionPort).shouldHaveNoInteractions();
+		}
 
 		@Test
 		@DisplayName("비밀번호 재설정에 성공한다")

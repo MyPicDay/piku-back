@@ -1,5 +1,6 @@
 package com.pikume.back.user.domain.vo;
 
+import com.pikume.back.user.domain.exception.InvalidEmailException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,28 +25,39 @@ class EmailTest {
 		@DisplayName("null 이메일은 예외를 발생시킨다")
 		void nullEmail() {
 			assertThatThrownBy(() -> new Email(null))
-					.isInstanceOf(IllegalArgumentException.class);
+					.isInstanceOf(InvalidEmailException.class);
 		}
 
 		@Test
 		@DisplayName("빈 이메일은 예외를 발생시킨다")
 		void emptyEmail() {
 			assertThatThrownBy(() -> new Email(""))
-					.isInstanceOf(IllegalArgumentException.class);
+					.isInstanceOf(InvalidEmailException.class);
 		}
 
 		@Test
 		@DisplayName("잘못된 형식의 이메일은 예외를 발생시킨다")
 		void invalidFormat() {
 			assertThatThrownBy(() -> new Email("not-an-email"))
-					.isInstanceOf(IllegalArgumentException.class);
+					.isInstanceOf(InvalidEmailException.class);
+		}
+
+		@Test
+		@DisplayName("잘못된 이메일 예외 메시지는 raw 입력을 포함하지 않는다")
+		void invalidFormatDoesNotExposeRawValue() {
+			String sensitiveEmail = "PRIVATE-INVALID-EMAIL";
+
+			assertThatThrownBy(() -> new Email(sensitiveEmail))
+					.isInstanceOf(InvalidEmailException.class)
+					.hasMessage("올바르지 않은 이메일 형식입니다.")
+					.hasMessageNotContaining(sensitiveEmail);
 		}
 
 		@Test
 		@DisplayName("@만 있는 이메일은 예외를 발생시킨다")
 		void onlyAtSign() {
 			assertThatThrownBy(() -> new Email("@"))
-					.isInstanceOf(IllegalArgumentException.class);
+					.isInstanceOf(InvalidEmailException.class);
 		}
 	}
 

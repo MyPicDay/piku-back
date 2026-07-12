@@ -2,12 +2,14 @@ package com.pikume.back.user.auth.domain;
 
 import com.pikume.back.user.auth.domain.service.EmailVerificationPolicy;
 import com.pikume.back.user.auth.domain.vo.VerificationType;
+import com.pikume.back.user.domain.exception.InvalidEmailException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Verification")
 class VerificationTest {
@@ -32,5 +34,13 @@ class VerificationTest {
 
 		assertThat(policy.codeExpiresAt(issuedAt)).isEqualTo(issuedAt.plusMinutes(5));
 		assertThat(policy.isCodeExpired(issuedAt.plusMinutes(5), issuedAt.plusMinutes(6))).isTrue();
+	}
+
+	@Test
+	@DisplayName("이메일 형식 불변식을 보호한다")
+	void protectsEmailInvariant() {
+		assertThatThrownBy(() -> new Verification(
+				"not-an-email", "123456", VerificationType.SIGN_UP, LocalDateTime.now().plusMinutes(5)))
+				.isInstanceOf(InvalidEmailException.class);
 	}
 }

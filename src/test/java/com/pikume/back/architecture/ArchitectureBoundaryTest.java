@@ -109,8 +109,8 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
-	@DisplayName("프로덕션 로그는 raw 인증 값과 개인정보를 기록하지 않는다.")
-	void productionLogsDoNotExposeSensitiveValues() throws IOException {
+	@DisplayName("프로덕션 로그 포맷은 raw 인증 값과 개인정보 필드를 선언하지 않는다.")
+	void productionLogFormatsDoNotDeclareSensitiveFields() throws IOException {
 		Path productionSources = Path.of("src/main/java");
 		List<String> forbiddenLogFragments = List.of(
 				"email={}",
@@ -126,6 +126,12 @@ class ArchitectureBoundaryTest {
 				"deviceId={}",
 				"deviceId: {}",
 				"clientIp={}",
+				"IP: {}",
+				"User-Agent: {}",
+				"new EmbedField(\"Client-IP\"",
+				"new EmbedField(\"User-Agent\"",
+				"new EmbedField(\"Error-Message\"",
+				"new EmbedField(\"Stack-Trace\"",
 				"token={}",
 				"token: {}",
 				"토큰 삭제: {}");

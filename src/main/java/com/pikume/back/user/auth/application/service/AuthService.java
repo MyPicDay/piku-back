@@ -25,7 +25,11 @@ import com.pikume.back.user.auth.application.exception.AuthErrorCode;
 import com.pikume.back.user.auth.application.exception.AuthException;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
+import com.pikume.back.user.domain.exception.InvalidEmailException;
+import com.pikume.back.user.domain.exception.InvalidPasswordException;
 import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
+import com.pikume.back.user.domain.service.PasswordPolicy;
+import com.pikume.back.user.domain.vo.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,10 +54,13 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	private final LoadFixedCharacterForSignUpPort loadFixedCharacterForSignUpPort;
 	private final QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	private final EmailVerificationPolicy emailVerificationPolicy;
+	private final PasswordPolicy passwordPolicy;
 
 	@Override
 	@Transactional
 	public void signup(SignUpCommand command) {
+		requireValidEmail(command.email());
+		requireValidPassword(command.password());
 		if (checkUserUniquenessPort.existsByEmail(command.email())) {
 			throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
 		}
@@ -81,6 +88,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	@Override
 	@Transactional
 	public void sendSignUpVerificationEmail(String email) {
+		requireValidEmail(email);
 		if (!queryAllowedEmailUseCase.isEmailAllowed(email)) {
 			throw new AuthException(AuthErrorCode.INVALID_EMAIL);
 		}
@@ -93,6 +101,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	@Override
 	@Transactional
 	public void sendPasswordResetVerificationEmail(String email) {
+		requireValidEmail(email);
 		if (!checkUserUniquenessPort.existsByEmail(email)) {
 			log.info("event=password_reset_verification outcome=accepted reason=email_not_registered");
 		}
@@ -105,6 +114,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	@Override
 	@Transactional
 	public void verifyCode(VerifyEmailCommand command) {
+		requireValidEmail(command.email());
 		Verification verification = loadVerificationPort.findByEmailAndType(command.email(), command.type())
 				.orElseThrow(() -> new AuthException(AuthErrorCode.VERIFICATION_NOT_FOUND));
 		LocalDateTime now = LocalDateTime.now();
@@ -123,6 +133,8 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	@Override
 	@Transactional
 	public void verifyCodeAndResetPwd(ResetPasswordCommand command) {
+		requireValidEmail(command.email());
+		requireValidPassword(command.newPassword());
 		User user = loadUserAccountPort.findByEmail(command.email())
 				.orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
 		VerifiedEmail verified = getValidVerifiedEmail(command.email(), VerificationType.PASSWORD_RESET);
@@ -165,5 +177,21 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		}
 		return loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(fixedCharacterId)
 				.orElseThrow(() -> new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND));
+	}
+
+	private void requireValidEmail(String rawEmail) {
+		try {
+			new Email(rawEmail);
+		} catch (InvalidEmailException exception) {
+			throw new AuthException(AuthErrorCode.INVALID_EMAIL);
+		}
+	}
+
+	private void requireValidPassword(String rawPassword) {
+		try {
+			passwordPolicy.validate(rawPassword);
+		} catch (InvalidPasswordException exception) {
+			throw new AuthException(AuthErrorCode.INVALID_PASSWORD);
+		}
 	}
 }

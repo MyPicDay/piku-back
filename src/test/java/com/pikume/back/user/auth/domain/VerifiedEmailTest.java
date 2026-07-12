@@ -1,6 +1,7 @@
 package com.pikume.back.user.auth.domain;
 
 import com.pikume.back.user.auth.domain.vo.VerificationType;
+import com.pikume.back.user.domain.exception.InvalidEmailException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -28,5 +29,12 @@ class VerifiedEmailTest {
 
 		assertThat(verifiedEmail.isUsed()).isTrue();
 		assertThatThrownBy(verifiedEmail::markUsed).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	@DisplayName("이메일 형식 불변식을 보호한다")
+	void protectsEmailInvariant() {
+		assertThatThrownBy(() -> new VerifiedEmail("not-an-email", VerificationType.SIGN_UP))
+				.isInstanceOf(InvalidEmailException.class);
 	}
 }

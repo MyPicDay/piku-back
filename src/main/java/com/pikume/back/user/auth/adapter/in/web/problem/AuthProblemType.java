@@ -12,6 +12,8 @@ public enum AuthProblemType implements ApiProblemType {
 	NICKNAME_CONFLICT("https://api.pikume.com/problems/user/nickname-conflict", HttpStatus.CONFLICT, "Conflict"),
 	EMAIL_VERIFICATION_REQUIRED("https://api.pikume.com/problems/auth/email-verification-required", HttpStatus.FORBIDDEN, "Forbidden"),
 	CODE_INVALID("https://api.pikume.com/problems/auth/code-invalid", HttpStatus.BAD_REQUEST, "Bad Request"),
+	INVALID_EMAIL("https://api.pikume.com/problems/auth/invalid-email", HttpStatus.BAD_REQUEST, "Bad Request"),
+	INVALID_PASSWORD("https://api.pikume.com/problems/auth/invalid-password", HttpStatus.BAD_REQUEST, "Bad Request"),
 	EMAIL_SEND_FAILURE("https://api.pikume.com/problems/auth/email-send-failure", HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
 
 	private final URI type;
