@@ -175,7 +175,7 @@ class UserProfileCommandServiceTest {
 		}
 
 		@Test
-		@DisplayName("닉네임 저장 충돌 시 실패를 반환하고 점유를 유지한다")
+		@DisplayName("닉네임 저장 충돌 시 예외를 전파하고 점유를 유지한다")
 		void keepsNicknameHoldAfterPersistenceConflict() {
 			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", "새닉", null);
@@ -183,10 +183,9 @@ class UserProfileCommandServiceTest {
 			given(nicknameHoldPort.isHeldBy(eq("새닉"), eq("user-1"), any(Instant.class))).willReturn(true);
 			given(saveUserPort.save(user)).willThrow(new NicknameAlreadyExistsException("새닉"));
 
-			UpdateProfileResult result = service.updateProfile(command);
-
-			assertThat(result.success()).isFalse();
-			assertThat(result.failureReason()).isEqualTo(UpdateProfileFailureReason.NICKNAME_CONFLICT);
+			assertThatThrownBy(() -> service.updateProfile(command))
+					.isInstanceOf(NicknameAlreadyExistsException.class)
+					.hasMessageContaining("새닉");
 			verify(nicknameHoldPort, never()).release(anyString(), anyString());
 		}
 	}

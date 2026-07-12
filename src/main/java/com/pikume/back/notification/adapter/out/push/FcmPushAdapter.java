@@ -34,7 +34,7 @@ public class FcmPushAdapter implements PushNotificationPort {
 	@Override
 	public void deleteToken(String token) {
 		fcmTokenJpaRepository.deleteByToken(token);
-		log.info("토큰 삭제: {}", token);
+		log.info("event=fcm_token_deleted outcome=success");
 	}
 
 	@Override

@@ -10,6 +10,7 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 import com.pikume.back.user.application.exception.UserErrorCode;
 import com.pikume.back.user.application.exception.UserNotFoundException;
+import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -34,12 +35,29 @@ class UserExceptionHandlerTest {
 				.andExpect(jsonPath("$.instance").value("/test/user-not-found"));
 	}
 
+	@Test
+	@DisplayName("NicknameAlreadyExistsException은 nickname-conflict Problem Details로 변환된다")
+	void nicknameConflict() throws Exception {
+		mockMvc.perform(get("/test/nickname-conflict"))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.type").value(UserProblemType.NICKNAME_CONFLICT.type().toString()))
+				.andExpect(jsonPath("$.title").value(UserProblemType.NICKNAME_CONFLICT.title()))
+				.andExpect(jsonPath("$.status").value(409))
+				.andExpect(jsonPath("$.detail").value("이미 사용 중인 닉네임입니다."))
+				.andExpect(jsonPath("$.instance").value("/test/nickname-conflict"));
+	}
+
 	@RestController
 	static class TestController {
 
 		@GetMapping("/test/user-not-found")
 		void userNotFound() {
 			throw new UserNotFoundException();
+		}
+
+		@GetMapping("/test/nickname-conflict")
+		void nicknameConflict() {
+			throw new NicknameAlreadyExistsException("duplicate-nickname");
 		}
 	}
 }

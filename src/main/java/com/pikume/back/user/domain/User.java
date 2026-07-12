@@ -11,7 +11,10 @@ import com.pikume.back.user.domain.vo.Nickname;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = {
+		@UniqueConstraint(name = "UK6dotkott2kjsp8vw4d0m25fb7", columnNames = "email"),
+		@UniqueConstraint(name = "UK2ty1xmrrgtn89xt7kyxx6ta7h", columnNames = "nickname")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
@@ -21,13 +24,13 @@ public class User extends BaseEntity {
 	@Column(length = 36)
 	private String id;
 
-	@Column(unique = true, nullable = false)
+	@Column(nullable = false)
 	@Getter(AccessLevel.NONE)
 	private Email email;
 
 	private String password;
 
-	@Column(unique = true, nullable = false)
+	@Column(nullable = false)
 	@Getter(AccessLevel.NONE)
 	private Nickname nickname;
 

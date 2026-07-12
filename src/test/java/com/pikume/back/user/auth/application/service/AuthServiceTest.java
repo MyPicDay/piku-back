@@ -23,6 +23,7 @@ import com.pikume.back.user.auth.domain.vo.VerificationType;
 import com.pikume.back.user.auth.application.exception.AuthErrorCode;
 import com.pikume.back.user.auth.application.exception.AuthException;
 import com.pikume.back.user.domain.User;
+import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -133,6 +134,25 @@ class AuthServiceTest {
 					.isInstanceOf(AuthException.class);
 
 			then(saveUserPort).should(never()).save(any());
+		}
+
+		@Test
+		@DisplayName("회원가입 저장 경쟁의 이메일 충돌을 계정 오류로 변환한다")
+		void signupTranslatesEmailConflictFromPersistence() {
+			SignUpCommand command = new SignUpCommand("race@piku.store", "abc@123", "테스트", 1L);
+			VerifiedEmail verified = new VerifiedEmail("race@piku.store", VerificationType.SIGN_UP);
+			given(checkUserUniquenessPort.existsByEmail("race@piku.store")).willReturn(false);
+			given(loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc(
+					"race@piku.store", VerificationType.SIGN_UP)).willReturn(Optional.of(verified));
+			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(1L))
+					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
+			given(passwordProtectionPort.protect("abc@123")).willReturn("encodedPw");
+			given(saveUserPort.save(any(User.class))).willThrow(new EmailAlreadyExistsException());
+
+			assertThatThrownBy(() -> authService.signup(command))
+					.isInstanceOfSatisfying(AuthException.class,
+							exception -> assertThat(exception.getErrorCode())
+									.isEqualTo(AuthErrorCode.EMAIL_ALREADY_EXISTS));
 		}
 
 		@Test

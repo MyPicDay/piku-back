@@ -3,6 +3,7 @@ package com.pikume.back.user.adapter.out.persistence;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
+import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,5 +83,17 @@ class UserValueObjectMappingTest {
 
 		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(duplicate))
 				.isInstanceOf(NicknameAlreadyExistsException.class);
+	}
+
+	@Test
+	@DisplayName("실제 email 유일 제약 위반을 User 계정 충돌 의미로 번역한다")
+	void translatesEmailConstraintViolationAtPersistenceBoundary() {
+		userJpaRepository.saveAndFlush(new User(
+				"duplicate@example.com", "password", "first-nickname", "avatar"));
+		User duplicate = new User(
+				"duplicate@example.com", "password", "second-nickname", "avatar");
+
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(duplicate))
+				.isInstanceOf(EmailAlreadyExistsException.class);
 	}
 }

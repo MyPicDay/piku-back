@@ -8,6 +8,7 @@ import com.pikume.back.user.auth.application.port.in.LoginUseCase;
 import com.pikume.back.user.auth.application.port.out.AuthenticationTokenPort;
 import com.pikume.back.user.auth.application.port.out.PasswordProtectionPort;
 import com.pikume.back.user.auth.application.port.out.RefreshSessionPort;
+import com.pikume.back.user.domain.vo.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class UserLoginService implements LoginUseCase {
 
 	@Override
 	public LoginResult login(LoginCommand command) {
+		validateEmail(command.email());
 		var user = queryUserIdentityUseCase.findByEmail(command.email())
 				.orElseThrow(InvalidCredentialsException::new);
 		if (!passwordProtectionPort.matches(command.password(), user.passwordHash())) {
@@ -36,5 +38,13 @@ public class UserLoginService implements LoginUseCase {
 		log.info("event=login_completed outcome=success userId={}", user.id());
 		return new LoginResult(accessToken, refreshToken,
 				new LoginResult.UserInfo(user.id(), user.nickname(), user.avatarPath()));
+	}
+
+	private void validateEmail(String email) {
+		try {
+			new Email(email);
+		} catch (IllegalArgumentException exception) {
+			throw new InvalidCredentialsException();
+		}
 	}
 }

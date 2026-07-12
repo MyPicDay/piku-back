@@ -83,8 +83,8 @@ class JwtFilterTest {
 	}
 
 	@Test
-	@DisplayName("유효한 JWT에 사용자 ID가 없으면 요청 IP와 함께 error로 기록한다")
-	void validJwtWithoutUserIdLogsErrorWithClientIp() throws Exception {
+	@DisplayName("유효한 JWT에 사용자 ID가 없으면 client IP 없이 warn으로 기록한다")
+	void validJwtWithoutUserIdLogsWarnWithoutClientIp() throws Exception {
 		MockHttpServletRequest request = bearerRequest("refresh-token");
 		request.addHeader("X-Forwarded-For", "203.0.113.42");
 		MockHttpServletResponse response = new MockHttpServletResponse();
@@ -105,11 +105,13 @@ class JwtFilterTest {
 
 		assertThat(appender.list)
 				.anySatisfy(event -> {
-					assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+					assertThat(event.getLevel()).isEqualTo(Level.WARN);
 					assertThat(event.getFormattedMessage())
 							.contains("event=jwt_subject_missing")
 							.contains("outcome=denied")
-							.contains("clientIp=203.0.113.42");
+							.contains("reason=missing_user_id")
+							.doesNotContain("clientIp")
+							.doesNotContain("203.0.113.42");
 				});
 		then(authenticationEntryPoint).should()
 				.commence(any(), any(), any());

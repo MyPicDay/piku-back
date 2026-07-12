@@ -19,7 +19,6 @@ import com.pikume.back.user.application.port.out.LoadUserAccountPort;
 import com.pikume.back.user.application.port.out.NicknameHoldPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
 import com.pikume.back.user.domain.User;
-import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
 
 import java.time.Instant;
 
@@ -90,14 +89,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		if (characterChanged) {
 			user.changeAvatar(targetAvatarObjectKey);
 		}
-		try {
-			saveUserPort.save(user);
-		} catch (NicknameAlreadyExistsException exception) {
-			return UpdateProfileResult.failure(
-					UpdateProfileFailureReason.NICKNAME_CONFLICT,
-					"이미 사용 중인 닉네임입니다.",
-					oldNickname);
-		}
+		saveUserPort.save(user);
 		if (nicknameChanged) {
 			nicknameHoldPort.release(targetNickname, command.userId());
 		}

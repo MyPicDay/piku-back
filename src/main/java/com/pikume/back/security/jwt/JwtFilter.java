@@ -1,7 +1,6 @@
 package com.pikume.back.security.jwt;
 
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.util.RequestUtil;
 import com.pikume.back.user.application.dto.UserIdentityView;
 import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
 import com.pikume.back.security.adapter.in.web.AuthWebConstants;
@@ -44,8 +43,7 @@ public class JwtFilter extends OncePerRequestFilter {
 		try {
 			SecurityContextHolder.getContext().setAuthentication(authenticate(token));
 		} catch (MissingJwtSubjectException exception) {
-			log.error("event=jwt_subject_missing outcome=denied reason=missing_user_id clientIp={}",
-					RequestUtil.getClientIp(request));
+			log.warn("event=jwt_subject_missing outcome=denied reason=missing_user_id");
 			reject(request, response, exception);
 			return;
 		} catch (Exception exception) {

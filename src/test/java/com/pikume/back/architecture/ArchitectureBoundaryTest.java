@@ -109,6 +109,34 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
+	@DisplayName("프로덕션 로그는 raw 인증 값과 개인정보를 기록하지 않는다.")
+	void productionLogsDoNotExposeSensitiveValues() throws IOException {
+		Path productionSources = Path.of("src/main/java");
+		List<String> forbiddenLogFragments = List.of(
+				"email={}",
+				"email= {}",
+				"이메일={}",
+				"password={}",
+				"비밀번호={}",
+				"code={}",
+				"인증코드={}",
+				"accessToken={}",
+				"refreshToken={}",
+				"authorization={}",
+				"deviceId={}",
+				"deviceId: {}",
+				"clientIp={}",
+				"token={}",
+				"token: {}",
+				"토큰 삭제: {}");
+
+		assertThat(findJavaSourceViolations(
+				productionSources,
+				path -> forbiddenLogFragments.stream().anyMatch(fragment -> sourceContains(path, fragment))))
+				.isEmpty();
+	}
+
+	@Test
 	@DisplayName("다른 context는 user outbound port에 직접 의존하지 않는다.")
 	void otherContextsDoNotDependOnUserOutboundPorts() throws IOException {
 		Path productionSources = Path.of("src/main/java/com/pikume/back");
