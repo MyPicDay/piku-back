@@ -9,6 +9,8 @@ import com.pikume.back.user.application.port.out.LoadUserPort;
 import com.pikume.back.user.application.port.out.SaveUserPort;
 import com.pikume.back.user.application.port.out.UserQueryPort;
 import com.pikume.back.user.domain.User;
+import com.pikume.back.user.domain.vo.Email;
+import com.pikume.back.user.domain.vo.Nickname;
 
 import java.sql.Date;
 import java.time.LocalDate;
@@ -34,7 +36,7 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQ
 
 	@Override
 	public Optional<User> findByEmail(String email) {
-		return jpaRepository.findByEmail(email);
+		return jpaRepository.findByEmail(new Email(email));
 	}
 
 	@Override
@@ -82,12 +84,12 @@ public class UserPersistenceAdapter implements LoadUserPort, SaveUserPort, UserQ
 
 	@Override
 	public boolean existsByNickname(String nickname) {
-		return jpaRepository.existsByNickname(nickname);
+		return jpaRepository.existsByNickname(new Nickname(nickname));
 	}
 
 	@Override
 	public boolean existsByEmail(String email) {
-		return jpaRepository.existsByEmail(email);
+		return jpaRepository.existsByEmail(new Email(email));
 	}
 
 	@Override

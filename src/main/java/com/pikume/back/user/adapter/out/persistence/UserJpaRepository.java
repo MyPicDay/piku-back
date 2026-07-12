@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.pikume.back.user.domain.User;
+import com.pikume.back.user.domain.vo.Email;
+import com.pikume.back.user.domain.vo.Nickname;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,9 +24,9 @@ public interface UserJpaRepository extends JpaRepository<User, String> {
 		Long getMetricCount();
 	}
 
-	Optional<User> findByEmail(String email);
+	Optional<User> findByEmail(Email email);
 
-	boolean existsByEmail(String email);
+	boolean existsByEmail(Email email);
 
 	long countByDeletedAtIsNull();
 
@@ -53,8 +55,8 @@ public interface UserJpaRepository extends JpaRepository<User, String> {
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 
-	@Query("SELECT u FROM User u WHERE u.nickname LIKE :keyword")
+	@Query(value = "SELECT * FROM users WHERE nickname LIKE :keyword", nativeQuery = true)
 	Page<User> searchByName(@Param("keyword") String keyword, Pageable pageable);
 
-	boolean existsByNickname(String nickname);
+	boolean existsByNickname(Nickname nickname);
 }

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.user.auth.application.port.out.LoadUserForSignUpPort;
 import com.pikume.back.user.domain.User;
+import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 
 import java.util.Optional;
@@ -16,12 +17,12 @@ public class UserAdapterForAuth implements LoadUserForSignUpPort {
 
 	@Override
 	public boolean existsByEmail(String email) {
-		return userJpaRepository.existsByEmail(email);
+		return userJpaRepository.existsByEmail(new Email(email));
 	}
 
 	@Override
 	public Optional<User> findByEmail(String email) {
-		return userJpaRepository.findByEmail(email);
+		return userJpaRepository.findByEmail(new Email(email));
 	}
 
 	@Override

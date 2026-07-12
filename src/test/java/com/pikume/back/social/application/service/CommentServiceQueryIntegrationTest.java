@@ -178,10 +178,11 @@ class CommentServiceQueryIntegrationTest extends AbstractJpaQueryCountIntegratio
 	}
 
 	private User saveUser(String suffix) {
+		String nicknameSuffix = suffix.substring(0, Math.min(suffix.length(), 15));
 		return userJpaRepository.save(new User(
 				suffix + "@example.com",
 				"encoded-password",
-				"nick-" + suffix,
+				"nick-" + nicknameSuffix,
 				"avatars/" + suffix + ".png"));
 	}
 }
