@@ -4,7 +4,7 @@ import com.pikume.back.admin.application.service.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.creative.application.port.out.LoadGenerationPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +23,7 @@ import static org.mockito.BDDMockito.given;
 class AdminStatisticsSourceAdapterTest {
 
 	@Mock
-	private LoadUserPort loadUserPort;
+	private QueryUserDashboardStatisticsUseCase queryUserDashboardStatisticsUseCase;
 	@Mock
 	private LoadDiaryPort loadDiaryPort;
 	@Mock
@@ -44,7 +44,7 @@ class AdminStatisticsSourceAdapterTest {
 	@Test
 	@DisplayName("현재 회원 수는 user 도메인 포트로 조회한다")
 	void countCurrentMembersDelegatesToUserPort() {
-		given(loadUserPort.countActiveMembers()).willReturn(42L);
+		given(queryUserDashboardStatisticsUseCase.countCurrentActiveMembers()).willReturn(42L);
 
 		long result = adapter().countCurrentMembers();
 
@@ -56,8 +56,8 @@ class AdminStatisticsSourceAdapterTest {
 	void countSignupMembersByDateMapsUserCounts() {
 		LocalDate startDate = LocalDate.of(2026, 6, 10);
 		LocalDate endDate = LocalDate.of(2026, 6, 11);
-		given(loadUserPort.countSignupMembersByDate(startDate, endDate))
-				.willReturn(List.of(new LoadUserPort.DailyCount(startDate, 3L)));
+		given(queryUserDashboardStatisticsUseCase.countActiveSignupMembersByDate(startDate, endDate))
+				.willReturn(List.of(new QueryUserDashboardStatisticsUseCase.DailyCount(startDate, 3L)));
 
 		List<AdminDailyCount> result = adapter().countSignupMembersByDate(startDate, endDate);
 
@@ -91,6 +91,7 @@ class AdminStatisticsSourceAdapterTest {
 	}
 
 	private AdminStatisticsSourceAdapter adapter() {
-		return new AdminStatisticsSourceAdapter(loadUserPort, loadDiaryPort, aiPhotoStatisticsUseCase);
+		return new AdminStatisticsSourceAdapter(
+				queryUserDashboardStatisticsUseCase, loadDiaryPort, aiPhotoStatisticsUseCase);
 	}
 }

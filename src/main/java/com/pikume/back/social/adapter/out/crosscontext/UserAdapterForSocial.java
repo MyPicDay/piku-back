@@ -3,7 +3,7 @@ package com.pikume.back.social.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.social.application.port.out.LoadUserInfoPort;
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
 
 import java.util.Optional;
 
@@ -15,11 +15,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserAdapterForSocial implements LoadUserInfoPort {
 
-	private final LoadUserPort loadUserPort;
+	private final QueryUserReferenceUseCase queryUserReferenceUseCase;
 
 	@Override
 	public Optional<UserInfo> findUserInfoById(String userId) {
-		return loadUserPort.findById(userId)
-				.map(user -> new UserInfo(user.getId(), user.getNickname(), user.getAvatar()));
+		return queryUserReferenceUseCase.findUserReference(userId)
+				.map(user -> new UserInfo(user.id(), user.nickname(), user.avatarPath()));
 	}
 }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.user.auth.domain.vo.VerificationType;
+import com.pikume.back.user.domain.vo.Email;
 
 import java.time.LocalDateTime;
 
@@ -30,15 +31,19 @@ public class Verification {
 	@Column(nullable = false)
 	private VerificationType type;
 
-	public Verification(String email, String code, VerificationType type) {
-		this.email = email;
+	public Verification(String email, String code, VerificationType type, LocalDateTime expiresAt) {
+		this.email = new Email(email).value();
 		this.code = code;
 		this.type = type;
-		this.expiresAt = LocalDateTime.now().plusMinutes(5);
+		this.expiresAt = expiresAt;
 	}
 
-	public void updateCode(String newCode) {
+	public void updateCode(String newCode, LocalDateTime newExpiresAt) {
 		this.code = newCode;
-		this.expiresAt = LocalDateTime.now().plusMinutes(5);
+		this.expiresAt = newExpiresAt;
+	}
+
+	public boolean matches(String submittedCode, VerificationType submittedType) {
+		return type == submittedType && code.equals(submittedCode);
 	}
 }

@@ -1,7 +1,5 @@
 package com.pikume.back.user.application.dto;
 
-import com.pikume.back.user.application.port.out.UserDiaryPort;
-
 import java.util.List;
 
 /**
@@ -10,10 +8,13 @@ import java.util.List;
 public record UserProfileResult(
 		String id,
 		String nickname,
-		String avatar,
+		String avatarObjectKey,
 		int friendCount,
 		long diaryCount,
 		String friendStatus,
 		boolean isOwner,
-		List<UserDiaryPort.MonthlyDiaryCount> monthlyDiaryCount) {
+		List<MonthlyDiaryCount> monthlyDiaryCount) {
+
+	public record MonthlyDiaryCount(int year, int month, long count) {
+	}
 }

@@ -22,7 +22,7 @@ public class LocalPushAdapter implements PushNotificationPort {
 
 	@Override
 	public void deleteToken(String token) {
-		log.info("[Local] 토큰 삭제: {}", token);
+		log.info("event=local_fcm_token_delete_requested outcome=accepted");
 	}
 
 	@Override

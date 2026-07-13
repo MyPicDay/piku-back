@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.user.auth.domain.vo.VerificationType;
+import com.pikume.back.user.domain.vo.Email;
 
 import java.time.LocalDateTime;
 
@@ -31,7 +32,7 @@ public class VerifiedEmail {
 	private Boolean used;
 
 	public VerifiedEmail(String email, VerificationType type) {
-		this.email = email;
+		this.email = new Email(email).value();
 		this.type = type;
 		this.verifiedAt = LocalDateTime.now();
 		this.used = false;
@@ -42,5 +43,13 @@ public class VerifiedEmail {
 			throw new IllegalStateException("이미 사용된 인증입니다.");
 		}
 		this.used = true;
+	}
+
+	public boolean isFor(String requestedEmail, VerificationType requestedType) {
+		return email.equals(requestedEmail) && type == requestedType;
+	}
+
+	public boolean isUsed() {
+		return Boolean.TRUE.equals(used);
 	}
 }

@@ -1,5 +1,7 @@
 package com.pikume.back.user.domain.vo;
 
+import com.pikume.back.user.domain.exception.InvalidEmailException;
+
 import java.util.regex.Pattern;
 
 /**
@@ -12,10 +14,10 @@ public record Email(String value) {
 
 	public Email {
 		if (value == null || value.isBlank()) {
-			throw new IllegalArgumentException("이메일은 필수 값입니다.");
+			throw new InvalidEmailException("이메일은 필수 값입니다.");
 		}
 		if (!EMAIL_PATTERN.matcher(value).matches()) {
-			throw new IllegalArgumentException("올바르지 않은 이메일 형식입니다: " + value);
+			throw new InvalidEmailException("올바르지 않은 이메일 형식입니다.");
 		}
 	}
 }

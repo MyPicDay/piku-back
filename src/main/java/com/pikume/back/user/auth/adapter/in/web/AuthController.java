@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,16 +13,19 @@ import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
-import com.pikume.back.user.auth.application.port.out.SendVerificationEmailPort;
-import com.pikume.back.user.auth.dto.request.EmailValidRequest;
-import com.pikume.back.user.auth.dto.request.PwdResetRequest;
-import com.pikume.back.user.auth.dto.request.SignupRequest;
+import com.pikume.back.user.auth.application.port.in.QueryAllowedEmailUseCase;
+import com.pikume.back.user.auth.application.dto.SignUpCommand;
+import com.pikume.back.user.auth.application.dto.VerifyEmailCommand;
+import com.pikume.back.user.auth.application.dto.ResetPasswordCommand;
+import com.pikume.back.user.auth.adapter.in.web.dto.request.EmailValidRequest;
+import com.pikume.back.user.auth.adapter.in.web.dto.request.PwdResetRequest;
+import com.pikume.back.user.auth.adapter.in.web.dto.request.SignupRequest;
+import com.pikume.back.user.auth.adapter.in.web.dto.request.VerificationEmailRequest;
 
 import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Auth", description = "회원가입/이메일 인증 관련 API")
-@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -31,7 +34,7 @@ public class AuthController {
 	private final SignUpUseCase signUpUseCase;
 	private final VerifyEmailUseCase verifyEmailUseCase;
 	private final ResetPasswordUseCase resetPasswordUseCase;
-	private final SendVerificationEmailPort sendVerificationEmailPort;
+	private final QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 
 	@Operation(summary = "회원가입", description = "이메일, 비밀번호, 닉네임으로 회원가입을 진행합니다.")
 	@ApiResponses(value = {
@@ -39,8 +42,9 @@ public class AuthController {
 			@ApiResponse(responseCode = "400", description = "잘못된 요청")
 	})
 	@PostMapping("/signup")
-	public ResponseEntity<?> signup(@RequestBody SignupRequest dto) {
-		signUpUseCase.signup(dto);
+	public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest dto) {
+		signUpUseCase.signup(new SignUpCommand(
+				dto.getEmail(), dto.getPassword(), dto.getNickname(), dto.getFixedCharacterId()));
 		return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("회원가입 성공"));
 	}
 
@@ -50,9 +54,8 @@ public class AuthController {
 			@ApiResponse(responseCode = "400", description = "잘못된 요청")
 	})
 	@PostMapping("/send-verification/sign-up")
-	public ResponseEntity<?> sendSignUpVerificationEmail(@RequestBody Map<String, String> request) {
-		String email = request.get("email");
-		verifyEmailUseCase.sendSignUpVerificationEmail(email);
+	public ResponseEntity<?> sendSignUpVerificationEmail(@Valid @RequestBody VerificationEmailRequest request) {
+		verifyEmailUseCase.sendSignUpVerificationEmail(request.email());
 		return ResponseEntity.ok(new MessageResponse("회원가입 인증 이메일이 발송되었습니다."));
 	}
 
@@ -62,36 +65,35 @@ public class AuthController {
 			@ApiResponse(responseCode = "400", description = "잘못된 요청")
 	})
 	@PostMapping("/send-verification/password-reset")
-	public ResponseEntity<?> sendPasswordResetVerificationEmail(@RequestBody Map<String, String> request) {
-		String email = request.get("email");
-		verifyEmailUseCase.sendPasswordResetVerificationEmail(email);
+	public ResponseEntity<?> sendPasswordResetVerificationEmail(@Valid @RequestBody VerificationEmailRequest request) {
+		verifyEmailUseCase.sendPasswordResetVerificationEmail(request.email());
 		return ResponseEntity.ok(new MessageResponse("비밀번호 재설정 인증 이메일이 발송되었습니다."));
 	}
 
 	@Operation(summary = "이메일 인증 코드 검증", description = "사용자가 입력한 인증 코드를 검증합니다.")
 	@PostMapping("/verify-code")
-	public ResponseEntity<?> verifyCode(@RequestBody EmailValidRequest dto) {
-		verifyEmailUseCase.verifyCode(dto);
+	public ResponseEntity<?> verifyCode(@Valid @RequestBody EmailValidRequest dto) {
+		verifyEmailUseCase.verifyCode(new VerifyEmailCommand(dto.getEmail(), dto.getCode(), dto.getType()));
 		return ResponseEntity.ok(new MessageResponse("이메일 인증이 완료되었습니다."));
 	}
 
 	@Operation(summary = "비밀번호 재설정", description = "인증 이메일을 통해 비밀번호를 재설정합니다.")
 	@PostMapping("/password-reset")
-	public ResponseEntity<?> resetPassword(@RequestBody PwdResetRequest dto) {
-		resetPasswordUseCase.verifyCodeAndResetPwd(dto);
+	public ResponseEntity<?> resetPassword(@Valid @RequestBody PwdResetRequest dto) {
+		resetPasswordUseCase.verifyCodeAndResetPwd(new ResetPasswordCommand(dto.getEmail(), dto.getPassword()));
 		return ResponseEntity.ok(new MessageResponse("비밀번호가 재설정되었습니다."));
 	}
 
 	@Operation(summary = "이메일 허용 여부 확인", description = "이메일이 허용된 도메인에 속하는지 확인합니다.")
 	@GetMapping("/email")
 	public ResponseEntity<?> isEmailAllowed(@RequestParam String email) {
-		boolean allowed = sendVerificationEmailPort.isEmailAllowed(email);
+		boolean allowed = queryAllowedEmailUseCase.isEmailAllowed(email);
 		return ResponseEntity.ok(Map.of("allowed", allowed));
 	}
 
 	@Operation(summary = "허용된 이메일 도메인 목록 조회", description = "허용된 이메일 도메인 목록을 반환합니다.")
 	@GetMapping("/email-domains")
 	public ResponseEntity<List<String>> getAllowedEmailDomains() {
-		return ResponseEntity.ok(sendVerificationEmailPort.getAllowedEmailDomains());
+		return ResponseEntity.ok(queryAllowedEmailUseCase.getAllowedEmailDomains());
 	}
 }

@@ -2,8 +2,13 @@ package com.pikume.back.global.exception;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.servlet.ModelAndView;
@@ -47,6 +52,41 @@ class ProblemDetailFallbackExceptionResolverTest {
 		assertThat(body.get("status").asInt()).isEqualTo(500);
 		assertThat(body.get("detail").asText()).isEqualTo("서버에 오류가 발생했습니다.");
 		assertThat(body.get("instance").asText()).isEqualTo("/api/test");
+	}
+
+	@Test
+	@DisplayName("미처리 예외 로그는 예외 메시지를 기록하지 않는다")
+	void unresolvedExceptionDoesNotLogExceptionMessage() {
+		String sensitiveMessage = "PRIVATE-UNHANDLED-CONTENT";
+		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
+				objectMapper,
+				new ProblemDetailFactory(),
+				java.util.Optional.empty());
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		Logger logger = (Logger) LoggerFactory.getLogger(ProblemDetailFallbackExceptionResolver.class);
+		Level originalLevel = logger.getLevel();
+		logger.setLevel(Level.DEBUG);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+
+		try {
+			resolver.resolveException(request, response, new Object(), new IllegalStateException(sensitiveMessage));
+		} finally {
+			logger.detachAppender(appender);
+			logger.setLevel(originalLevel);
+		}
+
+		assertThat(appender.list)
+				.extracting(ILoggingEvent::getFormattedMessage)
+				.allSatisfy(message -> assertThat(message).doesNotContain(sensitiveMessage));
+		assertThat(appender.list)
+				.anySatisfy(event -> assertThat(event.getFormattedMessage()).contains(
+						"event=request_failed",
+						"outcome=failed",
+						"reason=unhandled_exception",
+						"exception=IllegalStateException"));
 	}
 
 	@Test

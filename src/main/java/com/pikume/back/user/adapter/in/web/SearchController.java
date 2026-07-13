@@ -16,6 +16,7 @@ import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.user.adapter.in.web.dto.response.UserSearchResponse;
 import com.pikume.back.user.application.port.in.SearchUserUseCase;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,6 +25,7 @@ import com.pikume.back.user.application.port.in.SearchUserUseCase;
 public class SearchController {
 
 	private final SearchUserUseCase searchUserUseCase;
+	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Operation(summary = "사용자 검색", description = "키워드로 사용자를 검색합니다.")
 	@GetMapping
@@ -32,7 +34,7 @@ public class SearchController {
 			@PageableDefault(size = 20) Pageable pageable) {
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
 		PageResult<UserSearchResponse> searchResults = searchUserUseCase.searchByKeyword(keyword, pageQuery)
-				.map(UserSearchResponse::from);
+				.map(result -> UserSearchResponse.from(result, imagePathToUrlConverter));
 		Page<UserSearchResponse> responsePage = SpringPageMapper.toSpringPage(searchResults, pageable);
 		return ResponseEntity.ok(responsePage);
 	}

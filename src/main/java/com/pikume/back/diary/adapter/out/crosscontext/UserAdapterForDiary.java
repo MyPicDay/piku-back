@@ -3,32 +3,26 @@ package com.pikume.back.diary.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.port.out.LoadUserForDiaryPort;
-import com.pikume.back.user.application.exception.UserNotFoundException;
-import com.pikume.back.user.application.port.out.LoadUserPort;
-import com.pikume.back.user.domain.User;
+import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
 
 @Component
 @RequiredArgsConstructor
 public class UserAdapterForDiary implements LoadUserForDiaryPort {
 
-	private final LoadUserPort loadUserPort;
+	private final QueryUserReferenceUseCase queryUserReferenceUseCase;
 
 	@Override
 	public String getUserNickname(String userId) {
-			User user = loadUserPort.findById(userId)
-					.orElseThrow(UserNotFoundException::new);
-		return user.getNickname();
+		return queryUserReferenceUseCase.getUserReference(userId).nickname();
 	}
 
 	@Override
 	public String getUserAvatar(String userId) {
-			User user = loadUserPort.findById(userId)
-					.orElseThrow(UserNotFoundException::new);
-		return user.getAvatar();
+		return queryUserReferenceUseCase.getUserReference(userId).avatarPath();
 	}
 
 	@Override
 	public boolean existsById(String userId) {
-		return loadUserPort.findById(userId).isPresent();
+		return queryUserReferenceUseCase.findUserReference(userId).isPresent();
 	}
 }

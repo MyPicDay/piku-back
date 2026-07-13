@@ -174,20 +174,22 @@ public class NotificationService implements NotificationUseCase {
 		try {
 			Set<String> tokens = pushNotificationPort.getTokenByUserId(receiverId);
 			if (tokens.isEmpty()) {
-				log.warn("FCM 토큰이 없습니다. receiverId: {}", receiverId);
+				log.warn("event=fcm_token_missing outcome=skipped userId={}", receiverId);
 				return;
 			}
 			for (String token : tokens) {
 				try {
-					log.info("[FCM 알림 전송] receiverId: {}, token: {}", receiverId, token);
+					log.debug("event=fcm_notification_send_requested outcome=accepted userId={}", receiverId);
 					pushNotificationPort.sendMessage(token, body);
 				} catch (Exception e) {
-					log.debug("FCM 알림 전송 실패: {}", e.getMessage());
+					log.debug("event=fcm_notification_send_failed outcome=failed reason={}",
+							e.getClass().getSimpleName());
 					pushNotificationPort.deleteToken(token);
 				}
 			}
 		} catch (Exception e) {
-			log.warn("FCM 전송 실패: {}", e.getMessage());
+			log.warn("event=fcm_notification_delivery_failed outcome=failed reason={}",
+					e.getClass().getSimpleName());
 		}
 	}
 

@@ -10,13 +10,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
+import com.pikume.back.user.adapter.in.web.dto.response.ProfilePreviewResponse;
+import com.pikume.back.user.adapter.in.web.dto.response.UserProfileResponse;
+import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
+import com.pikume.back.user.application.dto.UserProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
 import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
 import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -34,6 +41,9 @@ class UserControllerTest {
 	@Mock
 	private CheckNicknameUseCase checkNicknameUseCase;
 
+	@Mock
+	private ImagePathToUrlConverter imagePathToUrlConverter;
+
 	private UserController userController;
 
 	@BeforeEach
@@ -42,7 +52,52 @@ class UserControllerTest {
 				getUserProfileUseCase,
 				updateProfileUseCase,
 				checkNicknameUseCase,
-				new ProblemDetailFactory());
+				new ProblemDetailFactory(),
+				imagePathToUrlConverter);
+	}
+
+	@Test
+	@DisplayName("GET /api/users/{userId}/profile-preview는 비로그인 요청에도 프로필 미리보기를 반환한다")
+	void getProfilePreviewReturnsPublicPreviewWithoutAuthenticatedUser() {
+		ProfilePreviewResult result = new ProfilePreviewResult(
+				"user1",
+				"pikume",
+				"avatar-object-key",
+				3,
+				12L,
+				"NONE");
+		given(getUserProfileUseCase.getProfilePreview("user1", null)).willReturn(result);
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+				.willReturn("https://assets.example.com/avatar.webp");
+
+		ResponseEntity<?> response = userController.getProfilePreview("user1", null);
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
+	}
+
+	@Test
+	@DisplayName("GET /api/users/{userId}는 인증 사용자 기준의 상세 프로필 계약을 반환한다")
+	void getUserProfileReturnsAuthenticatedProfileContract() {
+		UserProfileResult result = new UserProfileResult(
+				"user1",
+				"pikume",
+				"avatar-object-key",
+				3,
+				12L,
+				"FRIEND",
+				true,
+				List.of(new UserProfileResult.MonthlyDiaryCount(2026, 7, 4L)));
+		given(getUserProfileUseCase.getUserProfile("user1", "user1")).willReturn(result);
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+				.willReturn("https://assets.example.com/avatar.webp");
+
+		ResponseEntity<?> response = userController.getUserProfile(
+				"user1",
+				new CustomUserDetails("user1", "pikume"));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isEqualTo(UserProfileResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Test
@@ -52,16 +107,9 @@ class UserControllerTest {
 				.given(updateProfileUseCase)
 				.updateProfileImage("user1", 10L);
 
-		ResponseEntity<?> response = userController.updateProfileImage(
-				new CustomUserDetails("user1", "pikume"),
-				10L);
-
-		assertThat(response.getStatusCode().value()).isEqualTo(404);
-		assertThat(response.getBody()).isInstanceOf(org.springframework.http.ProblemDetail.class);
-		org.springframework.http.ProblemDetail problemDetail = (org.springframework.http.ProblemDetail) response.getBody();
-		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/resource-not-found");
-		assertThat(problemDetail.getStatus()).isEqualTo(404);
-		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/users/profile-image");
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> userController.updateProfileImage(
+				new CustomUserDetails("user1", "pikume"), 10L))
+				.isInstanceOf(ProfileImageNotFoundException.class);
 	}
 
 	@Test

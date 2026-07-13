@@ -1,10 +1,9 @@
 package com.pikume.back.security.jwt;
 
 import com.pikume.back.global.config.CustomUserDetails;
-import com.pikume.back.global.util.RequestUtil;
-import com.pikume.back.security.application.dto.AuthUserView;
-import com.pikume.back.security.application.port.out.LoadUserForAuthPort;
-import com.pikume.back.user.auth.constants.AuthConstants;
+import com.pikume.back.user.application.dto.UserIdentityView;
+import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
+import com.pikume.back.security.adapter.in.web.AuthWebConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,7 +28,7 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
 
 	private final JwtProvider jwtProvider;
-	private final LoadUserForAuthPort loadUserForAuthPort;
+	private final QueryUserIdentityUseCase queryUserIdentityUseCase;
 	private final AuthenticationEntryPoint authenticationEntryPoint;
 
 	@Override
@@ -44,8 +43,7 @@ public class JwtFilter extends OncePerRequestFilter {
 		try {
 			SecurityContextHolder.getContext().setAuthentication(authenticate(token));
 		} catch (MissingJwtSubjectException exception) {
-			log.error("event=jwt_subject_missing outcome=denied reason=missing_user_id clientIp={}",
-					RequestUtil.getClientIp(request));
+			log.warn("event=jwt_subject_missing outcome=denied reason=missing_user_id");
 			reject(request, response, exception);
 			return;
 		} catch (Exception exception) {
@@ -60,10 +58,10 @@ public class JwtFilter extends OncePerRequestFilter {
 
 	private String extractBearerToken(HttpServletRequest request) {
 		String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		if (authHeader == null || !authHeader.startsWith(AuthConstants.BEARER_PREFIX)) {
+		if (authHeader == null || !authHeader.startsWith(AuthWebConstants.BEARER_PREFIX)) {
 			return null;
 		}
-		return authHeader.substring(AuthConstants.BEARER_PREFIX.length());
+		return authHeader.substring(AuthWebConstants.BEARER_PREFIX.length());
 	}
 
 	private Authentication authenticate(String token) {
@@ -72,7 +70,7 @@ public class JwtFilter extends OncePerRequestFilter {
 		}
 
 		String userId = requireUserId(token);
-		AuthUserView user = loadUserForAuthPort.findById(userId)
+		UserIdentityView user = queryUserIdentityUseCase.findById(userId)
 				.orElseThrow(() -> new BadCredentialsException("인증이 필요합니다."));
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				user.id(), user.nickname(), user.avatarPath());

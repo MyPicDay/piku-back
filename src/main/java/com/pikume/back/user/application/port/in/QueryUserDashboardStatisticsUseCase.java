@@ -14,4 +14,8 @@ public interface QueryUserDashboardStatisticsUseCase {
 	long countCumulativeMembersBefore(LocalDateTime cutoffExclusive);
 
 	List<DailyCount> countSignupMembersByDate(LocalDate startDate, LocalDate endDate);
+
+	long countCurrentActiveMembers();
+
+	List<DailyCount> countActiveSignupMembersByDate(LocalDate startDate, LocalDate endDate);
 }

@@ -1,6 +1,6 @@
 package com.pikume.back.user.application.service;
 
-import com.pikume.back.user.application.port.out.LoadUserPort;
+import com.pikume.back.user.application.port.out.LoadUserAccountPort;
 import com.pikume.back.user.domain.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ class UserIdentityQueryServiceTest {
 	private UserIdentityQueryService userIdentityQueryService;
 
 	@Mock
-	private LoadUserPort loadUserPort;
+	private LoadUserAccountPort loadUserAccountPort;
 
 	@Test
 	@DisplayName("사용자 ID로 인증에 필요한 사용자 식별 정보를 조회한다")
@@ -33,7 +33,7 @@ class UserIdentityQueryServiceTest {
 				"encoded-password",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
-		given(loadUserPort.findById("user-id")).willReturn(Optional.of(user));
+		given(loadUserAccountPort.findById("user-id")).willReturn(Optional.of(user));
 
 		var result = userIdentityQueryService.findById("user-id");
 
@@ -52,7 +52,7 @@ class UserIdentityQueryServiceTest {
 				"encoded-password",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
-		given(loadUserPort.findByEmail("user@example.com")).willReturn(Optional.of(user));
+		given(loadUserAccountPort.findByEmail("user@example.com")).willReturn(Optional.of(user));
 
 		var result = userIdentityQueryService.findByEmail("user@example.com");
 
