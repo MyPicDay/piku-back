@@ -19,10 +19,13 @@ import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
 import com.pikume.back.user.auth.application.port.in.QueryAllowedEmailUseCase;
+import com.pikume.back.user.auth.application.dto.ResetPasswordCommand;
 import com.pikume.back.user.auth.application.dto.SignUpCommand;
+import com.pikume.back.user.auth.application.dto.VerifyEmailCommand;
 import com.pikume.back.user.auth.adapter.in.web.dto.request.SignupRequest;
 import com.pikume.back.user.auth.application.exception.AuthErrorCode;
 import com.pikume.back.user.auth.application.exception.AuthException;
+import com.pikume.back.user.auth.domain.vo.VerificationType;
 
 import java.util.List;
 import java.util.Optional;
@@ -90,29 +93,14 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/send-verification/sign-up은 잘못된 이메일을 validation Problem Details로 거부한다")
-	void sendSignUpVerificationRejectsInvalidEmail() throws Exception {
+	@DisplayName("POST /api/auth/send-verification/sign-up은 비어 있지 않은 이메일을 Use Case에 위임한다")
+	void sendSignUpVerificationDelegatesNonBlankEmail() throws Exception {
 		mockMvc.perform(post("/api/auth/send-verification/sign-up")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"email\":\"not-an-email\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
+				.andExpect(status().isOk());
 
-		then(verifyEmailUseCase).shouldHaveNoInteractions();
-	}
-
-	@Test
-	@DisplayName("POST /api/auth/send-verification/sign-up은 도메인 규칙에 맞지 않는 이메일을 거부한다")
-	void sendSignUpVerificationRejectsEmailInvalidInDomain() throws Exception {
-		mockMvc.perform(post("/api/auth/send-verification/sign-up")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"email\":\"user!tag@example.com\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
-
-		then(verifyEmailUseCase).shouldHaveNoInteractions();
+		then(verifyEmailUseCase).should().sendSignUpVerificationEmail("not-an-email");
 	}
 
 	@Test
@@ -141,16 +129,14 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/send-verification/password-reset은 잘못된 이메일을 validation Problem Details로 거부한다")
-	void sendPasswordResetVerificationRejectsInvalidEmail() throws Exception {
+	@DisplayName("POST /api/auth/send-verification/password-reset은 비어 있지 않은 이메일을 Use Case에 위임한다")
+	void sendPasswordResetVerificationDelegatesNonBlankEmail() throws Exception {
 		mockMvc.perform(post("/api/auth/send-verification/password-reset")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"email\":\"not-an-email\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
+				.andExpect(status().isOk());
 
-		then(verifyEmailUseCase).shouldHaveNoInteractions();
+		then(verifyEmailUseCase).should().sendPasswordResetVerificationEmail("not-an-email");
 	}
 
 	@Test
@@ -180,16 +166,15 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/verify-code는 도메인 규칙에 맞지 않는 이메일을 거부한다")
-	void verifyCodeRejectsEmailInvalidInDomain() throws Exception {
+	@DisplayName("POST /api/auth/verify-code는 비어 있지 않은 이메일을 Use Case에 위임한다")
+	void verifyCodeDelegatesNonBlankEmail() throws Exception {
 		mockMvc.perform(post("/api/auth/verify-code")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"email\":\"user!tag@example.com\",\"code\":\"123456\",\"type\":\"SIGN_UP\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
+				.andExpect(status().isOk());
 
-		then(verifyEmailUseCase).shouldHaveNoInteractions();
+		then(verifyEmailUseCase).should().verifyCode(
+				new VerifyEmailCommand("user!tag@example.com", "123456", VerificationType.SIGN_UP));
 	}
 
 	@Test
@@ -218,29 +203,27 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/password-reset은 도메인 규칙에 맞지 않는 이메일을 거부한다")
-	void resetPasswordRejectsEmailInvalidInDomain() throws Exception {
+	@DisplayName("POST /api/auth/password-reset은 비어 있지 않은 이메일을 Use Case에 위임한다")
+	void resetPasswordDelegatesNonBlankEmail() throws Exception {
 		mockMvc.perform(post("/api/auth/password-reset")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"email\":\"user!tag@example.com\",\"password\":\"newPassword1!\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
+				.andExpect(status().isOk());
 
-		then(resetPasswordUseCase).shouldHaveNoInteractions();
+		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(
+				new ResetPasswordCommand("user!tag@example.com", "newPassword1!"));
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/password-reset은 회원가입 정책에 맞지 않는 비밀번호를 거부한다")
-	void resetPasswordRejectsPasswordInvalidForSignupPolicy() throws Exception {
+	@DisplayName("POST /api/auth/password-reset은 비어 있지 않은 비밀번호를 Use Case에 위임한다")
+	void resetPasswordDelegatesNonBlankPassword() throws Exception {
 		mockMvc.perform(post("/api/auth/password-reset")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"email\":\"user@example.com\",\"password\":\"plainPassword\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.password").exists());
+				.andExpect(status().isOk());
 
-		then(resetPasswordUseCase).shouldHaveNoInteractions();
+		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(
+				new ResetPasswordCommand("user@example.com", "plainPassword"));
 	}
 
 	@Test
@@ -278,36 +261,17 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/signup은 잘못된 이메일을 validation Problem Details로 거부한다")
-	void signupRejectsInvalidEmailWithValidationProblemDetail() throws Exception {
+	@DisplayName("POST /api/auth/signup은 비어 있지 않은 이메일을 Use Case에 위임한다")
+	void signupDelegatesNonBlankEmail() throws Exception {
 		SignupRequest request = new SignupRequest("PRIVATE-INVALID-EMAIL", "abc@123", "pikume", 1L);
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.type")
-						.value("https://api.pikume.com/problems/validation/invalid-request"))
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.detail").value("요청 값이 올바르지 않습니다."))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
+				.andExpect(status().isCreated());
 
-		then(signUpUseCase).shouldHaveNoInteractions();
-	}
-
-	@Test
-	@DisplayName("POST /api/auth/signup은 도메인 규칙에 맞지 않는 이메일을 거부한다")
-	void signupRejectsEmailInvalidInDomain() throws Exception {
-		SignupRequest request = new SignupRequest("user!tag@example.com", "abc@123", "pikume", 1L);
-
-		mockMvc.perform(post("/api/auth/signup")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.email").exists());
-
-		then(signUpUseCase).shouldHaveNoInteractions();
+		then(signUpUseCase).should().signup(
+				new SignUpCommand("PRIVATE-INVALID-EMAIL", "abc@123", "pikume", 1L));
 	}
 
 	@Test
@@ -341,18 +305,17 @@ class AuthControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/auth/signup은 정책에 맞지 않는 비밀번호를 거부한다")
-	void signupRejectsPasswordInvalidForPolicy() throws Exception {
+	@DisplayName("POST /api/auth/signup은 비어 있지 않은 비밀번호를 Use Case에 위임한다")
+	void signupDelegatesNonBlankPassword() throws Exception {
 		SignupRequest request = new SignupRequest("user@example.com", "plainPassword", "pikume", 1L);
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.fieldErrors.password").exists());
+				.andExpect(status().isCreated());
 
-		then(signUpUseCase).shouldHaveNoInteractions();
+		then(signUpUseCase).should().signup(
+				new SignUpCommand("user@example.com", "plainPassword", "pikume", 1L));
 	}
 
 	@Test
