@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,6 +26,7 @@ import java.time.Duration;
 
 @Tag(name = "Admin Onboarding", description = "관리자 최초 로그인과 온보딩 API")
 @RestController
+@ConditionalOnProperty(prefix = "admin.api", name = "onboarding-enabled", havingValue = "true")
 @RequestMapping("/api/admin/auth")
 @RequiredArgsConstructor
 public class AdminOnboardingController {
@@ -32,7 +34,6 @@ public class AdminOnboardingController {
 	private final AdminOnboardingUseCase adminOnboardingUseCase;
 	private final AdminSessionCookieManager cookieManager;
 
-    /**
 	@Operation(summary = "관리자 임시 로그인", description = "사전 세션을 최초 설정 단계에 결합합니다.")
 	@PostMapping("/temporary-login")
 	public ResponseEntity<AdminTemporaryLoginResult> temporaryLogin(
@@ -70,5 +71,4 @@ public class AdminOnboardingController {
 
 	private record OnboardingNextStepResponse(String nextStep) {
 	}
-    */
 }

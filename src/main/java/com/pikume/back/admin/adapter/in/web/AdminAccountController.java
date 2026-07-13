@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,6 +36,7 @@ import java.util.List;
 
 @Tag(name = "Admin Accounts", description = "관리자 계정 운영 API")
 @RestController
+@ConditionalOnProperty(prefix = "admin.api", name = "account-management-enabled", havingValue = "true")
 @RequestMapping("/api/admin/accounts")
 @RequiredArgsConstructor
 public class AdminAccountController {
@@ -42,7 +44,6 @@ public class AdminAccountController {
 	private final CreateAdminAccountUseCase createAdminAccountUseCase;
 	private final AdminAccountOperationUseCase adminAccountOperationUseCase;
 
-    /**
 	@Operation(summary = "관리자 목록 조회", description = "관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 포함한 계정 목록을 조회합니다.")
 	@GetMapping
 	public ResponseEntity<List<AdminAccountSummaryResult>> list(@AuthenticationPrincipal AdminUserDetails admin) {
@@ -147,5 +148,4 @@ public class AdminAccountController {
 		}
 		return admin.getId();
 	}
-    **/
 }
