@@ -103,7 +103,7 @@ class SseSubscriptionServiceTest {
 
 			ArgumentCaptor<String> emitterIdCaptor = ArgumentCaptor.forClass(String.class);
 			then(notificationStreamPort).should().save(emitterIdCaptor.capture(), eq("user-id"), eq(connection));
-			then(notificationStreamPort).should().deleteById(emitterIdCaptor.getValue());
+			then(notificationStreamPort).should().delete("user-id", emitterIdCaptor.getValue());
 			then(loadNotificationPort).should(never()).existsFriendRequestByReceiverId("user-id");
 		}
 
@@ -118,8 +118,26 @@ class SseSubscriptionServiceTest {
 					.isSameAs(unexpectedFailure);
 
 			then(notificationStreamPort).should().save(anyString(), eq("user-id"), eq(connection));
-			then(notificationStreamPort).should().deleteById(anyString());
+			then(notificationStreamPort).should().delete(eq("user-id"), anyString());
 			then(loadNotificationPort).should(never()).existsFriendRequestByReceiverId("user-id");
+		}
+
+		@Test
+		@DisplayName("SSE 연결 완료 콜백이 발생하면 사용자의 emitter를 삭제한다")
+		void subscribeDeletesEmitterWhenConnectionCompletionCallbackRuns() {
+			given(loadNotificationPort.countUnreadByReceiverId("user-id")).willReturn(0L);
+			given(loadNotificationPort.existsFriendRequestByReceiverId("user-id")).willReturn(false);
+
+			sseSubscriptionService.subscribe("user-id", connection);
+
+			ArgumentCaptor<String> emitterIdCaptor = ArgumentCaptor.forClass(String.class);
+			ArgumentCaptor<Runnable> completionHandlerCaptor = ArgumentCaptor.forClass(Runnable.class);
+			then(notificationStreamPort).should().save(emitterIdCaptor.capture(), eq("user-id"), eq(connection));
+			then(connection).should().onCompletion(completionHandlerCaptor.capture());
+
+			completionHandlerCaptor.getValue().run();
+
+			then(notificationStreamPort).should().delete("user-id", emitterIdCaptor.getValue());
 		}
 
 		@Test
@@ -139,7 +157,26 @@ class SseSubscriptionServiceTest {
 			errorHandlerCaptor.getValue().accept(
 					new IOException("현재 연결은 사용자의 호스트 시스템의 소프트웨어에 의해 중단되었습니다"));
 
-			then(notificationStreamPort).should().deleteById(emitterIdCaptor.getValue());
+			then(notificationStreamPort).should().delete("user-id", emitterIdCaptor.getValue());
+		}
+
+		@Test
+		@DisplayName("SSE 연결 타임아웃 콜백이 발생하면 사용자의 emitter를 삭제하고 연결을 완료한다")
+		void subscribeDeletesEmitterAndCompletesConnectionWhenTimeoutCallbackRuns() {
+			given(loadNotificationPort.countUnreadByReceiverId("user-id")).willReturn(0L);
+			given(loadNotificationPort.existsFriendRequestByReceiverId("user-id")).willReturn(false);
+
+			sseSubscriptionService.subscribe("user-id", connection);
+
+			ArgumentCaptor<String> emitterIdCaptor = ArgumentCaptor.forClass(String.class);
+			ArgumentCaptor<Runnable> timeoutHandlerCaptor = ArgumentCaptor.forClass(Runnable.class);
+			then(notificationStreamPort).should().save(emitterIdCaptor.capture(), eq("user-id"), eq(connection));
+			then(connection).should().onTimeout(timeoutHandlerCaptor.capture());
+
+			timeoutHandlerCaptor.getValue().run();
+
+			then(notificationStreamPort).should().delete("user-id", emitterIdCaptor.getValue());
+			then(connection).should().complete();
 		}
 	}
 }

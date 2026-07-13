@@ -8,5 +8,5 @@ public interface NotificationStreamPort {
 
 	void sendToUser(String userId, NotificationStreamMessage message);
 
-	void deleteById(String emitterId);
+	void delete(String userId, String emitterId);
 }

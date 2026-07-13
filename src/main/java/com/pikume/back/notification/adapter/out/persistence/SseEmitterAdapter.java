@@ -7,44 +7,52 @@ import com.pikume.back.notification.application.exception.NotificationStreamSend
 import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
 import com.pikume.back.notification.application.port.out.NotificationStreamPort;
 
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Component
 @Slf4j
 public class SseEmitterAdapter implements NotificationStreamPort {
 
-	private final Map<String, EmitterConnection> emitters = new ConcurrentHashMap<>();
+	private final ConcurrentMap<String, ConcurrentMap<String, NotificationStreamConnection>> connectionsByUserId =
+			new ConcurrentHashMap<>();
 
 	@Override
 	public void save(String emitterId, String userId, NotificationStreamConnection connection) {
-		emitters.put(emitterId, new EmitterConnection(userId, connection));
+		connectionsByUserId.compute(userId, (key, connections) -> {
+			ConcurrentMap<String, NotificationStreamConnection> userConnections = connections == null
+					? new ConcurrentHashMap<>()
+					: connections;
+			userConnections.put(emitterId, connection);
+			return userConnections;
+		});
 	}
 
 	@Override
 	public void sendToUser(String userId, NotificationStreamMessage message) {
-		emitters.forEach((emitterId, emitter) -> {
-			if (!emitter.userId().equals(userId)) {
-				return;
-			}
+		ConcurrentMap<String, NotificationStreamConnection> userConnections = connectionsByUserId.get(userId);
+		if (userConnections == null) {
+			return;
+		}
+		userConnections.forEach((emitterId, connection) -> {
 			try {
 				log.info("[SSE 알림 전송] userId: {}, emitterId: {}", userId, emitterId);
-				emitter.connection().send(message);
+				connection.send(message);
 			} catch (NotificationStreamSendException e) {
 				log.warn("SSE 알림 전송 실패: {}", e.getMessage());
-				deleteById(emitterId);
+				delete(userId, emitterId);
 			} catch (RuntimeException e) {
-				deleteById(emitterId);
+				delete(userId, emitterId);
 				throw e;
 			}
 		});
 	}
 
 	@Override
-	public void deleteById(String emitterId) {
-		emitters.remove(emitterId);
-	}
-
-	private record EmitterConnection(String userId, NotificationStreamConnection connection) {
+	public void delete(String userId, String emitterId) {
+		connectionsByUserId.computeIfPresent(userId, (key, connections) -> {
+			connections.remove(emitterId);
+			return connections.isEmpty() ? null : connections;
+		});
 	}
 }

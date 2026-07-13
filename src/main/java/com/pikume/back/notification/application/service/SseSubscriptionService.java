@@ -26,23 +26,23 @@ public class SseSubscriptionService implements SseUseCase {
 
 		connection.onCompletion(() -> {
 			log.info("[Emitter 종료 - Completion] emitterId: {}", emitterId);
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onError(error -> {
 			log.debug("[Emitter 종료 - Error] emitterId: {}, cause: {}", emitterId, error.getMessage());
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onTimeout(() -> {
 			log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 			connection.complete();
 		});
 
 		long unreadCount = loadNotificationPort.countUnreadByReceiverId(userId);
 		String eventId = userId + "_" + System.currentTimeMillis();
-		if (!send(connection, emitterId, new NotificationStreamMessage(eventId, null, unreadCount))) {
+		if (!send(userId, emitterId, connection, new NotificationStreamMessage(eventId, null, unreadCount))) {
 			return;
 		}
 
@@ -50,20 +50,22 @@ public class SseSubscriptionService implements SseUseCase {
 		if (hasFriendRequest) {
 			String friendEventId = userId + "_" + System.currentTimeMillis();
 			log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
-			send(connection, emitterId, new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
+			send(userId, emitterId, connection,
+					new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
 		}
 	}
 
-	private boolean send(NotificationStreamConnection connection, String emitterId, NotificationStreamMessage message) {
+	private boolean send(String userId, String emitterId, NotificationStreamConnection connection,
+			NotificationStreamMessage message) {
 		try {
 			connection.send(message);
 			return true;
 		} catch (NotificationStreamSendException e) {
 			log.debug("[Emitter 전송 실패] emitterId: {}, cause: {}", emitterId, e.getMessage());
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 			return false;
 		} catch (RuntimeException e) {
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 			throw e;
 		}
 	}
