@@ -83,6 +83,9 @@ photo:
 
 
 admin:
+  api:
+    account-management-enabled: ${ADMIN_ACCOUNT_MANAGEMENT_API_ENABLED:false}
+    onboarding-enabled: ${ADMIN_ONBOARDING_API_ENABLED:false}
   security:
     allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://localhost:3000, http://localhost:8080}
     session-cookie-name: ${ADMIN_SESSION_COOKIE_NAME:SESSIONID}
