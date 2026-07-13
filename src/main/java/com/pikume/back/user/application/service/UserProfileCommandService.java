@@ -11,40 +11,40 @@ import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.exception.UpdateProfileFailureException;
 import com.pikume.back.user.application.exception.UserNotFoundException;
-import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
-import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
-import com.pikume.back.user.application.port.out.LoadFixedCharacterPort;
+import com.pikume.back.user.application.port.in.ReserveNicknameUseCase;
+import com.pikume.back.user.application.port.in.UpdateUserProfileUseCase;
+import com.pikume.back.user.application.port.out.ResolveFixedCharacterAvatarPort;
 import com.pikume.back.user.application.port.out.CheckUserUniquenessPort;
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
+import com.pikume.back.user.application.port.out.LoadUserForProfilePort;
 import com.pikume.back.user.application.port.out.NicknameHoldPort;
-import com.pikume.back.user.application.port.out.SaveUserPort;
+import com.pikume.back.user.application.port.out.RecordUserAccountPort;
 import com.pikume.back.user.domain.User;
 
 import java.time.Instant;
 
 /**
  * 프로필 수정 Application Service
- * UpdateProfileUseCase와 CheckNicknameUseCase를 구현합니다.
+ * UpdateUserProfileUseCase와 ReserveNicknameUseCase를 구현합니다.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UserProfileCommandService implements UpdateProfileUseCase, CheckNicknameUseCase {
+public class UserProfileCommandService implements UpdateUserProfileUseCase, ReserveNicknameUseCase {
 
-	private final LoadUserAccountPort loadUserAccountPort;
-	private final SaveUserPort saveUserPort;
+	private final LoadUserForProfilePort loadUserForProfilePort;
+	private final RecordUserAccountPort recordUserAccountPort;
 	private final CheckUserUniquenessPort checkUserUniquenessPort;
-	private final LoadFixedCharacterPort fixedCharacterPort;
+	private final ResolveFixedCharacterAvatarPort fixedCharacterAvatarPort;
 	private final NicknameHoldPort nicknameHoldPort;
 
 	@Override
-	public boolean checkAvailability(String nickname, String userId) {
-		User user = loadUserAccountPort.findById(userId)
+	public boolean reserveIfAvailable(String nickname, String userId) {
+		User user = loadUserForProfilePort.loadProfileUser(userId)
 				.orElseThrow(UserNotFoundException::new);
 		if (nickname.equals(user.getNickname()))
 			return true;
 
-		if (checkUserUniquenessPort.existsByNickname(nickname))
+		if (checkUserUniquenessPort.isNicknameInUse(nickname))
 			return false;
 
 		return nicknameHoldPort.tryAcquire(nickname, userId, Instant.now());
@@ -57,7 +57,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 			return UpdateProfileResult.failure(UpdateProfileFailureReason.INVALID_REQUEST, "변경할 닉네임이나 캐릭터 정보가 없습니다.", null);
 		}
 
-		User user = loadUserAccountPort.findById(command.userId())
+		User user = loadUserForProfilePort.loadProfileUser(command.userId())
 				.orElseThrow(UserNotFoundException::new);
 		String oldNickname = user.getNickname();
 		String oldAvatarObjectKey = user.getAvatar();
@@ -89,7 +89,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 		if (characterChanged) {
 			user.changeAvatar(targetAvatarObjectKey);
 		}
-		saveUserPort.save(user);
+		recordUserAccountPort.recordUserAccount(user);
 		if (nicknameChanged) {
 			nicknameHoldPort.release(targetNickname, command.userId());
 		}
@@ -100,17 +100,17 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 	@Override
 	@Transactional
 	public void updateProfileImage(String userId, Long imageId) {
-		User user = loadUserAccountPort.findById(userId)
+		User user = loadUserForProfilePort.loadProfileUser(userId)
 				.orElseThrow(UserNotFoundException::new);
 
-		String avatarObjectKey = fixedCharacterPort.findFixedCharacterObjectKey(imageId)
+		String avatarObjectKey = fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(imageId)
 				.orElseThrow(() -> {
 					log.warn("event=profile_image_update outcome=denied reason=character_not_found characterId={}", imageId);
 					return new ProfileImageNotFoundException(imageId);
 				});
 
 		user.changeAvatar(avatarObjectKey);
-		saveUserPort.save(user);
+		recordUserAccountPort.recordUserAccount(user);
 	}
 
 	private String getValidatedNewNickname(String userId, String newNickname, String oldNickname) {
@@ -123,7 +123,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 					UpdateProfileFailureReason.PROFILE_CONFLICT,
 					"닉네임 점유 정보가 없거나 만료되었거나 본인이 아닙니다.");
 		}
-		if (checkUserUniquenessPort.existsByNickname(newNickname)) {
+		if (checkUserUniquenessPort.isNicknameInUse(newNickname)) {
 			throw new UpdateProfileFailureException(
 					UpdateProfileFailureReason.NICKNAME_CONFLICT,
 					"이미 사용 중인 닉네임입니다.");
@@ -141,7 +141,7 @@ public class UserProfileCommandService implements UpdateProfileUseCase, CheckNic
 					UpdateProfileFailureReason.INVALID_REQUEST,
 					"유효하지 않은 캐릭터 ID입니다.");
 		}
-		String newAvatarObjectKey = fixedCharacterPort.findFixedCharacterObjectKey(characterId)
+		String newAvatarObjectKey = fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(characterId)
 				.orElseThrow(() -> {
 					log.warn("event=profile_update outcome=denied reason=character_not_found characterId={}", characterId);
 					return new UpdateProfileFailureException(

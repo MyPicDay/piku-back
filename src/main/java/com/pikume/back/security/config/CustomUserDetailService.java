@@ -18,7 +18,7 @@ public class CustomUserDetailService implements UserDetailsService {
 
 	@Override
 	public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
-		UserIdentityView user = queryUserIdentityUseCase.findById(userId)
+		UserIdentityView user = queryUserIdentityUseCase.queryUserIdentityById(userId)
 				.orElseThrow(() -> new UsernameNotFoundException("사용자 없음"));
 
 		return CustomUserDetails.withAvatarPath(

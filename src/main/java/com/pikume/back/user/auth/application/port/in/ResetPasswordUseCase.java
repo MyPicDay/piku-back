@@ -4,5 +4,5 @@ import com.pikume.back.user.auth.application.dto.ResetPasswordCommand;
 
 public interface ResetPasswordUseCase {
 
-	void verifyCodeAndResetPwd(ResetPasswordCommand command);
+	void resetPassword(ResetPasswordCommand command);
 }

@@ -33,7 +33,7 @@ public class SearchController {
 			@RequestParam String keyword,
 			@PageableDefault(size = 20) Pageable pageable) {
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<UserSearchResponse> searchResults = searchUserUseCase.searchByKeyword(keyword, pageQuery)
+		PageResult<UserSearchResponse> searchResults = searchUserUseCase.searchUsers(keyword, pageQuery)
 				.map(result -> UserSearchResponse.from(result, imagePathToUrlConverter));
 		Page<UserSearchResponse> responsePage = SpringPageMapper.toSpringPage(searchResults, pageable);
 		return ResponseEntity.ok(responsePage);

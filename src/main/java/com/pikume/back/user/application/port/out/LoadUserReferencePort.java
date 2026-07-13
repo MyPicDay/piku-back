@@ -6,11 +6,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface LoadUserAccountPort {
+public interface LoadUserReferencePort {
 
-	Optional<User> findById(String userId);
+	Optional<User> loadReference(String userId);
 
-	Optional<User> findByEmail(String email);
-
-	List<User> findAllByIds(Collection<String> userIds);
+	List<User> loadReferences(Collection<String> userIds);
 }

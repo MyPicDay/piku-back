@@ -53,7 +53,7 @@ public class CommentListViewPersistenceAdapter implements LoadCommentListViewPor
 				.filter(comment -> !comment.isDeleted())
 				.map(Comment::getUserId)
 				.collect(Collectors.toSet());
-		return queryUserSummaryUseCase.getUserSummaries(userIds);
+		return queryUserSummaryUseCase.queryUserSummaries(userIds);
 	}
 
 	private Map<Long, Integer> loadReplyCounts(List<Comment> comments) {

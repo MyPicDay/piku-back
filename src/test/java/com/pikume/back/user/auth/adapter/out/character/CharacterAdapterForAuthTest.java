@@ -29,7 +29,7 @@ class CharacterAdapterForAuthTest {
 		given(getCharacterUseCase.findFixedCharacterObjectKey(1L))
 				.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 
-		Optional<String> result = characterAdapterForAuth.findFixedCharacterObjectKey(1L);
+		Optional<String> result = characterAdapterForAuth.resolveFixedCharacterObjectKey(1L);
 
 		assertThat(result).contains("public/characters/fixed/base_image_1.webp");
 	}

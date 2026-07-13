@@ -12,7 +12,7 @@ public class JwtTokenProtectionAdapter implements AuthenticationTokenPort {
 	private final JwtProvider jwtProvider;
 	public String generateAccessToken(String userId) { return jwtProvider.generateAccessToken(userId); }
 	public String generateRefreshToken() { return jwtProvider.generateRefreshToken(); }
-	public boolean isValid(String token) { return jwtProvider.validateToken(token); }
+	public boolean isTokenValid(String token) { return jwtProvider.validateToken(token); }
 	public long accessTokenExpiresInSeconds() { return UserTokenSettings.ACCESS_TOKEN_EXPIRATION_MILLIS / 1000L; }
 	public long refreshTokenExpiresInSeconds() { return UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS / 1000L; }
 }

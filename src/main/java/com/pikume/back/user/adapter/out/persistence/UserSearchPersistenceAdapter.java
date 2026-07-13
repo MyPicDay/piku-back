@@ -15,7 +15,7 @@ public class UserSearchPersistenceAdapter implements SearchUserPort {
 	private final UserJpaRepository jpaRepository;
 
 	@Override
-	public PageResult<User> searchByName(String keyword, PageQuery pageQuery) {
+	public PageResult<User> searchUsers(String keyword, PageQuery pageQuery) {
 		return SpringPageMapper.toPageResult(
 				jpaRepository.searchByName(keyword, SpringPageMapper.toPageable(pageQuery)));
 	}

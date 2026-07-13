@@ -9,8 +9,8 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.user.application.port.out.CheckUserUniquenessPort;
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
-import com.pikume.back.user.application.port.out.SaveUserPort;
+import com.pikume.back.user.application.port.out.LoadUserForPasswordResetPort;
+import com.pikume.back.user.application.port.out.RecordUserAccountPort;
 import com.pikume.back.user.auth.application.dto.ResetPasswordCommand;
 import com.pikume.back.user.auth.application.dto.SignUpCommand;
 import com.pikume.back.user.auth.application.dto.VerifyEmailCommand;
@@ -46,25 +46,25 @@ class AuthServiceTest {
 	private AuthService authService;
 
 	@Mock
-	private LoadUserAccountPort loadUserAccountPort;
+	private LoadUserForPasswordResetPort loadUserForPasswordResetPort;
 	@Mock
 	private CheckUserUniquenessPort checkUserUniquenessPort;
 	@Mock
-	private SaveUserPort saveUserPort;
+	private RecordUserAccountPort recordUserAccountPort;
 	@Mock
 	private LoadVerificationPort loadVerificationPort;
 	@Mock
-	private SaveVerificationPort saveVerificationPort;
+	private ManageVerificationPort manageVerificationPort;
 	@Mock
-	private LoadVerifiedEmailPort loadVerifiedEmailPort;
+	private LoadCompletedEmailVerificationPort loadCompletedEmailVerificationPort;
 	@Mock
-	private SaveVerifiedEmailPort saveVerifiedEmailPort;
+	private RecordCompletedEmailVerificationPort recordCompletedEmailVerificationPort;
 	@Mock
-	private SendVerificationEmailPort sendVerificationEmailPort;
+	private IssueVerificationEmailPort issueVerificationEmailPort;
 	@Mock
 	private PasswordProtectionPort passwordProtectionPort;
 	@Mock
-	private LoadFixedCharacterForSignUpPort loadFixedCharacterForSignUpPort;
+	private ResolveSignUpAvatarPort resolveSignUpAvatarPort;
 	@Mock
 	private QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	@Spy
@@ -81,13 +81,13 @@ class AuthServiceTest {
 		void rejectsInvalidEmailBeforeCallingPorts() {
 			SignUpCommand command = new SignUpCommand("not-an-email", "abc@123", "테스트", 1L);
 
-			assertThatThrownBy(() -> authService.signup(command))
+			assertThatThrownBy(() -> authService.signUp(command))
 					.isInstanceOfSatisfying(AuthException.class,
 							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
 
 			then(checkUserUniquenessPort).shouldHaveNoInteractions();
 			then(passwordProtectionPort).shouldHaveNoInteractions();
-			then(saveUserPort).shouldHaveNoInteractions();
+			then(recordUserAccountPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -95,14 +95,14 @@ class AuthServiceTest {
 		void rejectsInvalidPasswordBeforeCallingPorts() {
 			SignUpCommand command = new SignUpCommand("test@piku.store", "plainPassword", "테스트", 1L);
 
-			assertThatThrownBy(() -> authService.signup(command))
+			assertThatThrownBy(() -> authService.signUp(command))
 					.isInstanceOfSatisfying(AuthException.class,
 							exception -> assertThat(exception.getErrorCode())
 									.isEqualTo(AuthErrorCode.INVALID_PASSWORD));
 
 			then(checkUserUniquenessPort).shouldHaveNoInteractions();
 			then(passwordProtectionPort).shouldHaveNoInteractions();
-			then(saveUserPort).shouldHaveNoInteractions();
+			then(recordUserAccountPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -110,7 +110,7 @@ class AuthServiceTest {
 		void signupSuccess() throws Exception {
 			SignUpCommand dto = new SignUpCommand("test@piku.store", "abc@123", "테스트", 1L);
 
-			given(checkUserUniquenessPort.existsByEmail("test@piku.store")).willReturn(false);
+			given(checkUserUniquenessPort.isEmailRegistered("test@piku.store")).willReturn(false);
 
 			VerifiedEmail verified = new VerifiedEmail("test@piku.store", VerificationType.SIGN_UP);
 			Field idField = VerifiedEmail.class.getDeclaredField("id");
@@ -118,25 +118,25 @@ class AuthServiceTest {
 			idField.set(verified, 1L);
 
 			given(
-					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
+					loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
 			given(passwordProtectionPort.protect("abc@123")).willReturn("encodedPw");
-			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(1L))
+			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(1L))
 					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
-			given(saveUserPort.save(any(User.class))).willReturn(null);
+			given(recordUserAccountPort.recordUserAccount(any(User.class))).willReturn(null);
 
-			authService.signup(dto);
+			authService.signUp(dto);
 
-			then(saveUserPort).should().save(argThat(user ->
+			then(recordUserAccountPort).should().recordUserAccount(argThat(user ->
 					"public/characters/fixed/base_image_1.webp".equals(user.getAvatar())));
-			then(saveVerifiedEmailPort).should().save(verified);
+			then(recordCompletedEmailVerificationPort).should().recordCompletedVerification(verified);
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 고정 캐릭터로 회원가입 시 예외가 발생하고 저장하지 않는다")
 		void signupFailFixedCharacterNotFound() throws Exception {
 			SignUpCommand dto = new SignUpCommand("test@piku.store", "abc@123", "테스트", 999L);
-			given(checkUserUniquenessPort.existsByEmail("test@piku.store")).willReturn(false);
+			given(checkUserUniquenessPort.isEmailRegistered("test@piku.store")).willReturn(false);
 
 			VerifiedEmail verified = new VerifiedEmail("test@piku.store", VerificationType.SIGN_UP);
 			Field idField = VerifiedEmail.class.getDeclaredField("id");
@@ -144,28 +144,28 @@ class AuthServiceTest {
 			idField.set(verified, 1L);
 
 			given(
-					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
+					loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
-			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
+			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> authService.signup(dto))
+			assertThatThrownBy(() -> authService.signUp(dto))
 					.isInstanceOfSatisfying(AuthException.class,
 							ex -> assertThat(ex.getErrorCode()).isEqualTo(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND));
 
-			then(saveVerifiedEmailPort).should(never()).save(any());
-			then(saveUserPort).should(never()).save(any());
+			then(recordCompletedEmailVerificationPort).should(never()).recordCompletedVerification(any());
+			then(recordUserAccountPort).should(never()).recordUserAccount(any());
 		}
 
 		@Test
 		@DisplayName("이미 존재하는 이메일로 회원가입 시 예외가 발생한다")
 		void signupFailDuplicateEmail() {
 			SignUpCommand dto = new SignUpCommand("dup@piku.store", "abc@123", "테스트", 1L);
-			given(checkUserUniquenessPort.existsByEmail("dup@piku.store")).willReturn(true);
+			given(checkUserUniquenessPort.isEmailRegistered("dup@piku.store")).willReturn(true);
 
-			assertThatThrownBy(() -> authService.signup(dto))
+			assertThatThrownBy(() -> authService.signUp(dto))
 					.isInstanceOf(AuthException.class);
 
-			then(saveUserPort).should(never()).save(any());
+			then(recordUserAccountPort).should(never()).recordUserAccount(any());
 		}
 
 		@Test
@@ -173,15 +173,15 @@ class AuthServiceTest {
 		void signupTranslatesEmailConflictFromPersistence() {
 			SignUpCommand command = new SignUpCommand("race@piku.store", "abc@123", "테스트", 1L);
 			VerifiedEmail verified = new VerifiedEmail("race@piku.store", VerificationType.SIGN_UP);
-			given(checkUserUniquenessPort.existsByEmail("race@piku.store")).willReturn(false);
-			given(loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc(
+			given(checkUserUniquenessPort.isEmailRegistered("race@piku.store")).willReturn(false);
+			given(loadCompletedEmailVerificationPort.loadLatestVerification(
 					"race@piku.store", VerificationType.SIGN_UP)).willReturn(Optional.of(verified));
-			given(loadFixedCharacterForSignUpPort.findFixedCharacterObjectKey(1L))
+			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(1L))
 					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 			given(passwordProtectionPort.protect("abc@123")).willReturn("encodedPw");
-			given(saveUserPort.save(any(User.class))).willThrow(new EmailAlreadyExistsException());
+			given(recordUserAccountPort.recordUserAccount(any(User.class))).willThrow(new EmailAlreadyExistsException());
 
-			assertThatThrownBy(() -> authService.signup(command))
+			assertThatThrownBy(() -> authService.signUp(command))
 					.isInstanceOfSatisfying(AuthException.class,
 							exception -> assertThat(exception.getErrorCode())
 									.isEqualTo(AuthErrorCode.EMAIL_ALREADY_EXISTS));
@@ -191,12 +191,12 @@ class AuthServiceTest {
 		@DisplayName("이메일 인증이 없으면 회원가입 시 예외가 발생한다")
 		void signupFailNoVerification() {
 			SignUpCommand dto = new SignUpCommand("test@piku.store", "abc@123", "테스트", 1L);
-			given(checkUserUniquenessPort.existsByEmail("test@piku.store")).willReturn(false);
+			given(checkUserUniquenessPort.isEmailRegistered("test@piku.store")).willReturn(false);
 			given(
-					loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store", VerificationType.SIGN_UP))
+					loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> authService.signup(dto))
+			assertThatThrownBy(() -> authService.signUp(dto))
 					.isInstanceOf(AuthException.class);
 		}
 	}
@@ -213,19 +213,19 @@ class AuthServiceTest {
 							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
 
 			then(queryAllowedEmailUseCase).shouldHaveNoInteractions();
-			then(sendVerificationEmailPort).shouldHaveNoInteractions();
-			then(saveVerificationPort).shouldHaveNoInteractions();
+			then(issueVerificationEmailPort).shouldHaveNoInteractions();
+			then(manageVerificationPort).shouldHaveNoInteractions();
 		}
 
 		@Test
 		@DisplayName("인증 이메일 발송에 성공한다")
 		void sendSuccess() {
 			given(queryAllowedEmailUseCase.isEmailAllowed("test@piku.store")).willReturn(true);
-			given(sendVerificationEmailPort.sendVerificationEmail("test@piku.store")).willReturn("123456");
+			given(issueVerificationEmailPort.issueVerificationEmail("test@piku.store")).willReturn("123456");
 
 			authService.sendSignUpVerificationEmail("test@piku.store");
 
-			then(saveVerificationPort).should().save(any(Verification.class));
+			then(manageVerificationPort).should().storeVerification(any(Verification.class));
 		}
 	}
 
@@ -241,8 +241,8 @@ class AuthServiceTest {
 							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
 
 			then(checkUserUniquenessPort).shouldHaveNoInteractions();
-			then(sendVerificationEmailPort).shouldHaveNoInteractions();
-			then(saveVerificationPort).shouldHaveNoInteractions();
+			then(issueVerificationEmailPort).shouldHaveNoInteractions();
+			then(manageVerificationPort).shouldHaveNoInteractions();
 		}
 	}
 
@@ -261,7 +261,7 @@ class AuthServiceTest {
 							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
 
 			then(loadVerificationPort).shouldHaveNoInteractions();
-			then(saveVerificationPort).shouldHaveNoInteractions();
+			then(manageVerificationPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -274,13 +274,13 @@ class AuthServiceTest {
 			idField.setAccessible(true);
 			idField.set(v, 1L);
 
-			given(loadVerificationPort.findByEmailAndType("test@piku.store", VerificationType.SIGN_UP))
+			given(loadVerificationPort.loadVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(v));
 
 			authService.verifyCode(dto);
 
-			then(saveVerificationPort).should().delete(v);
-			then(saveVerifiedEmailPort).should().save(any(VerifiedEmail.class));
+			then(manageVerificationPort).should().removeVerification(v);
+			then(recordCompletedEmailVerificationPort).should().recordCompletedVerification(any(VerifiedEmail.class));
 		}
 
 		@Test
@@ -298,7 +298,7 @@ class AuthServiceTest {
 			idField.setAccessible(true);
 			idField.set(v, 1L);
 
-			given(loadVerificationPort.findByEmailAndType("test@piku.store", VerificationType.SIGN_UP))
+			given(loadVerificationPort.loadVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(v));
 
 			assertThatThrownBy(() -> authService.verifyCode(dto))
@@ -315,7 +315,7 @@ class AuthServiceTest {
 			idField.setAccessible(true);
 			idField.set(v, 1L);
 
-			given(loadVerificationPort.findByEmailAndType("test@piku.store", VerificationType.SIGN_UP))
+			given(loadVerificationPort.loadVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(v));
 
 			assertThatThrownBy(() -> authService.verifyCode(dto))
@@ -324,7 +324,7 @@ class AuthServiceTest {
 	}
 
 	@Nested
-	@DisplayName("verifyCodeAndResetPwd")
+	@DisplayName("resetPassword")
 	class ResetPassword {
 
 		@Test
@@ -332,11 +332,11 @@ class AuthServiceTest {
 		void rejectsInvalidEmailBeforeLoadingUser() {
 			ResetPasswordCommand command = new ResetPasswordCommand("not-an-email", "newPwd@1");
 
-			assertThatThrownBy(() -> authService.verifyCodeAndResetPwd(command))
+			assertThatThrownBy(() -> authService.resetPassword(command))
 					.isInstanceOfSatisfying(AuthException.class,
 							exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_EMAIL));
 
-			then(loadUserAccountPort).shouldHaveNoInteractions();
+			then(loadUserForPasswordResetPort).shouldHaveNoInteractions();
 			then(passwordProtectionPort).shouldHaveNoInteractions();
 		}
 
@@ -345,12 +345,12 @@ class AuthServiceTest {
 		void rejectsInvalidPasswordBeforeLoadingUser() {
 			ResetPasswordCommand command = new ResetPasswordCommand("test@piku.store", "plainPassword");
 
-			assertThatThrownBy(() -> authService.verifyCodeAndResetPwd(command))
+			assertThatThrownBy(() -> authService.resetPassword(command))
 					.isInstanceOfSatisfying(AuthException.class,
 							exception -> assertThat(exception.getErrorCode())
 									.isEqualTo(AuthErrorCode.INVALID_PASSWORD));
 
-			then(loadUserAccountPort).shouldHaveNoInteractions();
+			then(loadUserForPasswordResetPort).shouldHaveNoInteractions();
 			then(passwordProtectionPort).shouldHaveNoInteractions();
 		}
 
@@ -359,29 +359,29 @@ class AuthServiceTest {
 		void resetSuccess() throws Exception {
 			ResetPasswordCommand dto = new ResetPasswordCommand("test@piku.store", "newPwd@1");
 			User user = new User("test@piku.store", "oldPw", "nick");
-			given(loadUserAccountPort.findByEmail("test@piku.store")).willReturn(Optional.of(user));
+			given(loadUserForPasswordResetPort.loadPasswordResetUser("test@piku.store")).willReturn(Optional.of(user));
 
 			VerifiedEmail verified = new VerifiedEmail("test@piku.store", VerificationType.PASSWORD_RESET);
 			Field idField = VerifiedEmail.class.getDeclaredField("id");
 			idField.setAccessible(true);
 			idField.set(verified, 1L);
-			given(loadVerifiedEmailPort.findTopByEmailAndTypeOrderByVerifiedAtDesc("test@piku.store",
+			given(loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store",
 					VerificationType.PASSWORD_RESET))
 					.willReturn(Optional.of(verified));
 			given(passwordProtectionPort.protect("newPwd@1")).willReturn("encodedNew");
 
-			authService.verifyCodeAndResetPwd(dto);
+			authService.resetPassword(dto);
 
-			then(saveVerifiedEmailPort).should().save(verified);
+			then(recordCompletedEmailVerificationPort).should().recordCompletedVerification(verified);
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 사용자로 비밀번호 재설정 시 예외가 발생한다")
 		void resetFailUserNotFound() {
 			ResetPasswordCommand dto = new ResetPasswordCommand("unknown@piku.store", "newPwd@1");
-			given(loadUserAccountPort.findByEmail("unknown@piku.store")).willReturn(Optional.empty());
+			given(loadUserForPasswordResetPort.loadPasswordResetUser("unknown@piku.store")).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> authService.verifyCodeAndResetPwd(dto))
+			assertThatThrownBy(() -> authService.resetPassword(dto))
 					.isInstanceOf(AuthException.class);
 		}
 	}

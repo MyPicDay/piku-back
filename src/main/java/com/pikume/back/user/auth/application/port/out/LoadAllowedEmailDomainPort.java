@@ -4,7 +4,7 @@ import java.util.List;
 
 public interface LoadAllowedEmailDomainPort {
 
-	boolean existsByDomain(String domain);
+	boolean isAllowedEmailDomain(String domain);
 
-	List<String> loadAllDomains();
+	List<String> loadAllowedEmailDomains();
 }

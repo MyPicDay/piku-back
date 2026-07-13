@@ -7,5 +7,5 @@ import java.util.Set;
 
 public interface QueryUserSummaryUseCase {
 
-	Map<String, UserSummaryView> getUserSummaries(Set<String> userIds);
+	Map<String, UserSummaryView> queryUserSummaries(Set<String> userIds);
 }

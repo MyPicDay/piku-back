@@ -12,12 +12,12 @@ public class SocialAdapterForUser implements QueryProfileSocialMetricsPort {
 	private final FriendUseCase friendUseCase;
 
 	@Override
-	public int countFriends(String profileUserId) {
+	public int queryFriendCount(String profileUserId) {
 		return friendUseCase.countFriends(profileUserId);
 	}
 
 	@Override
-	public String getFriendshipStatus(String viewerUserId, String profileUserId) {
+	public String queryFriendshipStatus(String viewerUserId, String profileUserId) {
 		return friendUseCase.getFriendshipStatus(viewerUserId, profileUserId).name();
 	}
 }

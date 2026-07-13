@@ -42,30 +42,30 @@ public class UserSessionService implements ReissueSessionUseCase, LogoutUseCase 
 		if (StringUtils.hasText(userId) && StringUtils.hasText(deviceId)) {
 			revokeDevicePushTokenPort.revokeDevicePushToken(userId, deviceId);
 		}
-		refreshSessionPort.deleteByKey(userId + "-" + deviceId);
+		refreshSessionPort.removeSession(userId + "-" + deviceId);
 	}
 
 	@Override
 	@Transactional
-	public void logoutByRefreshToken(String refreshToken, String deviceId) {
+	public void logoutWithRefreshToken(String refreshToken, String deviceId) {
 		if (!StringUtils.hasText(refreshToken)) return;
-		RefreshSessionPort.RefreshSession session = refreshSessionPort.findByRefreshToken(refreshToken).orElse(null);
+		RefreshSessionPort.RefreshSession session = refreshSessionPort.loadSessionByRefreshToken(refreshToken).orElse(null);
 		if (session != null && StringUtils.hasText(deviceId)
 				&& session.key().equals(session.userId() + "-" + deviceId)) {
 			revokeDevicePushTokenPort.revokeDevicePushToken(session.userId(), deviceId);
 		}
-		refreshSessionPort.deleteByRefreshToken(refreshToken);
+		refreshSessionPort.removeSessionByRefreshToken(refreshToken);
 	}
 
 	private RefreshSessionPort.RefreshSession validSession(String refreshToken) {
 		if (!StringUtils.hasText(refreshToken)) return null;
-		if (!authenticationTokenPort.isValid(refreshToken)) {
-			refreshSessionPort.deleteByRefreshToken(refreshToken);
+		if (!authenticationTokenPort.isTokenValid(refreshToken)) {
+			refreshSessionPort.removeSessionByRefreshToken(refreshToken);
 			return null;
 		}
-		RefreshSessionPort.RefreshSession session = refreshSessionPort.findByRefreshToken(refreshToken).orElse(null);
+		RefreshSessionPort.RefreshSession session = refreshSessionPort.loadSessionByRefreshToken(refreshToken).orElse(null);
 		if (session == null || !StringUtils.hasText(session.userId())) {
-			if (session != null) refreshSessionPort.deleteByRefreshToken(refreshToken);
+			if (session != null) refreshSessionPort.removeSessionByRefreshToken(refreshToken);
 			return null;
 		}
 		return session;

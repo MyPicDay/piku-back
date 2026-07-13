@@ -1,6 +1,6 @@
 package com.pikume.back.user.application.service;
 
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
+import com.pikume.back.user.application.port.out.LoadUserForAuthenticationPort;
 import com.pikume.back.user.domain.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,20 +22,20 @@ class UserIdentityQueryServiceTest {
 	private UserIdentityQueryService userIdentityQueryService;
 
 	@Mock
-	private LoadUserAccountPort loadUserAccountPort;
+	private LoadUserForAuthenticationPort loadUserForAuthenticationPort;
 
 	@Test
 	@DisplayName("사용자 ID로 인증에 필요한 사용자 식별 정보를 조회한다")
-	void findByIdReturnsUserIdentity() {
+	void queryUserIdentityByIdReturnsUserIdentity() {
 		User user = new User(
 				"user-id",
 				"user@example.com",
 				"encoded-password",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
-		given(loadUserAccountPort.findById("user-id")).willReturn(Optional.of(user));
+		given(loadUserForAuthenticationPort.loadForSession("user-id")).willReturn(Optional.of(user));
 
-		var result = userIdentityQueryService.findById("user-id");
+		var result = userIdentityQueryService.queryUserIdentityById("user-id");
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");
@@ -45,16 +45,16 @@ class UserIdentityQueryServiceTest {
 
 	@Test
 	@DisplayName("이메일로 인증에 필요한 사용자 식별 정보를 조회한다")
-	void findByEmailReturnsUserIdentity() {
+	void queryUserIdentityByEmailReturnsUserIdentity() {
 		User user = new User(
 				"user-id",
 				"user@example.com",
 				"encoded-password",
 				"pikume",
 				"public/characters/fixed/base_image_1.png");
-		given(loadUserAccountPort.findByEmail("user@example.com")).willReturn(Optional.of(user));
+		given(loadUserForAuthenticationPort.loadForLogin("user@example.com")).willReturn(Optional.of(user));
 
-		var result = userIdentityQueryService.findByEmail("user@example.com");
+		var result = userIdentityQueryService.queryUserIdentityByEmail("user@example.com");
 
 		assertThat(result).isPresent();
 		assertThat(result.get().id()).isEqualTo("user-id");

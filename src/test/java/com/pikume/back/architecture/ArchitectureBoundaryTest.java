@@ -167,6 +167,209 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
+	@DisplayName("user inbound ports는 유스케이스 의도 중심 이름을 사용한다.")
+	void userInboundPortsUseIntentionRevealingNames() throws IOException {
+		Path userInboundPorts = Path.of("src/main/java/com/pikume/back/user/application/port/in");
+
+		assertThat(Files.exists(userInboundPorts.resolve("ReserveNicknameUseCase.java"))).isTrue();
+		assertThat(Files.exists(userInboundPorts.resolve("QueryUserProfileUseCase.java"))).isTrue();
+		assertThat(Files.exists(userInboundPorts.resolve("UpdateUserProfileUseCase.java"))).isTrue();
+
+		List<String> obsoleteNames = List.of(
+				"CheckNicknameUseCase",
+				"GetUserProfileUseCase",
+				"UpdateProfileUseCase",
+				" checkAvailability(",
+				" getProfilePreview(",
+				" getUserProfile(",
+				" findByEmail(",
+				" findById(",
+				" findUserReference(",
+				" getUserReference(",
+				" getUserSummaries(",
+				" searchByKeyword(");
+
+		assertThat(findJavaSourceViolations(
+				userInboundPorts,
+				path -> obsoleteNames.stream().anyMatch(name -> sourceContains(path, name))))
+				.isEmpty();
+	}
+
+	@Test
+	@DisplayName("user account persistence ports는 application 목적별 능력을 노출한다.")
+	void userAccountPersistencePortsExposeApplicationPurposes() throws IOException {
+		Path userOutboundPorts = Path.of("src/main/java/com/pikume/back/user/application/port/out");
+		Path userServices = Path.of("src/main/java/com/pikume/back/user/application/service");
+		Path authService = Path.of("src/main/java/com/pikume/back/user/auth/application/service/AuthService.java");
+		Path persistenceAdapter = Path.of(
+				"src/main/java/com/pikume/back/user/adapter/out/persistence/UserAccountPersistenceAdapter.java");
+
+		for (String portFile : List.of(
+				"LoadUserForProfilePort.java",
+				"LoadUserForAuthenticationPort.java",
+				"LoadUserForPasswordResetPort.java",
+				"LoadUserReferencePort.java",
+				"RecordUserAccountPort.java")) {
+			assertThat(Files.exists(userOutboundPorts.resolve(portFile))).isTrue();
+		}
+		assertThat(Files.exists(userOutboundPorts.resolve("LoadUserAccountPort.java"))).isFalse();
+		assertThat(Files.exists(userOutboundPorts.resolve("SaveUserPort.java"))).isFalse();
+
+		List<String> purposeSpecificLoadPorts = List.of(
+				"LoadUserForProfilePort",
+				"LoadUserForAuthenticationPort",
+				"LoadUserForPasswordResetPort",
+				"LoadUserReferencePort");
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				userServices.resolve("UserProfileCommandService.java"),
+				"LoadUserForProfilePort",
+				purposeSpecificLoadPorts);
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				userServices.resolve("UserProfileQueryService.java"),
+				"LoadUserForProfilePort",
+				purposeSpecificLoadPorts);
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				userServices.resolve("UserIdentityQueryService.java"),
+				"LoadUserForAuthenticationPort",
+				purposeSpecificLoadPorts);
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				userServices.resolve("UserReferenceQueryService.java"),
+				"LoadUserReferencePort",
+				purposeSpecificLoadPorts);
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				userServices.resolve("UserSummaryQueryService.java"),
+				"LoadUserReferencePort",
+				purposeSpecificLoadPorts);
+		assertUsesOnlyPurposeSpecificUserLoadPort(
+				authService,
+				"LoadUserForPasswordResetPort",
+				purposeSpecificLoadPorts);
+
+		for (String implementedPort : List.of(
+				"LoadUserForProfilePort",
+				"LoadUserForAuthenticationPort",
+				"LoadUserForPasswordResetPort",
+				"LoadUserReferencePort",
+				"CheckUserUniquenessPort")) {
+			assertThat(sourceContains(persistenceAdapter, implementedPort)).isTrue();
+		}
+
+		List<String> repositoryNames = List.of(
+				" existsByNickname(",
+				" existsByEmail(",
+				" searchByName(",
+				" save(");
+		assertThat(findJavaSourceViolations(
+				userOutboundPorts,
+				path -> repositoryNames.stream().anyMatch(name -> sourceContains(path, name))))
+				.isEmpty();
+	}
+
+	@Test
+	@DisplayName("user cross-context ports는 user application 관점의 능력을 표현한다.")
+	void userCrossContextPortsExpressUserApplicationCapabilities() throws IOException {
+		Path userOutboundPorts = Path.of("src/main/java/com/pikume/back/user/application/port/out");
+		Path userCrossContextAdapters = Path.of("src/main/java/com/pikume/back/user/adapter/out/crosscontext");
+
+		assertThat(Files.exists(userOutboundPorts.resolve("ResolveFixedCharacterAvatarPort.java"))).isTrue();
+		assertThat(Files.exists(userOutboundPorts.resolve("LoadFixedCharacterPort.java"))).isFalse();
+
+		List<String> obsoleteNames = List.of(
+				" findFixedCharacterObjectKey(",
+				" countVisibleDiaries(",
+				" getVisibleMonthlyDiaryCounts(",
+				" countFriends(",
+				" getFriendshipStatus(");
+		assertThat(findJavaSourceViolations(
+				userOutboundPorts,
+				path -> obsoleteNames.stream().anyMatch(name -> sourceContains(path, name))))
+				.isEmpty();
+
+		assertThat(sourceContains(
+				userCrossContextAdapters.resolve("CharacterAdapterForUser.java"),
+				"ResolveFixedCharacterAvatarPort")).isTrue();
+	}
+
+	@Test
+	@DisplayName("user auth inbound ports는 인증 유스케이스 의도를 표현한다.")
+	void userAuthInboundPortsExpressAuthenticationUseCases() throws IOException {
+		Path userAuthInboundPorts = Path.of("src/main/java/com/pikume/back/user/auth/application/port/in");
+		List<String> obsoleteNames = List.of(
+				" logoutByRefreshToken(",
+				" getAllowedEmailDomains(",
+				" verifyCodeAndResetPwd(",
+				" signup(");
+
+		assertThat(findJavaSourceViolations(
+				userAuthInboundPorts,
+				path -> obsoleteNames.stream().anyMatch(name -> sourceContains(path, name))))
+				.isEmpty();
+	}
+
+	@Test
+	@DisplayName("user auth outbound ports는 인증 application 능력을 표현한다.")
+	void userAuthOutboundPortsExpressAuthenticationCapabilities() throws IOException {
+		Path userAuthOutboundPorts = Path.of("src/main/java/com/pikume/back/user/auth/application/port/out");
+
+		for (String portFile : List.of(
+				"ResolveSignUpAvatarPort.java",
+				"LoadCompletedEmailVerificationPort.java",
+				"ManageVerificationPort.java",
+				"RecordCompletedEmailVerificationPort.java",
+				"IssueVerificationEmailPort.java")) {
+			assertThat(Files.exists(userAuthOutboundPorts.resolve(portFile))).isTrue();
+		}
+		for (String obsoleteFile : List.of(
+				"LoadFixedCharacterForSignUpPort.java",
+				"LoadVerifiedEmailPort.java",
+				"SaveVerificationPort.java",
+				"SaveVerifiedEmailPort.java",
+				"SendVerificationEmailPort.java")) {
+			assertThat(Files.exists(userAuthOutboundPorts.resolve(obsoleteFile))).isFalse();
+		}
+
+		List<String> obsoleteNames = List.of(
+				" isValid(",
+				" existsByDomain(",
+				" loadAllDomains(",
+				" findFixedCharacterObjectKey(",
+				" findByEmailAndType(",
+				" findTopByEmailAndTypeOrderByVerifiedAtDesc(",
+				" findByRefreshToken(",
+				" save(",
+				" deleteByRefreshToken(",
+				" deleteByKey(",
+				" delete(",
+				" sendVerificationEmail(");
+		assertThat(findJavaSourceViolations(
+				userAuthOutboundPorts,
+				path -> obsoleteNames.stream().anyMatch(name -> sourceContains(path, name))))
+				.isEmpty();
+	}
+
+	@Test
+	@DisplayName("user와 user auth ports는 표준 패키지와 접미사를 사용한다.")
+	void userPortsUseStandardPackagesAndSuffixes() throws IOException {
+		for (Path inboundPorts : List.of(
+				Path.of("src/main/java/com/pikume/back/user/application/port/in"),
+				Path.of("src/main/java/com/pikume/back/user/auth/application/port/in"))) {
+			assertThat(findJavaSourceViolations(
+					inboundPorts,
+					path -> !path.getFileName().toString().endsWith("UseCase.java")))
+					.isEmpty();
+		}
+
+		for (Path outboundPorts : List.of(
+				Path.of("src/main/java/com/pikume/back/user/application/port/out"),
+				Path.of("src/main/java/com/pikume/back/user/auth/application/port/out"))) {
+			assertThat(findJavaSourceViolations(
+					outboundPorts,
+					path -> !path.getFileName().toString().endsWith("Port.java")))
+					.isEmpty();
+		}
+	}
+
+	@Test
 	@DisplayName("feed의 user cross-context adapter는 표준 위치와 user 공개 계약을 사용한다.")
 	void feedUserAdapterUsesPublicUserContractFromStandardFolder() throws IOException {
 		Path feedOutboundAdapters = Path.of("src/main/java/com/pikume/back/feed/adapter/out");
@@ -273,6 +476,17 @@ class ArchitectureBoundaryTest {
 	private boolean importsUserPersistenceOrDomain(Path path) {
 		return sourceContains(path, "com.pikume.back.user.adapter.out.persistence")
 				|| sourceContains(path, "com.pikume.back.user.domain.User");
+	}
+
+	private void assertUsesOnlyPurposeSpecificUserLoadPort(
+			Path service,
+			String expectedPort,
+			List<String> purposeSpecificLoadPorts) {
+		assertThat(sourceContains(service, expectedPort)).isTrue();
+		assertThat(purposeSpecificLoadPorts.stream()
+				.filter(port -> !port.equals(expectedPort))
+				.filter(port -> sourceContains(service, port)))
+				.isEmpty();
 	}
 
 	private boolean sourceContains(Path path, String text) {

@@ -60,7 +60,7 @@ public class NotificationListViewPersistenceAdapter implements LoadNotificationL
 				.map(Notification::getSenderId)
 				.filter(senderId -> senderId != null && !senderId.isBlank())
 				.collect(Collectors.toSet());
-		return queryUserSummaryUseCase.getUserSummaries(senderIds);
+		return queryUserSummaryUseCase.queryUserSummaries(senderIds);
 	}
 
 	private boolean isAnonymousDiaryNotification(Notification notification, Map<Long, NotificationDiaryInfo> diariesById) {

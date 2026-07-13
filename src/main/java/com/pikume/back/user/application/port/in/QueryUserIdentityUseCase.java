@@ -6,7 +6,7 @@ import java.util.Optional;
 
 public interface QueryUserIdentityUseCase {
 
-	Optional<UserIdentityView> findByEmail(String email);
+	Optional<UserIdentityView> queryUserIdentityByEmail(String email);
 
-	Optional<UserIdentityView> findById(String userId);
+	Optional<UserIdentityView> queryUserIdentityById(String userId);
 }

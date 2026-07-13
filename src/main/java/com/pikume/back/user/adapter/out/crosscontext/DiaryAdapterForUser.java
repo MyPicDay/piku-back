@@ -14,12 +14,12 @@ public class DiaryAdapterForUser implements QueryProfileDiaryMetricsPort {
 	private final GetCalendarUseCase getCalendarUseCase;
 
 	@Override
-	public long countVisibleDiaries(String profileUserId, String viewerUserId) {
+	public long queryVisibleDiaryCount(String profileUserId, String viewerUserId) {
 		return getCalendarUseCase.countDiariesByUserId(profileUserId, viewerUserId);
 	}
 
 	@Override
-	public List<MonthlyDiaryCount> getVisibleMonthlyDiaryCounts(String profileUserId, String viewerUserId) {
+	public List<MonthlyDiaryCount> queryVisibleMonthlyDiaryCounts(String profileUserId, String viewerUserId) {
 		return getCalendarUseCase.getMonthlyDiaryCount(profileUserId, viewerUserId).stream()
 				.map(dto -> new MonthlyDiaryCount(dto.getYear(), dto.getMonth(), dto.getCount()))
 				.toList();

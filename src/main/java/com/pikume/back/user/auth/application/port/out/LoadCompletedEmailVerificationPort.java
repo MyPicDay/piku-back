@@ -5,7 +5,7 @@ import com.pikume.back.user.auth.domain.vo.VerificationType;
 
 import java.util.Optional;
 
-public interface LoadVerifiedEmailPort {
+public interface LoadCompletedEmailVerificationPort {
 
-	Optional<VerifiedEmail> findTopByEmailAndTypeOrderByVerifiedAtDesc(String email, VerificationType type);
+	Optional<VerifiedEmail> loadLatestVerification(String email, VerificationType type);
 }

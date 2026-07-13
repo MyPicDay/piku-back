@@ -65,10 +65,10 @@ class UserValueObjectMappingTest {
 		UserAccountPersistenceAdapter accountAdapter = new UserAccountPersistenceAdapter(userJpaRepository);
 		UserSearchPersistenceAdapter searchAdapter = new UserSearchPersistenceAdapter(userJpaRepository);
 
-		assertThat(accountAdapter.findByEmail("user@example.com")).isPresent();
-		assertThat(accountAdapter.existsByEmail("user@example.com")).isTrue();
-		assertThat(accountAdapter.existsByNickname("pikume-user")).isTrue();
-		assertThat(searchAdapter.searchByName("%pikume%", PageQuery.of(0, 20)).getContent())
+		assertThat(accountAdapter.loadForLogin("user@example.com")).isPresent();
+		assertThat(accountAdapter.isEmailRegistered("user@example.com")).isTrue();
+		assertThat(accountAdapter.isNicknameInUse("pikume-user")).isTrue();
+		assertThat(searchAdapter.searchUsers("%pikume%", PageQuery.of(0, 20)).getContent())
 				.singleElement()
 				.satisfies(user -> assertThat(user.getNickname()).isEqualTo("pikume-user"));
 	}
@@ -81,7 +81,7 @@ class UserValueObjectMappingTest {
 		User duplicate = new User(
 				"second@example.com", "password", "duplicate-nickname", "avatar");
 
-		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(duplicate))
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(duplicate))
 				.isInstanceOf(NicknameAlreadyExistsException.class);
 	}
 
@@ -93,7 +93,7 @@ class UserValueObjectMappingTest {
 		User duplicate = new User(
 				"duplicate@example.com", "password", "second-nickname", "avatar");
 
-		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(duplicate))
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(duplicate))
 				.isInstanceOf(EmailAlreadyExistsException.class);
 	}
 }

@@ -6,5 +6,5 @@ import com.pikume.back.user.domain.User;
 
 public interface SearchUserPort {
 
-	PageResult<User> searchByName(String keyword, PageQuery pageQuery);
+	PageResult<User> searchUsers(String keyword, PageQuery pageQuery);
 }

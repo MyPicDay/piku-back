@@ -1,6 +1,6 @@
 package com.pikume.back.user.adapter.out.persistence;
 
-import com.pikume.back.user.application.port.out.SaveUserPort;
+import com.pikume.back.user.application.port.out.RecordUserAccountPort;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
 import com.pikume.back.user.domain.exception.EmailAlreadyExistsException;
@@ -16,14 +16,14 @@ import java.util.Locale;
  */
 @Repository
 @RequiredArgsConstructor
-public class UserPersistenceAdapter implements SaveUserPort {
+public class UserPersistenceAdapter implements RecordUserAccountPort {
 	private static final String EMAIL_UNIQUE_CONSTRAINT = "uk6dotkott2kjsp8vw4d0m25fb7";
 	private static final String NICKNAME_UNIQUE_CONSTRAINT = "uk2ty1xmrrgtn89xt7kyxx6ta7h";
 
 	private final UserJpaRepository jpaRepository;
 
 	@Override
-	public User save(User user) {
+	public User recordUserAccount(User user) {
 		try {
 			return jpaRepository.saveAndFlush(user);
 		} catch (DataIntegrityViolationException exception) {

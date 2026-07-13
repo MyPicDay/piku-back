@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
-import com.pikume.back.user.auth.application.port.out.SendVerificationEmailPort;
+import com.pikume.back.user.auth.application.port.out.IssueVerificationEmailPort;
 import com.pikume.back.user.auth.constants.EmailConstants;
 import com.pikume.back.user.auth.application.exception.AuthErrorCode;
 import com.pikume.back.user.auth.application.exception.AuthException;
@@ -17,7 +17,7 @@ import java.util.Random;
 
 @Component
 @RequiredArgsConstructor
-public class SmtpEmailAdapter implements SendVerificationEmailPort {
+public class SmtpEmailAdapter implements IssueVerificationEmailPort {
 
 	private final JavaMailSender mailSender;
 
@@ -25,7 +25,7 @@ public class SmtpEmailAdapter implements SendVerificationEmailPort {
 	private String adminEmail;
 
 	@Override
-	public String sendVerificationEmail(String email) {
+	public String issueVerificationEmail(String email) {
 		String code = createVerificationCode();
 		String subject = "[PikU] 이메일 인증";
 

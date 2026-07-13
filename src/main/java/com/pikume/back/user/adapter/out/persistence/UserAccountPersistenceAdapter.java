@@ -1,7 +1,10 @@
 package com.pikume.back.user.adapter.out.persistence;
 
 import com.pikume.back.user.application.port.out.CheckUserUniquenessPort;
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
+import com.pikume.back.user.application.port.out.LoadUserForAuthenticationPort;
+import com.pikume.back.user.application.port.out.LoadUserForPasswordResetPort;
+import com.pikume.back.user.application.port.out.LoadUserForProfilePort;
+import com.pikume.back.user.application.port.out.LoadUserReferencePort;
 import com.pikume.back.user.domain.User;
 import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.domain.vo.Nickname;
@@ -14,32 +17,48 @@ import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
-public class UserAccountPersistenceAdapter implements LoadUserAccountPort, CheckUserUniquenessPort {
+public class UserAccountPersistenceAdapter implements LoadUserForProfilePort, LoadUserForAuthenticationPort,
+		LoadUserForPasswordResetPort, LoadUserReferencePort, CheckUserUniquenessPort {
 
 	private final UserJpaRepository jpaRepository;
 
 	@Override
-	public Optional<User> findById(String userId) {
+	public Optional<User> loadProfileUser(String userId) {
 		return jpaRepository.findById(userId);
 	}
 
 	@Override
-	public Optional<User> findByEmail(String email) {
+	public Optional<User> loadForLogin(String email) {
 		return jpaRepository.findByEmail(new Email(email));
 	}
 
 	@Override
-	public List<User> findAllByIds(Collection<String> userIds) {
+	public Optional<User> loadForSession(String userId) {
+		return jpaRepository.findById(userId);
+	}
+
+	@Override
+	public Optional<User> loadPasswordResetUser(String email) {
+		return jpaRepository.findByEmail(new Email(email));
+	}
+
+	@Override
+	public Optional<User> loadReference(String userId) {
+		return jpaRepository.findById(userId);
+	}
+
+	@Override
+	public List<User> loadReferences(Collection<String> userIds) {
 		return jpaRepository.findAllById(userIds);
 	}
 
 	@Override
-	public boolean existsByNickname(String nickname) {
+	public boolean isNicknameInUse(String nickname) {
 		return jpaRepository.existsByNickname(new Nickname(nickname));
 	}
 
 	@Override
-	public boolean existsByEmail(String email) {
+	public boolean isEmailRegistered(String email) {
 		return jpaRepository.existsByEmail(new Email(email));
 	}
 }

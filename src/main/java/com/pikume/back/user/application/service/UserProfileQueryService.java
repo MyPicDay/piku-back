@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
 import com.pikume.back.user.application.exception.UserNotFoundException;
-import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
+import com.pikume.back.user.application.port.in.QueryUserProfileUseCase;
+import com.pikume.back.user.application.port.out.LoadUserForProfilePort;
 import com.pikume.back.user.application.port.out.QueryProfileDiaryMetricsPort;
 import com.pikume.back.user.application.port.out.QueryProfileSocialMetricsPort;
 import com.pikume.back.user.domain.User;
@@ -17,26 +17,26 @@ import java.util.List;
 
 /**
  * 프로필 조회 Application Service
- * GetUserProfileUseCase를 구현하여 프로필 조회 유스케이스를 처리합니다.
+ * QueryUserProfileUseCase를 구현하여 프로필 조회 유스케이스를 처리합니다.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
-public class UserProfileQueryService implements GetUserProfileUseCase {
+public class UserProfileQueryService implements QueryUserProfileUseCase {
 
-	private final LoadUserAccountPort loadUserAccountPort;
+	private final LoadUserForProfilePort loadUserForProfilePort;
 	private final QueryProfileSocialMetricsPort socialMetricsPort;
 	private final QueryProfileDiaryMetricsPort diaryMetricsPort;
 
 	@Override
-	public ProfilePreviewResult getProfilePreview(String profileId, String currentUserId) {
-		User profile = loadUserAccountPort.findById(profileId)
+	public ProfilePreviewResult queryProfilePreview(String profileId, String currentUserId) {
+		User profile = loadUserForProfilePort.loadProfileUser(profileId)
 					.orElseThrow(UserNotFoundException::new);
 
-		int friendCount = socialMetricsPort.countFriends(profileId);
-		long diaryCount = diaryMetricsPort.countVisibleDiaries(profileId, currentUserId);
-		String friendshipStatus = socialMetricsPort.getFriendshipStatus(currentUserId, profileId);
+		int friendCount = socialMetricsPort.queryFriendCount(profileId);
+		long diaryCount = diaryMetricsPort.queryVisibleDiaryCount(profileId, currentUserId);
+		String friendshipStatus = socialMetricsPort.queryFriendshipStatus(currentUserId, profileId);
 
 		log.info("event=profile_preview_loaded outcome=success userId={} friendCount={} diaryCount={} friendStatus={}",
 				profileId, friendCount, diaryCount, friendshipStatus);
@@ -46,11 +46,11 @@ public class UserProfileQueryService implements GetUserProfileUseCase {
 	}
 
 	@Override
-	public UserProfileResult getUserProfile(String profileId, String currentUserId) {
-		ProfilePreviewResult preview = getProfilePreview(profileId, currentUserId);
+	public UserProfileResult queryUserProfile(String profileId, String currentUserId) {
+		ProfilePreviewResult preview = queryProfilePreview(profileId, currentUserId);
 		boolean isOwner = profileId.equals(currentUserId);
 		List<UserProfileResult.MonthlyDiaryCount> monthlyDiaryCount = diaryMetricsPort
-				.getVisibleMonthlyDiaryCounts(profileId, currentUserId)
+				.queryVisibleMonthlyDiaryCounts(profileId, currentUserId)
 				.stream()
 				.map(count -> new UserProfileResult.MonthlyDiaryCount(count.year(), count.month(), count.count()))
 				.toList();

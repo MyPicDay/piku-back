@@ -27,14 +27,14 @@ public class UserLoginService implements LoginUseCase {
 	@Override
 	public LoginResult login(LoginCommand command) {
 		validateEmail(command.email());
-		var user = queryUserIdentityUseCase.findByEmail(command.email())
+		var user = queryUserIdentityUseCase.queryUserIdentityByEmail(command.email())
 				.orElseThrow(InvalidCredentialsException::new);
 		if (!passwordProtectionPort.matches(command.password(), user.passwordHash())) {
 			throw new InvalidCredentialsException();
 		}
 		String accessToken = authenticationTokenPort.generateAccessToken(user.id());
 		String refreshToken = authenticationTokenPort.generateRefreshToken();
-		refreshSessionPort.save(new RefreshSessionPort.RefreshSession(
+		refreshSessionPort.storeSession(new RefreshSessionPort.RefreshSession(
 				user.id() + "-" + command.deviceId(), refreshToken, user.id()));
 		log.info("event=login_completed outcome=success userId={}", user.id());
 		return new LoginResult(accessToken, refreshToken,

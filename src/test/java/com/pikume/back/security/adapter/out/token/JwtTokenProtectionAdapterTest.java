@@ -21,7 +21,7 @@ class JwtTokenProtectionAdapterTest {
 
 		assertThat(adapter.generateAccessToken("user-1")).isEqualTo("access");
 		assertThat(adapter.generateRefreshToken()).isEqualTo("refresh");
-		assertThat(adapter.isValid("refresh")).isTrue();
+		assertThat(adapter.isTokenValid("refresh")).isTrue();
 		assertThat(adapter.accessTokenExpiresInSeconds()).isEqualTo(1800L);
 		assertThat(adapter.refreshTokenExpiresInSeconds()).isEqualTo(604800L);
 	}

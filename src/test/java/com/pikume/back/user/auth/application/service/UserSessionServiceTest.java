@@ -25,8 +25,8 @@ class UserSessionServiceTest {
 	@Test
 	@DisplayName("유효한 저장 갱신 세션으로 Access Token을 재발급한다")
 	void reissuesAccessTokenForStoredSession() {
-		given(tokens.isValid("refresh")).willReturn(true);
-		given(sessions.findByRefreshToken("refresh")).willReturn(Optional.of(
+		given(tokens.isTokenValid("refresh")).willReturn(true);
+		given(sessions.loadSessionByRefreshToken("refresh")).willReturn(Optional.of(
 				new RefreshSessionPort.RefreshSession("user-1-device-1", "refresh", "user-1")));
 		given(tokens.generateAccessToken("user-1")).willReturn("new-access");
 
@@ -36,21 +36,21 @@ class UserSessionServiceTest {
 	@Test
 	@DisplayName("유효하지 않은 토큰은 저장소에서 삭제한다")
 	void deletesInvalidRefreshToken() {
-		given(tokens.isValid("invalid")).willReturn(false);
+		given(tokens.isTokenValid("invalid")).willReturn(false);
 
 		assertThat(service.reissueAccessToken("invalid")).isNull();
-		then(sessions).should().deleteByRefreshToken("invalid");
+		then(sessions).should().removeSessionByRefreshToken("invalid");
 	}
 
 	@Test
 	@DisplayName("모바일 로그아웃은 갱신 세션의 기기가 일치할 때만 푸시 토큰을 해제한다")
 	void revokesPushTokenOnlyForMatchingDevice() {
-		given(sessions.findByRefreshToken("refresh")).willReturn(Optional.of(
+		given(sessions.loadSessionByRefreshToken("refresh")).willReturn(Optional.of(
 				new RefreshSessionPort.RefreshSession("user-1-device-a", "refresh", "user-1")));
 
-		service.logoutByRefreshToken("refresh", "device-b");
+		service.logoutWithRefreshToken("refresh", "device-b");
 
 		then(pushTokens).should(never()).revokeDevicePushToken("user-1", "device-b");
-		then(sessions).should().deleteByRefreshToken("refresh");
+		then(sessions).should().removeSessionByRefreshToken("refresh");
 	}
 }

@@ -31,7 +31,7 @@ class SmtpEmailAdapterTest {
 		SmtpEmailAdapter adapter = new SmtpEmailAdapter(mailSender);
 		ReflectionTestUtils.setField(adapter, "adminEmail", "admin@example.com");
 
-		assertThatThrownBy(() -> adapter.sendVerificationEmail("user@example.com"))
+		assertThatThrownBy(() -> adapter.issueVerificationEmail("user@example.com"))
 				.isInstanceOfSatisfying(AuthException.class,
 						exception -> assertThat(exception.getErrorCode()).isEqualTo(AuthErrorCode.EMAIL_SEND_FAILURE));
 	}

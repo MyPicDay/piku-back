@@ -58,7 +58,7 @@ class SearchControllerTest {
 				0,
 				20,
 				1);
-		given(searchUserUseCase.searchByKeyword("test", pageQuery)).willReturn(result);
+		given(searchUserUseCase.searchUsers("test", pageQuery)).willReturn(result);
 		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
 				.willReturn("https://cdn.example/avatar.png");
 
@@ -75,6 +75,6 @@ class SearchControllerTest {
 				.andExpect(jsonPath("$.size").value(20))
 				.andExpect(jsonPath("$.number").value(0));
 
-		verify(searchUserUseCase).searchByKeyword("test", pageQuery);
+		verify(searchUserUseCase).searchUsers("test", pageQuery);
 	}
 }

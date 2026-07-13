@@ -72,7 +72,7 @@ public class FeedListViewPersistenceAdapter implements LoadFeedListViewPort {
 				.filter(diary -> diary.status() != DiaryVisibility.ANONYMOUS)
 				.map(DiarySummaryView::userId)
 				.collect(Collectors.toSet());
-		return queryUserSummaryUseCase.getUserSummaries(userIds);
+		return queryUserSummaryUseCase.queryUserSummaries(userIds);
 	}
 
 	private FeedListItemView toFeedListItemView(DiarySummaryView diary,

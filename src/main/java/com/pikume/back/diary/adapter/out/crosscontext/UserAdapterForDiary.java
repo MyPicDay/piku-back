@@ -13,16 +13,16 @@ public class UserAdapterForDiary implements LoadUserForDiaryPort {
 
 	@Override
 	public String getUserNickname(String userId) {
-		return queryUserReferenceUseCase.getUserReference(userId).nickname();
+		return queryUserReferenceUseCase.requireUserReference(userId).nickname();
 	}
 
 	@Override
 	public String getUserAvatar(String userId) {
-		return queryUserReferenceUseCase.getUserReference(userId).avatarPath();
+		return queryUserReferenceUseCase.requireUserReference(userId).avatarPath();
 	}
 
 	@Override
 	public boolean existsById(String userId) {
-		return queryUserReferenceUseCase.findUserReference(userId).isPresent();
+		return queryUserReferenceUseCase.queryUserReference(userId).isPresent();
 	}
 }

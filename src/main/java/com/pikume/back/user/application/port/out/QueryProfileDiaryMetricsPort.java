@@ -4,9 +4,9 @@ import java.util.List;
 
 public interface QueryProfileDiaryMetricsPort {
 
-	long countVisibleDiaries(String profileUserId, String viewerUserId);
+	long queryVisibleDiaryCount(String profileUserId, String viewerUserId);
 
-	List<MonthlyDiaryCount> getVisibleMonthlyDiaryCounts(String profileUserId, String viewerUserId);
+	List<MonthlyDiaryCount> queryVisibleMonthlyDiaryCounts(String profileUserId, String viewerUserId);
 
 	record MonthlyDiaryCount(int year, int month, long count) {
 	}

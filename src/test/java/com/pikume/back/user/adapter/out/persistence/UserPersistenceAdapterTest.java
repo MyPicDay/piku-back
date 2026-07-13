@@ -30,7 +30,7 @@ class UserPersistenceAdapterTest {
 		given(userJpaRepository.saveAndFlush(user)).willThrow(uniqueConstraintFailure(
 				"UK2ty1xmrrgtn89xt7kyxx6ta7h"));
 
-		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(user))
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(user))
 				.isInstanceOf(NicknameAlreadyExistsException.class)
 				.hasMessageContaining("duplicate-nickname");
 	}
@@ -43,7 +43,7 @@ class UserPersistenceAdapterTest {
 				"UK6dotkott2kjsp8vw4d0m25fb7");
 		given(userJpaRepository.saveAndFlush(user)).willThrow(failure);
 
-		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(user))
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(user))
 				.isInstanceOf(EmailAlreadyExistsException.class);
 	}
 
@@ -54,7 +54,7 @@ class UserPersistenceAdapterTest {
 		DataIntegrityViolationException failure = uniqueConstraintFailure("uk_users_unknown");
 		given(userJpaRepository.saveAndFlush(user)).willThrow(failure);
 
-		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).save(user))
+		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(user))
 				.isSameAs(failure);
 	}
 

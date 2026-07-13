@@ -7,8 +7,8 @@ public interface RefreshSessionPort {
 	record RefreshSession(String key, String refreshToken, String userId) {
 	}
 
-	Optional<RefreshSession> findByRefreshToken(String refreshToken);
-	void save(RefreshSession session);
-	void deleteByRefreshToken(String refreshToken);
-	void deleteByKey(String key);
+	Optional<RefreshSession> loadSessionByRefreshToken(String refreshToken);
+	void storeSession(RefreshSession session);
+	void removeSessionByRefreshToken(String refreshToken);
+	void removeSession(String key);
 }

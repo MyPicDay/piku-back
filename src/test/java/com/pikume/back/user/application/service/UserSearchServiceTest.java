@@ -31,7 +31,7 @@ class UserSearchServiceTest {
 	private SearchUserPort searchUserPort;
 
 	@Nested
-	@DisplayName("searchByKeyword")
+	@DisplayName("searchUsers")
 	class SearchByKeyword {
 
 		@Test
@@ -42,8 +42,8 @@ class UserSearchServiceTest {
 			User user = new User("user-1", "piku@test.com", "password", "피쿠유저", "characters/fixed/base_image_1.webp");
 			PageResult<User> userPage = new PageResult<>(List.of(user), 0, 10, 1);
 
-			given(searchUserPort.searchByName("%피쿠%", pageQuery)).willReturn(userPage);
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
+			given(searchUserPort.searchUsers("%피쿠%", pageQuery)).willReturn(userPage);
+			PageResult<UserSearchResult> result = userSearchService.searchUsers(keyword, pageQuery);
 
 			assertThat(result.getContent()).hasSize(1);
 			UserSearchResult searchResult = result.getContent().get(0);
@@ -59,9 +59,9 @@ class UserSearchServiceTest {
 			PageQuery pageQuery = PageQuery.of(0, 10);
 			PageResult<User> emptyPage = new PageResult<>(Collections.emptyList(), 0, 10, 0);
 
-			given(searchUserPort.searchByName("%" + keyword + "%", pageQuery)).willReturn(emptyPage);
+			given(searchUserPort.searchUsers("%" + keyword + "%", pageQuery)).willReturn(emptyPage);
 
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
+			PageResult<UserSearchResult> result = userSearchService.searchUsers(keyword, pageQuery);
 
 			assertThat(result.getContent()).isEmpty();
 			assertThat(result.getTotalElements()).isZero();
@@ -74,11 +74,11 @@ class UserSearchServiceTest {
 			PageQuery pageQuery = PageQuery.of(0, 10);
 			PageResult<User> emptyPage = new PageResult<>(Collections.emptyList(), 0, 10, 0);
 
-			given(searchUserPort.searchByName(anyString(), eq(pageQuery))).willReturn(emptyPage);
+			given(searchUserPort.searchUsers(anyString(), eq(pageQuery))).willReturn(emptyPage);
 
-			userSearchService.searchByKeyword(keyword, pageQuery);
+			userSearchService.searchUsers(keyword, pageQuery);
 
-			then(searchUserPort).should().searchByName("%테스트%", pageQuery);
+			then(searchUserPort).should().searchUsers("%테스트%", pageQuery);
 		}
 
 		@Test
@@ -90,8 +90,8 @@ class UserSearchServiceTest {
 			User user2 = new User("user-2", "b@test.com", "pw", "유저B", "path/avatar2.png");
 			PageResult<User> userPage = new PageResult<>(List.of(user1, user2), 0, 10, 2);
 
-			given(searchUserPort.searchByName("%유저%", pageQuery)).willReturn(userPage);
-			PageResult<UserSearchResult> result = userSearchService.searchByKeyword(keyword, pageQuery);
+			given(searchUserPort.searchUsers("%유저%", pageQuery)).willReturn(userPage);
+			PageResult<UserSearchResult> result = userSearchService.searchUsers(keyword, pageQuery);
 
 			assertThat(result.getContent()).hasSize(2);
 			assertThat(result.getContent().get(0).avatarObjectKey()).isEqualTo("path/avatar1.png");
