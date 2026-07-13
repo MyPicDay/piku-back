@@ -19,9 +19,9 @@ import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
-import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
-import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
-import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
+import com.pikume.back.user.application.port.in.ReserveNicknameUseCase;
+import com.pikume.back.user.application.port.in.QueryUserProfileUseCase;
+import com.pikume.back.user.application.port.in.UpdateUserProfileUseCase;
 
 import java.util.List;
 
@@ -33,13 +33,13 @@ import static org.mockito.BDDMockito.given;
 class UserControllerTest {
 
 	@Mock
-	private GetUserProfileUseCase getUserProfileUseCase;
+	private QueryUserProfileUseCase queryUserProfileUseCase;
 
 	@Mock
-	private UpdateProfileUseCase updateProfileUseCase;
+	private UpdateUserProfileUseCase updateUserProfileUseCase;
 
 	@Mock
-	private CheckNicknameUseCase checkNicknameUseCase;
+	private ReserveNicknameUseCase reserveNicknameUseCase;
 
 	@Mock
 	private ImagePathToUrlConverter imagePathToUrlConverter;
@@ -49,16 +49,16 @@ class UserControllerTest {
 	@BeforeEach
 	void setUp() {
 		userController = new UserController(
-				getUserProfileUseCase,
-				updateProfileUseCase,
-				checkNicknameUseCase,
+				queryUserProfileUseCase,
+				updateUserProfileUseCase,
+				reserveNicknameUseCase,
 				new ProblemDetailFactory(),
 				imagePathToUrlConverter);
 	}
 
 	@Test
 	@DisplayName("GET /api/users/{userId}/profile-preview는 비로그인 요청에도 프로필 미리보기를 반환한다")
-	void getProfilePreviewReturnsPublicPreviewWithoutAuthenticatedUser() {
+	void queryProfilePreviewReturnsPublicPreviewWithoutAuthenticatedUser() {
 		ProfilePreviewResult result = new ProfilePreviewResult(
 				"user1",
 				"pikume",
@@ -66,11 +66,11 @@ class UserControllerTest {
 				3,
 				12L,
 				"NONE");
-		given(getUserProfileUseCase.getProfilePreview("user1", null)).willReturn(result);
+		given(queryUserProfileUseCase.queryProfilePreview("user1", null)).willReturn(result);
 		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
 				.willReturn("https://assets.example.com/avatar.webp");
 
-		ResponseEntity<?> response = userController.getProfilePreview("user1", null);
+		ResponseEntity<?> response = userController.queryProfilePreview("user1", null);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
@@ -78,7 +78,7 @@ class UserControllerTest {
 
 	@Test
 	@DisplayName("GET /api/users/{userId}는 인증 사용자 기준의 상세 프로필 계약을 반환한다")
-	void getUserProfileReturnsAuthenticatedProfileContract() {
+	void queryUserProfileReturnsAuthenticatedProfileContract() {
 		UserProfileResult result = new UserProfileResult(
 				"user1",
 				"pikume",
@@ -88,11 +88,11 @@ class UserControllerTest {
 				"FRIEND",
 				true,
 				List.of(new UserProfileResult.MonthlyDiaryCount(2026, 7, 4L)));
-		given(getUserProfileUseCase.getUserProfile("user1", "user1")).willReturn(result);
+		given(queryUserProfileUseCase.queryUserProfile("user1", "user1")).willReturn(result);
 		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
 				.willReturn("https://assets.example.com/avatar.webp");
 
-		ResponseEntity<?> response = userController.getUserProfile(
+		ResponseEntity<?> response = userController.queryUserProfile(
 				"user1",
 				new CustomUserDetails("user1", "pikume"));
 
@@ -104,7 +104,7 @@ class UserControllerTest {
 	@DisplayName("PUT /api/users/profile-image는 이미지가 없으면 404 Problem Details를 반환한다")
 	void updateProfileImageReturnsProblemDetailWhenImageDoesNotExist() {
 		org.mockito.BDDMockito.willThrow(new ProfileImageNotFoundException(10L))
-				.given(updateProfileUseCase)
+				.given(updateUserProfileUseCase)
 				.updateProfileImage("user1", 10L);
 
 		org.assertj.core.api.Assertions.assertThatThrownBy(() -> userController.updateProfileImage(
@@ -126,7 +126,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("GET /api/users/nickname/availability는 충돌 시 409 Problem Details를 반환한다")
 	void checkNicknameReturnsProblemDetailWhenNicknameConflicts() {
-		given(checkNicknameUseCase.checkAvailability("taken", "user1")).willReturn(false);
+		given(reserveNicknameUseCase.reserveIfAvailable("taken", "user1")).willReturn(false);
 
 		ResponseEntity<?> response = userController.checkNickname(
 				"taken",
@@ -144,7 +144,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PATCH /api/users/profile는 충돌 시 409 Problem Details를 반환한다")
 	void changeNicknameReturnsProblemDetailWhenProfileConflicts() {
-		given(updateProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
 				.willReturn(UpdateProfileResult.failure(
 						UpdateProfileFailureReason.PROFILE_CONFLICT,
 						"점유 정보가 없거나 만료되었거나 본인이 아닙니다.",
@@ -166,7 +166,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PATCH /api/users/profile는 닉네임 충돌 시 409 nickname-conflict를 반환한다")
 	void changeNicknameReturnsNicknameConflictProblemDetail() {
-		given(updateProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
 				.willReturn(UpdateProfileResult.failure(
 						UpdateProfileFailureReason.NICKNAME_CONFLICT,
 						"이미 사용 중인 닉네임입니다.",
@@ -188,7 +188,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PATCH /api/users/profile는 잘못된 요청이면 400 Problem Details를 반환한다")
 	void changeNicknameReturnsBadRequestProblemDetailWhenRequestIsInvalid() {
-		given(updateProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
 				.willReturn(UpdateProfileResult.failure(
 						UpdateProfileFailureReason.INVALID_REQUEST,
 						"변경할 닉네임이나 캐릭터 정보가 없습니다.",
@@ -210,7 +210,7 @@ class UserControllerTest {
 	@Test
 	@DisplayName("PATCH /api/users/profile는 참조 리소스가 없으면 404 Problem Details를 반환한다")
 	void changeNicknameReturnsNotFoundProblemDetailWhenResourceDoesNotExist() {
-		given(updateProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
 				.willReturn(UpdateProfileResult.failure(
 						UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
 						"존재하지 않는 캐릭터입니다.",

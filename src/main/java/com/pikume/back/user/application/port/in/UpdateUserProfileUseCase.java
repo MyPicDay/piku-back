@@ -6,7 +6,7 @@ import com.pikume.back.user.application.dto.UpdateProfileResult;
 /**
  * 프로필 수정 유스케이스 (Inbound Port)
  */
-public interface UpdateProfileUseCase {
+public interface UpdateUserProfileUseCase {
 
 	/**
 	 * 닉네임 및/또는 캐릭터를 변경합니다.

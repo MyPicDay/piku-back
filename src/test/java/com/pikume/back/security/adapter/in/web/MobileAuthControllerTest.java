@@ -164,7 +164,7 @@ class MobileAuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("로그아웃 완료"));
 
-		then(logoutUseCase).should().logoutByRefreshToken("refresh-token", "device-1");
+		then(logoutUseCase).should().logoutWithRefreshToken("refresh-token", "device-1");
 	}
 
 	@Test
@@ -178,7 +178,7 @@ class MobileAuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("로그아웃 완료"));
 
-		then(logoutUseCase).should().logoutByRefreshToken("refresh-token", null);
+		then(logoutUseCase).should().logoutWithRefreshToken("refresh-token", null);
 	}
 
 	@Test

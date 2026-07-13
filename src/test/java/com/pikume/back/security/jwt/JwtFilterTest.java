@@ -125,7 +125,7 @@ class JwtFilterTest {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		given(jwtProvider.validateToken("access-token")).willReturn(true);
 		given(jwtProvider.getUserIdFromToken("access-token")).willReturn("missing-user");
-		given(queryUserIdentityUseCase.findById("missing-user")).willReturn(Optional.empty());
+		given(queryUserIdentityUseCase.queryUserIdentityById("missing-user")).willReturn(Optional.empty());
 
 		jwtFilter.doFilter(request, response, filterChain);
 
@@ -142,7 +142,7 @@ class JwtFilterTest {
 		UserIdentityView user = new UserIdentityView("user-1", "password", "nickname", "avatar.webp");
 		given(jwtProvider.validateToken("access-token")).willReturn(true);
 		given(jwtProvider.getUserIdFromToken("access-token")).willReturn("user-1");
-		given(queryUserIdentityUseCase.findById("user-1")).willReturn(Optional.of(user));
+		given(queryUserIdentityUseCase.queryUserIdentityById("user-1")).willReturn(Optional.of(user));
 
 		jwtFilter.doFilter(request, response, filterChain);
 

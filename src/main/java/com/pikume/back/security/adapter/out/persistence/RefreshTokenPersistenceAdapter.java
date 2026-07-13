@@ -12,19 +12,19 @@ public class RefreshTokenPersistenceAdapter implements RefreshSessionPort {
 	private final RefreshTokenJpaRepository repository;
 
 	@Override
-	public Optional<RefreshSession> findByRefreshToken(String refreshToken) {
+	public Optional<RefreshSession> loadSessionByRefreshToken(String refreshToken) {
 		return repository.findByRefreshToken(refreshToken)
 				.map(entity -> new RefreshSession(entity.getKey(), entity.getRefreshToken(), entity.getUserId()));
 	}
 
 	@Override
-	public void save(RefreshSession session) {
+	public void storeSession(RefreshSession session) {
 		repository.save(new RefreshSessionEntity(session.key(), session.refreshToken(), session.userId()));
 	}
 
 	@Override
-	public void deleteByRefreshToken(String refreshToken) { repository.deleteByRefreshToken(refreshToken); }
+	public void removeSessionByRefreshToken(String refreshToken) { repository.deleteByRefreshToken(refreshToken); }
 
 	@Override
-	public void deleteByKey(String key) { repository.deleteById(key); }
+	public void removeSession(String key) { repository.deleteById(key); }
 }

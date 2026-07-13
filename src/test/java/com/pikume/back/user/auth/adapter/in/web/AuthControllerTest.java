@@ -186,7 +186,7 @@ class AuthControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("비밀번호가 재설정되었습니다."));
 
-		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(any());
+		then(resetPasswordUseCase).should().resetPassword(any());
 	}
 
 	@Test
@@ -210,7 +210,7 @@ class AuthControllerTest {
 						.content("{\"email\":\"user!tag@example.com\",\"password\":\"newPassword1!\"}"))
 				.andExpect(status().isOk());
 
-		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(
+		then(resetPasswordUseCase).should().resetPassword(
 				new ResetPasswordCommand("user!tag@example.com", "newPassword1!"));
 	}
 
@@ -222,7 +222,7 @@ class AuthControllerTest {
 						.content("{\"email\":\"user@example.com\",\"password\":\"plainPassword\"}"))
 				.andExpect(status().isOk());
 
-		then(resetPasswordUseCase).should().verifyCodeAndResetPwd(
+		then(resetPasswordUseCase).should().resetPassword(
 				new ResetPasswordCommand("user@example.com", "plainPassword"));
 	}
 
@@ -239,7 +239,7 @@ class AuthControllerTest {
 	@Test
 	@DisplayName("GET /api/auth/email-domains는 허용 도메인 목록 계약을 유지한다")
 	void getAllowedEmailDomainsReturnsDomainList() throws Exception {
-		given(queryAllowedEmailUseCase.getAllowedEmailDomains()).willReturn(List.of("example.com", "pikume.com"));
+		given(queryAllowedEmailUseCase.queryAllowedEmailDomains()).willReturn(List.of("example.com", "pikume.com"));
 
 		mockMvc.perform(get("/api/auth/email-domains"))
 				.andExpect(status().isOk())
@@ -251,7 +251,7 @@ class AuthControllerTest {
 	@DisplayName("POST /api/auth/signup은 성공 시 MessageResponse를 반환한다")
 	void signupReturnsMessageResponseWhenSuccessful() throws Exception {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
-		doNothing().when(signUpUseCase).signup(any(SignUpCommand.class));
+		doNothing().when(signUpUseCase).signUp(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -270,7 +270,7 @@ class AuthControllerTest {
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated());
 
-		then(signUpUseCase).should().signup(
+		then(signUpUseCase).should().signUp(
 				new SignUpCommand("PRIVATE-INVALID-EMAIL", "abc@123", "pikume", 1L));
 	}
 
@@ -314,7 +314,7 @@ class AuthControllerTest {
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated());
 
-		then(signUpUseCase).should().signup(
+		then(signUpUseCase).should().signUp(
 				new SignUpCommand("user@example.com", "plainPassword", "pikume", 1L));
 	}
 
@@ -339,7 +339,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
 		willThrow(new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS))
 				.given(signUpUseCase)
-				.signup(any(SignUpCommand.class));
+				.signUp(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -358,7 +358,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
 		willThrow(new AuthException(AuthErrorCode.INVALID_EMAIL))
 				.given(signUpUseCase)
-				.signup(any(SignUpCommand.class));
+				.signUp(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -376,7 +376,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 1L);
 		willThrow(new AuthException(AuthErrorCode.INVALID_PASSWORD))
 				.given(signUpUseCase)
-				.signup(any(SignUpCommand.class));
+				.signUp(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -394,7 +394,7 @@ class AuthControllerTest {
 		SignupRequest request = new SignupRequest("user@example.com", "abc@123", "pikume", 999L);
 		willThrow(new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND))
 				.given(signUpUseCase)
-				.signup(any(SignUpCommand.class));
+				.signUp(any(SignUpCommand.class));
 
 		mockMvc.perform(post("/api/auth/signup")
 						.contentType(MediaType.APPLICATION_JSON)

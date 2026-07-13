@@ -4,5 +4,5 @@ import com.pikume.back.user.auth.application.dto.SignUpCommand;
 
 public interface SignUpUseCase {
 
-	void signup(SignUpCommand command);
+	void signUp(SignUpCommand command);
 }

@@ -12,5 +12,5 @@ public interface SearchUserUseCase {
 	/**
 	 * 키워드로 사용자를 검색합니다.
 	 */
-	PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery);
+	PageResult<UserSearchResult> searchUsers(String keyword, PageQuery pageQuery);
 }

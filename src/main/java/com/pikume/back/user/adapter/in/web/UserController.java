@@ -29,9 +29,9 @@ import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.dto.UserProfileResult;
-import com.pikume.back.user.application.port.in.CheckNicknameUseCase;
-import com.pikume.back.user.application.port.in.GetUserProfileUseCase;
-import com.pikume.back.user.application.port.in.UpdateProfileUseCase;
+import com.pikume.back.user.application.port.in.ReserveNicknameUseCase;
+import com.pikume.back.user.application.port.in.QueryUserProfileUseCase;
+import com.pikume.back.user.application.port.in.UpdateUserProfileUseCase;
 import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 
 @Tag(name = "Users", description = "유저 관련 API")
@@ -41,31 +41,31 @@ import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 @RequiredArgsConstructor
 public class UserController {
 
-	private final GetUserProfileUseCase getUserProfileUseCase;
-	private final UpdateProfileUseCase updateProfileUseCase;
-	private final CheckNicknameUseCase checkNicknameUseCase;
+	private final QueryUserProfileUseCase queryUserProfileUseCase;
+	private final UpdateUserProfileUseCase updateUserProfileUseCase;
+	private final ReserveNicknameUseCase reserveNicknameUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
 	private final ImagePathToUrlConverter imagePathToUrlConverter;
 
 	@Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보기 시 사용될 정보를 조회하여 반환합니다.")
 	@GetMapping("/{userId}/profile-preview")
-	public ResponseEntity<ProfilePreviewResponse> getProfilePreview(
+	public ResponseEntity<ProfilePreviewResponse> queryProfilePreview(
 			@PathVariable String userId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		log.info("event=profile_preview_requested outcome=accepted userId={}", userId);
 
 		String loginUserId = userDetails != null ? userDetails.getId() : null;
-		ProfilePreviewResult result = getUserProfileUseCase.getProfilePreview(userId, loginUserId);
+		ProfilePreviewResult result = queryUserProfileUseCase.queryProfilePreview(userId, loginUserId);
 
 		return ResponseEntity.ok(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
 	}
 
 	@Operation(summary = "사용자 프로필 조회")
 	@GetMapping("/{userId}")
-	public ResponseEntity<UserProfileResponse> getUserProfile(
+	public ResponseEntity<UserProfileResponse> queryUserProfile(
 			@PathVariable String userId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		UserProfileResult result = getUserProfileUseCase.getUserProfile(userId, userDetails.getId());
+		UserProfileResult result = queryUserProfileUseCase.queryUserProfile(userId, userDetails.getId());
 
 		return ResponseEntity.ok(UserProfileResponse.from(result, imagePathToUrlConverter));
 	}
@@ -78,7 +78,7 @@ public class UserController {
 	public ResponseEntity<?> checkNickname(
 			@RequestParam String nickname,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		boolean reserved = checkNicknameUseCase.checkAvailability(nickname, userDetails.getId());
+		boolean reserved = reserveNicknameUseCase.reserveIfAvailable(nickname, userDetails.getId());
 		if (reserved) {
 			NicknameCheckResponse response = new NicknameCheckResponse(true, "사용 가능한 닉네임입니다.");
 			return ResponseEntity.ok(response);
@@ -109,7 +109,7 @@ public class UserController {
 				userDetails.getId(),
 				updateProfileRequest.newNickname(),
 				updateProfileRequest.characterId());
-		UpdateProfileResult result = updateProfileUseCase.updateProfile(command);
+		UpdateProfileResult result = updateUserProfileUseCase.updateProfile(command);
 		if (result.success()) {
 			return ResponseEntity.ok(NicknameChangeResponse.from(result));
 		}
@@ -121,7 +121,7 @@ public class UserController {
 	public ResponseEntity<?> updateProfileImage(
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@RequestParam Long imageId) {
-		updateProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
+		updateUserProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
 		return ResponseEntity.ok().build();
 	}
 

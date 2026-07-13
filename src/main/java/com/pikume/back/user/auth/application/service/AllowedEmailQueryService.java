@@ -19,11 +19,11 @@ public class AllowedEmailQueryService implements QueryAllowedEmailUseCase {
 		if (!StringUtils.hasText(email) || !email.contains("@")) {
 			return false;
 		}
-		return loadAllowedEmailDomainPort.existsByDomain(email.substring(email.indexOf('@') + 1));
+		return loadAllowedEmailDomainPort.isAllowedEmailDomain(email.substring(email.indexOf('@') + 1));
 	}
 
 	@Override
-	public List<String> getAllowedEmailDomains() {
-		return loadAllowedEmailDomainPort.loadAllDomains();
+	public List<String> queryAllowedEmailDomains() {
+		return loadAllowedEmailDomainPort.loadAllowedEmailDomains();
 	}
 }

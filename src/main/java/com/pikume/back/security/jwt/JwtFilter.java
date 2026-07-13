@@ -70,7 +70,7 @@ public class JwtFilter extends OncePerRequestFilter {
 		}
 
 		String userId = requireUserId(token);
-		UserIdentityView user = queryUserIdentityUseCase.findById(userId)
+		UserIdentityView user = queryUserIdentityUseCase.queryUserIdentityById(userId)
 				.orElseThrow(() -> new BadCredentialsException("인증이 필요합니다."));
 		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
 				user.id(), user.nickname(), user.avatarPath());

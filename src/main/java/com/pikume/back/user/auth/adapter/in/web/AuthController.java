@@ -43,7 +43,7 @@ public class AuthController {
 	})
 	@PostMapping("/signup")
 	public ResponseEntity<?> signup(@Valid @RequestBody SignupRequest dto) {
-		signUpUseCase.signup(new SignUpCommand(
+		signUpUseCase.signUp(new SignUpCommand(
 				dto.getEmail(), dto.getPassword(), dto.getNickname(), dto.getFixedCharacterId()));
 		return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("회원가입 성공"));
 	}
@@ -80,7 +80,7 @@ public class AuthController {
 	@Operation(summary = "비밀번호 재설정", description = "인증 이메일을 통해 비밀번호를 재설정합니다.")
 	@PostMapping("/password-reset")
 	public ResponseEntity<?> resetPassword(@Valid @RequestBody PwdResetRequest dto) {
-		resetPasswordUseCase.verifyCodeAndResetPwd(new ResetPasswordCommand(dto.getEmail(), dto.getPassword()));
+		resetPasswordUseCase.resetPassword(new ResetPasswordCommand(dto.getEmail(), dto.getPassword()));
 		return ResponseEntity.ok(new MessageResponse("비밀번호가 재설정되었습니다."));
 	}
 
@@ -94,6 +94,6 @@ public class AuthController {
 	@Operation(summary = "허용된 이메일 도메인 목록 조회", description = "허용된 이메일 도메인 목록을 반환합니다.")
 	@GetMapping("/email-domains")
 	public ResponseEntity<List<String>> getAllowedEmailDomains() {
-		return ResponseEntity.ok(queryAllowedEmailUseCase.getAllowedEmailDomains());
+		return ResponseEntity.ok(queryAllowedEmailUseCase.queryAllowedEmailDomains());
 	}
 }

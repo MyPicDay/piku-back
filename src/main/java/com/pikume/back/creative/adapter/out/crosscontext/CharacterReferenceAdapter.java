@@ -56,7 +56,7 @@ public class CharacterReferenceAdapter implements LoadCharacterReferencePort {
 	}
 
 	private Optional<String> loadAvatarPath(String userId) {
-		Map<String, UserSummaryView> usersById = queryUserSummaryUseCase.getUserSummaries(Set.of(userId));
+		Map<String, UserSummaryView> usersById = queryUserSummaryUseCase.queryUserSummaries(Set.of(userId));
 		UserSummaryView user = usersById != null ? usersById.get(userId) : null;
 		if (user == null || user.avatarPath() == null || user.avatarPath().isBlank()) {
 			return Optional.empty();

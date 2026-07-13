@@ -19,7 +19,7 @@ public class UserAdapterForSocial implements LoadUserInfoPort {
 
 	@Override
 	public Optional<UserInfo> findUserInfoById(String userId) {
-		return queryUserReferenceUseCase.findUserReference(userId)
+		return queryUserReferenceUseCase.queryUserReference(userId)
 				.map(user -> new UserInfo(user.id(), user.nickname(), user.avatarPath()));
 	}
 }

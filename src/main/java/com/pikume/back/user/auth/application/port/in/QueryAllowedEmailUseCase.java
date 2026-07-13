@@ -6,5 +6,5 @@ public interface QueryAllowedEmailUseCase {
 
 	boolean isEmailAllowed(String email);
 
-	List<String> getAllowedEmailDomains();
+	List<String> queryAllowedEmailDomains();
 }

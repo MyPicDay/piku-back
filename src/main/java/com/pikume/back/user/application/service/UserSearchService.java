@@ -23,10 +23,10 @@ public class UserSearchService implements SearchUserUseCase {
 	private final SearchUserPort searchUserPort;
 
 	@Override
-	public PageResult<UserSearchResult> searchByKeyword(String keyword, PageQuery pageQuery) {
+	public PageResult<UserSearchResult> searchUsers(String keyword, PageQuery pageQuery) {
 		String formattedKeyword = "%" + keyword + "%";
 
-		return searchUserPort.searchByName(formattedKeyword, pageQuery)
+		return searchUserPort.searchUsers(formattedKeyword, pageQuery)
 				.map(user -> new UserSearchResult(user.getId(), user.getNickname(), user.getAvatar()));
 	}
 }

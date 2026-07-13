@@ -13,6 +13,6 @@ public class UserAdapterForSupport implements LoadUserInfoForSupportPort {
 
 	@Override
 	public boolean existsById(String userId) {
-		return queryUserReferenceUseCase.findUserReference(userId).isPresent();
+		return queryUserReferenceUseCase.queryUserReference(userId).isPresent();
 	}
 }

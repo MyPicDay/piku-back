@@ -14,12 +14,12 @@ public class AllowedEmailDomainPersistenceAdapter implements LoadAllowedEmailDom
 	private final AllowedEmailDomainJpaRepository repository;
 
 	@Override
-	public boolean existsByDomain(String domain) {
+	public boolean isAllowedEmailDomain(String domain) {
 		return repository.existsByDomain(domain);
 	}
 
 	@Override
-	public List<String> loadAllDomains() {
+	public List<String> loadAllowedEmailDomains() {
 		return repository.findAll().stream().map(AllowedEmail::getDomain).toList();
 	}
 }

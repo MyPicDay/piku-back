@@ -22,14 +22,14 @@ class RefreshSessionPersistenceAdapterTest {
 		RefreshTokenPersistenceAdapter adapter = new RefreshTokenPersistenceAdapter(repository);
 		var session = new RefreshSessionPort.RefreshSession("user-1-device-1", "refresh", "user-1");
 
-		adapter.save(session);
+		adapter.storeSession(session);
 		repository.flush();
 
-		assertThat(adapter.findByRefreshToken("refresh")).contains(session);
+		assertThat(adapter.loadSessionByRefreshToken("refresh")).contains(session);
 		assertThat(jdbcTemplate.queryForObject(
 				"SELECT refresh_key FROM refresh_tokens WHERE refresh_token = ?", String.class, "refresh"))
 				.isEqualTo("user-1-device-1");
-		adapter.deleteByKey("user-1-device-1");
+		adapter.removeSession("user-1-device-1");
 		repository.flush();
 		assertThat(repository.findById("user-1-device-1")).isEmpty();
 	}

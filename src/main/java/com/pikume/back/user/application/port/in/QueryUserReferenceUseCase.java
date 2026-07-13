@@ -7,9 +7,9 @@ import java.util.Optional;
 
 public interface QueryUserReferenceUseCase {
 
-	Optional<UserReferenceView> findUserReference(String userId);
+	Optional<UserReferenceView> queryUserReference(String userId);
 
-	default UserReferenceView getUserReference(String userId) {
-		return findUserReference(userId).orElseThrow(UserNotFoundException::new);
+	default UserReferenceView requireUserReference(String userId) {
+		return queryUserReference(userId).orElseThrow(UserNotFoundException::new);
 	}
 }

@@ -3,7 +3,7 @@ package com.pikume.back.user.auth.adapter.out.persistence;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.user.auth.application.port.out.LoadVerificationPort;
-import com.pikume.back.user.auth.application.port.out.SaveVerificationPort;
+import com.pikume.back.user.auth.application.port.out.ManageVerificationPort;
 import com.pikume.back.user.auth.domain.Verification;
 import com.pikume.back.user.auth.domain.vo.VerificationType;
 
@@ -11,22 +11,22 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class VerificationPersistenceAdapter implements LoadVerificationPort, SaveVerificationPort {
+public class VerificationPersistenceAdapter implements LoadVerificationPort, ManageVerificationPort {
 
 	private final VerificationJpaRepository verificationJpaRepository;
 
 	@Override
-	public Optional<Verification> findByEmailAndType(String email, VerificationType type) {
+	public Optional<Verification> loadVerification(String email, VerificationType type) {
 		return verificationJpaRepository.findByEmailAndType(email, type);
 	}
 
 	@Override
-	public Verification save(Verification verification) {
+	public Verification storeVerification(Verification verification) {
 		return verificationJpaRepository.save(verification);
 	}
 
 	@Override
-	public void delete(Verification verification) {
+	public void removeVerification(Verification verification) {
 		verificationJpaRepository.delete(verification);
 	}
 }

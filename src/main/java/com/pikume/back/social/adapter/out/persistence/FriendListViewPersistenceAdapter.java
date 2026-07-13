@@ -62,7 +62,7 @@ public class FriendListViewPersistenceAdapter implements LoadFriendListViewPort 
 	}
 
 	private Map<String, UserSummaryView> loadUsers(Set<String> userIds) {
-		return queryUserSummaryUseCase.getUserSummaries(userIds);
+		return queryUserSummaryUseCase.queryUserSummaries(userIds);
 	}
 
 	private FriendSummaryView toFriendSummaryView(Friend friend, String currentUserId, Map<String, UserSummaryView> usersById) {

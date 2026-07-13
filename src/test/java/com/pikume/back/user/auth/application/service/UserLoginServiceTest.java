@@ -30,7 +30,7 @@ class UserLoginServiceTest {
 	@Test
 	@DisplayName("계정 확인부터 토큰과 갱신 세션 저장까지 로그인 순서를 조정한다")
 	void logsInUserAndStoresRefreshSession() {
-		given(users.findByEmail("user@example.com")).willReturn(Optional.of(
+		given(users.queryUserIdentityByEmail("user@example.com")).willReturn(Optional.of(
 				new UserIdentityView("user-1", "protected", "pikume", "avatar")));
 		given(passwords.matches("raw", "protected")).willReturn(true);
 		given(tokens.generateAccessToken("user-1")).willReturn("access");
@@ -40,14 +40,14 @@ class UserLoginServiceTest {
 
 		assertThat(result.accessToken()).isEqualTo("access");
 		assertThat(result.userInfo().nickname()).isEqualTo("pikume");
-		then(sessions).should().save(new RefreshSessionPort.RefreshSession(
+		then(sessions).should().storeSession(new RefreshSessionPort.RefreshSession(
 				"user-1-device-1", "refresh", "user-1"));
 	}
 
 	@Test
 	@DisplayName("비밀번호가 다르면 자격 증명 오류를 반환하고 토큰을 발급하지 않는다")
 	void rejectsInvalidPassword() {
-		given(users.findByEmail("user@example.com")).willReturn(Optional.of(
+		given(users.queryUserIdentityByEmail("user@example.com")).willReturn(Optional.of(
 				new UserIdentityView("user-1", "protected", "pikume", "avatar")));
 		given(passwords.matches("wrong", "protected")).willReturn(false);
 

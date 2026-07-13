@@ -19,10 +19,10 @@ class AllowedEmailQueryServiceTest {
 	@Test
 	@DisplayName("이메일 도메인 허용 여부와 목록을 전용 Port로 조회한다")
 	void queriesAllowedDomains() {
-		given(port.existsByDomain("example.com")).willReturn(true);
-		given(port.loadAllDomains()).willReturn(List.of("example.com"));
+		given(port.isAllowedEmailDomain("example.com")).willReturn(true);
+		given(port.loadAllowedEmailDomains()).willReturn(List.of("example.com"));
 
 		assertThat(service.isEmailAllowed("user@example.com")).isTrue();
-		assertThat(service.getAllowedEmailDomains()).containsExactly("example.com");
+		assertThat(service.queryAllowedEmailDomains()).containsExactly("example.com");
 	}
 }

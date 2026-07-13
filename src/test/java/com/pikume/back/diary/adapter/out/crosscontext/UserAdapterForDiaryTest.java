@@ -21,7 +21,7 @@ class UserAdapterForDiaryTest {
 	@Test
 	@DisplayName("사용자가 존재하면 닉네임을 반환한다")
 	void getUserNickname() {
-		given(queryUserReferenceUseCase.getUserReference("user-1"))
+		given(queryUserReferenceUseCase.requireUserReference("user-1"))
 				.willReturn(new UserReferenceView("user-1", "피쿠", "avatar"));
 
 		assertThat(adapter.getUserNickname("user-1")).isEqualTo("피쿠");
@@ -30,7 +30,7 @@ class UserAdapterForDiaryTest {
 	@Test
 	@DisplayName("사용자가 없으면 UserNotFoundException을 던진다")
 	void missingUserThrowsUserNotFoundException() {
-		given(queryUserReferenceUseCase.getUserReference("missing")).willThrow(new UserNotFoundException());
+		given(queryUserReferenceUseCase.requireUserReference("missing")).willThrow(new UserNotFoundException());
 
 		assertThatThrownBy(() -> adapter.getUserNickname("missing"))
 				.isInstanceOfSatisfying(UserNotFoundException.class,

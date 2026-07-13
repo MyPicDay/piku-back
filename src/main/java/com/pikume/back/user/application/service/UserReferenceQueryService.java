@@ -2,7 +2,7 @@ package com.pikume.back.user.application.service;
 
 import com.pikume.back.user.application.dto.UserReferenceView;
 import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
-import com.pikume.back.user.application.port.out.LoadUserAccountPort;
+import com.pikume.back.user.application.port.out.LoadUserReferencePort;
 import com.pikume.back.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,11 +15,11 @@ import java.util.Optional;
 @Transactional(readOnly = true)
 public class UserReferenceQueryService implements QueryUserReferenceUseCase {
 
-	private final LoadUserAccountPort loadUserAccountPort;
+	private final LoadUserReferencePort loadUserReferencePort;
 
 	@Override
-	public Optional<UserReferenceView> findUserReference(String userId) {
-		return loadUserAccountPort.findById(userId).map(this::toReferenceView);
+	public Optional<UserReferenceView> queryUserReference(String userId) {
+		return loadUserReferencePort.loadReference(userId).map(this::toReferenceView);
 	}
 
 	private UserReferenceView toReferenceView(User user) {

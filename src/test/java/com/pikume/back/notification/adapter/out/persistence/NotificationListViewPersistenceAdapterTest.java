@@ -71,7 +71,7 @@ class NotificationListViewPersistenceAdapterTest {
 								LocalDate.of(2026, 3, 8),
 								LocalDateTime.of(2026, 3, 8, 12, 0))));
 		given(queryDiaryReadUseCase.getRepresentPhotoPaths(Set.of(1L, 2L))).willReturn(Map.of());
-		given(queryUserSummaryUseCase.getUserSummaries(Set.of("active-sender", "friend-sender")))
+		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("active-sender", "friend-sender")))
 				.willReturn(Map.of(
 						"active-sender", new UserSummaryView("active-sender", "활성 발신자", null),
 						"friend-sender", new UserSummaryView("friend-sender", "친구 발신자", null)));
@@ -82,6 +82,6 @@ class NotificationListViewPersistenceAdapterTest {
 		assertThat(result.getTotalElements()).isEqualTo(2);
 		assertThat(result.getContent()).extracting(NotificationListView::senderNickname)
 				.containsExactly("활성 발신자", "친구 발신자");
-		then(queryUserSummaryUseCase).should().getUserSummaries(Set.of("active-sender", "friend-sender"));
+		then(queryUserSummaryUseCase).should().queryUserSummaries(Set.of("active-sender", "friend-sender"));
 	}
 }
