@@ -20,50 +20,59 @@ public class SseSubscriptionService implements SseUseCase {
 
 	@Override
 	public void subscribe(String userId, NotificationStreamConnection connection) {
-		log.info("[Emitter 생성 요청]");
+		log.info("event=sse_subscription_requested outcome=accepted userId={}", userId);
 		String emitterId = userId + "_" + System.currentTimeMillis();
 		notificationStreamPort.save(emitterId, userId, connection);
 
 		connection.onCompletion(() -> {
-			log.info("[Emitter 종료 - Completion] emitterId: {}", emitterId);
-			notificationStreamPort.deleteById(emitterId);
+			log.info("event=sse_connection_completed outcome=success userId={} resourceId={}",
+					userId, emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onError(error -> {
-			log.debug("[Emitter 종료 - Error] emitterId: {}, cause: {}", emitterId, error.getMessage());
-			notificationStreamPort.deleteById(emitterId);
+			log.warn("event=sse_connection_closed outcome=failed userId={} resourceId={} "
+					+ "reason=connection_error exception={}",
+					userId, emitterId, error.getClass().getSimpleName());
+			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onTimeout(() -> {
-			log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
-			notificationStreamPort.deleteById(emitterId);
+			log.warn("event=sse_connection_closed outcome=failed userId={} resourceId={} reason=timeout",
+					userId, emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 			connection.complete();
 		});
 
 		long unreadCount = loadNotificationPort.countUnreadByReceiverId(userId);
 		String eventId = userId + "_" + System.currentTimeMillis();
-		if (!send(connection, emitterId, new NotificationStreamMessage(eventId, null, unreadCount))) {
+		if (!send(userId, emitterId, connection, new NotificationStreamMessage(eventId, null, unreadCount))) {
 			return;
 		}
 
 		boolean hasFriendRequest = loadNotificationPort.existsFriendRequestByReceiverId(userId);
 		if (hasFriendRequest) {
 			String friendEventId = userId + "_" + System.currentTimeMillis();
-			log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
-			send(connection, emitterId, new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
+			log.info("event=sse_friend_request_notification_send_requested outcome=accepted "
+					+ "userId={} resourceId={}", userId, friendEventId);
+			send(userId, emitterId, connection,
+					new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
 		}
 	}
 
-	private boolean send(NotificationStreamConnection connection, String emitterId, NotificationStreamMessage message) {
+	private boolean send(String userId, String emitterId, NotificationStreamConnection connection,
+			NotificationStreamMessage message) {
 		try {
 			connection.send(message);
 			return true;
 		} catch (NotificationStreamSendException e) {
-			log.debug("[Emitter 전송 실패] emitterId: {}, cause: {}", emitterId, e.getMessage());
-			notificationStreamPort.deleteById(emitterId);
+			log.warn("event=sse_notification_delivery outcome=failed userId={} resourceId={} "
+					+ "reason=stream_send_failed exception={}",
+					userId, emitterId, e.getClass().getSimpleName());
+			notificationStreamPort.delete(userId, emitterId);
 			return false;
 		} catch (RuntimeException e) {
-			notificationStreamPort.deleteById(emitterId);
+			notificationStreamPort.delete(userId, emitterId);
 			throw e;
 		}
 	}
