@@ -1,13 +1,19 @@
 package com.pikume.back.notification.adapter.out.persistence;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.exception.NotificationStreamSendException;
 import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
 
 import java.io.IOException;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.willThrow;
@@ -33,6 +39,31 @@ class SseEmitterAdapterTest {
 
 		then(firstConnection).should().send(message);
 		then(secondConnection).should().send(message);
+	}
+
+	@Test
+	@DisplayName("알림 전송 요청을 구조화된 INFO 로그로 기록한다")
+	void sendToUserLogsStructuredSendRequestAtInfo() {
+		SseEmitterAdapter adapter = new SseEmitterAdapter();
+		NotificationStreamConnection connection = mock(NotificationStreamConnection.class);
+		NotificationStreamMessage message = new NotificationStreamMessage("event-id", null, "data");
+		adapter.save("emitter-id", "user-id", connection);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+
+		try {
+			adapter.sendToUser("user-id", message);
+		} finally {
+			detachLogAppender(appender);
+		}
+
+		assertThat(appender.list).anySatisfy(event -> {
+			assertThat(event.getLevel()).isEqualTo(Level.INFO);
+			assertThat(event.getFormattedMessage()).contains(
+					"event=sse_notification_send_requested",
+					"outcome=accepted",
+					"userId=user-id",
+					"resourceId=emitter-id");
+		});
 	}
 
 	@Test
@@ -120,5 +151,51 @@ class SseEmitterAdapterTest {
 
 		then(failedConnection).should(times(0)).send(message);
 		then(healthyConnection).should().send(message);
+	}
+
+	@Test
+	@DisplayName("스트림 전송 실패를 예외 메시지 없이 구조화된 WARN 로그로 기록한다")
+	void sendToUserLogsStructuredStreamFailureAtWarn() {
+		SseEmitterAdapter adapter = new SseEmitterAdapter();
+		NotificationStreamConnection connection = mock(NotificationStreamConnection.class);
+		NotificationStreamMessage message = new NotificationStreamMessage("event-id", null, "data");
+		String sensitiveMessage = "PRIVATE-STREAM-FAILURE";
+		adapter.save("emitter-id", "user-id", connection);
+		willThrow(new NotificationStreamSendException(sensitiveMessage, new IOException("Broken pipe")))
+				.given(connection).send(message);
+		ListAppender<ILoggingEvent> appender = attachLogAppender();
+
+		try {
+			adapter.sendToUser("user-id", message);
+		} finally {
+			detachLogAppender(appender);
+		}
+
+		assertThat(appender.list).anySatisfy(event -> {
+			assertThat(event.getLevel()).isEqualTo(Level.WARN);
+			assertThat(event.getFormattedMessage()).contains(
+					"event=sse_notification_delivery",
+					"outcome=failed",
+					"userId=user-id",
+					"resourceId=emitter-id",
+					"reason=stream_send_failed",
+					"exception=NotificationStreamSendException");
+		});
+		assertThat(appender.list)
+				.extracting(ILoggingEvent::getFormattedMessage)
+				.noneMatch(logMessage -> logMessage.contains(sensitiveMessage));
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger) LoggerFactory.getLogger(SseEmitterAdapter.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger) LoggerFactory.getLogger(SseEmitterAdapter.class);
+		logger.detachAppender(appender);
 	}
 }

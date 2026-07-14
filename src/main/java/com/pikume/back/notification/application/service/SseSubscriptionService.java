@@ -20,22 +20,26 @@ public class SseSubscriptionService implements SseUseCase {
 
 	@Override
 	public void subscribe(String userId, NotificationStreamConnection connection) {
-		log.info("[Emitter 생성 요청]");
+		log.info("event=sse_subscription_requested outcome=accepted userId={}", userId);
 		String emitterId = userId + "_" + System.currentTimeMillis();
 		notificationStreamPort.save(emitterId, userId, connection);
 
 		connection.onCompletion(() -> {
-			log.info("[Emitter 종료 - Completion] emitterId: {}", emitterId);
+			log.info("event=sse_connection_completed outcome=success userId={} resourceId={}",
+					userId, emitterId);
 			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onError(error -> {
-			log.debug("[Emitter 종료 - Error] emitterId: {}, cause: {}", emitterId, error.getMessage());
+			log.warn("event=sse_connection_closed outcome=failed userId={} resourceId={} "
+					+ "reason=connection_error exception={}",
+					userId, emitterId, error.getClass().getSimpleName());
 			notificationStreamPort.delete(userId, emitterId);
 		});
 
 		connection.onTimeout(() -> {
-			log.warn("[Emitter 종료 - Timeout] emitterId: {}", emitterId);
+			log.warn("event=sse_connection_closed outcome=failed userId={} resourceId={} reason=timeout",
+					userId, emitterId);
 			notificationStreamPort.delete(userId, emitterId);
 			connection.complete();
 		});
@@ -49,7 +53,8 @@ public class SseSubscriptionService implements SseUseCase {
 		boolean hasFriendRequest = loadNotificationPort.existsFriendRequestByReceiverId(userId);
 		if (hasFriendRequest) {
 			String friendEventId = userId + "_" + System.currentTimeMillis();
-			log.info("[친구 요청 알림 전송] userId={}, eventId={}", userId, friendEventId);
+			log.info("event=sse_friend_request_notification_send_requested outcome=accepted "
+					+ "userId={} resourceId={}", userId, friendEventId);
 			send(userId, emitterId, connection,
 					new NotificationStreamMessage(friendEventId, "FriendRequest", "on"));
 		}
@@ -61,7 +66,9 @@ public class SseSubscriptionService implements SseUseCase {
 			connection.send(message);
 			return true;
 		} catch (NotificationStreamSendException e) {
-			log.debug("[Emitter 전송 실패] emitterId: {}, cause: {}", emitterId, e.getMessage());
+			log.warn("event=sse_notification_delivery outcome=failed userId={} resourceId={} "
+					+ "reason=stream_send_failed exception={}",
+					userId, emitterId, e.getClass().getSimpleName());
 			notificationStreamPort.delete(userId, emitterId);
 			return false;
 		} catch (RuntimeException e) {

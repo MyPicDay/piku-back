@@ -36,10 +36,13 @@ public class SseEmitterAdapter implements NotificationStreamPort {
 		}
 		userConnections.forEach((emitterId, connection) -> {
 			try {
-				log.info("[SSE 알림 전송] userId: {}, emitterId: {}", userId, emitterId);
+				log.info("event=sse_notification_send_requested outcome=accepted userId={} resourceId={}",
+						userId, emitterId);
 				connection.send(message);
 			} catch (NotificationStreamSendException e) {
-				log.warn("SSE 알림 전송 실패: {}", e.getMessage());
+				log.warn("event=sse_notification_delivery outcome=failed userId={} resourceId={} "
+						+ "reason=stream_send_failed exception={}",
+						userId, emitterId, e.getClass().getSimpleName());
 				delete(userId, emitterId);
 			} catch (RuntimeException e) {
 				delete(userId, emitterId);

@@ -1,5 +1,9 @@
 package com.pikume.back.notification.application.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -8,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.exception.NotificationStreamSendException;
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
@@ -178,5 +183,111 @@ class SseSubscriptionServiceTest {
 			then(notificationStreamPort).should().delete("user-id", emitterIdCaptor.getValue());
 			then(connection).should().complete();
 		}
+	}
+
+	@Nested
+	@DisplayName("SSE 로그")
+	class Logging {
+
+		@Test
+		@DisplayName("정상 구독 흐름을 구조화된 INFO 로그로 기록한다")
+		void subscribeLogsStructuredNormalFlowAtInfo() {
+			given(loadNotificationPort.countUnreadByReceiverId("user-id")).willReturn(1L);
+			given(loadNotificationPort.existsFriendRequestByReceiverId("user-id")).willReturn(true);
+			ArgumentCaptor<Runnable> completionHandlerCaptor = ArgumentCaptor.forClass(Runnable.class);
+			ListAppender<ILoggingEvent> appender = attachLogAppender();
+
+			try {
+				sseSubscriptionService.subscribe("user-id", connection);
+				then(connection).should().onCompletion(completionHandlerCaptor.capture());
+				completionHandlerCaptor.getValue().run();
+			} finally {
+				detachLogAppender(appender);
+			}
+
+			assertLogContains(appender, Level.INFO,
+					"event=sse_subscription_requested",
+					"outcome=accepted",
+					"userId=user-id");
+			assertLogContains(appender, Level.INFO,
+					"event=sse_friend_request_notification_send_requested",
+					"outcome=accepted",
+					"userId=user-id",
+					"resourceId=user-id_");
+			assertLogContains(appender, Level.INFO,
+					"event=sse_connection_completed",
+					"outcome=success",
+					"userId=user-id",
+					"resourceId=user-id_");
+		}
+
+		@Test
+		@DisplayName("비정상 구독 흐름을 예외 메시지 없이 구조화된 WARN 로그로 기록한다")
+		@SuppressWarnings("unchecked")
+		void subscribeLogsStructuredAbnormalFlowAtWarn() {
+			String sensitiveSendMessage = "PRIVATE-SEND-FAILURE";
+			String sensitiveConnectionMessage = "PRIVATE-CONNECTION-FAILURE";
+			given(loadNotificationPort.countUnreadByReceiverId("user-id")).willReturn(1L);
+			willThrow(new NotificationStreamSendException(sensitiveSendMessage, new IOException("Broken pipe")))
+					.given(connection).send(any(NotificationStreamMessage.class));
+			ArgumentCaptor<Consumer<Throwable>> errorHandlerCaptor = ArgumentCaptor.forClass(Consumer.class);
+			ArgumentCaptor<Runnable> timeoutHandlerCaptor = ArgumentCaptor.forClass(Runnable.class);
+			ListAppender<ILoggingEvent> appender = attachLogAppender();
+
+			try {
+				sseSubscriptionService.subscribe("user-id", connection);
+				then(connection).should().onError(errorHandlerCaptor.capture());
+				then(connection).should().onTimeout(timeoutHandlerCaptor.capture());
+				errorHandlerCaptor.getValue().accept(new IOException(sensitiveConnectionMessage));
+				timeoutHandlerCaptor.getValue().run();
+			} finally {
+				detachLogAppender(appender);
+			}
+
+			assertLogContains(appender, Level.WARN,
+					"event=sse_notification_delivery",
+					"outcome=failed",
+					"userId=user-id",
+					"resourceId=user-id_",
+					"reason=stream_send_failed",
+					"exception=NotificationStreamSendException");
+			assertLogContains(appender, Level.WARN,
+					"event=sse_connection_closed",
+					"outcome=failed",
+					"userId=user-id",
+					"resourceId=user-id_",
+					"reason=connection_error",
+					"exception=IOException");
+			assertLogContains(appender, Level.WARN,
+					"event=sse_connection_closed",
+					"outcome=failed",
+					"userId=user-id",
+					"resourceId=user-id_",
+					"reason=timeout");
+			assertThat(appender.list)
+					.extracting(ILoggingEvent::getFormattedMessage)
+					.noneMatch(message -> message.contains(sensitiveSendMessage)
+							|| message.contains(sensitiveConnectionMessage));
+		}
+	}
+
+	private ListAppender<ILoggingEvent> attachLogAppender() {
+		Logger logger = (Logger) LoggerFactory.getLogger(SseSubscriptionService.class);
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.addAppender(appender);
+		return appender;
+	}
+
+	private void detachLogAppender(ListAppender<ILoggingEvent> appender) {
+		Logger logger = (Logger) LoggerFactory.getLogger(SseSubscriptionService.class);
+		logger.detachAppender(appender);
+	}
+
+	private void assertLogContains(ListAppender<ILoggingEvent> appender, Level level, String... fragments) {
+		assertThat(appender.list).anySatisfy(event -> {
+			assertThat(event.getLevel()).isEqualTo(level);
+			assertThat(event.getFormattedMessage()).contains(fragments);
+		});
 	}
 }
