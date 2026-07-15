@@ -57,9 +57,6 @@ class DiaryControllerTest {
 	@Mock
 	private GetDiaryGalleryUseCase getDiaryGalleryUseCase;
 
-	@Mock
-	private jakarta.validation.Validator validator;
-
 	private DiaryController diaryController;
 	private MockMvc mockMvc;
 
@@ -73,16 +70,8 @@ class DiaryControllerTest {
 				deleteDiaryUseCase,
 				getCalendarUseCase,
 				updateDiaryUseCase,
-				getDiaryGalleryUseCase,
-				validator,
-				problemDetailFactory);
+				getDiaryGalleryUseCase);
 		mockMvc = MockMvcBuilders.standaloneSetup(diaryController)
-				.setControllerAdvice(
-						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
-						new DiaryExceptionHandler(problemDetailFactory))
-				.setControllerAdvice(
-						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
-						new DiaryExceptionHandler(problemDetailFactory))
 				.setControllerAdvice(
 						new GlobalExceptionHandler(Optional.empty(), problemDetailFactory),
 						new DiaryExceptionHandler(problemDetailFactory))
@@ -219,7 +208,7 @@ class DiaryControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST /api/diary는 일기 요청 검증 예외를 기존 validation/invalid-request로 처리한다")
+	@DisplayName("POST /api/diary는 일기 요청 검증 예외를 Diary Problem Details로 처리한다")
 	void createDiaryReturnsValidationProblemDetailWhenUseCaseRejectsCommand() throws Exception {
 		willThrow(new DiaryInvalidRequestException("미래 날짜에 일기를 작성할 수 없습니다: 2099-01-01"))
 				.given(createDiaryUseCase).createDiary(any(), any(), eq("user1"));
@@ -234,10 +223,32 @@ class DiaryControllerTest {
 		mockMvc.perform(multipart("/api/diary")
 						.file(diary))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/diary/invalid-request"))
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("미래 날짜에 일기를 작성할 수 없습니다: 2099-01-01"))
 				.andExpect(jsonPath("$.instance").value("/api/diary"));
+	}
+
+	@Test
+	@DisplayName("POST /api/diary는 중첩 이미지 정보도 validation Problem Details로 검증한다")
+	void createDiaryValidatesNestedImageInformation() throws Exception {
+		MockMultipartFile diary = new MockMultipartFile(
+				"diary",
+				"",
+				"application/json",
+				"""
+						{"status":"PUBLIC","content":"생성 요청","imageInfos":[{"order":0}],"date":"2026-07-15"}
+						""".getBytes());
+
+		mockMvc.perform(multipart("/api/diary")
+						.file(diary))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.fieldErrors['imageInfos[0].type']").exists())
+				.andExpect(jsonPath("$.instance").value("/api/diary"));
+
+		then(createDiaryUseCase).shouldHaveNoInteractions();
 	}
 
 	@Test

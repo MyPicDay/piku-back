@@ -1,13 +1,12 @@
 package com.pikume.back.diary.application.service;
 
 import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
+import com.pikume.back.diary.application.port.out.LoadDiaryPhotoObjectPort;
 import com.pikume.back.diary.application.port.out.LoadPhotoOptimizationPort;
 import com.pikume.back.diary.application.port.out.SavePhotoOptimizationPort;
+import com.pikume.back.diary.application.port.out.StoreOptimizedDiaryPhotoPort;
 import com.pikume.back.diary.application.port.out.WebpImageConversionPort;
 import com.pikume.back.diary.domain.PhotoOptimizationStatus;
-import com.pikume.back.global.dto.UploadedFileData;
-import com.pikume.back.global.port.out.LoadObjectPort;
-import com.pikume.back.global.port.out.StoreObjectPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,8 +23,8 @@ public class PhotoOptimizationService {
 
 	private final LoadPhotoOptimizationPort loadPhotoOptimizationPort;
 	private final SavePhotoOptimizationPort savePhotoOptimizationPort;
-	private final LoadObjectPort loadObjectPort;
-	private final StoreObjectPort storeObjectPort;
+	private final LoadDiaryPhotoObjectPort loadObjectPort;
+	private final StoreOptimizedDiaryPhotoPort storeObjectPort;
 	private final WebpImageConversionPort webpImageConversionPort;
 	private final PhotoOptimizationProperties properties;
 
@@ -62,12 +61,10 @@ public class PhotoOptimizationService {
 						target.originalUrl());
 				return false;
 			}
-			byte[] originalBytes = loadObjectPort.loadObject(target.originalUrl());
+			byte[] originalBytes = loadObjectPort.load(target.originalUrl());
 			byte[] webpBytes = webpImageConversionPort.convertToWebp(originalBytes, properties.getQuality());
 
-			storeObjectPort.storeObject(
-					new UploadedFileData(fileName(optimizedKey), WEBP_CONTENT_TYPE, webpBytes),
-					optimizedKey);
+			storeObjectPort.store(optimizedKey, WEBP_CONTENT_TYPE, webpBytes);
 			savePhotoOptimizationPort.markPhotoOptimizationSucceeded(target.photoId(), optimizedKey, LocalDateTime.now());
 			log.info("event=photo_optimization outcome=succeeded photoId={} diaryId={} objectKey={} optimizedKey={}",
 					target.photoId(),
@@ -97,11 +94,4 @@ public class PhotoOptimizationService {
 		return PhotoOptimizationStatus.PENDING;
 	}
 
-	private String fileName(String objectKey) {
-		int slashIndex = objectKey.lastIndexOf('/');
-		if (slashIndex < 0 || slashIndex == objectKey.length() - 1) {
-			return objectKey;
-		}
-		return objectKey.substring(slashIndex + 1);
-	}
 }

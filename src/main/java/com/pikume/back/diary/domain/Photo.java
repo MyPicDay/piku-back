@@ -3,7 +3,6 @@ package com.pikume.back.diary.domain;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,7 +11,6 @@ import java.util.Locale;
 
 @Entity
 @Table(name = "photos")
-@AllArgsConstructor
 @NoArgsConstructor
 @Getter
 public class Photo {
@@ -52,6 +50,12 @@ public class Photo {
 	}
 
 	public Photo(Diary diary, String url, Integer photoOrder, DiaryPhotoType sourceType) {
+		if (diary == null) {
+			throw new IllegalArgumentException("사진의 부모 일기는 필수입니다.");
+		}
+		if (url == null || url.isBlank()) {
+			throw new IllegalArgumentException("사진 object key는 필수입니다.");
+		}
 		this.diary = diary;
 		this.url = url;
 		this.represent = false;
@@ -81,6 +85,10 @@ public class Photo {
 		this.optimizedUrl = optimizedUrl;
 		this.optimizedAt = LocalDateTime.now();
 		this.optimizationStatus = PhotoOptimizationStatus.SUCCEEDED;
+	}
+
+	public boolean isOptimizationCandidate() {
+		return optimizationStatus == PhotoOptimizationStatus.PENDING && !diary.isDeleted();
 	}
 
 	private void initializeOptimizationStatus(String url) {

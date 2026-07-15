@@ -80,6 +80,28 @@ class DiaryJpaRepositoryGalleryTest {
 				.containsExactly(olderSameDate.getId());
 	}
 
+	@Test
+	@DisplayName("갤러리 대표 사진은 최적화 object key를 우선한다")
+	void galleryRowsPreferOptimizedCoverPhoto() {
+		Diary diary = saveDiary("user-1", "optimized", DiaryVisibility.PUBLIC, LocalDate.of(2026, 7, 15));
+		Photo cover = new Photo(diary, "public/original.png", 0);
+		cover.updateRepresent(true);
+		cover.markOptimizationSucceeded("public/optimized.webp");
+		photoJpaRepository.save(cover);
+		flushAndClear();
+
+		List<DiaryGalleryRow> rows = diaryJpaRepository.findGalleryRowsByUserIdAndStatuses(
+				"user-1",
+				Set.of(DiaryVisibility.PUBLIC),
+				null,
+				null,
+				PageRequest.of(0, 10));
+
+		assertThat(rows).singleElement()
+				.extracting(DiaryGalleryRow::coverPhotoPath)
+				.isEqualTo("public/optimized.webp");
+	}
+
 	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDate date) {
 		return diaryJpaRepository.save(new Diary(content, visibility, date, userId));
 	}

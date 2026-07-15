@@ -5,10 +5,19 @@ import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
+import com.pikume.back.diary.application.dto.DiaryPhotoRow;
 import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryForCommandPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryCalendarPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryDetailPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryFeedPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryGalleryPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryReadPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryStatisticsPort;
 import com.pikume.back.diary.application.port.out.LoadPhotoOptimizationPort;
-import com.pikume.back.diary.application.port.out.SaveDiaryPort;
+import com.pikume.back.diary.application.port.out.RecordDiaryPhotoPort;
+import com.pikume.back.diary.application.port.out.RecordDiaryPort;
 import com.pikume.back.diary.application.port.out.SavePhotoOptimizationPort;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.Photo;
@@ -25,19 +34,21 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, LoadPhotoOptimizationPort,
+public class DiaryPersistenceAdapter implements LoadDiaryPort, LoadDiaryForCommandPort,
+		LoadDiaryDetailPort, LoadDiaryReadPort, LoadDiaryCalendarPort, LoadDiaryGalleryPort, LoadDiaryFeedPort,
+		LoadDiaryStatisticsPort, RecordDiaryPort, RecordDiaryPhotoPort, LoadPhotoOptimizationPort,
 		SavePhotoOptimizationPort {
 
 	private final DiaryJpaRepository diaryJpaRepository;
 	private final PhotoJpaRepository photoJpaRepository;
 
 	@Override
-	public Optional<Diary> findById(Long diaryId) {
+	public Optional<Diary> findActiveById(Long diaryId) {
 		return diaryJpaRepository.findByIdAndDeletedAtIsNull(diaryId);
 	}
 
 	@Override
-	public List<Diary> findByIds(Collection<Long> diaryIds) {
+	public List<Diary> findActiveByIds(Collection<Long> diaryIds) {
 		if (diaryIds == null || diaryIds.isEmpty()) {
 			return List.of();
 		}
@@ -45,18 +56,17 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public List<Diary> findByUserIdAndDateBetween(String userId, LocalDate start, LocalDate end) {
-		return diaryJpaRepository.findByUserIdAndDeletedAtIsNullAndDateBetween(userId, start, end);
-	}
-
-	@Override
-	public List<Diary> findByUserIdAndStatusesAndDateBetween(String userId, Collection<DiaryVisibility> statuses, LocalDate start,
+	public List<Diary> findByOwnerAndStatusesAndDateBetween(
+			String ownerId,
+			Collection<DiaryVisibility> statuses,
+			LocalDate start,
 			LocalDate end) {
-		return diaryJpaRepository.findByUserIdAndStatusInAndDeletedAtIsNullAndDateBetween(userId, statuses, start, end);
+		return diaryJpaRepository.findByUserIdAndStatusInAndDeletedAtIsNullAndDateBetween(ownerId, statuses, start, end);
 	}
 
 	@Override
-	public List<DiaryGalleryRow> findGalleryRowsByUserIdAndStatuses(String userId,
+	public List<DiaryGalleryRow> findGalleryRows(
+			String ownerId,
 			Collection<DiaryVisibility> statuses,
 			LocalDate cursorDate,
 			Long cursorDiaryId,
@@ -65,7 +75,7 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 			return List.of();
 		}
 		return diaryJpaRepository.findGalleryRowsByUserIdAndStatuses(
-				userId,
+				ownerId,
 				statuses,
 				cursorDate,
 				cursorDiaryId,
@@ -73,26 +83,23 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public Optional<Diary> findByUserIdAndDate(String userId, LocalDate date) {
+	public Optional<Diary> findActiveByUserIdAndDate(String userId, LocalDate date) {
 		return diaryJpaRepository.findByUserIdAndDateAndDeletedAtIsNull(userId, date);
 	}
 
 	@Override
-	public long countByUserId(String userId) {
-		return diaryJpaRepository.countByUserIdAndDeletedAtIsNull(userId);
+	public long countByOwnerAndStatuses(String ownerId, Collection<DiaryVisibility> statuses) {
+		return diaryJpaRepository.countByUserIdAndStatusInAndDeletedAtIsNull(ownerId, statuses);
 	}
 
 	@Override
-	public long countByUserIdAndStatuses(String userId, Collection<DiaryVisibility> statuses) {
-		return diaryJpaRepository.countByUserIdAndStatusInAndDeletedAtIsNull(userId, statuses);
-	}
-
-	@Override
-	public List<DiaryMonthCountDTO> countDiariesPerMonth(String userId, Collection<DiaryVisibility> statuses) {
+	public List<DiaryMonthCountDTO> countByOwnerAndStatusesPerMonth(
+			String ownerId,
+			Collection<DiaryVisibility> statuses) {
 		if (statuses == null || statuses.isEmpty()) {
 			return List.of();
 		}
-		return diaryJpaRepository.countDiariesPerMonthByStatuses(userId, statuses);
+		return diaryJpaRepository.countDiariesPerMonthByStatuses(ownerId, statuses);
 	}
 
 	@Override
@@ -114,30 +121,34 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public boolean existsById(Long diaryId) {
-		return diaryJpaRepository.existsByIdAndDeletedAtIsNull(diaryId);
-	}
-
-	@Override
-	public Optional<Photo> findRepresentPhotoByDiaryId(Long diaryId) {
-		return photoJpaRepository.findFirstByDiaryIdAndRepresentIsTrue(diaryId);
-	}
-
-	@Override
-	public List<Photo> findPhotosByDiaryIds(Collection<Long> diaryIds) {
+	public List<DiaryPhotoRow> findRepresentativePhotosByDiaryIds(Collection<Long> diaryIds) {
 		if (diaryIds == null || diaryIds.isEmpty()) {
 			return List.of();
 		}
-		return photoJpaRepository.findByDiaryIds(diaryIds);
+		return photoJpaRepository.findRepresentPhotoUrlsByDiaryIds(diaryIds).stream()
+				.map(row -> new DiaryPhotoRow(
+						row.getDiaryId(),
+						row.getUrl(),
+						row.getOptimizedUrl(),
+						true))
+				.toList();
 	}
 
 	@Override
-	public List<LoadDiaryPort.PhotoRow> findPhotoRowsByDiaryIds(Collection<Long> diaryIds) {
+	public List<Photo> findPhotosByDiaryId(Long diaryId) {
+		if (diaryId == null) {
+			return List.of();
+		}
+		return photoJpaRepository.findByDiaryIds(List.of(diaryId));
+	}
+
+	@Override
+	public List<DiaryPhotoRow> findPhotoRowsByDiaryIds(Collection<Long> diaryIds) {
 		if (diaryIds == null || diaryIds.isEmpty()) {
 			return List.of();
 		}
 		return photoJpaRepository.findPhotoRowsByDiaryIds(diaryIds).stream()
-				.map(row -> new LoadDiaryPort.PhotoRow(
+				.map(row -> new DiaryPhotoRow(
 						row.getDiaryId(),
 						row.getUrl(),
 						row.getOptimizedUrl(),
@@ -146,7 +157,7 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public List<Long> findRecentDiaryIdsByStatusAndUserIds(DiaryVisibility status, Collection<String> userIds, int limit) {
+	public List<Long> findRecentIdsByStatusAndUserIds(DiaryVisibility status, Collection<String> userIds, int limit) {
 		if (userIds == null || userIds.isEmpty() || limit <= 0) {
 			return List.of();
 		}
@@ -155,20 +166,14 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public List<Long> findRecentDiaryIdsByStatus(DiaryVisibility status, int limit) {
-		if (limit <= 0) {
-			return List.of();
-		}
-		return diaryJpaRepository.findFeedIdsByStatus(status, org.springframework.data.domain.PageRequest.of(0, limit));
-	}
-
-	@Override
-	public List<Long> findRecentDiaryIdsByStatusExcludingUser(DiaryVisibility status, String excludedUserId, int limit) {
+	public List<Long> findRecentIdsByStatusExcludingUser(DiaryVisibility status, String excludedUserId, int limit) {
 		if (limit <= 0) {
 			return List.of();
 		}
 		if (excludedUserId == null || excludedUserId.isBlank()) {
-			return findRecentDiaryIdsByStatus(status, limit);
+			return diaryJpaRepository.findFeedIdsByStatus(
+					status,
+					org.springframework.data.domain.PageRequest.of(0, limit));
 		}
 		return diaryJpaRepository.findFeedIdsByStatusAndUserIdNot(
 				status,
@@ -177,12 +182,15 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public List<DiaryFeedCandidateView> findLatestVisibleFeedCandidates(String excludedUserId, Collection<String> friendUserIds,
-			LocalDate cursorDate, Long cursorDiaryId, int limit) {
+	public List<DiaryFeedCandidateView> findLatestVisibleCandidates(
+			String excludedUserId,
+			Collection<String> friendUserIds,
+			LocalDate cursorDate,
+			Long cursorDiaryId,
+			int limit) {
 		if (limit <= 0) {
 			return List.of();
 		}
-
 		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
 		if (friendUserIds == null || friendUserIds.isEmpty()) {
 			return diaryJpaRepository.findLatestPublicFeedCandidates(excludedUserId, cursorDate, cursorDiaryId, pageable);
@@ -196,12 +204,29 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, SaveDiaryPort, Lo
 	}
 
 	@Override
-	public Diary save(Diary diary) {
+	public long countAllCreated() {
+		return countAllCreatedDiaries();
+	}
+
+	@Override
+	public long countCreatedBefore(LocalDateTime cutoffExclusive) {
+		return countCreatedDiariesBefore(cutoffExclusive);
+	}
+
+	@Override
+	public List<LoadDiaryStatisticsPort.DailyCount> countCreatedByDate(LocalDate startDate, LocalDate endDate) {
+		return countCreatedDiariesByDate(startDate, endDate).stream()
+				.map(row -> new LoadDiaryStatisticsPort.DailyCount(row.date(), row.count()))
+				.toList();
+	}
+
+	@Override
+	public Diary record(Diary diary) {
 		return diaryJpaRepository.save(diary);
 	}
 
 	@Override
-	public Photo savePhoto(Photo photo) {
+	public Photo record(Photo photo) {
 		return photoJpaRepository.save(photo);
 	}
 

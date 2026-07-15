@@ -12,7 +12,6 @@ import com.pikume.back.diary.domain.PhotoOptimizationStatus;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 
@@ -34,23 +33,23 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 		Boolean getRepresent();
 	}
 
-	List<Photo> findByDiaryId(Long diaryId);
-
 	@Query("SELECT p FROM Photo p " +
 			"WHERE p.diary.id IN :diaryIds " +
+			"AND p.diary.deletedAt IS NULL " +
 			"ORDER BY p.diary.id ASC, p.represent DESC, p.photoOrder ASC")
 	List<Photo> findByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 
-	Optional<Photo> findFirstByDiaryIdAndRepresentIsTrue(Long diaryId);
-
 	@Query("SELECT p.diary.id AS diaryId, p.url AS url, p.optimizedUrl AS optimizedUrl " +
 			"FROM Photo p " +
-			"WHERE p.diary.id IN :diaryIds AND p.represent = true")
+			"WHERE p.diary.id IN :diaryIds " +
+			"AND p.represent = true " +
+			"AND p.diary.deletedAt IS NULL")
 	List<DiaryThumbnailProjection> findRepresentPhotoUrlsByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 
 	@Query("SELECT p.diary.id AS diaryId, p.url AS url, p.optimizedUrl AS optimizedUrl, p.represent AS represent " +
 			"FROM Photo p " +
 			"WHERE p.diary.id IN :diaryIds " +
+			"AND p.diary.deletedAt IS NULL " +
 			"ORDER BY p.diary.id ASC, p.represent DESC, p.photoOrder ASC")
 	List<DiaryPhotoRowProjection> findPhotoRowsByDiaryIds(@Param("diaryIds") Collection<Long> diaryIds);
 
@@ -59,6 +58,7 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 			"FROM Photo p " +
 			"WHERE p.optimizationStatus = :status " +
 			"AND p.optimizedUrl IS NULL " +
+			"AND p.diary.deletedAt IS NULL " +
 			"ORDER BY p.optimizationLastAttemptAt ASC, p.id ASC")
 	List<PhotoOptimizationTarget> findPendingPhotoOptimizationTargets(
 			@Param("status") PhotoOptimizationStatus status,
@@ -70,7 +70,8 @@ public interface PhotoJpaRepository extends JpaRepository<Photo, Integer> {
 			"p.optimizationLastAttemptAt = :attemptedAt " +
 			"WHERE p.id = :photoId " +
 			"AND p.optimizationStatus = :pendingStatus " +
-			"AND p.optimizedUrl IS NULL")
+			"AND p.optimizedUrl IS NULL " +
+			"AND p.diary.deletedAt IS NULL")
 	int claimPhotoOptimization(
 			@Param("photoId") Integer photoId,
 			@Param("pendingStatus") PhotoOptimizationStatus pendingStatus,

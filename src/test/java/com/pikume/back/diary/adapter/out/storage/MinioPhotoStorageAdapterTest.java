@@ -1,11 +1,9 @@
 package com.pikume.back.diary.adapter.out.storage;
 
-import com.pikume.back.diary.application.port.out.SaveDiaryPort;
 import com.pikume.back.diary.adapter.out.cache.ImageCacheProperties;
-import com.pikume.back.diary.domain.Diary;
+import com.pikume.back.diary.application.dto.DiaryPhotoUpload;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.storage.StorageProperties;
 import com.pikume.back.global.util.FileUtil;
 import org.junit.jupiter.api.DisplayName;
@@ -24,10 +22,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.core.ResponseBytes;
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,9 +49,6 @@ class MinioPhotoStorageAdapterTest {
 
 	@Mock
 	private PhotoUtil photoUtil;
-
-	@Mock
-	private SaveDiaryPort saveDiaryPort;
 
 	@Mock
 	private FileUtil fileUtil;
@@ -160,9 +153,10 @@ class MinioPhotoStorageAdapterTest {
 		MinioPhotoStorageAdapter adapter = adapterWith(
 				"http://minio:9000",
 				"https://assets.example.com");
-		UploadedFileData webp = new UploadedFileData("photo.webp", "image/webp", "webp".getBytes(StandardCharsets.UTF_8));
+		byte[] webp = "webp".getBytes(StandardCharsets.UTF_8);
 
 		String storedKey = adapter.storeObject(
+				"image/webp",
 				webp,
 				"public/diary-images/user/ab/cd/photo.webp",
 				null);
@@ -176,44 +170,38 @@ class MinioPhotoStorageAdapterTest {
 
 	@Test
 	@DisplayName("공개 일기 사용자 이미지는 대표 여부와 무관하게 public sharded key로 저장한다")
-	void savesPublicDiaryUserPhotoUnderPublicShard() throws IOException {
+	void savesPublicDiaryUserPhotoUnderPublicShard() {
 		MinioPhotoStorageAdapter adapter = adapterWith(
 				"http://minio:9000",
 				"https://assets.example.com");
-		Diary diary = new Diary("내용", DiaryVisibility.PUBLIC, LocalDate.now(), "user-1");
-		UploadedFileData image = new UploadedFileData("photo.png", "image/png", "image".getBytes(StandardCharsets.UTF_8));
+		DiaryPhotoUpload image = new DiaryPhotoUpload("photo.png", "image/png", "image".getBytes(StandardCharsets.UTF_8));
 		String objectKey = "public/diary-images/user/ab/cd/photo.png";
 		given(photoUtil.generateDiaryUserImageObjectKey(true, "photo.png")).willReturn(objectKey);
 
-		adapter.savePhoto(diary, image, "user-1", 1);
+		String storedKey = adapter.store(image, DiaryVisibility.PUBLIC);
 
 		then(s3Client).should().putObject(
 				putObjectWithKeyAndCacheControl(objectKey, "image/png", PUBLIC_CACHE_CONTROL),
 				any(software.amazon.awssdk.core.sync.RequestBody.class));
-		then(saveDiaryPort).should().savePhoto(argThat(photo -> objectKey.equals(photo.getUrl())
-				&& !Boolean.TRUE.equals(photo.getRepresent())
-				&& photo.getSourceType() == DiaryPhotoType.USER_IMAGE));
+		assertThat(storedKey).isEqualTo(objectKey);
 	}
 
 	@Test
 	@DisplayName("비공개 일기 대표 이미지는 private sharded key로 저장한다")
-	void savesPrivateDiaryRepresentPhotoUnderPrivateShard() throws IOException {
+	void savesPrivateDiaryRepresentPhotoUnderPrivateShard() {
 		MinioPhotoStorageAdapter adapter = adapterWith(
 				"http://minio:9000",
 				"https://assets.example.com");
-		Diary diary = new Diary("내용", DiaryVisibility.PRIVATE, LocalDate.now(), "user-1");
-		UploadedFileData image = new UploadedFileData("photo.png", "image/png", "image".getBytes(StandardCharsets.UTF_8));
+		DiaryPhotoUpload image = new DiaryPhotoUpload("photo.png", "image/png", "image".getBytes(StandardCharsets.UTF_8));
 		String objectKey = "private/diary-images/user/ab/cd/photo.png";
 		given(photoUtil.generateDiaryUserImageObjectKey(false, "photo.png")).willReturn(objectKey);
 
-		adapter.savePhoto(diary, image, "user-1", 0);
+		String storedKey = adapter.store(image, DiaryVisibility.PRIVATE);
 
 		then(s3Client).should().putObject(
 				putObjectWithKeyAndCacheControl(objectKey, "image/png", PRIVATE_CACHE_CONTROL),
 				any(software.amazon.awssdk.core.sync.RequestBody.class));
-		then(saveDiaryPort).should().savePhoto(argThat(photo -> objectKey.equals(photo.getUrl())
-				&& Boolean.TRUE.equals(photo.getRepresent())
-				&& photo.getSourceType() == DiaryPhotoType.USER_IMAGE));
+		assertThat(storedKey).isEqualTo(objectKey);
 	}
 
 	@Test
@@ -228,7 +216,7 @@ class MinioPhotoStorageAdapterTest {
 		given(fileUtil.getContentType("png")).willReturn("image/png");
 		given(photoUtil.generateDiaryAiImageObjectKey("png")).willReturn(objectKey);
 
-		String result = adapter.saveAIPhoto("base64", "user-1", "png");
+		String result = adapter.saveGeneratedImage("base64", "user-1", "png");
 
 		assertThat(result).isEqualTo(objectKey);
 		then(s3Client).should().putObject(
@@ -262,6 +250,34 @@ class MinioPhotoStorageAdapterTest {
 				PUBLIC_CACHE_CONTROL,
 				"image/png"));
 		then(s3Client).should().deleteObject(deleteObjectWithKey("private/ai.png"));
+	}
+
+	@Test
+	@DisplayName("일기 연결용 AI 이미지는 public 경로로 복사하되 commit 전 원본을 유지한다")
+	void copiesGeneratedImageToPublicWithoutDeletingSource() {
+		MinioPhotoStorageAdapter adapter = adapterWith(
+				"http://minio:9000",
+				"https://assets.example.com");
+		HeadObjectResponse headObjectResponse = HeadObjectResponse.builder()
+				.contentType("image/png")
+				.build();
+
+		given(photoUtil.publicObjectKeyFor("private/ai.png")).willReturn("public/ai.png");
+		given(s3Client.headObject(headObjectWithKey("public/ai.png")))
+				.willThrow(S3Exception.builder().statusCode(404).message("Not Found").build())
+				.willReturn(headObjectResponse);
+		given(s3Client.headObject(headObjectWithKey("private/ai.png")))
+				.willReturn(headObjectResponse);
+
+		String copiedKey = adapter.copyGeneratedImageToPublic("private/ai.png");
+
+		assertThat(copiedKey).isEqualTo("public/ai.png");
+		then(s3Client).should().copyObject(copyObjectFromToWithCacheControl(
+				"private/ai.png",
+				"public/ai.png",
+				PUBLIC_CACHE_CONTROL,
+				"image/png"));
+		then(s3Client).should(never()).deleteObject(any(DeleteObjectRequest.class));
 	}
 
 	@Test
@@ -370,7 +386,7 @@ class MinioPhotoStorageAdapterTest {
 				ACCESS_KEY,
 				SECRET_KEY,
 				BUCKET);
-		return new MinioPhotoStorageAdapter(s3Client, photoUtil, saveDiaryPort, properties, new ImageCacheProperties(), fileUtil);
+		return new MinioPhotoStorageAdapter(s3Client, photoUtil, properties, new ImageCacheProperties(), fileUtil);
 	}
 
 	private HeadObjectRequest headObjectWithKey(String key) {

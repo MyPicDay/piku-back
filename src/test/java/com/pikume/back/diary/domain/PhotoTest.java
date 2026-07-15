@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("Photo")
 class PhotoTest {
@@ -55,6 +56,25 @@ class PhotoTest {
 
 		assertThat(photo.getOptimizationStatus()).isEqualTo(PhotoOptimizationStatus.SKIPPED);
 		assertThat(photo.getOptimizedUrl()).isNull();
+	}
+
+	@Test
+	@DisplayName("삭제된 일기의 사진은 최적화 대상이 아니다")
+	void deletedDiaryPhotoIsNotOptimizationCandidate() {
+		Diary diary = diary();
+		Photo photo = new Photo(diary, "user-1/photo.png", 0);
+		diary.delete();
+
+		assertThat(photo.isOptimizationCandidate()).isFalse();
+	}
+
+	@Test
+	@DisplayName("사진은 부모 일기와 object key 없이 생성할 수 없다")
+	void rejectsMissingDiaryOrObjectKey() {
+		assertThatThrownBy(() -> new Photo(null, "user-1/photo.png", 0))
+				.isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new Photo(diary(), " ", 0))
+				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	private Diary diary() {

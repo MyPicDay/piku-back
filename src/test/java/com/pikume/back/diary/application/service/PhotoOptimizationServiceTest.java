@@ -2,16 +2,14 @@ package com.pikume.back.diary.application.service;
 
 import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
 import com.pikume.back.diary.application.port.out.LoadPhotoOptimizationPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryPhotoObjectPort;
 import com.pikume.back.diary.application.port.out.SavePhotoOptimizationPort;
+import com.pikume.back.diary.application.port.out.StoreOptimizedDiaryPhotoPort;
 import com.pikume.back.diary.application.port.out.WebpImageConversionPort;
 import com.pikume.back.diary.domain.PhotoOptimizationStatus;
-import com.pikume.back.global.dto.UploadedFileData;
-import com.pikume.back.global.port.out.LoadObjectPort;
-import com.pikume.back.global.port.out.StoreObjectPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -34,9 +32,9 @@ class PhotoOptimizationServiceTest {
 	@Mock
 	private SavePhotoOptimizationPort savePhotoOptimizationPort;
 	@Mock
-	private LoadObjectPort loadObjectPort;
+	private LoadDiaryPhotoObjectPort loadObjectPort;
 	@Mock
-	private StoreObjectPort storeObjectPort;
+	private StoreOptimizedDiaryPhotoPort storeObjectPort;
 	@Mock
 	private WebpImageConversionPort webpImageConversionPort;
 
@@ -51,20 +49,13 @@ class PhotoOptimizationServiceTest {
 				.willReturn(List.of(new PhotoOptimizationTarget(1, 11L, "public/user-1/photo.png", 0)));
 		given(savePhotoOptimizationPort.claimPhotoOptimization(eq(1), any(LocalDateTime.class)))
 				.willReturn(true);
-		given(loadObjectPort.loadObject("public/user-1/photo.png")).willReturn(originalBytes);
+		given(loadObjectPort.load("public/user-1/photo.png")).willReturn(originalBytes);
 		given(webpImageConversionPort.convertToWebp(originalBytes, 0.82f)).willReturn(webpBytes);
-		given(storeObjectPort.storeObject(any(UploadedFileData.class), eq("public/user-1/photo.webp")))
-				.willReturn("public/user-1/photo.webp");
 
 		int optimizedCount = service.optimizePendingPhotos();
 
 		assertThat(optimizedCount).isEqualTo(1);
-		ArgumentCaptor<UploadedFileData> storedFile = ArgumentCaptor.forClass(UploadedFileData.class);
-		then(storeObjectPort).should().storeObject(storedFile.capture(), eq("public/user-1/photo.webp"));
-		then(storeObjectPort).should(never())
-				.storeObject(any(UploadedFileData.class), eq("public/user-1/photo.webp"), any());
-		assertThat(storedFile.getValue().contentType()).isEqualTo("image/webp");
-		assertThat(storedFile.getValue().bytes()).isEqualTo(webpBytes);
+		then(storeObjectPort).should().store("public/user-1/photo.webp", "image/webp", webpBytes);
 		then(savePhotoOptimizationPort).should()
 				.markPhotoOptimizationSucceeded(eq(1), eq("public/user-1/photo.webp"), any(LocalDateTime.class));
 	}
@@ -93,7 +84,7 @@ class PhotoOptimizationServiceTest {
 				.willReturn(List.of(new PhotoOptimizationTarget(1, 11L, "user-1/photo.png", 1)));
 		given(savePhotoOptimizationPort.claimPhotoOptimization(eq(1), any(LocalDateTime.class)))
 				.willReturn(true);
-		given(loadObjectPort.loadObject("user-1/photo.png")).willReturn("png".getBytes());
+		given(loadObjectPort.load("user-1/photo.png")).willReturn("png".getBytes());
 		given(webpImageConversionPort.convertToWebp(any(), eq(0.82f))).willThrow(new RuntimeException("convert failed"));
 
 		int optimizedCount = service.optimizePendingPhotos();
@@ -113,7 +104,7 @@ class PhotoOptimizationServiceTest {
 				.willReturn(List.of(new PhotoOptimizationTarget(1, 11L, "user-1/photo.png", 2)));
 		given(savePhotoOptimizationPort.claimPhotoOptimization(eq(1), any(LocalDateTime.class)))
 				.willReturn(true);
-		given(loadObjectPort.loadObject("user-1/photo.png")).willReturn("png".getBytes());
+		given(loadObjectPort.load("user-1/photo.png")).willReturn("png".getBytes());
 		given(webpImageConversionPort.convertToWebp(any(), eq(0.82f))).willThrow(new RuntimeException("convert failed"));
 
 		service.optimizePendingPhotos();

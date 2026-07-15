@@ -37,7 +37,7 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			LocalDate end);
 
 	@Query("SELECT new com.pikume.back.diary.application.dto.DiaryGalleryRow(" +
-			"d.id, cover.url, d.date, COUNT(p.id), d.status) " +
+			"d.id, COALESCE(cover.optimizedUrl, cover.url), d.date, COUNT(p.id), d.status) " +
 			"FROM Diary d " +
 			"JOIN Photo cover ON cover.diary = d AND cover.represent = true " +
 			"JOIN Photo p ON p.diary = d " +
@@ -47,7 +47,7 @@ public interface DiaryJpaRepository extends JpaRepository<Diary, Long> {
 			"AND (:cursorDate IS NULL " +
 			"OR d.date < :cursorDate " +
 			"OR (d.date = :cursorDate AND d.id < :cursorDiaryId)) " +
-			"GROUP BY d.id, cover.url, d.date, d.status " +
+			"GROUP BY d.id, cover.optimizedUrl, cover.url, d.date, d.status " +
 			"ORDER BY d.date DESC, d.id DESC")
 	List<DiaryGalleryRow> findGalleryRowsByUserIdAndStatuses(
 			@Param("userId") String userId,
