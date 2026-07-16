@@ -33,6 +33,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.BDDMockito.given;
@@ -101,10 +102,13 @@ class DiaryCreationServiceTest {
 		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC,
 				List.of(new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 0, 10L, null)));
 		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
-		given(generatedImagePort.isGeneratedImageOwnedByUser(10L, USER_ID)).willReturn(true);
+		given(generatedImagePort.isGeneratedImageAvailableForDiary(10L, USER_ID)).willReturn(true);
 		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
 		given(generatedImagePort.loadGeneratedImagePath(10L)).willReturn("private/ai.png");
-		given(relocateDiaryPhotoPort.copyGeneratedImageToPublic("private/ai.png"))
+		given(relocateDiaryPhotoPort.copyToVisibilityScope(
+				"private/ai.png",
+				DiaryVisibility.PUBLIC,
+				DiaryPhotoType.AI_IMAGE))
 				.willReturn("public/ai.png");
 		willAnswer(invocation -> {
 			((Runnable) invocation.getArgument(1)).run();
@@ -116,6 +120,31 @@ class DiaryCreationServiceTest {
 		then(generatedImagePort).should().updateGeneratedImagePath(10L, "public/ai.png");
 		then(relocateDiaryPhotoPort).should().delete("public/ai.png");
 		then(relocateDiaryPhotoPort).should(never()).delete("private/ai.png");
+	}
+
+	@Test
+	@DisplayName("비공개 일기에 공개 AI 사진을 연결하면 private 저장소 범위로 이동한다")
+	void relocatesPublicGeneratedImageToPrivateScope() {
+		CreateDiaryCommand command = command(DiaryVisibility.PRIVATE,
+				List.of(new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 0, 10L, null)));
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+		given(generatedImagePort.isGeneratedImageAvailableForDiary(10L, USER_ID)).willReturn(true);
+		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(generatedImagePort.loadGeneratedImagePath(10L)).willReturn("public/ai.png");
+		given(relocateDiaryPhotoPort.copyToVisibilityScope(
+				"public/ai.png",
+				DiaryVisibility.PRIVATE,
+				DiaryPhotoType.AI_IMAGE))
+				.willReturn("private/ai.png");
+
+		service.createDiary(command, List.of(), USER_ID);
+
+		then(relocateDiaryPhotoPort).should().copyToVisibilityScope(
+				"public/ai.png",
+				DiaryVisibility.PRIVATE,
+				DiaryPhotoType.AI_IMAGE);
+		then(generatedImagePort).should().updateGeneratedImagePath(10L, "private/ai.png");
+		then(recordDiaryPhotoPort).should().record(argThat(photo -> "private/ai.png".equals(photo.getUrl())));
 	}
 
 	@Test
@@ -156,6 +185,22 @@ class DiaryCreationServiceTest {
 		assertThatThrownBy(() -> service.createDiary(command, uploads, USER_ID))
 				.isInstanceOf(com.pikume.back.diary.application.exception.DiaryInvalidRequestException.class)
 				.hasMessageContaining("인덱스");
+
+		then(recordDiaryPort).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("같은 AI 사진 ID를 두 번 참조하면 생성하지 않는다")
+	void rejectsDuplicateAiPhotoIds() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of(
+				new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 0, 10L, null),
+				new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 1, 10L, null)));
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+		given(generatedImagePort.isGeneratedImageAvailableForDiary(10L, USER_ID)).willReturn(true);
+
+		assertThatThrownBy(() -> service.createDiary(command, List.of(), USER_ID))
+				.isInstanceOf(com.pikume.back.diary.application.exception.DiaryInvalidRequestException.class)
+				.hasMessageContaining("중복");
 
 		then(recordDiaryPort).shouldHaveNoInteractions();
 	}

@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-15
+- Last Reviewed: 2026-07-16
 
 ## 도메인 개요
 
@@ -43,14 +43,15 @@ Diary 도메인은 **감정 일기 기록과 시각적 회고**를 담당한다.
 - Diary는 Admin에 생성 건수와 기간별 집계만 공개한다.
 - 현재 Admin의 기존 집계 호출을 깨지 않기 위해 `LoadDiaryPort`에는 생성 통계 전용 호환 계약만 남아 있다. Admin이 공개 In Port로 전환되면 이 호환 계약을 제거한다.
 - Creative는 이미지 생성 과정, 생성 이력과 일기에 연결되기 전 임시 생성 자산을 소유한다. Diary는 일기에 연결된 사진 순서, 대표 여부, 공개 범위와 표시 object key를 소유한다.
+- 일기에 연결할 생성 이미지는 요청한 사용자의 소유이며, 폐기되지 않았고, 다른 일기에 연결되지 않은 상태여야 한다. 하나의 일기 생성 요청에서 같은 생성 이미지 ID를 중복 사용할 수 없다.
 - 친구 관계, 생성 이미지, 본문 분석과 알림은 Diary가 소유한 목적별 Out Port로 요청하며 대상 Context의 Domain 타입을 Diary Application 계약에 노출하지 않는다.
 
 ### 트랜잭션과 후속 작업
 
 - 일기와 사진 메타데이터 저장은 Diary의 핵심 트랜잭션 결과다.
-- 본문 분석과 알림 전달은 저장 성공 이후 실행하는 후속 작업이다. 후속 작업 실패는 이미 성공한 일기 생성·수정·삭제를 되돌리지 않는다.
+- 본문 분석과 알림 전달은 저장 성공 이후 독립된 새 트랜잭션에서 실행하는 후속 작업이다. 후속 작업 실패는 이미 성공한 일기 생성·수정·삭제를 되돌리지 않는다.
 - 공개 범위 변경 중 object storage 복사와 DB 참조 변경은 하나의 원자적 저장소 트랜잭션이 아니다. 복사 실패와 DB rollback 때는 새 object를 정리하고, commit 후 이전 object 삭제 실패는 사용자 요청을 실패시키지 않고 운영 정리 대상으로 기록한다.
-- 공개 또는 익명 일기에 AI 임시 이미지를 연결할 때는 public object를 먼저 복사하되 private 원본은 DB commit까지 유지한다. commit 성공 후 private 원본을 정리하고 rollback이면 새 public object를 정리한다.
+- AI 임시 이미지를 일기에 연결할 때는 일기의 공개 범위에 맞는 object scope로 먼저 복사한다. 공개·익명 일기는 public scope를, 친구·비공개 일기는 private scope를 사용하며, 원본은 DB commit까지 유지한다. commit 성공 후 원본을 정리하고 rollback이면 새 object를 정리한다.
 
 ---
 

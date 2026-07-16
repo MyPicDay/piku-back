@@ -16,7 +16,7 @@ public interface DiaryImageGenerationJpaRepository extends JpaRepository<DiaryIm
 		Long getMetricCount();
 	}
 
-	boolean existsByIdAndUserId(Long id, String userId);
+	boolean existsByIdAndUserIdAndDiaryIdIsNullAndDeletedAtIsNull(Long id, String userId);
 
 	@Query(value = """
 			SELECT CAST(created_at AS DATE) AS metricDate, COUNT(*) AS metricCount

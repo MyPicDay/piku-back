@@ -262,14 +262,18 @@ class MinioPhotoStorageAdapterTest {
 				.contentType("image/png")
 				.build();
 
-		given(photoUtil.publicObjectKeyFor("private/ai.png")).willReturn("public/ai.png");
+		given(photoUtil.visibilityObjectKeyFor("private/ai.png", true, DiaryPhotoType.AI_IMAGE))
+				.willReturn("public/ai.png");
 		given(s3Client.headObject(headObjectWithKey("public/ai.png")))
 				.willThrow(S3Exception.builder().statusCode(404).message("Not Found").build())
 				.willReturn(headObjectResponse);
 		given(s3Client.headObject(headObjectWithKey("private/ai.png")))
 				.willReturn(headObjectResponse);
 
-		String copiedKey = adapter.copyGeneratedImageToPublic("private/ai.png");
+		String copiedKey = adapter.copyToVisibilityScope(
+				"private/ai.png",
+				DiaryVisibility.PUBLIC,
+				DiaryPhotoType.AI_IMAGE);
 
 		assertThat(copiedKey).isEqualTo("public/ai.png");
 		then(s3Client).should().copyObject(copyObjectFromToWithCacheControl(

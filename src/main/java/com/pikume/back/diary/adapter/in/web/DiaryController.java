@@ -20,6 +20,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Tag(name = "Diary", description = "일기 관련 API")
@@ -39,7 +41,7 @@ public class DiaryController {
 	public ResponseEntity<ResponseDiaryDTO> createDiary(
 			@Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class)) @Valid @RequestPart("diary") DiaryDTO diary,
 			@RequestPart(value = "photos", required = false) List<MultipartFile> photos,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
 		log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
 		DiaryCreatedResult result = createDiaryUseCase.createDiary(
 				toCreateDiaryCommand(diary),
@@ -156,20 +158,18 @@ public class DiaryController {
 		return new UpdateDiaryCommand(request.getStatus(), request.getContent());
 	}
 
-	private List<DiaryPhotoUpload> toUploadedFiles(List<MultipartFile> photos) {
+	private List<DiaryPhotoUpload> toUploadedFiles(List<MultipartFile> photos) throws IOException {
 		if (photos == null) {
 			return List.of();
 		}
-		return photos.stream()
-				.map(this::toUploadedFile)
-				.toList();
+		List<DiaryPhotoUpload> uploads = new ArrayList<>(photos.size());
+		for (MultipartFile photo : photos) {
+			uploads.add(toUploadedFile(photo));
+		}
+		return List.copyOf(uploads);
 	}
 
-	private DiaryPhotoUpload toUploadedFile(MultipartFile file) {
-		try {
-			return new DiaryPhotoUpload(file.getOriginalFilename(), file.getContentType(), file.getBytes());
-		} catch (java.io.IOException e) {
-			throw new java.io.UncheckedIOException("일기 이미지 파일을 읽는 중 오류가 발생했습니다.", e);
-		}
+	private DiaryPhotoUpload toUploadedFile(MultipartFile file) throws IOException {
+		return new DiaryPhotoUpload(file.getOriginalFilename(), file.getContentType(), file.getBytes());
 	}
 }

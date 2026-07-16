@@ -1,5 +1,6 @@
 package com.pikume.back.diary.adapter.in.web;
 
+import com.pikume.back.diary.adapter.in.web.dto.DiaryDTO;
 import com.pikume.back.diary.application.dto.DiaryGalleryItemView;
 import com.pikume.back.diary.application.dto.DiaryGalleryPage;
 import com.pikume.back.diary.application.dto.DiaryUpdatedResult;
@@ -27,13 +28,17 @@ import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -96,6 +101,26 @@ class DiaryControllerTest {
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("요청 본문을 해석할 수 없습니다."))
 				.andExpect(jsonPath("$.instance").value("/api/diary"));
+	}
+
+	@Test
+	@DisplayName("POST /api/diary는 사진 읽기 IOException을 전역 예외 처리기로 전달한다")
+	void createDiaryPropagatesPhotoReadIOException() throws Exception {
+		DiaryDTO diary = mock(DiaryDTO.class);
+		given(diary.getStatus()).willReturn(DiaryVisibility.PRIVATE);
+		given(diary.getContent()).willReturn("content");
+		given(diary.getDate()).willReturn(LocalDate.now());
+		given(diary.getImageInfos()).willReturn(List.of());
+		MultipartFile unreadablePhoto = mock(MultipartFile.class);
+		given(unreadablePhoto.getBytes()).willThrow(new IOException("read failed"));
+
+		assertThatThrownBy(() -> diaryController.createDiary(
+				diary,
+				List.of(unreadablePhoto),
+				new CustomUserDetails("user1", "pikume")))
+				.isInstanceOf(IOException.class);
+
+		then(createDiaryUseCase).shouldHaveNoInteractions();
 	}
 
 	@Test

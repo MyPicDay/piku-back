@@ -97,14 +97,20 @@ public class DiaryCreationService implements CreateDiaryUseCase {
 		List<DiaryImageCommand> commands = imageCommands == null ? List.of() : imageCommands;
 		Set<Integer> orders = new HashSet<>();
 		Set<Integer> userPhotoIndexes = new HashSet<>();
+		Set<Long> aiPhotoIds = new HashSet<>();
 		for (DiaryImageCommand image : commands) {
 			if (image == null || image.type() == null || image.order() == null
 					|| image.order() < 0 || !orders.add(image.order())) {
 				throw new DiaryInvalidRequestException("이미지 정보 또는 순서가 올바르지 않습니다.");
 			}
 			if (image.type() == DiaryPhotoType.AI_IMAGE) {
-				if (image.aiPhotoId() == null || image.aiPhotoId() <= 0
-						|| !generatedImagePort.isGeneratedImageOwnedByUser(image.aiPhotoId(), userId)) {
+				if (image.aiPhotoId() == null || image.aiPhotoId() <= 0) {
+					throw new DiaryInvalidRequestException("유효하지 않은 AI 사진 ID: " + image.aiPhotoId());
+				}
+				if (!aiPhotoIds.add(image.aiPhotoId())) {
+					throw new DiaryInvalidRequestException("중복된 AI 사진 ID: " + image.aiPhotoId());
+				}
+				if (!generatedImagePort.isGeneratedImageAvailableForDiary(image.aiPhotoId(), userId)) {
 					throw new DiaryInvalidRequestException("유효하지 않은 AI 사진 ID: " + image.aiPhotoId());
 				}
 			} else {
@@ -167,13 +173,13 @@ public class DiaryCreationService implements CreateDiaryUseCase {
 			List<String> newObjectKeys,
 			List<String> oldObjectKeys) {
 		String sourceObjectKey = generatedImagePort.loadGeneratedImagePath(image.aiPhotoId());
-		String objectKey = sourceObjectKey;
-		if (diary.getStatus().isPublicStorageScope()) {
-			objectKey = relocateDiaryPhotoPort.copyGeneratedImageToPublic(sourceObjectKey);
-			if (!Objects.equals(sourceObjectKey, objectKey)) {
-				newObjectKeys.add(objectKey);
-				oldObjectKeys.add(sourceObjectKey);
-			}
+		String objectKey = relocateDiaryPhotoPort.copyToVisibilityScope(
+				sourceObjectKey,
+				diary.getStatus(),
+				DiaryPhotoType.AI_IMAGE);
+		if (!Objects.equals(sourceObjectKey, objectKey)) {
+			newObjectKeys.add(objectKey);
+			oldObjectKeys.add(sourceObjectKey);
 			generatedImagePort.updateGeneratedImagePath(image.aiPhotoId(), objectKey);
 		}
 		recordPhoto(diary, objectKey, image.order(), DiaryPhotoType.AI_IMAGE);

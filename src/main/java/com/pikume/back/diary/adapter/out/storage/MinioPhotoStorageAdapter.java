@@ -284,11 +284,6 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 	}
 
 	@Override
-	public String copyGeneratedImageToPublic(String sourceObjectKey) {
-		return copyObject(sourceObjectKey, photoUtil.publicObjectKeyFor(sourceObjectKey), false);
-	}
-
-	@Override
 	public String copyToVisibilityScope(String sourceKey, DiaryVisibility visibility, DiaryPhotoType sourceType) {
 		String targetKey = photoUtil.visibilityObjectKeyFor(sourceKey, isPublicDiary(visibility), sourceType);
 		return copyObject(sourceKey, targetKey, false);
