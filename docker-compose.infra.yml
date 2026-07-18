@@ -30,6 +30,8 @@ services:
   minio-provision:
     image: minio/mc:latest
     container_name: piku-minio-provision
+    profiles:
+      - provision
     depends_on:
       minio:
         condition: service_healthy

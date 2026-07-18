@@ -55,6 +55,21 @@ assert_no_profiles() {
   fi
 }
 
+assert_profile_set() {
+  label=$1
+  expected_profiles=$2
+  shift 2
+
+  actual=$(compose_config --profiles "$@" | normalize_lines)
+  expected=$(printf '%s\n' $expected_profiles | normalize_lines)
+
+  if [ "$actual" != "$expected" ]; then
+    printf '%s profiles mismatch\nexpected: %s\nactual:   %s\n' \
+      "$label" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
 assert_db_port() {
   label=$1
   db_port=$2
@@ -89,9 +104,14 @@ validate_core() {
   # shellcheck disable=SC2086
   compose_config --quiet $dev_files
   # shellcheck disable=SC2086
-  assert_service_set "dev + infra" "app db minio minio-provision redis" $dev_files
+  assert_service_set "dev + infra" "app db minio redis" $dev_files
   # shellcheck disable=SC2086
-  assert_no_profiles "dev + infra" $dev_files
+  assert_service_set \
+    "dev + infra provision" \
+    "app db minio minio-provision redis" \
+    --profile provision $dev_files
+  # shellcheck disable=SC2086
+  assert_profile_set "dev + infra" "provision" $dev_files
   # shellcheck disable=SC2086
   assert_db_port "dev default DB port" "" "9915" "db" $dev_files
   # shellcheck disable=SC2086
@@ -100,9 +120,14 @@ validate_core() {
   # shellcheck disable=SC2086
   compose_config --quiet $prod_files
   # shellcheck disable=SC2086
-  assert_service_set "prod + infra" "app minio minio-provision prod-db redis" $prod_files
+  assert_service_set "prod + infra" "app minio prod-db redis" $prod_files
   # shellcheck disable=SC2086
-  assert_no_profiles "prod + infra" $prod_files
+  assert_service_set \
+    "prod + infra provision" \
+    "app minio minio-provision prod-db redis" \
+    --profile provision $prod_files
+  # shellcheck disable=SC2086
+  assert_profile_set "prod + infra" "provision" $prod_files
   # shellcheck disable=SC2086
   assert_db_port "prod default DB port" "" "9914" "prod-db" $prod_files
   # shellcheck disable=SC2086
@@ -166,6 +191,7 @@ assert_compose_runner_command() {
   : > "$compose_runner_output"
   PATH="$compose_runner_bin_dir:$PATH" \
     COMPOSE_RUNNER_OUTPUT="$compose_runner_output" \
+    COMPOSE_RUNNER_MINIO_ID="${compose_runner_minio_id:-}" \
     scripts/compose.sh "$@"
 
   actual=$(cat "$compose_runner_output")
@@ -205,14 +231,33 @@ validate_compose_runner() {
 
   cat > "$compose_runner_bin_dir/docker" <<'EOF'
 #!/bin/sh
-printf '%s\n' "$*" > "$COMPOSE_RUNNER_OUTPUT"
+printf '%s\n' "$*" >> "$COMPOSE_RUNNER_OUTPUT"
+
+case "$*" in
+  *" ps -a -q minio")
+    if [ -n "${COMPOSE_RUNNER_MINIO_ID:-}" ]; then
+      printf '%s\n' "$COMPOSE_RUNNER_MINIO_ID"
+    fi
+    ;;
+esac
 EOF
   chmod +x "$compose_runner_bin_dir/docker"
 
+  compose_runner_minio_id=
   assert_compose_runner_command \
-    "dev up" \
-    "compose -f docker-compose.dev.yml -f docker-compose.infra.yml up -d --build" \
+    "dev first up" \
+    "compose -f docker-compose.dev.yml -f docker-compose.infra.yml ps -a -q minio
+compose -f docker-compose.dev.yml -f docker-compose.infra.yml up -d minio
+compose -f docker-compose.dev.yml -f docker-compose.infra.yml --profile provision run --rm -T --interactive=false minio-provision
+compose -f docker-compose.dev.yml -f docker-compose.infra.yml up -d --build" \
     dev up
+  compose_runner_minio_id=piku-minio
+  assert_compose_runner_command \
+    "prod subsequent up" \
+    "compose -f docker-compose.prod.yml -f docker-compose.infra.yml ps -a -q minio
+compose -f docker-compose.prod.yml -f docker-compose.infra.yml up -d --build" \
+    prod up
+  compose_runner_minio_id=
   assert_compose_runner_command \
     "prod down" \
     "compose -f docker-compose.prod.yml -f docker-compose.infra.yml down" \

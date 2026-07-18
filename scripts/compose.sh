@@ -32,19 +32,19 @@ esac
 run_compose() {
   case "$environment" in
     dev)
-      exec docker compose \
+      docker compose \
         -f docker-compose.dev.yml \
         -f docker-compose.infra.yml \
         "$@"
       ;;
     prod)
-      exec docker compose \
+      docker compose \
         -f docker-compose.prod.yml \
         -f docker-compose.infra.yml \
         "$@"
       ;;
     monitor)
-      exec docker compose \
+      docker compose \
         -f docker-compose.monitor.yml \
         "$@"
       ;;
@@ -56,6 +56,13 @@ case "$action" in
     if [ "$environment" = "monitor" ]; then
       run_compose up -d "$@"
     else
+      minio_container_id=$(run_compose ps -a -q minio)
+      if [ -z "$minio_container_id" ]; then
+        run_compose up -d minio
+        run_compose \
+          --profile provision \
+          run --rm -T --interactive=false minio-provision
+      fi
       run_compose up -d --build "$@"
     fi
     ;;
