@@ -1,0 +1,46 @@
+services:
+  app:
+    container_name: piku-prod-app
+    depends_on:
+      - prod-db
+      - redis
+      - minio
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      PROFILE: prod
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      PROD_DB_URL: jdbc:mysql://prod-db:3306/piku_prod
+      REDIS_URL: redis://redis:6379
+      SERVER_TO_S3_URL: http://minio:9000
+      CLIENT_TO_S3_URL: ${CLIENT_TO_S3_URL:-http://localhost:9000}
+      GOOGLE_APPLICATION_CREDENTIALS: /app/firebase-credentials.json
+    ports:
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+    volumes:
+      - ./logs:/app/logs
+      - ./${GOOGLE_APPLICATION_CREDENTIALS}:/app/firebase-credentials.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${SERVER_PORT:-8080}/actuator || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  prod-db:
+    image: mysql:8.0
+    container_name: piku-prod-mysql
+    ports:
+      - "9914:3306"
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${PROD_DB_PASSWORD:-1234}
+      MYSQL_DATABASE: piku_prod
+    volumes:
+      - piku-data:/var/lib/mysql
+
+volumes:
+  piku-data:

@@ -39,51 +39,104 @@ Pikume 프로젝트의 백엔드 저장소입니다.
     - `DEV_DB_PASSWORD`: 개발 환경 데이터베이스의 비밀번호를 입력합니다.
     - `JWT_KEY`: JWT 서명에 사용할 시크릿 키를 입력합니다.
 
-3.  **Docker Compose를 사용하여 애플리케이션을 실행합니다.**
+3.  **Docker Compose를 사용하여 개발 환경을 실행합니다.**
 
-    다음 명령어를 실행하여 `dev` 프로필로 서비스를 시작합니다.
+    개발 애플리케이션과 데이터베이스는 Redis, MinIO 인프라 구성과 함께 실행합니다.
 
     ```bash
-    docker compose --profile dev up -d
+    docker compose \
+      -f docker-compose.dev.yml \
+      -f docker-compose.infra.yml \
+      up -d --build
     ```
 
-    **참고:** `docker-compose.yml` 설정에 따라 위 명령어는 **개발용 데이터베이스(`db`) 서비스만 실행**합니다. 웹 서버를 포함한 전체 개발 환경을 실행하려면 다른 프로필(`dev-server`)을 사용해야 할 수 있습니다.
+    코드 변경 후 데이터베이스와 인프라는 유지하고 애플리케이션만 다시 빌드하려면 다음 명령어를 실행합니다.
 
     ```bash
-    docker compose --profile dev-server up -d
+    docker compose \
+      -f docker-compose.dev.yml \
+      -f docker-compose.infra.yml \
+      up -d --build --no-deps app
+    ```
+
+    개발 환경을 종료할 때는 다음 명령어를 실행합니다.
+
+    ```bash
+    docker compose \
+      -f docker-compose.dev.yml \
+      -f docker-compose.infra.yml \
+      down
     ```
 
 ### 운영용 앱 실행
 
-운영용 애플리케이션 컨테이너는 루트 `.env` 파일을 기준으로 환경변수를 주입받아 `prod` 프로필로 실행됩니다.
+운영용 애플리케이션 컨테이너는 루트 `.env` 파일을 기준으로 환경변수를 주입받고 Redis, MinIO 인프라 구성과 함께 실행됩니다.
 
-1. **운영용 앱 이미지를 빌드합니다.**
+1. **운영 환경을 빌드하고 실행합니다.**
 
     ```bash
-    docker compose --profile prod build app
+    docker compose \
+      -f docker-compose.prod.yml \
+      -f docker-compose.infra.yml \
+      up -d --build
     ```
 
-2. **운영용 앱 컨테이너를 실행합니다.**
+2. **운영용 앱만 다시 빌드하고 실행합니다.**
 
     ```bash
-    docker compose --profile prod up -d app
+    docker compose \
+      -f docker-compose.prod.yml \
+      -f docker-compose.infra.yml \
+      up -d --build --no-deps app
     ```
 
 3. **앱 상태와 로그를 확인합니다.**
 
     ```bash
-    docker compose --profile prod ps app
-    docker compose --profile prod logs -f app
+    docker compose \
+      -f docker-compose.prod.yml \
+      -f docker-compose.infra.yml \
+      ps app
+    docker compose \
+      -f docker-compose.prod.yml \
+      -f docker-compose.infra.yml \
+      logs -f app
     ```
 
-4. **앱을 중지합니다.**
+4. **운영 환경을 종료합니다.**
 
     ```bash
-    docker compose --profile prod stop app
+    docker compose \
+      -f docker-compose.prod.yml \
+      -f docker-compose.infra.yml \
+      down
     ```
 
 - 애플리케이션 로그 파일은 호스트 `./logs/application.log` 에 기록됩니다.
 - `.env` 파일은 이미지에 복사되지 않고, 컨테이너 실행 시 환경변수로만 주입됩니다.
+
+### 모니터링 실행
+
+Prometheus와 Grafana는 애플리케이션 및 인프라와 별도의 Compose 프로젝트로 실행됩니다. 같은 머신에서 실행 중인 애플리케이션을 수집할 때는 기본 대상인 `host.docker.internal:8080`을 사용합니다.
+
+```bash
+docker compose -f docker-compose.monitor.yml up -d
+```
+
+다른 머신에서 실행 중인 애플리케이션을 수집할 때는 해당 머신의 사설 IP 주소와 애플리케이션 포트를 지정합니다.
+
+```bash
+MONITORING_TARGET=192.168.0.10:8080 \
+  docker compose -f docker-compose.monitor.yml up -d
+```
+
+Prometheus 컨테이너 내부의 `localhost`는 호스트가 아닌 Prometheus 컨테이너 자신을 가리킵니다. 애플리케이션의 `MONITORING_ALLOWED_IPS`에는 Prometheus 요청이 애플리케이션에 도달했을 때 실제로 관찰되는 원본 IP 또는 CIDR을 지정해야 합니다.
+
+모니터링을 종료할 때는 다음 명령어를 실행합니다.
+
+```bash
+docker compose -f docker-compose.monitor.yml down
+```
 
 ## 🌱 개발 규칙
 
