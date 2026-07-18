@@ -59,7 +59,7 @@ public class DiaryCreationService implements CreateDiaryUseCase {
 
 		Diary diary = recordDiaryPort.record(Diary.create(command.content(), command.status(), command.date(), userId));
 		attachPhotos(diary, command.imageInfos(), photos);
-		transactionCompletionPort.runAfterCommit(() -> runPostCommitTasks(diary));
+		schedulePostCommitTasks(diary);
 		return new DiaryCreatedResult(diary.getId(), diary.getContent());
 	}
 
@@ -205,19 +205,27 @@ public class DiaryCreationService implements CreateDiaryUseCase {
 		recordDiaryPhotoPort.record(photo);
 	}
 
-	private void runPostCommitTasks(Diary diary) {
+	private void schedulePostCommitTasks(Diary diary) {
 		if (diary.getStatus() == DiaryVisibility.FRIENDS) {
-			try {
-				List<String> friendIds = friendshipPort.findFriendIds(diary.getUserId());
-				notificationPort.notifyFriendsOfNewDiary(friendIds, diary.getUserId(), diary.getId());
-			} catch (RuntimeException exception) {
-				log.warn("event=diary_friend_notification_failed diaryId={} reason={}", diary.getId(), exception.getMessage());
-			}
+			transactionCompletionPort.runAfterCommit(
+					() -> notifyFriends(diary),
+					exception -> log.warn(
+							"event=diary_friend_notification_failed diaryId={} reason={}",
+							diary.getId(),
+							exception.getMessage(),
+							exception));
 		}
-		try {
-			analysisPort.analyze(diary.getId(), diary.getContent());
-		} catch (RuntimeException exception) {
-			log.warn("event=diary_content_analysis_failed diaryId={} reason={}", diary.getId(), exception.getMessage());
-		}
+		transactionCompletionPort.runAfterCommit(
+				() -> analysisPort.analyze(diary.getId(), diary.getContent()),
+				exception -> log.warn(
+						"event=diary_content_analysis_failed diaryId={} reason={}",
+						diary.getId(),
+						exception.getMessage(),
+						exception));
+	}
+
+	private void notifyFriends(Diary diary) {
+		List<String> friendIds = friendshipPort.findFriendIds(diary.getUserId());
+		notificationPort.notifyFriendsOfNewDiary(friendIds, diary.getUserId(), diary.getId());
 	}
 }

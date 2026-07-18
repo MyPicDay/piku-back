@@ -5,22 +5,14 @@ import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryPhotoUpload;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.application.policy.DiaryImageFilePolicy;
-import com.pikume.back.diary.application.port.out.AnalyzeDiaryContentPort;
-import com.pikume.back.diary.application.port.out.LoadDiaryForCommandPort;
-import com.pikume.back.diary.application.port.out.LoadFriendshipForDiaryPort;
-import com.pikume.back.diary.application.port.out.ManageGeneratedImageForDiaryPort;
-import com.pikume.back.diary.application.port.out.RecordDiaryPhotoPort;
-import com.pikume.back.diary.application.port.out.RecordDiaryPort;
-import com.pikume.back.diary.application.port.out.RelocateDiaryPhotoPort;
-import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
-import com.pikume.back.diary.application.port.out.StoreDiaryPhotoPort;
-import com.pikume.back.diary.application.port.out.TransactionCompletionPort;
+import com.pikume.back.diary.application.port.out.*;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -29,17 +21,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.never;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willAnswer;
-import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DiaryCreationService")
@@ -244,14 +234,19 @@ class DiaryCreationServiceTest {
 		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
 		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
 		given(friendshipPort.findFriendIds(USER_ID)).willReturn(List.of("friend-1"));
-		willAnswer(invocation -> {
-			((Runnable) invocation.getArgument(0)).run();
-			return null;
-		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class));
+		ArgumentCaptor<Runnable> taskCaptor = ArgumentCaptor.forClass(Runnable.class);
 
 		service.createDiary(command, List.of(), USER_ID);
 
+		then(transactionCompletionPort).should(times(2)).runAfterCommit(taskCaptor.capture(), any());
+		then(notificationPort).shouldHaveNoInteractions();
+		then(analysisPort).shouldHaveNoInteractions();
+
+		taskCaptor.getAllValues().get(0).run();
 		then(notificationPort).should().notifyFriendsOfNewDiary(List.of("friend-1"), USER_ID, null);
+		then(analysisPort).shouldHaveNoInteractions();
+
+		taskCaptor.getAllValues().get(1).run();
 		then(analysisPort).should().analyze(null, command.content());
 	}
 
@@ -262,9 +257,14 @@ class DiaryCreationServiceTest {
 		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
 		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
 		willAnswer(invocation -> {
-			((Runnable) invocation.getArgument(0)).run();
+			try {
+				((Runnable) invocation.getArgument(0)).run();
+			} catch (RuntimeException exception) {
+				Consumer<RuntimeException> failureHandler = invocation.getArgument(1);
+				failureHandler.accept(exception);
+			}
 			return null;
-		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class));
+		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class), any());
 		willThrow(new RuntimeException("analysis failed")).given(analysisPort).analyze(null, command.content());
 
 		assertThat(service.createDiary(command, List.of(), USER_ID).content()).isEqualTo(command.content());

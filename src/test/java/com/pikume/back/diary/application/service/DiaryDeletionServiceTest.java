@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,9 +42,14 @@ class DiaryDeletionServiceTest {
 		Diary diary = new Diary("content", DiaryVisibility.PRIVATE, LocalDate.now(), "user-1");
 		given(loadDiaryPort.findActiveById(1L)).willReturn(Optional.of(diary));
 		willAnswer(invocation -> {
-			((Runnable) invocation.getArgument(0)).run();
+			try {
+				((Runnable) invocation.getArgument(0)).run();
+			} catch (RuntimeException exception) {
+				Consumer<RuntimeException> failureHandler = invocation.getArgument(1);
+				failureHandler.accept(exception);
+			}
 			return null;
-		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class));
+		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class), any());
 
 		service.deleteDiary(1L, "user-1");
 

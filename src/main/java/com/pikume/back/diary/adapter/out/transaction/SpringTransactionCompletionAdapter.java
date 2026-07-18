@@ -8,6 +8,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.function.Consumer;
+
 @Component
 public class SpringTransactionCompletionAdapter implements TransactionCompletionPort {
 	private final TransactionTemplate requiresNewTransaction;
@@ -18,15 +20,15 @@ public class SpringTransactionCompletionAdapter implements TransactionCompletion
 	}
 
 	@Override
-	public void runAfterCommit(Runnable task) {
+	public void runAfterCommit(Runnable task, Consumer<RuntimeException> failureHandler) {
 		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-			runInNewTransaction(task);
+			executeInNewTransaction(task, failureHandler);
 			return;
 		}
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				runInNewTransaction(task);
+				executeInNewTransaction(task, failureHandler);
 			}
 		});
 	}
@@ -52,7 +54,11 @@ public class SpringTransactionCompletionAdapter implements TransactionCompletion
 		});
 	}
 
-	private void runInNewTransaction(Runnable task) {
-		requiresNewTransaction.executeWithoutResult(status -> task.run());
+	private void executeInNewTransaction(Runnable task, Consumer<RuntimeException> failureHandler) {
+		try {
+			requiresNewTransaction.executeWithoutResult(status -> task.run());
+		} catch (RuntimeException exception) {
+			failureHandler.accept(exception);
+		}
 	}
 }

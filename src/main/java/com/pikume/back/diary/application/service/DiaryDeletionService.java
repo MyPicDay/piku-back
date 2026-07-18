@@ -29,7 +29,13 @@ public class DiaryDeletionService implements DeleteDiaryUseCase {
 		Diary diary = loadOwnedDiary(diaryId, userId);
 		diary.delete();
 		recordDiaryPort.record(diary);
-		transactionCompletionPort.runAfterCommit(() -> deleteNotifications(diaryId));
+		transactionCompletionPort.runAfterCommit(
+				() -> notificationPort.deleteNotificationsByDiaryId(diaryId),
+				exception -> log.warn(
+						"event=diary_notification_cleanup_failed diaryId={} reason={}",
+						diaryId,
+						exception.getMessage(),
+						exception));
 	}
 
 	private Diary loadOwnedDiary(Long diaryId, String userId) {
@@ -38,13 +44,5 @@ public class DiaryDeletionService implements DeleteDiaryUseCase {
 			throw new DiaryAccessDeniedException();
 		}
 		return diary;
-	}
-
-	private void deleteNotifications(Long diaryId) {
-		try {
-			notificationPort.deleteNotificationsByDiaryId(diaryId);
-		} catch (RuntimeException exception) {
-			log.warn("event=diary_notification_cleanup_failed diaryId={} reason={}", diaryId, exception.getMessage());
-		}
 	}
 }

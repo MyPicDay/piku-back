@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,9 +51,14 @@ class DiaryUpdateServiceTest {
 		given(relocationService.relocate(diary, DiaryVisibility.PUBLIC)).willReturn(relocation);
 		given(recordDiaryPort.record(diary)).willReturn(diary);
 		willAnswer(invocation -> {
-			((Runnable) invocation.getArgument(0)).run();
+			try {
+				((Runnable) invocation.getArgument(0)).run();
+			} catch (RuntimeException exception) {
+				Consumer<RuntimeException> failureHandler = invocation.getArgument(1);
+				failureHandler.accept(exception);
+			}
 			return null;
-		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class));
+		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class), any());
 
 		var result = service.updateDiary(1L, new UpdateDiaryCommand(DiaryVisibility.PUBLIC, "changed"), "user-1");
 
