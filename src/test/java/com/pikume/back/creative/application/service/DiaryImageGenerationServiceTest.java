@@ -47,6 +47,38 @@ class DiaryImageGenerationServiceTest {
 			assertThat(generation.getDiaryId()).isEqualTo(diaryId);
 			then(recordPort).should().recordGeneration(generation);
 		}
+
+		@Test
+		@DisplayName("이미 다른 일기에 연결된 생성 이력은 덮어쓰지 않는다")
+		void rejectsGenerationAlreadyAttachedToDiary() {
+			Long historyId = 1L;
+			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
+			generation.attachToDiary(99L);
+			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
+
+			assertThatThrownBy(() -> service.attachGenerationToDiary(historyId, 100L))
+					.isInstanceOf(IllegalStateException.class)
+					.hasMessageContaining("이미");
+
+			assertThat(generation.getDiaryId()).isEqualTo(99L);
+			then(recordPort).shouldHaveNoInteractions();
+		}
+
+		@Test
+		@DisplayName("폐기된 생성 이력은 일기에 연결하지 않는다")
+		void rejectsDiscardedGeneration() {
+			Long historyId = 1L;
+			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
+			generation.discard();
+			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
+
+			assertThatThrownBy(() -> service.attachGenerationToDiary(historyId, 100L))
+					.isInstanceOf(IllegalStateException.class)
+					.hasMessageContaining("폐기");
+
+			assertThat(generation.getDiaryId()).isNull();
+			then(recordPort).shouldHaveNoInteractions();
+		}
 	}
 
 	@Nested

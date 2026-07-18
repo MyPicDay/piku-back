@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-11
+- Last Reviewed: 2026-07-15
 
 ## 목적
 
@@ -116,11 +116,11 @@ flowchart LR
 | Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | 공급자의 공개 Application 계약을 사용하고 관리자 통계 의미로 변환한다. |
 | Creative | Character | 이미지 생성용 캐릭터 자산 조회 | 소비자 Port와 대상 공개 Application 계약을 사용한다. |
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
-| Diary | User | 작성자 확인 | Diary 소유 Out Port와 Adapter가 User 공개 참조 계약을 사용한다. |
-| Diary | Social | 친구 관계와 알림 대상 조회 | 소비자 Out Port 경로와 대상 In Port 직접 호출이 혼재한다. |
+| Diary | User | 작성자 확인 | 현재 Diary 생성·조회 흐름에는 User 조회가 필요하지 않다. 필요 시 Diary 소유 Out Port와 User 공개 참조 계약을 사용한다. |
+| Diary | Social | 친구 관계와 알림 대상 조회 | Diary 소유 친구 관계 Out Port와 Cross-context Adapter가 Social 공개 계약을 Diary 의미로 변환한다. |
 | Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
-| Diary | Notification | 친구 공개 일기 알림 요청 | 소비자 Adapter가 대상 계약을 호출하지만 대상 Domain 타입이 일부 노출된다. |
-| Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Application Service가 대상 In Port에 직접 결합한다. |
+| Diary | Notification | 친구 공개 일기 알림 요청 | Diary 소유 알림 Out Port가 일기 식별자와 공개 의미만 전달하고 Cross-context Adapter가 Notification 계약으로 변환한다. |
+| Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Diary 소유 분석 Out Port가 저장 성공 이후의 best-effort 작업으로 요청하고 Cross-context Adapter가 Recommendation 공개 계약을 호출한다. |
 | Feed | User, Diary, Social, Recommendation | 피드 구성용 사용자·일기·소셜·추천 정보 조회 | 사용자 정보는 Feed 소유 Out Port와 User 공개 계약으로 변환한다. 다른 공급자 경계는 별도 정리 대상이다. |
 | Notification | User, Diary | 알림 응답용 발신자·일기 정보 조회 | 사용자 정보는 Notification 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |
 | Social | User, Diary | 친구·댓글·좋아요 대상과 응답 정보 조회 | 사용자 정보는 Social 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |

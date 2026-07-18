@@ -36,7 +36,16 @@ public class DiaryImageGeneration extends BaseEntity {
 		this.filePath = filePath;
 	}
 
-	public void saveDiaryId(Long diaryId) {
+	public void attachToDiary(Long diaryId) {
+		if (diaryId == null || diaryId <= 0) {
+			throw new IllegalArgumentException("일기 ID는 양수여야 합니다.");
+		}
+		if (isDiscarded()) {
+			throw new IllegalStateException("폐기된 생성 이미지는 일기에 연결할 수 없습니다.");
+		}
+		if (this.diaryId != null) {
+			throw new IllegalStateException("이미 다른 일기에 연결된 생성 이미지입니다.");
+		}
 		this.diaryId = diaryId;
 	}
 

@@ -1,6 +1,6 @@
 package com.pikume.back.diary.application.service;
 
-import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.out.LoadDiaryStatisticsPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +19,7 @@ import static org.mockito.BDDMockito.given;
 class DiaryDashboardStatisticsQueryServiceTest {
 
 	@Mock
-	private LoadDiaryPort loadDiaryPort;
+	private LoadDiaryStatisticsPort loadDiaryPort;
 
 	@Test
 	@DisplayName("일기 누적과 일간 작성 집계를 일기 조회 포트에 위임한다")
@@ -27,10 +27,10 @@ class DiaryDashboardStatisticsQueryServiceTest {
 		LocalDate startDate = LocalDate.of(2026, 6, 16);
 		LocalDate endDate = LocalDate.of(2026, 6, 22);
 		LocalDateTime cutoff = startDate.atStartOfDay();
-		given(loadDiaryPort.countAllCreatedDiaries()).willReturn(200L);
-		given(loadDiaryPort.countCreatedDiariesBefore(cutoff)).willReturn(180L);
-		given(loadDiaryPort.countCreatedDiariesByDate(startDate, endDate))
-				.willReturn(List.of(new LoadDiaryPort.DailyCount(startDate, 3)));
+		given(loadDiaryPort.countAllCreated()).willReturn(200L);
+		given(loadDiaryPort.countCreatedBefore(cutoff)).willReturn(180L);
+		given(loadDiaryPort.countCreatedByDate(startDate, endDate))
+				.willReturn(List.of(new LoadDiaryStatisticsPort.DailyCount(startDate, 3)));
 
 		DiaryDashboardStatisticsQueryService service = new DiaryDashboardStatisticsQueryService(loadDiaryPort);
 

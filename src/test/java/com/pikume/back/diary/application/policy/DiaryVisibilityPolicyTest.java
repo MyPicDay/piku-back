@@ -77,4 +77,12 @@ class DiaryVisibilityPolicyTest {
 		assertThat(diaryVisibilityPolicy.visibleStatusesForOwner("owner-id", null))
 				.isEqualTo(List.of(DiaryVisibility.PUBLIC));
 	}
+
+	@Test
+	@DisplayName("소유자 식별자가 누락돼도 비로그인 사용자를 작성자로 간주하지 않는다")
+	void missingOwnerIdDoesNotMakeAnonymousViewerOwner() {
+		assertThat(diaryVisibilityPolicy.isHiddenFromViewer(null, DiaryVisibility.PRIVATE, null)).isTrue();
+		assertThat(diaryVisibilityPolicy.visibleStatusesForOwner(null, null))
+				.containsExactly(DiaryVisibility.PUBLIC);
+	}
 }

@@ -4,7 +4,7 @@ public interface ManageGeneratedImageForDiaryPort {
 
 	String loadGeneratedImagePath(Long generationId);
 
-	boolean isGeneratedImageOwnedByUser(Long generationId, String userId);
+	boolean isGeneratedImageAvailableForDiary(Long generationId, String userId);
 
 	void updateGeneratedImagePath(Long generationId, String filePath);
 

@@ -17,8 +17,8 @@ public class CreativeAdapterForDiary implements ManageGeneratedImageForDiaryPort
 	}
 
 	@Override
-	public boolean isGeneratedImageOwnedByUser(Long generationId, String userId) {
-		return manageGenerationUseCase.isGenerationOwnedByUser(generationId, userId);
+	public boolean isGeneratedImageAvailableForDiary(Long generationId, String userId) {
+		return manageGenerationUseCase.isGenerationAvailableForDiary(generationId, userId);
 	}
 
 	@Override

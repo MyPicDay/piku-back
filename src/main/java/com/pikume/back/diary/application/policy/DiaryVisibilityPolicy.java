@@ -33,7 +33,9 @@ public class DiaryVisibilityPolicy {
 	}
 
 	public boolean isOwner(String ownerUserId, String viewerId) {
-		return Objects.equals(ownerUserId, viewerId);
+		return ownerUserId != null && !ownerUserId.isBlank()
+				&& viewerId != null && !viewerId.isBlank()
+				&& Objects.equals(ownerUserId, viewerId);
 	}
 
 	private boolean canView(String ownerUserId, DiaryVisibility visibility, String viewerId) {

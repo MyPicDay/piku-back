@@ -17,7 +17,7 @@ public interface LoadGenerationPort {
 
 	Optional<DiaryImageGeneration> loadGenerationForDiaryIntegration(Long generationId);
 
-	boolean isGenerationOwnedByUser(Long generationId, String userId);
+	boolean isGenerationAvailableForDiary(Long generationId, String userId);
 
 	List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
 

@@ -13,5 +13,5 @@ public interface ManageGenerationUseCase {
 
 	void updateGeneratedImagePath(Long generationId, String filePath);
 
-	boolean isGenerationOwnedByUser(Long generationId, String userId);
+	boolean isGenerationAvailableForDiary(Long generationId, String userId);
 }

@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.port.out.DeleteDiaryNotificationPort;
 import com.pikume.back.diary.application.port.out.SendDiaryNotificationPort;
-import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.notification.application.port.in.NotificationUseCase;
 import com.pikume.back.notification.domain.vo.NotificationType;
 
@@ -22,8 +21,7 @@ public class NotificationAdapterForDiary implements SendDiaryNotificationPort, D
 	}
 
 	@Override
-	public void notifyFriendsOfNewDiary(List<String> friendIds, String authorUserId,
-			Diary diary) {
+	public void notifyFriendsOfNewDiary(List<String> friendIds, String authorUserId, Long diaryId) {
 		for (String friendId : friendIds) {
 			if (friendId.equals(authorUserId))
 				continue;
@@ -32,7 +30,7 @@ public class NotificationAdapterForDiary implements SendDiaryNotificationPort, D
 					friendId,
 					NotificationType.FRIEND_DIARY,
 					authorUserId,
-					diary.getId());
+					diaryId);
 		}
 	}
 }

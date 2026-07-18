@@ -27,8 +27,8 @@ public class GenerationPersistenceAdapter implements LoadGenerationPort, RecordG
 	}
 
 	@Override
-	public boolean isGenerationOwnedByUser(Long generationId, String userId) {
-		return repository.existsByIdAndUserId(generationId, userId);
+	public boolean isGenerationAvailableForDiary(Long generationId, String userId) {
+		return repository.existsByIdAndUserIdAndDiaryIdIsNullAndDeletedAtIsNull(generationId, userId);
 	}
 
 	@Override

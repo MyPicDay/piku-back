@@ -35,7 +35,7 @@ public class DiaryImageGenerationService implements ManageGenerationUseCase {
 		DiaryImageGeneration generation = loadGenerationPort.loadGenerationForDiaryIntegration(generationId)
 				.orElseThrow(() -> new RuntimeException(
 						"DiaryImageGeneration not found with id: " + generationId));
-		generation.saveDiaryId(diaryId);
+		generation.attachToDiary(diaryId);
 		recordGenerationPort.recordGeneration(generation);
 	}
 
@@ -49,8 +49,8 @@ public class DiaryImageGenerationService implements ManageGenerationUseCase {
 	}
 
 	@Override
-	public boolean isGenerationOwnedByUser(Long generationId, String userId) {
-		return loadGenerationPort.isGenerationOwnedByUser(generationId, userId);
+	public boolean isGenerationAvailableForDiary(Long generationId, String userId) {
+		return loadGenerationPort.isGenerationAvailableForDiary(generationId, userId);
 	}
 
 	private DiaryImageGenerationView toView(DiaryImageGeneration generation) {

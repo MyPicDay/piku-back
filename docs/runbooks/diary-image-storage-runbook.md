@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Operators
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-12
+- Last Reviewed: 2026-07-15
 
 ## 목적
 
@@ -16,6 +16,14 @@ bucket 이름은 DB object key에 포함하지 않는다. `photos.url`, `photos.
 private object의 URL은 공개 URL이 아니다. Diary 공개범위, 소유자, 친구 관계 검증이 끝난 조회 흐름에서만 임시 URL을 발급한다. URL 변환은 인가 수단이 아니다.
 
 legacy object key에는 사용자 식별자가 포함될 수 있다. 로그, 이슈, 외부 공유 문서에서는 개인정보성 경로 데이터로 취급한다.
+
+## 소유권
+
+- Creative는 이미지 생성 과정, 생성 이력과 Diary에 연결되기 전 private 임시 AI object를 소유한다.
+- Diary는 일기에 연결된 Photo 메타데이터, 표시 object key, 대표 순서와 공개 범위 전환을 소유한다.
+- object storage SDK 호출은 Out Port를 구현하는 Storage Adapter의 책임이다. Diary Application은 bucket, endpoint, presigned URL, 파일 확장자 판별 유틸리티와 트랜잭션 동기화 API를 직접 사용하지 않는다.
+- DB에는 object key만 저장한다. 접근 URL은 Diary 공개 범위 검증이 끝난 입력 또는 출력 Adapter에서 해석한다.
+- 다른 Context가 아직 사용하는 legacy 저장 Port는 `SharedImageStorageCompatibilityAdapter`가 연결한다. `MinioPhotoStorageAdapter` 자체는 Diary가 소유한 Port만 구현하며, legacy 소비자가 중립 저장 Adapter로 이동하면 호환 Adapter를 제거한다.
 
 ## 현재 경로
 
@@ -34,12 +42,13 @@ legacy object key에는 사용자 식별자가 포함될 수 있다. 로그, 이
 | --- | --- |
 | 신규 사용자 업로드 사진 저장 | 일기 공개범위 기준으로 public 또는 private scope를 결정한다. 대표 사진 여부는 저장 scope 기준이 아니다. |
 | 신규 AI 이미지 생성 | 연결될 일기 공개범위가 아직 없으므로 private scope에 임시 저장한다. |
-| 신규 AI 이미지를 공개 또는 익명 일기에 연결 | private AI object를 public AI object로 복사하고, 복사 검증 후 private 임시 object를 삭제한다. |
+| 신규 AI 이미지를 공개 또는 익명 일기에 연결 | private AI object를 public AI object로 복사하고 DB commit 전까지 private 원본을 유지한다. commit 성공 후 private 원본을 삭제하고 rollback이면 새 public object를 삭제한다. |
 | 신규 AI 이미지를 비공개 또는 친구 공개 일기에 연결 | 기존 private AI object를 유지한다. |
 | canonical 일기 사진의 공개범위 변경 | `public/diary-images/{source}/...` 와 `private/diary-images/{source}/...` 사이에서 scope prefix를 바꾼 object로 복사한다. |
 | legacy 사용자 업로드 사진의 공개범위 변경 | target scope의 canonical 일기 이미지 key로 새로 복사할 수 있다. 이때 legacy 경로의 사용자 식별자는 새 경로에서 제거된다. |
-| DB 갱신 전 실패 | 새로 복사된 object를 rollback cleanup 대상으로 삭제한다. |
-| DB 갱신 후 이전 object 삭제 실패 | 사용자-facing 결과는 유지하고, 실패 로그를 후속 정리 대상으로 본다. |
+| 복사 중 일부 object 실패 | 같은 전환에서 이미 복사한 새 object를 삭제하고 DB 참조는 변경하지 않는다. |
+| 복사 성공 후 DB 갱신 또는 commit 실패 | 새로 복사된 object를 rollback cleanup 대상으로 삭제하고 이전 object 참조를 유지한다. |
+| DB commit 성공 후 이전 object 삭제 실패 | 사용자-facing 결과와 새 참조는 유지하고, 실패 로그를 후속 운영 정리 대상으로 본다. |
 
 ## 저장 흐름
 
@@ -47,7 +56,7 @@ legacy object key에는 사용자 식별자가 포함될 수 있다. 로그, 이
 sequenceDiagram
     participant Client as Client
     participant Diary as Diary UseCase
-    participant PhotoStorage as PhotoStoragePort
+    participant PhotoStorage as StoreDiaryPhotoPort
     participant Storage as S3 or MinIO
     participant DB as Diary DB
 
@@ -55,7 +64,11 @@ sequenceDiagram
     Diary->>DB: Diary 저장
     Diary->>PhotoStorage: 사용자 업로드 사진 저장 요청
     PhotoStorage->>Storage: 공개범위 기준 object 저장
-    PhotoStorage->>DB: Photo object key 저장
+    Diary->>DB: Photo object key 저장
+    alt commit 실패 또는 rollback
+        Diary->>PhotoStorage: 새 object 정리 요청
+        PhotoStorage->>Storage: 저장한 object 삭제
+    end
     Diary-->>Client: 생성 결과 반환
 ```
 
@@ -66,7 +79,7 @@ sequenceDiagram
     participant Client as Client
     participant Creative as Creative UseCase
     participant Diary as Diary UseCase
-    participant PhotoStorage as PhotoStoragePort
+    participant PhotoStorage as RelocateDiaryPhotoPort
     participant Storage as S3 or MinIO
     participant DB as Diary and Creative DB
 
@@ -79,10 +92,16 @@ sequenceDiagram
     Client->>Diary: AI 이미지 포함 일기 생성 요청
     Diary->>DB: 생성 이력 조회
     alt 공개 또는 익명 일기
-        Diary->>PhotoStorage: public scope 이동 요청
+        Diary->>PhotoStorage: public scope 복사 요청
         PhotoStorage->>Storage: private object를 public object로 복사
-        PhotoStorage->>Storage: 복사 검증 후 private object 삭제
         Diary->>DB: Photo key와 생성 이력 filePath 갱신
+        alt commit 성공
+            Diary->>PhotoStorage: private 임시 object 정리 요청
+            PhotoStorage->>Storage: private 임시 object 삭제
+        else 실패 또는 rollback
+            Diary->>PhotoStorage: 새 public object 정리 요청
+            PhotoStorage->>Storage: public object 삭제
+        end
     else 비공개 또는 친구 공개 일기
         Diary->>DB: 기존 private key로 Photo 저장
     end
@@ -94,7 +113,7 @@ sequenceDiagram
 sequenceDiagram
     participant Client as Client
     participant Diary as Diary UseCase
-    participant PhotoStorage as PhotoStoragePort
+    participant PhotoStorage as RelocateDiaryPhotoPort
     participant Storage as S3 or MinIO
     participant DB as Diary DB
 
@@ -113,6 +132,8 @@ sequenceDiagram
     end
 ```
 
+공개 범위 전환은 `원본과 최적화 object 복사 → Photo와 Diary 참조 변경 → DB commit → 이전 object 삭제` 순서를 따른다. 최적화 object가 원본과 같은 key를 가리키면 한 번만 복사·정리한다.
+
 ## 조회 흐름
 
 ```mermaid
@@ -120,7 +141,7 @@ sequenceDiagram
     participant Client as Client
     participant Query as Query UseCase
     participant Policy as Visibility Policy
-    participant UrlResolver as ResolveImageUrlPort
+    participant UrlResolver as ResolveDiaryPhotoUrlPort
     participant Storage as S3 or MinIO
     participant DB as Diary DB
 

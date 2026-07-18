@@ -3,6 +3,7 @@ package com.pikume.back.diary.adapter.in.web.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
@@ -17,6 +18,7 @@ public class DiaryImageInfo {
 
 	@Schema(description = "이미지 순서 (0부터 시작)")
 	@NotNull(message = "이미지 순서는 필수입니다.")
+	@PositiveOrZero(message = "이미지 순서는 0 이상이어야 합니다.")
 	private Integer order;
 
 	@Positive(message = "AI 사진 ID는 양수여야 합니다.")
@@ -24,5 +26,6 @@ public class DiaryImageInfo {
 	private Long aiPhotoId;
 
 	@Schema(description = "업로드한 사진의 인덱스 (type이 UPLOAD일 경우, photos 리스트의 인덱스)")
+	@PositiveOrZero(message = "업로드한 사진 인덱스는 0 이상이어야 합니다.")
 	private Integer photoIndex;
 }
