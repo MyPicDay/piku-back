@@ -34,7 +34,7 @@ services:
     image: mysql:8.0
     container_name: piku-prod-mysql
     ports:
-      - "9914:3306"
+      - "${DB_PORT:-9914}:3306"
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${PROD_DB_PASSWORD:-1234}

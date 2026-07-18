@@ -13,8 +13,20 @@ compose_config() {
   output_option=$1
   shift
 
-  GOOGLE_APPLICATION_CREDENTIALS=validation-credentials.json \
+  DB_PORT="" \
+    GOOGLE_APPLICATION_CREDENTIALS=validation-credentials.json \
     docker compose --env-file /dev/null "$@" config --no-env-resolution "$output_option"
+}
+
+compose_service_json_with_db_port() {
+  db_port=$1
+  service=$2
+  shift 2
+
+  DB_PORT="$db_port" \
+    GOOGLE_APPLICATION_CREDENTIALS=validation-credentials.json \
+    docker compose --env-file /dev/null "$@" \
+      config --no-env-resolution --format json "$service"
 }
 
 assert_service_set() {
@@ -43,6 +55,28 @@ assert_no_profiles() {
   fi
 }
 
+assert_db_port() {
+  label=$1
+  db_port=$2
+  expected_published_port=$3
+  service=$4
+  shift 4
+
+  rendered=$(compose_service_json_with_db_port "$db_port" "$service" "$@")
+
+  if ! printf '%s\n' "$rendered" | grep -F "\"target\": 3306" >/dev/null; then
+    printf '%s must keep the MySQL container port at 3306\n' "$label" >&2
+    exit 1
+  fi
+
+  if ! printf '%s\n' "$rendered" |
+    grep -F "\"published\": \"$expected_published_port\"" >/dev/null; then
+    printf '%s published port mismatch: expected %s\n' \
+      "$label" "$expected_published_port" >&2
+    exit 1
+  fi
+}
+
 validate_core() {
   env_file_reset=$(mktemp)
   trap 'rm -f "$env_file_reset"' EXIT HUP INT TERM
@@ -58,6 +92,10 @@ validate_core() {
   assert_service_set "dev + infra" "app db minio minio-provision redis" $dev_files
   # shellcheck disable=SC2086
   assert_no_profiles "dev + infra" $dev_files
+  # shellcheck disable=SC2086
+  assert_db_port "dev default DB port" "" "9915" "db" $dev_files
+  # shellcheck disable=SC2086
+  assert_db_port "dev custom DB port" "13306" "13306" "db" $dev_files
 
   # shellcheck disable=SC2086
   compose_config --quiet $prod_files
@@ -65,6 +103,10 @@ validate_core() {
   assert_service_set "prod + infra" "app minio minio-provision prod-db redis" $prod_files
   # shellcheck disable=SC2086
   assert_no_profiles "prod + infra" $prod_files
+  # shellcheck disable=SC2086
+  assert_db_port "prod default DB port" "" "9914" "prod-db" $prod_files
+  # shellcheck disable=SC2086
+  assert_db_port "prod custom DB port" "13306" "13306" "prod-db" $prod_files
 
   rm -f "$env_file_reset"
   trap - EXIT HUP INT TERM
