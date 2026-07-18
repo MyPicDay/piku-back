@@ -158,6 +158,98 @@ validate_monitor() {
   assert_rendered_target "192.168.0.10:18080"
 }
 
+assert_compose_runner_command() {
+  label=$1
+  expected=$2
+  shift 2
+
+  : > "$compose_runner_output"
+  PATH="$compose_runner_bin_dir:$PATH" \
+    COMPOSE_RUNNER_OUTPUT="$compose_runner_output" \
+    scripts/compose.sh "$@"
+
+  actual=$(cat "$compose_runner_output")
+  if [ "$actual" != "$expected" ]; then
+    printf '%s command mismatch\nexpected: %s\nactual:   %s\n' \
+      "$label" "$expected" "$actual" >&2
+    exit 1
+  fi
+}
+
+assert_compose_runner_failure() {
+  label=$1
+  expected_message=$2
+  shift 2
+
+  if PATH="$compose_runner_bin_dir:$PATH" \
+    COMPOSE_RUNNER_OUTPUT="$compose_runner_output" \
+    scripts/compose.sh "$@" > /dev/null 2> "$compose_runner_error"; then
+    printf '%s must fail\n' "$label" >&2
+    exit 1
+  fi
+
+  if ! grep -F "$expected_message" "$compose_runner_error" > /dev/null; then
+    printf '%s error mismatch: expected message containing %s\n' \
+      "$label" "$expected_message" >&2
+    exit 1
+  fi
+}
+
+validate_compose_runner() {
+  compose_runner_temp_dir=$(mktemp -d)
+  compose_runner_bin_dir="$compose_runner_temp_dir/bin"
+  compose_runner_output="$compose_runner_temp_dir/output"
+  compose_runner_error="$compose_runner_temp_dir/error"
+  mkdir "$compose_runner_bin_dir"
+  trap 'rm -rf "$compose_runner_temp_dir"' EXIT HUP INT TERM
+
+  cat > "$compose_runner_bin_dir/docker" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" > "$COMPOSE_RUNNER_OUTPUT"
+EOF
+  chmod +x "$compose_runner_bin_dir/docker"
+
+  assert_compose_runner_command \
+    "dev up" \
+    "compose -f docker-compose.dev.yml -f docker-compose.infra.yml up -d --build" \
+    dev up
+  assert_compose_runner_command \
+    "prod down" \
+    "compose -f docker-compose.prod.yml -f docker-compose.infra.yml down" \
+    prod down
+  assert_compose_runner_command \
+    "prod rebuild-app" \
+    "compose -f docker-compose.prod.yml -f docker-compose.infra.yml up -d --build --no-deps app" \
+    prod rebuild-app
+  assert_compose_runner_command \
+    "monitor up" \
+    "compose -f docker-compose.monitor.yml up -d" \
+    monitor up
+  assert_compose_runner_command \
+    "dev ps" \
+    "compose -f docker-compose.dev.yml -f docker-compose.infra.yml ps" \
+    dev ps
+  assert_compose_runner_command \
+    "monitor logs" \
+    "compose -f docker-compose.monitor.yml logs -f" \
+    monitor logs
+  assert_compose_runner_failure \
+    "monitor rebuild-app" \
+    "rebuild-app is only available for dev or prod" \
+    monitor rebuild-app
+  assert_compose_runner_failure \
+    "unknown environment" \
+    "usage:" \
+    staging up
+  assert_compose_runner_failure \
+    "unknown action" \
+    "usage:" \
+    dev start
+
+  rm -rf "$compose_runner_temp_dir"
+  trap - EXIT HUP INT TERM
+}
+
 case "${1:-all}" in
   core)
     validate_core
@@ -168,6 +260,7 @@ case "${1:-all}" in
   all)
     validate_core
     validate_monitor
+    validate_compose_runner
     ;;
   *)
     printf 'usage: %s [core|monitor|all]\n' "$0" >&2
