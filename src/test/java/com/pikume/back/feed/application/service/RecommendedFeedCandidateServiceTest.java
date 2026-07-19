@@ -10,9 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.feed.application.dto.FeedBucket;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
+import com.pikume.back.feed.application.port.out.LoadFeedCandidateSignalsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickHistoryPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
 
@@ -35,7 +35,7 @@ class RecommendedFeedCandidateServiceTest {
 	@Mock
 	private LoadFeedFriendshipPort loadFeedFriendshipPort;
 	@Mock
-	private LoadFeedEngagementPort loadFeedEngagementPort;
+	private LoadFeedCandidateSignalsPort loadFeedCandidateSignalsPort;
 	@Mock
 	private LoadFeedClickHistoryPort loadFeedClickHistoryPort;
 
@@ -46,7 +46,7 @@ class RecommendedFeedCandidateServiceTest {
 		service = new RecommendedFeedCandidateService(
 				loadFeedDiaryCandidateSourcePort,
 				loadFeedFriendshipPort,
-				loadFeedEngagementPort,
+				loadFeedCandidateSignalsPort,
 				loadFeedClickHistoryPort);
 	}
 
@@ -74,13 +74,13 @@ class RecommendedFeedCandidateServiceTest {
 			given(loadFeedClickHistoryPort.loadClickedDiaryIds(
 					"viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of(2L));
-			given(loadFeedEngagementPort.loadLikedDiaryIds("viewer", List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadLikedDiaryIds("viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedEngagementPort.loadCommentedDiaryIds("viewer", List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadCommentedDiaryIds("viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedEngagementPort.loadLikeCounts(List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadLikeCounts(List.of(1L, 2L, 3L)))
 					.willReturn(Map.of(1L, 1L, 3L, 5L));
-			given(loadFeedEngagementPort.loadCommentCounts(List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadCommentCounts(List.of(1L, 2L, 3L)))
 					.willReturn(Map.of(1L, 2L, 3L, 1L));
 
 			List<FeedCursorCandidate> result = service.loadCandidates(
@@ -114,12 +114,12 @@ class RecommendedFeedCandidateServiceTest {
 							3L, new FeedDiaryCandidateView(3L, "friend", now.minusMinutes(2))));
 			given(loadFeedClickHistoryPort.loadClickedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedEngagementPort.loadLikedDiaryIds("viewer", List.of(2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadLikedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedEngagementPort.loadCommentedDiaryIds("viewer", List.of(2L, 3L)))
+			given(loadFeedCandidateSignalsPort.loadCommentedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedEngagementPort.loadLikeCounts(List.of(2L, 3L))).willReturn(Map.of());
-			given(loadFeedEngagementPort.loadCommentCounts(List.of(2L, 3L))).willReturn(Map.of());
+			given(loadFeedCandidateSignalsPort.loadLikeCounts(List.of(2L, 3L))).willReturn(Map.of());
+			given(loadFeedCandidateSignalsPort.loadCommentCounts(List.of(2L, 3L))).willReturn(Map.of());
 
 			List<FeedCursorCandidate> result = service.loadCandidates(
 					"viewer",

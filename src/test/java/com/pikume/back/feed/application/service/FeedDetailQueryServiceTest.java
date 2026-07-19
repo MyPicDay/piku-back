@@ -14,7 +14,7 @@ import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
 import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryDetailPort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
+import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
@@ -40,7 +40,7 @@ class FeedDetailQueryServiceTest {
 	@Mock
 	private LoadFeedAuthorsPort loadFeedAuthorsPort;
 	@Mock
-	private LoadFeedEngagementPort loadFeedEngagementPort;
+	private LoadFeedItemEngagementPort loadFeedItemEngagementPort;
 
 	private FeedDetailQueryService service;
 
@@ -49,7 +49,7 @@ class FeedDetailQueryServiceTest {
 		service = new FeedDetailQueryService(
 				loadFeedDiaryDetailPort,
 				loadFeedAuthorsPort,
-				loadFeedEngagementPort,
+				loadFeedItemEngagementPort,
 				new FeedAuthorMaskingPolicy());
 	}
 
@@ -67,7 +67,7 @@ class FeedDetailQueryServiceTest {
 					.willReturn(Map.of(
 							"writer-id",
 							new FeedAuthorView("writer-id", "writer", "avatar-url")));
-			given(loadFeedEngagementPort.loadEngagements("viewer-id", List.of(1L)))
+			given(loadFeedItemEngagementPort.loadEngagements("viewer-id", List.of(1L)))
 					.willReturn(Map.of(1L, new FeedEngagementView(1L, 4L, 7L, true)));
 
 			FeedDiaryResult result = service.queryDetail(1L, "viewer-id");
@@ -88,7 +88,7 @@ class FeedDetailQueryServiceTest {
 		void masksAnonymousDiary() {
 			given(loadFeedDiaryDetailPort.loadVisibleDiary(1L, "writer-id"))
 					.willReturn(Optional.of(detail(FeedVisibility.ANONYMOUS, "writer-id")));
-			given(loadFeedEngagementPort.loadEngagements("writer-id", List.of(1L)))
+			given(loadFeedItemEngagementPort.loadEngagements("writer-id", List.of(1L)))
 					.willReturn(Map.of());
 
 			FeedDiaryResult result = service.queryDetail(1L, "writer-id");

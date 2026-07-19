@@ -12,7 +12,8 @@ import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
+import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
+import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
@@ -38,7 +39,9 @@ class FeedListItemAssemblerTest {
 	@Mock
 	private LoadFeedAuthorsPort loadFeedAuthorsPort;
 	@Mock
-	private LoadFeedEngagementPort loadFeedEngagementPort;
+	private LoadFeedItemEngagementPort loadFeedItemEngagementPort;
+	@Mock
+	private LoadFeedFriendshipPort loadFeedFriendshipPort;
 
 	private FeedListItemAssembler assembler;
 
@@ -47,7 +50,8 @@ class FeedListItemAssemblerTest {
 		assembler = new FeedListItemAssembler(
 				loadFeedDiaryItemsPort,
 				loadFeedAuthorsPort,
-				loadFeedEngagementPort,
+				loadFeedItemEngagementPort,
+				loadFeedFriendshipPort,
 				new FeedAuthorMaskingPolicy());
 	}
 
@@ -66,9 +70,9 @@ class FeedListItemAssemblerTest {
 					.willReturn(Map.of(
 							"writer-1", new FeedAuthorView("writer-1", "first", "first-avatar"),
 							"writer-2", new FeedAuthorView("writer-2", "second", "second-avatar")));
-			given(loadFeedEngagementPort.loadFriendStatuses("viewer", Set.of("writer-1", "writer-2")))
+			given(loadFeedFriendshipPort.loadFriendStatuses("viewer", Set.of("writer-1", "writer-2")))
 					.willReturn(Map.of("writer-1", FeedFriendStatus.FRIENDS));
-			given(loadFeedEngagementPort.loadEngagements("viewer", List.of(2L, 1L)))
+			given(loadFeedItemEngagementPort.loadEngagements("viewer", List.of(2L, 1L)))
 					.willReturn(Map.of(
 							1L, new FeedEngagementView(1L, 3L, 5L, true),
 							2L, new FeedEngagementView(2L, 1L, 2L, false)));
@@ -91,8 +95,8 @@ class FeedListItemAssemblerTest {
 			given(loadFeedDiaryItemsPort.loadDiaryItems(Set.of(1L, 2L)))
 					.willReturn(Map.of(2L, anonymous));
 			given(loadFeedAuthorsPort.loadAuthors(Set.of())).willReturn(Map.of());
-			given(loadFeedEngagementPort.loadFriendStatuses("writer-2", Set.of())).willReturn(Map.of());
-			given(loadFeedEngagementPort.loadEngagements("writer-2", List.of(1L, 2L))).willReturn(Map.of());
+			given(loadFeedFriendshipPort.loadFriendStatuses("writer-2", Set.of())).willReturn(Map.of());
+			given(loadFeedItemEngagementPort.loadEngagements("writer-2", List.of(1L, 2L))).willReturn(Map.of());
 
 			List<FeedListItemView> result = assembler.assemble(List.of(1L, 2L), "writer-2");
 

@@ -1,17 +1,10 @@
 package com.pikume.back.feed.application.port.out;
 
-import com.pikume.back.feed.application.dto.FeedFriendStatus;
-import com.pikume.back.feed.application.readmodel.FeedEngagementView;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface LoadFeedEngagementPort {
-
-	Map<Long, FeedEngagementView> loadEngagements(String currentUserId, List<Long> diaryIds);
-
-	Map<String, FeedFriendStatus> loadFriendStatuses(String currentUserId, Set<String> targetUserIds);
+public interface LoadFeedCandidateSignalsPort {
 
 	Map<Long, Long> loadLikeCounts(List<Long> diaryIds);
 

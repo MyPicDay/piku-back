@@ -7,7 +7,8 @@ import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
+import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
+import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
@@ -26,7 +27,8 @@ public class FeedListItemAssembler {
 
 	private final LoadFeedDiaryItemsPort loadFeedDiaryItemsPort;
 	private final LoadFeedAuthorsPort loadFeedAuthorsPort;
-	private final LoadFeedEngagementPort loadFeedEngagementPort;
+	private final LoadFeedItemEngagementPort loadFeedItemEngagementPort;
+	private final LoadFeedFriendshipPort loadFeedFriendshipPort;
 	private final FeedAuthorMaskingPolicy feedAuthorMaskingPolicy;
 
 	public List<FeedListItemView> assemble(List<Long> diaryIds, String currentUserId) {
@@ -42,9 +44,9 @@ public class FeedListItemAssembler {
 				.collect(Collectors.toSet());
 		Map<String, FeedAuthorView> authorsById = loadFeedAuthorsPort.loadAuthors(visibleAuthorIds);
 		Map<String, FeedFriendStatus> friendStatusesByUserId =
-				loadFeedEngagementPort.loadFriendStatuses(currentUserId, visibleAuthorIds);
+				loadFeedFriendshipPort.loadFriendStatuses(currentUserId, visibleAuthorIds);
 		Map<Long, FeedEngagementView> engagementsByDiaryId =
-				loadFeedEngagementPort.loadEngagements(currentUserId, diaryIds);
+				loadFeedItemEngagementPort.loadEngagements(currentUserId, diaryIds);
 
 		return diaryIds.stream()
 				.map(diariesById::get)

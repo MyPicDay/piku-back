@@ -84,6 +84,27 @@ class FeedArchitectureTest {
 	}
 
 	@Test
+	@DisplayName("Social 조회 Out Port는 피드 항목, 후보 신호와 친구 관계 목적별로 분리한다")
+	void socialQueryPortsAreSplitByFeedPurpose() throws IOException {
+		Path outboundPorts = APPLICATION.resolve("port/out");
+
+		for (String port : List.of(
+				"LoadFeedItemEngagementPort.java",
+				"LoadFeedCandidateSignalsPort.java",
+				"LoadFeedFriendshipPort.java")) {
+			assertThat(outboundPorts.resolve(port)).exists();
+		}
+		assertThat(outboundPorts.resolve("LoadFeedEngagementPort.java")).doesNotExist();
+
+		Path services = APPLICATION.resolve("service");
+		assertThat(contains(services.resolve("FeedDetailQueryService.java"), "LoadFeedItemEngagementPort")).isTrue();
+		assertThat(contains(services.resolve("FeedListItemAssembler.java"), "LoadFeedItemEngagementPort")).isTrue();
+		assertThat(contains(services.resolve("FeedListItemAssembler.java"), "LoadFeedFriendshipPort")).isTrue();
+		assertThat(contains(services.resolve("RecommendedFeedCandidateService.java"), "LoadFeedCandidateSignalsPort"))
+				.isTrue();
+	}
+
+	@Test
 	@DisplayName("Feed 유스케이스는 상세, 페이지와 클릭 목적별 Service로 분리한다")
 	void servicesAreSplitByUseCasePurpose() {
 		Path services = APPLICATION.resolve("service");

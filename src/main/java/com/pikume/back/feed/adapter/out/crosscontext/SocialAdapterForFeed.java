@@ -3,8 +3,9 @@ package com.pikume.back.feed.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.feed.application.dto.FeedFriendStatus;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
+import com.pikume.back.feed.application.port.out.LoadFeedCandidateSignalsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
+import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
 import com.pikume.back.social.application.port.in.CommentUseCase;
 import com.pikume.back.social.application.port.in.FriendUseCase;
@@ -17,7 +18,8 @@ import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
-public class SocialAdapterForFeed implements LoadFeedEngagementPort, LoadFeedFriendshipPort {
+public class SocialAdapterForFeed implements LoadFeedItemEngagementPort, LoadFeedCandidateSignalsPort,
+		LoadFeedFriendshipPort {
 
 	private final FriendUseCase friendUseCase;
 	private final LikeUseCase likeUseCase;

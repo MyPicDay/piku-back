@@ -27,8 +27,8 @@ public class FeedResponseMapper {
 				result.getIsOwner());
 	}
 
-	public FeedCursorPageResponse<FeedDiaryResponse> mapPage(FeedCursorPage<FeedDiaryResult> result) {
-		return new FeedCursorPageResponse<>(
+	public FeedCursorPageResponse mapPage(FeedCursorPage<FeedDiaryResult> result) {
+		return new FeedCursorPageResponse(
 				result.items().stream()
 						.map(this::mapDiary)
 						.toList(),

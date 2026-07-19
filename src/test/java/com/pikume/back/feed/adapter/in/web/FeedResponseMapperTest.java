@@ -61,7 +61,7 @@ class FeedResponseMapperTest {
 					"opaque-next-cursor",
 					true);
 
-			FeedCursorPageResponse<FeedDiaryResponse> response = mapper.mapPage(result);
+			FeedCursorPageResponse response = mapper.mapPage(result);
 
 			assertThat(response.items()).extracting(FeedDiaryResponse::diaryId).containsExactly(10L);
 			assertThat(response.nextCursor()).isEqualTo("opaque-next-cursor");

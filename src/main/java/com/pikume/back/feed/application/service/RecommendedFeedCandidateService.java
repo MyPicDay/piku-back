@@ -6,9 +6,9 @@ import com.pikume.back.feed.application.dto.FeedBucket;
 import com.pikume.back.feed.application.dto.FeedCursor;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
+import com.pikume.back.feed.application.port.out.LoadFeedCandidateSignalsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickHistoryPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
 
@@ -38,7 +38,7 @@ public class RecommendedFeedCandidateService {
 
 	private final LoadFeedDiaryCandidateSourcePort loadFeedDiaryCandidateSourcePort;
 	private final LoadFeedFriendshipPort loadFeedFriendshipPort;
-	private final LoadFeedEngagementPort loadFeedEngagementPort;
+	private final LoadFeedCandidateSignalsPort loadFeedCandidateSignalsPort;
 	private final LoadFeedClickHistoryPort loadFeedClickHistoryPort;
 
 	public List<FeedCursorCandidate> loadCandidates(
@@ -94,8 +94,8 @@ public class RecommendedFeedCandidateService {
 		}
 
 		Set<Long> consumedDiaryIds = resolveConsumedDiaryIds(currentUserId, availableDiaryIds);
-		Map<Long, Long> likeCountsByDiaryId = loadFeedEngagementPort.loadLikeCounts(availableDiaryIds);
-		Map<Long, Long> commentCountsByDiaryId = loadFeedEngagementPort.loadCommentCounts(availableDiaryIds);
+		Map<Long, Long> likeCountsByDiaryId = loadFeedCandidateSignalsPort.loadLikeCounts(availableDiaryIds);
+		Map<Long, Long> commentCountsByDiaryId = loadFeedCandidateSignalsPort.loadCommentCounts(availableDiaryIds);
 
 		Predicate<FeedCursorCandidate> bucketFilter = bucket.isConsumedBucket()
 				? candidate -> consumedDiaryIds.contains(candidate.diaryId())
@@ -180,8 +180,8 @@ public class RecommendedFeedCandidateService {
 		List<Long> diaryIdList = List.copyOf(diaryIds);
 		Set<Long> consumedDiaryIds = new HashSet<>(
 				loadFeedClickHistoryPort.loadClickedDiaryIds(currentUserId, diaryIdList));
-		consumedDiaryIds.addAll(loadFeedEngagementPort.loadLikedDiaryIds(currentUserId, diaryIdList));
-		consumedDiaryIds.addAll(loadFeedEngagementPort.loadCommentedDiaryIds(currentUserId, diaryIdList));
+		consumedDiaryIds.addAll(loadFeedCandidateSignalsPort.loadLikedDiaryIds(currentUserId, diaryIdList));
+		consumedDiaryIds.addAll(loadFeedCandidateSignalsPort.loadCommentedDiaryIds(currentUserId, diaryIdList));
 		return consumedDiaryIds;
 	}
 

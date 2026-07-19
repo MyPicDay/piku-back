@@ -11,7 +11,7 @@ import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.in.QueryFeedDetailUseCase;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryDetailPort;
-import com.pikume.back.feed.application.port.out.LoadFeedEngagementPort;
+import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
@@ -27,7 +27,7 @@ public class FeedDetailQueryService implements QueryFeedDetailUseCase {
 
 	private final LoadFeedDiaryDetailPort loadFeedDiaryDetailPort;
 	private final LoadFeedAuthorsPort loadFeedAuthorsPort;
-	private final LoadFeedEngagementPort loadFeedEngagementPort;
+	private final LoadFeedItemEngagementPort loadFeedItemEngagementPort;
 	private final FeedAuthorMaskingPolicy feedAuthorMaskingPolicy;
 
 	@Override
@@ -44,7 +44,7 @@ public class FeedDetailQueryService implements QueryFeedDetailUseCase {
 				author,
 				null,
 				userId);
-		FeedEngagementView engagement = loadFeedEngagementPort
+		FeedEngagementView engagement = loadFeedItemEngagementPort
 				.loadEngagements(userId, List.of(diary.diaryId()))
 				.getOrDefault(
 						diary.diaryId(),
