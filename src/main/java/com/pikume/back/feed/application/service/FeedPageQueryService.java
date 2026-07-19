@@ -32,25 +32,26 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public FeedCursorPage<FeedDiaryResult> queryPage(FeedCursorRequest request, String userId) {
-		FeedCursor cursor = decodeCursor(request.cursor(), userId, request.sortMode());
+	public FeedCursorPage<FeedDiaryResult> queryPage(FeedCursorRequest request, String viewerId) {
+		FeedCursor cursor = decodeCursor(request.cursor(), viewerId, request.sortMode());
 		if (request.sortMode() == FeedSortMode.LATEST) {
-			return getLatestDiaries(request, userId, cursor);
+			return getLatestDiaries(request, viewerId, cursor);
 		}
-		return getRecommendedDiaries(request, userId, cursor);
+		return getRecommendedDiaries(request, viewerId, cursor);
 	}
 
-	private FeedCursorPage<FeedDiaryResult> getRecommendedDiaries(FeedCursorRequest request, String userId,
+	private FeedCursorPage<FeedDiaryResult> getRecommendedDiaries(FeedCursorRequest request, String viewerId,
 			FeedCursor cursor) {
-		List<FeedCursorCandidate> candidates = loadRecommendedPageCandidates(userId, cursor, request.limit());
+		List<FeedCursorCandidate> candidates =
+				loadRecommendedPageCandidates(viewerId, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedCursorCandidate::diaryId)
 				.toList();
-		List<FeedListItemView> feedItems = feedListItemAssembler.assemble(diaryIds, userId);
+		List<FeedListItemView> feedItems = feedListItemAssembler.assemble(diaryIds, viewerId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
 				.map(this::toResult)
 				.toList();
-		boolean hasNext = hasNextRecommended(userId, candidates, request.limit());
+		boolean hasNext = hasNextRecommended(viewerId, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
 				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
 				: null;
@@ -58,18 +59,19 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
 	}
 
-	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request, String userId,
+	private FeedCursorPage<FeedDiaryResult> getLatestDiaries(FeedCursorRequest request, String viewerId,
 			FeedCursor cursor) {
-		List<String> friendUserIds = resolveFriendUserIds(userId);
-		List<FeedLatestCursorCandidate> candidates = loadLatestPageCandidates(userId, friendUserIds, cursor, request.limit());
+		List<String> friendUserIds = resolveFriendUserIds(viewerId);
+		List<FeedLatestCursorCandidate> candidates =
+				loadLatestPageCandidates(viewerId, friendUserIds, cursor, request.limit());
 		List<Long> diaryIds = candidates.stream()
 				.map(FeedLatestCursorCandidate::diaryId)
 				.toList();
-		List<FeedListItemView> feedItems = feedListItemAssembler.assemble(diaryIds, userId);
+		List<FeedListItemView> feedItems = feedListItemAssembler.assemble(diaryIds, viewerId);
 		List<FeedDiaryResult> responseList = feedItems.stream()
 				.map(this::toResult)
 				.toList();
-		boolean hasNext = hasNextLatest(userId, friendUserIds, candidates, request.limit());
+		boolean hasNext = hasNextLatest(viewerId, friendUserIds, candidates, request.limit());
 		String nextCursor = hasNext && !candidates.isEmpty()
 				? feedCursorTokenCodec.encode(candidates.get(candidates.size() - 1).toCursor())
 				: null;
@@ -77,7 +79,7 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 		return new FeedCursorPage<>(responseList, nextCursor, hasNext);
 	}
 
-	private FeedCursor decodeCursor(String cursorToken, String userId, FeedSortMode requestedSortMode) {
+	private FeedCursor decodeCursor(String cursorToken, String viewerId, FeedSortMode requestedSortMode) {
 		FeedCursor cursor = feedCursorTokenCodec.decode(cursorToken);
 		if (cursor == null) {
 			return null;
@@ -87,7 +89,7 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 			validateLatestCursor(cursor);
 			return cursor;
 		}
-		if (!FeedBucket.orderedBuckets(userId).contains(cursor.bucket())) {
+		if (!FeedBucket.orderedBuckets(viewerId).contains(cursor.bucket())) {
 			throw new InvalidFeedCursorException();
 		}
 		if (cursor.createdAt() == null || cursor.diaryId() <= 0) {
@@ -115,47 +117,55 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 		}
 	}
 
-	private List<FeedCursorCandidate> loadRecommendedPageCandidates(String userId, FeedCursor cursor, int limit) {
+	private List<FeedCursorCandidate> loadRecommendedPageCandidates(
+			String viewerId,
+			FeedCursor cursor,
+			int limit
+	) {
 		List<FeedCursorCandidate> collected = new ArrayList<>();
-		FeedBucket bucket = cursor != null ? cursor.bucket() : FeedBucket.firstBucket(userId);
+		FeedBucket bucket = cursor != null ? cursor.bucket() : FeedBucket.firstBucket(viewerId);
 		FeedCursor bucketCursor = cursor;
 		int remaining = limit;
 
 		while (bucket != null && remaining > 0) {
 			List<FeedCursorCandidate> candidates = recommendedFeedCandidateService.loadCandidates(
-					userId,
+					viewerId,
 					bucket,
 					bucketCursor,
 					remaining);
 			collected.addAll(candidates);
 			remaining -= candidates.size();
-			bucket = bucket.next(userId);
+			bucket = bucket.next(viewerId);
 			bucketCursor = null;
 		}
 
 		return collected;
 	}
 
-	private List<String> resolveFriendUserIds(String userId) {
-		if (!FeedBucket.hasUser(userId)) {
+	private List<String> resolveFriendUserIds(String viewerId) {
+		if (!FeedBucket.hasUser(viewerId)) {
 			return List.of();
 		}
-		return loadFeedFriendshipPort.loadFriendUserIds(userId);
+		return loadFeedFriendshipPort.loadFriendUserIds(viewerId);
 	}
 
-	private List<FeedLatestCursorCandidate> loadLatestPageCandidates(String userId, List<String> friendUserIds,
-			FeedCursor cursor, int limit) {
-		return loadLatestFeedCandidatesPort.loadCandidates(userId, friendUserIds, cursor, limit);
+	private List<FeedLatestCursorCandidate> loadLatestPageCandidates(
+			String viewerId,
+			List<String> friendUserIds,
+			FeedCursor cursor,
+			int limit
+	) {
+		return loadLatestFeedCandidatesPort.loadCandidates(viewerId, friendUserIds, cursor, limit);
 	}
 
-	private boolean hasNextRecommended(String userId, List<FeedCursorCandidate> candidates, int limit) {
+	private boolean hasNextRecommended(String viewerId, List<FeedCursorCandidate> candidates, int limit) {
 		if (candidates.size() < limit || candidates.isEmpty()) {
 			return false;
 		}
 
 		FeedCursorCandidate lastCandidate = candidates.get(candidates.size() - 1);
 		List<FeedCursorCandidate> sameBucketRemainder = recommendedFeedCandidateService.loadCandidates(
-				userId,
+				viewerId,
 				lastCandidate.bucket(),
 				lastCandidate.toCursor(),
 				1);
@@ -163,23 +173,26 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 			return true;
 		}
 
-		FeedBucket nextBucket = lastCandidate.bucket().next(userId);
+		FeedBucket nextBucket = lastCandidate.bucket().next(viewerId);
 		while (nextBucket != null) {
 			List<FeedCursorCandidate> nextBucketItems = recommendedFeedCandidateService.loadCandidates(
-					userId,
+					viewerId,
 					nextBucket,
 					null,
 					1);
 			if (!nextBucketItems.isEmpty()) {
 				return true;
 			}
-			nextBucket = nextBucket.next(userId);
+			nextBucket = nextBucket.next(viewerId);
 		}
 
 		return false;
 	}
 
-	private boolean hasNextLatest(String userId, List<String> friendUserIds, List<FeedLatestCursorCandidate> candidates,
+	private boolean hasNextLatest(
+			String viewerId,
+			List<String> friendUserIds,
+			List<FeedLatestCursorCandidate> candidates,
 			int limit) {
 		if (candidates.size() < limit || candidates.isEmpty()) {
 			return false;
@@ -187,7 +200,7 @@ public class FeedPageQueryService implements QueryFeedPageUseCase {
 
 		FeedLatestCursorCandidate lastCandidate = candidates.get(candidates.size() - 1);
 		return !loadLatestFeedCandidatesPort.loadCandidates(
-				userId,
+				viewerId,
 				friendUserIds,
 				lastCandidate.toCursor(),
 				1).isEmpty();

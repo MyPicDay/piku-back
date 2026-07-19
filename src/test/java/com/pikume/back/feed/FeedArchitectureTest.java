@@ -81,26 +81,32 @@ class FeedArchitectureTest {
 				"RecordFeedClickUseCase.java")) {
 			assertThat(inboundPorts.resolve(port)).exists();
 		}
+		assertThat(contains(inboundPorts.resolve("QueryFeedPageUseCase.java"), "String viewerId")).isTrue();
+		assertThat(outboundPorts.resolve("LoadFeedDiaryItemSourcesPort.java")).exists();
+		assertThat(outboundPorts.resolve("LoadFeedDiaryItemsPort.java")).doesNotExist();
 	}
 
 	@Test
-	@DisplayName("Social 조회 Out Port는 피드 항목, 후보 신호와 친구 관계 목적별로 분리한다")
+	@DisplayName("Social 조회 Out Port는 피드 항목, 후보 반응 신호와 친구 관계 목적별로 분리한다")
 	void socialQueryPortsAreSplitByFeedPurpose() throws IOException {
 		Path outboundPorts = APPLICATION.resolve("port/out");
 
 		for (String port : List.of(
 				"LoadFeedItemEngagementPort.java",
-				"LoadFeedCandidateSignalsPort.java",
+				"LoadFeedCandidateEngagementSignalsPort.java",
 				"LoadFeedFriendshipPort.java")) {
 			assertThat(outboundPorts.resolve(port)).exists();
 		}
 		assertThat(outboundPorts.resolve("LoadFeedEngagementPort.java")).doesNotExist();
+		assertThat(outboundPorts.resolve("LoadFeedCandidateSignalsPort.java")).doesNotExist();
 
 		Path services = APPLICATION.resolve("service");
 		assertThat(contains(services.resolve("FeedDetailQueryService.java"), "LoadFeedItemEngagementPort")).isTrue();
 		assertThat(contains(services.resolve("FeedListItemAssembler.java"), "LoadFeedItemEngagementPort")).isTrue();
 		assertThat(contains(services.resolve("FeedListItemAssembler.java"), "LoadFeedFriendshipPort")).isTrue();
-		assertThat(contains(services.resolve("RecommendedFeedCandidateService.java"), "LoadFeedCandidateSignalsPort"))
+		assertThat(contains(
+				services.resolve("RecommendedFeedCandidateService.java"),
+				"LoadFeedCandidateEngagementSignalsPort"))
 				.isTrue();
 	}
 

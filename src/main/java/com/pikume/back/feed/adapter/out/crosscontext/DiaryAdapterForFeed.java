@@ -11,7 +11,7 @@ import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryDetailPort;
-import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemSourcesPort;
 import com.pikume.back.feed.application.port.out.LoadLatestFeedCandidatesPort;
 import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestFeedCandidatesPort,
-		LoadFeedDiaryItemsPort, LoadFeedDiaryCandidateSourcePort {
+		LoadFeedDiaryItemSourcesPort, LoadFeedDiaryCandidateSourcePort {
 
 	private final QueryDiaryFeedUseCase queryDiaryFeedUseCase;
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
@@ -52,7 +52,7 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 	}
 
 	@Override
-	public List<Long> loadDiaryIdsByVisibilityAndAuthors(
+	public List<Long> loadRecentDiaryIdsByVisibilityAndAuthors(
 			FeedVisibility visibility,
 			List<String> authorIds,
 			int limit
@@ -64,7 +64,18 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 	}
 
 	@Override
-	public List<Long> loadDiaryIdsByVisibility(
+	public List<Long> loadRecentDiaryIdsByVisibility(
+			FeedVisibility visibility,
+			int limit
+	) {
+		return queryDiaryFeedUseCase.findDiaryIdsByStatus(
+				toDiaryVisibility(visibility),
+				null,
+				limit);
+	}
+
+	@Override
+	public List<Long> loadRecentDiaryIdsByVisibilityExcludingAuthor(
 			FeedVisibility visibility,
 			String excludedAuthorId,
 			int limit
@@ -76,7 +87,7 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 	}
 
 	@Override
-	public Map<Long, FeedDiaryCandidateView> loadCandidateDetails(Set<Long> diaryIds) {
+	public Map<Long, FeedDiaryCandidateView> loadCandidateAttributes(Set<Long> diaryIds) {
 		return queryDiaryReadUseCase.getDiarySummaries(diaryIds).values().stream()
 				.collect(Collectors.toMap(
 						DiarySummaryView::diaryId,
@@ -87,7 +98,7 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 	}
 
 	@Override
-	public Map<Long, FeedDiaryItemSourceView> loadDiaryItems(Set<Long> diaryIds) {
+	public Map<Long, FeedDiaryItemSourceView> loadDiaryItemSources(Set<Long> diaryIds) {
 		if (diaryIds.isEmpty()) {
 			return Map.of();
 		}

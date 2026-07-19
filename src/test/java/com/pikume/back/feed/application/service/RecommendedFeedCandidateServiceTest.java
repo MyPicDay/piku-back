@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.feed.application.dto.FeedBucket;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
-import com.pikume.back.feed.application.port.out.LoadFeedCandidateSignalsPort;
+import com.pikume.back.feed.application.port.out.LoadFeedCandidateEngagementSignalsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickHistoryPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
@@ -35,7 +35,7 @@ class RecommendedFeedCandidateServiceTest {
 	@Mock
 	private LoadFeedFriendshipPort loadFeedFriendshipPort;
 	@Mock
-	private LoadFeedCandidateSignalsPort loadFeedCandidateSignalsPort;
+	private LoadFeedCandidateEngagementSignalsPort loadFeedCandidateEngagementSignalsPort;
 	@Mock
 	private LoadFeedClickHistoryPort loadFeedClickHistoryPort;
 
@@ -46,7 +46,7 @@ class RecommendedFeedCandidateServiceTest {
 		service = new RecommendedFeedCandidateService(
 				loadFeedDiaryCandidateSourcePort,
 				loadFeedFriendshipPort,
-				loadFeedCandidateSignalsPort,
+				loadFeedCandidateEngagementSignalsPort,
 				loadFeedClickHistoryPort);
 	}
 
@@ -60,13 +60,13 @@ class RecommendedFeedCandidateServiceTest {
 			LocalDateTime now = LocalDateTime.of(2026, 3, 8, 12, 0);
 			given(loadFeedFriendshipPort.loadFriendUserIds("viewer"))
 					.willReturn(List.of("friend"));
-			given(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibilityAndAuthors(
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityAndAuthors(
 					FeedVisibility.FRIENDS, List.of("friend"), 50))
 					.willReturn(List.of(1L, 2L));
-			given(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibilityAndAuthors(
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityAndAuthors(
 					FeedVisibility.PUBLIC, List.of("friend"), 50))
 					.willReturn(List.of(3L));
-			given(loadFeedDiaryCandidateSourcePort.loadCandidateDetails(Set.of(1L, 2L, 3L)))
+			given(loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.of(1L, 2L, 3L)))
 					.willReturn(Map.of(
 							1L, new FeedDiaryCandidateView(1L, "friend", now.minusHours(1)),
 							2L, new FeedDiaryCandidateView(2L, "friend", now.minusHours(2)),
@@ -74,13 +74,13 @@ class RecommendedFeedCandidateServiceTest {
 			given(loadFeedClickHistoryPort.loadClickedDiaryIds(
 					"viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of(2L));
-			given(loadFeedCandidateSignalsPort.loadLikedDiaryIds("viewer", List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadLikedDiaryIds("viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedCandidateSignalsPort.loadCommentedDiaryIds("viewer", List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadCommentedDiaryIds("viewer", List.of(1L, 2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedCandidateSignalsPort.loadLikeCounts(List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadLikeCounts(List.of(1L, 2L, 3L)))
 					.willReturn(Map.of(1L, 1L, 3L, 5L));
-			given(loadFeedCandidateSignalsPort.loadCommentCounts(List.of(1L, 2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadCommentCounts(List.of(1L, 2L, 3L)))
 					.willReturn(Map.of(1L, 2L, 3L, 1L));
 
 			List<FeedCursorCandidate> result = service.loadCandidates(
@@ -98,28 +98,28 @@ class RecommendedFeedCandidateServiceTest {
 			LocalDateTime now = LocalDateTime.of(2026, 3, 8, 12, 0);
 			given(loadFeedFriendshipPort.loadFriendUserIds("viewer"))
 					.willReturn(List.of("friend"));
-			given(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibility(
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityExcludingAuthor(
 					FeedVisibility.PUBLIC, "viewer", 50))
 					.willReturn(List.of(1L, 2L));
-			given(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibility(
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityExcludingAuthor(
 					FeedVisibility.ANONYMOUS, "viewer", 50))
 					.willReturn(List.of(3L));
-			given(loadFeedDiaryCandidateSourcePort.loadCandidateDetails(Set.of(1L, 2L)))
+			given(loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.of(1L, 2L)))
 					.willReturn(Map.of(
 							1L, new FeedDiaryCandidateView(1L, "friend", now),
 							2L, new FeedDiaryCandidateView(2L, "other", now.minusMinutes(1))));
-			given(loadFeedDiaryCandidateSourcePort.loadCandidateDetails(Set.of(2L, 3L)))
+			given(loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.of(2L, 3L)))
 					.willReturn(Map.of(
 							2L, new FeedDiaryCandidateView(2L, "other", now.minusMinutes(1)),
 							3L, new FeedDiaryCandidateView(3L, "friend", now.minusMinutes(2))));
 			given(loadFeedClickHistoryPort.loadClickedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedCandidateSignalsPort.loadLikedDiaryIds("viewer", List.of(2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadLikedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedCandidateSignalsPort.loadCommentedDiaryIds("viewer", List.of(2L, 3L)))
+			given(loadFeedCandidateEngagementSignalsPort.loadCommentedDiaryIds("viewer", List.of(2L, 3L)))
 					.willReturn(Set.of());
-			given(loadFeedCandidateSignalsPort.loadLikeCounts(List.of(2L, 3L))).willReturn(Map.of());
-			given(loadFeedCandidateSignalsPort.loadCommentCounts(List.of(2L, 3L))).willReturn(Map.of());
+			given(loadFeedCandidateEngagementSignalsPort.loadLikeCounts(List.of(2L, 3L))).willReturn(Map.of());
+			given(loadFeedCandidateEngagementSignalsPort.loadCommentCounts(List.of(2L, 3L))).willReturn(Map.of());
 
 			List<FeedCursorCandidate> result = service.loadCandidates(
 					"viewer",
@@ -128,6 +128,37 @@ class RecommendedFeedCandidateServiceTest {
 					2);
 
 			assertThat(result).extracting(FeedCursorCandidate::diaryId).containsExactly(2L, 3L);
+		}
+
+		@Test
+		@DisplayName("익명 공개 Bucket 조회는 작성자 제외 조회를 사용하지 않는다")
+		void loadsAnonymousPublicBucketWithoutAuthorExclusion() {
+			LocalDateTime createdAt = LocalDateTime.of(2026, 3, 8, 12, 0);
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibility(
+					FeedVisibility.PUBLIC, 50))
+					.willReturn(List.of(1L));
+			given(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibility(
+					FeedVisibility.ANONYMOUS, 50))
+					.willReturn(List.of());
+			given(loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.of(1L)))
+					.willReturn(Map.of(1L, new FeedDiaryCandidateView(1L, "writer", createdAt)));
+
+			List<FeedCursorCandidate> result = service.loadCandidates(
+					null,
+					FeedBucket.NOT_CONSUMED_PUBLIC,
+					null,
+					1);
+
+			assertThat(result).extracting(FeedCursorCandidate::diaryId).containsExactly(1L);
+			then(loadFeedDiaryCandidateSourcePort).should()
+					.loadRecentDiaryIdsByVisibility(FeedVisibility.PUBLIC, 50);
+			then(loadFeedDiaryCandidateSourcePort).should()
+					.loadRecentDiaryIdsByVisibility(FeedVisibility.ANONYMOUS, 50);
+			then(loadFeedDiaryCandidateSourcePort).should(never())
+					.loadRecentDiaryIdsByVisibilityExcludingAuthor(
+							org.mockito.ArgumentMatchers.any(),
+							org.mockito.ArgumentMatchers.nullable(String.class),
+							org.mockito.ArgumentMatchers.anyInt());
 		}
 
 		@Test

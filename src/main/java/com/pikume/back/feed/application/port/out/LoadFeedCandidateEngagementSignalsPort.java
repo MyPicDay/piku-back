@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface LoadFeedCandidateSignalsPort {
+public interface LoadFeedCandidateEngagementSignalsPort {
 
 	Map<Long, Long> loadLikeCounts(List<Long> diaryIds);
 

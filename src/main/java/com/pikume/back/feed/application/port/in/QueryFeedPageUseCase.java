@@ -6,5 +6,5 @@ import com.pikume.back.feed.application.dto.FeedDiaryResult;
 
 public interface QueryFeedPageUseCase {
 
-	FeedCursorPage<FeedDiaryResult> queryPage(FeedCursorRequest request, String userId);
+	FeedCursorPage<FeedDiaryResult> queryPage(FeedCursorRequest request, String viewerId);
 }

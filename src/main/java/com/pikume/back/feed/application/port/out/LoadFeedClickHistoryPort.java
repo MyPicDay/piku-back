@@ -5,7 +5,7 @@ import java.util.Set;
 
 public interface LoadFeedClickHistoryPort {
 
-	boolean hasClick(String userId, Long diaryId);
+	boolean hasRecordedClick(String userId, Long diaryId);
 
 	Set<Long> loadClickedDiaryIds(String userId, List<Long> diaryIds);
 }

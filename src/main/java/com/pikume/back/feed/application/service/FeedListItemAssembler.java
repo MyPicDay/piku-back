@@ -6,7 +6,7 @@ import com.pikume.back.feed.application.dto.FeedFriendStatus;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
-import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemSourcesPort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
 import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FeedListItemAssembler {
 
-	private final LoadFeedDiaryItemsPort loadFeedDiaryItemsPort;
+	private final LoadFeedDiaryItemSourcesPort loadFeedDiaryItemSourcesPort;
 	private final LoadFeedAuthorsPort loadFeedAuthorsPort;
 	private final LoadFeedItemEngagementPort loadFeedItemEngagementPort;
 	private final LoadFeedFriendshipPort loadFeedFriendshipPort;
@@ -36,7 +36,8 @@ public class FeedListItemAssembler {
 			return List.of();
 		}
 
-		Map<Long, FeedDiaryItemSourceView> diariesById = loadFeedDiaryItemsPort.loadDiaryItems(Set.copyOf(diaryIds));
+		Map<Long, FeedDiaryItemSourceView> diariesById =
+				loadFeedDiaryItemSourcesPort.loadDiaryItemSources(Set.copyOf(diaryIds));
 		Set<String> visibleAuthorIds = diariesById.values().stream()
 				.filter(diary -> diary.status() != FeedVisibility.ANONYMOUS)
 				.map(FeedDiaryItemSourceView::userId)

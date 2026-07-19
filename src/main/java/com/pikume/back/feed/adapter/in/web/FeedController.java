@@ -62,10 +62,10 @@ public class FeedController {
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
-		String userId = customUserDetails != null ? customUserDetails.getId() : null;
-		FeedDiaryResult result = queryFeedDetailUseCase.queryDetail(diaryId, userId);
-		if (userId != null) {
-			recordFeedClickUseCase.recordClick(userId, diaryId);
+		String viewerId = customUserDetails != null ? customUserDetails.getId() : null;
+		FeedDiaryResult result = queryFeedDetailUseCase.queryDetail(diaryId, viewerId);
+		if (viewerId != null) {
+			recordFeedClickUseCase.recordClick(viewerId, diaryId);
 		}
 		return ResponseEntity.ok(feedResponseMapper.mapDiary(result));
 	}
@@ -99,10 +99,10 @@ public class FeedController {
 			@RequestParam(required = false) String sort,
 			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
 		FeedSortMode sortMode = feedSortRequestMapper.map(sort);
-		String userId = customUserDetails != null ? customUserDetails.getId() : null;
+		String viewerId = customUserDetails != null ? customUserDetails.getId() : null;
 		FeedCursorPage<FeedDiaryResult> page = queryFeedPageUseCase.queryPage(
 				new FeedCursorRequest(cursor, limit, sortMode),
-				userId);
+				viewerId);
 		return ResponseEntity.ok(feedResponseMapper.mapPage(page));
 	}
 }

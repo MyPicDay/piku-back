@@ -6,7 +6,7 @@ import com.pikume.back.feed.application.dto.FeedBucket;
 import com.pikume.back.feed.application.dto.FeedCursor;
 import com.pikume.back.feed.application.dto.FeedCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
-import com.pikume.back.feed.application.port.out.LoadFeedCandidateSignalsPort;
+import com.pikume.back.feed.application.port.out.LoadFeedCandidateEngagementSignalsPort;
 import com.pikume.back.feed.application.port.out.LoadFeedClickHistoryPort;
 import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
@@ -38,7 +38,7 @@ public class RecommendedFeedCandidateService {
 
 	private final LoadFeedDiaryCandidateSourcePort loadFeedDiaryCandidateSourcePort;
 	private final LoadFeedFriendshipPort loadFeedFriendshipPort;
-	private final LoadFeedCandidateSignalsPort loadFeedCandidateSignalsPort;
+	private final LoadFeedCandidateEngagementSignalsPort loadFeedCandidateEngagementSignalsPort;
 	private final LoadFeedClickHistoryPort loadFeedClickHistoryPort;
 
 	public List<FeedCursorCandidate> loadCandidates(
@@ -85,7 +85,7 @@ public class RecommendedFeedCandidateService {
 		}
 
 		Map<Long, FeedDiaryCandidateView> diaryCandidatesById =
-				loadFeedDiaryCandidateSourcePort.loadCandidateDetails(Set.copyOf(sourceDiaryIds));
+				loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.copyOf(sourceDiaryIds));
 		List<Long> availableDiaryIds = sourceDiaryIds.stream()
 				.filter(diaryCandidatesById::containsKey)
 				.toList();
@@ -94,8 +94,10 @@ public class RecommendedFeedCandidateService {
 		}
 
 		Set<Long> consumedDiaryIds = resolveConsumedDiaryIds(currentUserId, availableDiaryIds);
-		Map<Long, Long> likeCountsByDiaryId = loadFeedCandidateSignalsPort.loadLikeCounts(availableDiaryIds);
-		Map<Long, Long> commentCountsByDiaryId = loadFeedCandidateSignalsPort.loadCommentCounts(availableDiaryIds);
+		Map<Long, Long> likeCountsByDiaryId =
+				loadFeedCandidateEngagementSignalsPort.loadLikeCounts(availableDiaryIds);
+		Map<Long, Long> commentCountsByDiaryId =
+				loadFeedCandidateEngagementSignalsPort.loadCommentCounts(availableDiaryIds);
 
 		Predicate<FeedCursorCandidate> bucketFilter = bucket.isConsumedBucket()
 				? candidate -> consumedDiaryIds.contains(candidate.diaryId())
@@ -128,11 +130,11 @@ public class RecommendedFeedCandidateService {
 
 		LinkedHashSet<Long> combined = new LinkedHashSet<>();
 		List<String> friendIds = List.copyOf(friendUserIds);
-		combined.addAll(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibilityAndAuthors(
+		combined.addAll(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityAndAuthors(
 				FeedVisibility.FRIENDS,
 				friendIds,
 				sourceQueryLimit));
-		combined.addAll(loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibilityAndAuthors(
+		combined.addAll(loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityAndAuthors(
 				FeedVisibility.PUBLIC,
 				friendIds,
 				sourceQueryLimit));
@@ -144,11 +146,11 @@ public class RecommendedFeedCandidateService {
 			Set<String> friendUserIds,
 			int sourceQueryLimit
 	) {
-		List<Long> publicDiaryIds = loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibility(
+		List<Long> publicDiaryIds = loadRecentDiaryIdsForPublicBucket(
 				FeedVisibility.PUBLIC,
 				currentUserId,
 				sourceQueryLimit);
-		List<Long> anonymousDiaryIds = loadFeedDiaryCandidateSourcePort.loadDiaryIdsByVisibility(
+		List<Long> anonymousDiaryIds = loadRecentDiaryIdsForPublicBucket(
 				FeedVisibility.ANONYMOUS,
 				currentUserId,
 				sourceQueryLimit);
@@ -161,7 +163,7 @@ public class RecommendedFeedCandidateService {
 		}
 
 		Map<Long, FeedDiaryCandidateView> diariesById =
-				loadFeedDiaryCandidateSourcePort.loadCandidateDetails(Set.copyOf(publicDiaryIds));
+				loadFeedDiaryCandidateSourcePort.loadCandidateAttributes(Set.copyOf(publicDiaryIds));
 		LinkedHashSet<Long> filtered = publicDiaryIds.stream()
 				.filter(diaryId -> {
 					FeedDiaryCandidateView diary = diariesById.get(diaryId);
@@ -172,6 +174,22 @@ public class RecommendedFeedCandidateService {
 		return List.copyOf(filtered);
 	}
 
+	private List<Long> loadRecentDiaryIdsForPublicBucket(
+			FeedVisibility visibility,
+			String currentUserId,
+			int sourceQueryLimit
+	) {
+		if (!FeedBucket.hasUser(currentUserId)) {
+			return loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibility(
+					visibility,
+					sourceQueryLimit);
+		}
+		return loadFeedDiaryCandidateSourcePort.loadRecentDiaryIdsByVisibilityExcludingAuthor(
+				visibility,
+				currentUserId,
+				sourceQueryLimit);
+	}
+
 	private Set<Long> resolveConsumedDiaryIds(String currentUserId, Collection<Long> diaryIds) {
 		if (!FeedBucket.hasUser(currentUserId) || diaryIds.isEmpty()) {
 			return Set.of();
@@ -180,8 +198,10 @@ public class RecommendedFeedCandidateService {
 		List<Long> diaryIdList = List.copyOf(diaryIds);
 		Set<Long> consumedDiaryIds = new HashSet<>(
 				loadFeedClickHistoryPort.loadClickedDiaryIds(currentUserId, diaryIdList));
-		consumedDiaryIds.addAll(loadFeedCandidateSignalsPort.loadLikedDiaryIds(currentUserId, diaryIdList));
-		consumedDiaryIds.addAll(loadFeedCandidateSignalsPort.loadCommentedDiaryIds(currentUserId, diaryIdList));
+		consumedDiaryIds.addAll(
+				loadFeedCandidateEngagementSignalsPort.loadLikedDiaryIds(currentUserId, diaryIdList));
+		consumedDiaryIds.addAll(
+				loadFeedCandidateEngagementSignalsPort.loadCommentedDiaryIds(currentUserId, diaryIdList));
 		return consumedDiaryIds;
 	}
 

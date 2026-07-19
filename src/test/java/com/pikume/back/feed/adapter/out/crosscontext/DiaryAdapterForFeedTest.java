@@ -57,7 +57,7 @@ class DiaryAdapterForFeedTest {
 								LocalDate.of(2026, 3, 8),
 								LocalDateTime.of(2026, 3, 8, 10, 0))));
 
-		FeedDiaryItemSourceView result = adapter.loadDiaryItems(diaryIds).get(1L);
+		FeedDiaryItemSourceView result = adapter.loadDiaryItemSources(diaryIds).get(1L);
 
 		assertThat(result.status()).isEqualTo(FeedVisibility.PUBLIC);
 		assertThat(result.photos()).extracting(photo -> photo.imageUrl())

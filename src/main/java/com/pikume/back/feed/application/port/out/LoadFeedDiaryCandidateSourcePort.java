@@ -9,15 +9,19 @@ import java.util.Set;
 
 public interface LoadFeedDiaryCandidateSourcePort {
 
-	List<Long> loadDiaryIdsByVisibilityAndAuthors(
+	List<Long> loadRecentDiaryIdsByVisibilityAndAuthors(
 			FeedVisibility visibility,
 			List<String> authorIds,
 			int limit);
 
-	List<Long> loadDiaryIdsByVisibility(
+	List<Long> loadRecentDiaryIdsByVisibility(
+			FeedVisibility visibility,
+			int limit);
+
+	List<Long> loadRecentDiaryIdsByVisibilityExcludingAuthor(
 			FeedVisibility visibility,
 			String excludedAuthorId,
 			int limit);
 
-	Map<Long, FeedDiaryCandidateView> loadCandidateDetails(Set<Long> diaryIds);
+	Map<Long, FeedDiaryCandidateView> loadCandidateAttributes(Set<Long> diaryIds);
 }

@@ -16,7 +16,7 @@ public class FeedClickPersistenceAdapter implements LoadFeedClickHistoryPort, Re
 	private final FeedClickJpaRepository feedClickJpaRepository;
 
 	@Override
-	public boolean hasClick(String userId, Long diaryId) {
+	public boolean hasRecordedClick(String userId, Long diaryId) {
 		return feedClickJpaRepository.existsByUserIdAndDiaryId(userId, diaryId);
 	}
 

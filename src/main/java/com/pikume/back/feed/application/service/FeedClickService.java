@@ -27,7 +27,7 @@ public class FeedClickService implements RecordFeedClickUseCase {
 		if (loadFeedDiaryDetailPort.loadVisibleDiary(diaryId, userId).isEmpty()) {
 			return;
 		}
-		if (loadFeedClickHistoryPort.hasClick(userId, diaryId)) {
+		if (loadFeedClickHistoryPort.hasRecordedClick(userId, diaryId)) {
 			return;
 		}
 

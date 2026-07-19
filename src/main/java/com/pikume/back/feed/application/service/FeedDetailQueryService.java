@@ -32,10 +32,10 @@ public class FeedDetailQueryService implements QueryFeedDetailUseCase {
 
 	@Override
 	@Transactional(readOnly = true)
-	public FeedDiaryResult queryDetail(Long diaryId, String userId) {
+	public FeedDiaryResult queryDetail(Long diaryId, String viewerId) {
 		log.info("일기 상세 조회 요청 - diaryId: {}", diaryId);
 
-		FeedDiaryDetailView diary = loadFeedDiaryDetailPort.loadVisibleDiary(diaryId, userId)
+		FeedDiaryDetailView diary = loadFeedDiaryDetailPort.loadVisibleDiary(diaryId, viewerId)
 				.orElseThrow(FeedDiaryNotFoundException::new);
 		FeedAuthorView author = loadAuthor(diary);
 		FeedAuthorMaskingPolicy.AuthorPresentation authorPresentation = feedAuthorMaskingPolicy.present(
@@ -43,9 +43,9 @@ public class FeedDetailQueryService implements QueryFeedDetailUseCase {
 				diary.userId(),
 				author,
 				null,
-				userId);
+				viewerId);
 		FeedEngagementView engagement = loadFeedItemEngagementPort
-				.loadEngagements(userId, List.of(diary.diaryId()))
+				.loadEngagements(viewerId, List.of(diary.diaryId()))
 				.getOrDefault(
 						diary.diaryId(),
 						new FeedEngagementView(diary.diaryId(), 0L, 0L, false));

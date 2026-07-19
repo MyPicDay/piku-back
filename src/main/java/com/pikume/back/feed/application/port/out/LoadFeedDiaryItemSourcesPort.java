@@ -5,7 +5,7 @@ import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
 import java.util.Map;
 import java.util.Set;
 
-public interface LoadFeedDiaryItemsPort {
+public interface LoadFeedDiaryItemSourcesPort {
 
-	Map<Long, FeedDiaryItemSourceView> loadDiaryItems(Set<Long> diaryIds);
+	Map<Long, FeedDiaryItemSourceView> loadDiaryItemSources(Set<Long> diaryIds);
 }

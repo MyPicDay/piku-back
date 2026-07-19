@@ -11,7 +11,7 @@ import com.pikume.back.feed.application.dto.FeedFriendStatus;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.policy.FeedAuthorMaskingPolicy;
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
-import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemSourcesPort;
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
 import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
@@ -35,7 +35,7 @@ import static org.mockito.BDDMockito.then;
 class FeedListItemAssemblerTest {
 
 	@Mock
-	private LoadFeedDiaryItemsPort loadFeedDiaryItemsPort;
+	private LoadFeedDiaryItemSourcesPort loadFeedDiaryItemSourcesPort;
 	@Mock
 	private LoadFeedAuthorsPort loadFeedAuthorsPort;
 	@Mock
@@ -48,7 +48,7 @@ class FeedListItemAssemblerTest {
 	@BeforeEach
 	void setUp() {
 		assembler = new FeedListItemAssembler(
-				loadFeedDiaryItemsPort,
+				loadFeedDiaryItemSourcesPort,
 				loadFeedAuthorsPort,
 				loadFeedItemEngagementPort,
 				loadFeedFriendshipPort,
@@ -64,7 +64,7 @@ class FeedListItemAssemblerTest {
 		void preservesCandidateOrder() {
 			FeedDiaryItemSourceView first = diary(1L, "writer-1", FeedVisibility.PUBLIC);
 			FeedDiaryItemSourceView second = diary(2L, "writer-2", FeedVisibility.PUBLIC);
-			given(loadFeedDiaryItemsPort.loadDiaryItems(Set.of(2L, 1L)))
+			given(loadFeedDiaryItemSourcesPort.loadDiaryItemSources(Set.of(2L, 1L)))
 					.willReturn(Map.of(1L, first, 2L, second));
 			given(loadFeedAuthorsPort.loadAuthors(Set.of("writer-1", "writer-2")))
 					.willReturn(Map.of(
@@ -92,7 +92,7 @@ class FeedListItemAssemblerTest {
 		@DisplayName("누락된 일기는 제외하고 익명 작성자와 누락 반응은 현재 기본값으로 조합한다")
 		void handlesMissingSourceAndAnonymousAuthor() {
 			FeedDiaryItemSourceView anonymous = diary(2L, "writer-2", FeedVisibility.ANONYMOUS);
-			given(loadFeedDiaryItemsPort.loadDiaryItems(Set.of(1L, 2L)))
+			given(loadFeedDiaryItemSourcesPort.loadDiaryItemSources(Set.of(1L, 2L)))
 					.willReturn(Map.of(2L, anonymous));
 			given(loadFeedAuthorsPort.loadAuthors(Set.of())).willReturn(Map.of());
 			given(loadFeedFriendshipPort.loadFriendStatuses("writer-2", Set.of())).willReturn(Map.of());

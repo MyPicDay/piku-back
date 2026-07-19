@@ -61,7 +61,7 @@ class FeedClickServiceTest {
 		void recordsClickBeforePreference() {
 			given(loadFeedDiaryDetailPort.loadVisibleDiary(1L, "user-id"))
 					.willReturn(Optional.of(visibleDiary()));
-			given(loadFeedClickHistoryPort.hasClick("user-id", 1L)).willReturn(false);
+			given(loadFeedClickHistoryPort.hasRecordedClick("user-id", 1L)).willReturn(false);
 
 			service.recordClick("user-id", 1L);
 
@@ -75,7 +75,7 @@ class FeedClickServiceTest {
 		void ignoresDuplicateClick() {
 			given(loadFeedDiaryDetailPort.loadVisibleDiary(1L, "user-id"))
 					.willReturn(Optional.of(visibleDiary()));
-			given(loadFeedClickHistoryPort.hasClick("user-id", 1L)).willReturn(true);
+			given(loadFeedClickHistoryPort.hasRecordedClick("user-id", 1L)).willReturn(true);
 
 			service.recordClick("user-id", 1L);
 
@@ -101,7 +101,7 @@ class FeedClickServiceTest {
 		void swallowsPreferenceFailure() {
 			given(loadFeedDiaryDetailPort.loadVisibleDiary(1L, "user-id"))
 					.willReturn(Optional.of(visibleDiary()));
-			given(loadFeedClickHistoryPort.hasClick("user-id", 1L)).willReturn(false);
+			given(loadFeedClickHistoryPort.hasRecordedClick("user-id", 1L)).willReturn(false);
 			org.mockito.BDDMockito.willThrow(new IllegalStateException("preference failed"))
 					.given(recordFeedClickPreferencePort)
 					.recordClickPreference("user-id", 1L);
