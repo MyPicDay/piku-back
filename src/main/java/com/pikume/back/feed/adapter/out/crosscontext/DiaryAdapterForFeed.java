@@ -1,0 +1,145 @@
+package com.pikume.back.feed.adapter.out.crosscontext;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
+import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
+import com.pikume.back.feed.application.dto.FeedCursor;
+import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
+import com.pikume.back.feed.application.dto.FeedVisibility;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryCandidateSourcePort;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryDetailPort;
+import com.pikume.back.feed.application.port.out.LoadFeedDiaryItemsPort;
+import com.pikume.back.feed.application.port.out.LoadLatestFeedCandidatesPort;
+import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
+import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
+import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
+import com.pikume.back.feed.application.readmodel.FeedPhotoReferenceView;
+import com.pikume.back.global.port.out.ResolveImageUrlPort;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Component
+@RequiredArgsConstructor
+public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestFeedCandidatesPort,
+		LoadFeedDiaryItemsPort, LoadFeedDiaryCandidateSourcePort {
+
+	private final QueryDiaryFeedUseCase queryDiaryFeedUseCase;
+	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
+	private final ResolveImageUrlPort resolveImageUrlPort;
+
+	@Override
+	public Optional<FeedDiaryDetailView> loadVisibleDiary(Long diaryId, String viewerId) {
+		return queryDiaryFeedUseCase.findVisibleDiaryDetailById(diaryId, viewerId)
+				.map(diary -> new FeedDiaryDetailView(
+						diary.diaryId(),
+						diary.userId(),
+						toFeedVisibility(diary.status()),
+						diary.content(),
+						diary.photos().stream()
+								.map(photo -> resolveImageUrlPort.getPhotoUrl(photo.path(), photo.represent()))
+								.toList(),
+						diary.date(),
+						diary.createdAt()));
+	}
+
+	@Override
+	public List<Long> loadDiaryIdsByVisibilityAndAuthors(
+			FeedVisibility visibility,
+			List<String> authorIds,
+			int limit
+	) {
+		return queryDiaryFeedUseCase.findDiaryIdsByStatusAndUserIds(
+				toDiaryVisibility(visibility),
+				authorIds,
+				limit);
+	}
+
+	@Override
+	public List<Long> loadDiaryIdsByVisibility(
+			FeedVisibility visibility,
+			String excludedAuthorId,
+			int limit
+	) {
+		return queryDiaryFeedUseCase.findDiaryIdsByStatus(
+				toDiaryVisibility(visibility),
+				excludedAuthorId,
+				limit);
+	}
+
+	@Override
+	public Map<Long, FeedDiaryCandidateView> loadCandidateDetails(Set<Long> diaryIds) {
+		return queryDiaryReadUseCase.getDiarySummaries(diaryIds).values().stream()
+				.collect(Collectors.toMap(
+						DiarySummaryView::diaryId,
+						diary -> new FeedDiaryCandidateView(
+								diary.diaryId(),
+								diary.userId(),
+								diary.createdAt())));
+	}
+
+	@Override
+	public Map<Long, FeedDiaryItemSourceView> loadDiaryItems(Set<Long> diaryIds) {
+		if (diaryIds.isEmpty()) {
+			return Map.of();
+		}
+
+		Map<Long, List<FeedPhotoReferenceView>> photosByDiaryId = new HashMap<>();
+		queryDiaryReadUseCase.getDiaryPhotos(diaryIds).forEach(photo -> photosByDiaryId
+				.computeIfAbsent(photo.diaryId(), ignored -> new ArrayList<>())
+				.add(new FeedPhotoReferenceView(
+						resolveImageUrlPort.getPhotoUrl(photo.path(), photo.represent()))));
+
+		return queryDiaryReadUseCase.getDiarySummaries(diaryIds).values().stream()
+				.collect(Collectors.toMap(
+						DiarySummaryView::diaryId,
+						diary -> new FeedDiaryItemSourceView(
+								diary.diaryId(),
+								diary.userId(),
+								toFeedVisibility(diary.status()),
+								diary.content(),
+								photosByDiaryId.getOrDefault(diary.diaryId(), List.of()),
+								diary.date(),
+								diary.createdAt())));
+	}
+
+	@Override
+	public List<FeedLatestCursorCandidate> loadCandidates(String currentUserId, List<String> friendUserIds,
+			FeedCursor cursor, int limit) {
+		return queryDiaryFeedUseCase.findLatestVisibleFeedCandidates(
+						currentUserId,
+						friendUserIds,
+						cursor != null ? cursor.date() : null,
+						cursor != null ? cursor.diaryId() : null,
+						limit)
+				.stream()
+				.map(candidate -> new FeedLatestCursorCandidate(candidate.diaryId(), candidate.date()))
+				.toList();
+	}
+
+	private FeedVisibility toFeedVisibility(DiaryVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> FeedVisibility.PUBLIC;
+			case FRIENDS -> FeedVisibility.FRIENDS;
+			case PRIVATE -> FeedVisibility.PRIVATE;
+			case ANONYMOUS -> FeedVisibility.ANONYMOUS;
+		};
+	}
+
+	private DiaryVisibility toDiaryVisibility(FeedVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> DiaryVisibility.PUBLIC;
+			case FRIENDS -> DiaryVisibility.FRIENDS;
+			case PRIVATE -> DiaryVisibility.PRIVATE;
+			case ANONYMOUS -> DiaryVisibility.ANONYMOUS;
+		};
+	}
+}

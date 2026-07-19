@@ -14,12 +14,13 @@ public record FeedListItemView(
 		List<String> imageUrls,
 		LocalDate date,
 		String nickname,
-		String avatarPath,
+		String avatarUrl,
 		String userId,
 		LocalDateTime createdAt,
 		FeedFriendStatus friendStatus,
 		long commentCount,
 		long likeCount,
-		boolean liked
+		boolean liked,
+		boolean owner
 ) {
 }

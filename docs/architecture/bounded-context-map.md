@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-15
+- Last Reviewed: 2026-07-19
 
 ## 목적
 
@@ -121,7 +121,7 @@ flowchart LR
 | Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
 | Diary | Notification | 친구 공개 일기 알림 요청 | Diary 소유 알림 Out Port가 일기 식별자와 공개 의미만 전달하고 Cross-context Adapter가 Notification 계약으로 변환한다. |
 | Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Diary 소유 분석 Out Port가 저장 성공 이후의 best-effort 작업으로 요청하고 Cross-context Adapter가 Recommendation 공개 계약을 호출한다. |
-| Feed | User, Diary, Social, Recommendation | 피드 구성용 사용자·일기·소셜·추천 정보 조회 | 사용자 정보는 Feed 소유 Out Port와 User 공개 계약으로 변환한다. 다른 공급자 경계는 별도 정리 대상이다. |
+| Feed | User, Diary, Social, Recommendation | 피드 상세·후보·목록 조합용 정보 조회와 클릭 선호도 기록 | Feed 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 공급자의 공개 Application 계약을 Feed Read Model과 클릭 의도로 변환한다. Feed Application에는 공급자 타입을 노출하지 않는다. |
 | Notification | User, Diary | 알림 응답용 발신자·일기 정보 조회 | 사용자 정보는 Notification 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |
 | Social | User, Diary | 친구·댓글·좋아요 대상과 응답 정보 조회 | 사용자 정보는 Social 소유 Out Port와 User 공개 계약으로 변환한다. Diary 경계는 별도 정리 대상이다. |
 | Social | Notification | 친구·댓글·좋아요 알림 요청 | 이벤트 Port가 있으나 전달 의미와 보장 수준을 명시해야 한다. |

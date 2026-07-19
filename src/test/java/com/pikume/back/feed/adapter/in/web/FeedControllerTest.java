@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,7 +18,9 @@ import com.pikume.back.feed.application.dto.FeedFriendStatus;
 import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.exception.FeedDiaryNotFoundException;
-import com.pikume.back.feed.application.port.in.GetFeedUseCase;
+import com.pikume.back.feed.application.port.in.QueryFeedDetailUseCase;
+import com.pikume.back.feed.application.port.in.QueryFeedPageUseCase;
+import com.pikume.back.feed.application.port.in.RecordFeedClickUseCase;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 
@@ -40,7 +43,17 @@ class FeedControllerTest {
 	private FeedController feedController;
 
 	@Mock
-	private GetFeedUseCase getFeedUseCase;
+	private QueryFeedDetailUseCase queryFeedDetailUseCase;
+	@Mock
+	private QueryFeedPageUseCase queryFeedPageUseCase;
+	@Mock
+	private RecordFeedClickUseCase recordFeedClickUseCase;
+
+	@Spy
+	private FeedResponseMapper feedResponseMapper = new FeedResponseMapper();
+
+	@Spy
+	private FeedSortRequestMapper feedSortRequestMapper = new FeedSortRequestMapper();
 
 	private MockMvc mockMvc;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
@@ -75,7 +88,7 @@ class FeedControllerTest {
 						.build()),
 				"opaque-next-cursor",
 				true);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest("cursor-token", 10), null))
+		given(queryFeedPageUseCase.queryPage(new FeedCursorRequest("cursor-token", 10), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -88,14 +101,14 @@ class FeedControllerTest {
 				.andExpect(jsonPath("$.nextCursor").value("opaque-next-cursor"))
 				.andExpect(jsonPath("$.hasNext").value(true));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest("cursor-token", 10), null);
+		verify(queryFeedPageUseCase).queryPage(new FeedCursorRequest("cursor-token", 10), null);
 	}
 
 	@Test
 	@DisplayName("GET /api/diary?sort=latest는 최신순 모드로 피드 목록을 요청한다")
 	void getAllDiariesPassesLatestSortMode() throws Exception {
 		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null))
+		given(queryFeedPageUseCase.queryPage(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -104,14 +117,14 @@ class FeedControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.hasNext").value(false));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null);
+		verify(queryFeedPageUseCase).queryPage(new FeedCursorRequest(null, 20, FeedSortMode.LATEST), null);
 	}
 
 	@Test
 	@DisplayName("GET /api/diary?sort=recommended는 추천순 모드로 피드 목록을 요청한다")
 	void getAllDiariesPassesRecommendedSortMode() throws Exception {
 		FeedCursorPage<FeedDiaryResult> page = new FeedCursorPage<>(List.of(), null, false);
-		given(getFeedUseCase.getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null))
+		given(queryFeedPageUseCase.queryPage(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null))
 				.willReturn(page);
 
 		mockMvc.perform(get("/api/diary")
@@ -120,7 +133,7 @@ class FeedControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.hasNext").value(false));
 
-		verify(getFeedUseCase).getAllDiaries(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null);
+		verify(queryFeedPageUseCase).queryPage(new FeedCursorRequest(null, 20, FeedSortMode.RECOMMENDED), null);
 	}
 
 	@Test
@@ -138,7 +151,7 @@ class FeedControllerTest {
 	@Test
 	@DisplayName("GET /api/diary/{diaryId}는 비공개 일기 접근 시 404를 반환한다")
 	void getDiaryWithPhotosReturnsNotFoundWhenDiaryIsHidden() throws Exception {
-		given(getFeedUseCase.getDiaryWithPhotos(1L, null))
+		given(queryFeedDetailUseCase.queryDetail(1L, null))
 				.willThrow(new FeedDiaryNotFoundException());
 
 		mockMvc.perform(get("/api/diary/1")

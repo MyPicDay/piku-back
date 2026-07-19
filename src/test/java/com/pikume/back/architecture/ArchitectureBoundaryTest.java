@@ -370,14 +370,25 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
-	@DisplayName("feed의 user cross-context adapter는 표준 위치와 user 공개 계약을 사용한다.")
-	void feedUserAdapterUsesPublicUserContractFromStandardFolder() throws IOException {
+	@DisplayName("feed cross-context adapter는 표준 위치와 Provider 공개 계약을 사용한다.")
+	void feedAdaptersUsePublicProviderContractsFromStandardFolder() throws IOException {
 		Path feedOutboundAdapters = Path.of("src/main/java/com/pikume/back/feed/adapter/out");
+		Path feedCrossContextAdapters = feedOutboundAdapters.resolve("crosscontext");
 
 		assertThat(findJavaSourceViolations(
 				feedOutboundAdapters,
 				path -> path.toString().contains("/adapter/out/user/")
-						|| sourceContains(path, "com.pikume.back.diary.application.port.out.LoadUserForDiaryPort")))
+						|| path.toString().contains("/adapter/out/diary/")
+						|| path.toString().contains("/adapter/out/social/")
+						|| path.toString().contains("/adapter/out/recommendation/")))
+				.isEmpty();
+		assertThat(findJavaSourceViolations(
+				feedCrossContextAdapters,
+				path -> sourceContains(path, ".adapter.out.persistence")
+						|| sourceContains(path, "com.pikume.back.diary.application.port.out")
+						|| sourceContains(path, "com.pikume.back.social.application.port.out")
+						|| sourceContains(path, "com.pikume.back.user.application.port.out")
+						|| sourceContains(path, "com.pikume.back.recommendation.application.port.out")))
 				.isEmpty();
 	}
 
