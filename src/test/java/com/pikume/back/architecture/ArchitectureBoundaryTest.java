@@ -474,6 +474,19 @@ class ArchitectureBoundaryTest {
 				.isEmpty();
 	}
 
+	@Test
+	@DisplayName("다른 context는 notification의 Domain, Out Port와 Adapter에 의존하지 않는다.")
+	void otherContextsUseOnlyPublicNotificationContracts() throws IOException {
+		Path productionSources = Path.of("src/main/java/com/pikume/back");
+
+		assertThat(findJavaSourceViolations(productionSources, path ->
+				!path.toString().contains("/notification/")
+						&& (sourceContains(path, "com.pikume.back.notification.domain")
+						|| sourceContains(path, "com.pikume.back.notification.application.port.out")
+						|| sourceContains(path, "com.pikume.back.notification.adapter."))))
+				.isEmpty();
+	}
+
 	private List<String> findJavaSourceViolations(Path root, Predicate<Path> violationPredicate) throws IOException {
 		try (var paths = Files.walk(root)) {
 			return paths

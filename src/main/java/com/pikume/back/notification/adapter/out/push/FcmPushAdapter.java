@@ -3,59 +3,16 @@ package com.pikume.back.notification.adapter.out.push;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.hibernate.NonUniqueResultException;
 import org.springframework.context.annotation.Profile;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.stereotype.Component;
-import com.pikume.back.notification.adapter.out.persistence.FcmTokenJpaRepository;
-import com.pikume.back.notification.application.port.out.PushNotificationPort;
-import com.pikume.back.notification.domain.FcmToken;
-
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.pikume.back.notification.application.exception.PushNotificationDeliveryException;
+import com.pikume.back.notification.application.port.out.DeliverPushNotificationPort;
 
 @Component
-@RequiredArgsConstructor
 @Profile("prod")
-@Slf4j
-public class FcmPushAdapter implements PushNotificationPort {
+public class FcmPushAdapter implements DeliverPushNotificationPort {
 
-	private final FcmTokenJpaRepository fcmTokenJpaRepository;
-
-	@Override
-	public Set<String> getTokenByUserId(String userId) {
-		return fcmTokenJpaRepository.findAllByUserId(userId).stream()
-				.map(FcmToken::getToken)
-				.collect(Collectors.toSet());
-	}
-
-	@Override
-	public void deleteToken(String token) {
-		fcmTokenJpaRepository.deleteByToken(token);
-		log.info("event=fcm_token_deleted outcome=success");
-	}
-
-	@Override
-	public void deleteTokenForDevice(String userId, String deviceId) {
-		fcmTokenJpaRepository.deleteByUserIdAndDeviceId(userId, deviceId);
-		log.info("event=fcm_device_token_deleted userId={}", userId);
-	}
-
-	@Override
-	public void saveToken(String userId, String token, String deviceId) {
-		try {
-			fcmTokenJpaRepository.findByUserIdAndDeviceId(userId, deviceId).ifPresentOrElse(
-					existing -> existing.updateToken(token),
-					() -> fcmTokenJpaRepository.save(new FcmToken(userId, token, deviceId)));
-		} catch (IncorrectResultSizeDataAccessException | NonUniqueResultException e) {
-			log.error("event=fcm_token_duplicate_detected userId={}", userId);
-		}
-	}
-
-	@Override
-	public void sendMessage(String targetToken, String body) throws FirebaseMessagingException {
+	private void sendMessage(String targetToken, String body) throws FirebaseMessagingException {
 		Message message = Message.builder()
 				.setToken(targetToken)
 				.putData("title", "PikU 알림")
@@ -64,5 +21,14 @@ public class FcmPushAdapter implements PushNotificationPort {
 				.build();
 
 		FirebaseMessaging.getInstance().send(message);
+	}
+
+	@Override
+	public void deliverPushNotification(String targetToken, String body) {
+		try {
+			sendMessage(targetToken, body);
+		} catch (FirebaseMessagingException e) {
+			throw new PushNotificationDeliveryException("FCM 알림 전송 실패", e);
+		}
 	}
 }

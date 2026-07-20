@@ -15,18 +15,19 @@ class LocalPushAdapterTest {
 	private final LocalPushAdapter localPushAdapter = new LocalPushAdapter();
 
 	@Test
-	@DisplayName("기기별 FCM 토큰 해제 로그에 raw deviceId를 남기지 않는다")
-	void deleteTokenForDeviceDoesNotLogRawDeviceId() {
+	@DisplayName("비운영 환경에서는 Push 전달 요청만 기록한다")
+	void logsLocalPushDelivery() {
 		ListAppender<ILoggingEvent> appender = attachLogAppender();
 
 		try {
-			localPushAdapter.deleteTokenForDevice("user-id", "sensitive-device-id");
+			localPushAdapter.deliverPushNotification("target-token", "알림 본문");
 		} finally {
 			detachLogAppender(appender);
 		}
 
 		assertThat(formattedMessages(appender))
-				.noneMatch(message -> message.contains("sensitive-device-id"));
+				.anyMatch(message -> message.contains("알림 본문"))
+				.noneMatch(message -> message.contains("target-token"));
 	}
 
 	private ListAppender<ILoggingEvent> attachLogAppender() {

@@ -3,7 +3,7 @@ package com.pikume.back.notification.adapter.in.web;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.pikume.back.notification.application.dto.NotificationStreamMessage;
 import com.pikume.back.notification.application.exception.NotificationStreamSendException;
-import com.pikume.back.notification.application.port.out.NotificationStreamConnection;
+import com.pikume.back.notification.application.stream.NotificationStreamConnection;
 
 import java.io.IOException;
 import java.util.function.Consumer;

@@ -3,40 +3,52 @@ package com.pikume.back.notification.adapter.out.crosscontext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
-import com.pikume.back.user.application.dto.UserReferenceView;
-import com.pikume.back.user.application.exception.UserErrorCode;
-import com.pikume.back.user.application.exception.UserNotFoundException;
-import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
+import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
+
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 @DisplayName("UserAdapterForNotification")
 class UserAdapterForNotificationTest {
 
-	private final QueryUserReferenceUseCase queryUserReferenceUseCase = mock(QueryUserReferenceUseCase.class);
+	private final QueryUserSummaryUseCase queryUserSummaryUseCase = mock(QueryUserSummaryUseCase.class);
 	private final ImagePathToUrlConverter imagePathToUrlConverter = mock(ImagePathToUrlConverter.class);
 	private final UserAdapterForNotification adapter = new UserAdapterForNotification(
-			queryUserReferenceUseCase, imagePathToUrlConverter);
+			queryUserSummaryUseCase, imagePathToUrlConverter);
 
 	@Test
-	@DisplayName("사용자가 존재하면 닉네임을 반환한다")
-	void getUserNickname() {
-		given(queryUserReferenceUseCase.requireUserReference("user-1"))
-				.willReturn(new UserReferenceView("user-1", "피쿠", "avatar"));
+	@DisplayName("User 공개 계약을 Notification 소유 발신자 View로 일괄 번역한다")
+	void loadsNotificationSenders() {
+		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user-1", "missing")))
+				.willReturn(Map.of(
+						"user-1",
+						new UserSummaryView("user-1", "피쿠", "avatars/user-1.png")));
+		given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user-1.png")).willReturn("avatar-url");
 
-		assertThat(adapter.getUserNickname("user-1")).isEqualTo("피쿠");
+		var result = adapter.loadNotificationSenders(Set.of("user-1", "missing"));
+
+		assertThat(result).containsOnlyKeys("user-1");
+		assertThat(result.get("user-1").nickname()).isEqualTo("피쿠");
+		assertThat(result.get("user-1").avatarUrl()).isEqualTo("avatar-url");
 	}
 
 	@Test
-	@DisplayName("사용자가 없으면 UserNotFoundException을 던진다")
-	void missingUserThrowsUserNotFoundException() {
-		given(queryUserReferenceUseCase.requireUserReference("missing")).willThrow(new UserNotFoundException());
+	@DisplayName("아바타 메타데이터가 없는 발신자는 null 아바타 URL로 번역한다")
+	void preservesMissingAvatarMetadata() {
+		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user-1")))
+				.willReturn(Map.of(
+						"user-1",
+						new UserSummaryView("user-1", "피쿠", null)));
 
-		assertThatThrownBy(() -> adapter.getUserNickname("missing"))
-				.isInstanceOfSatisfying(UserNotFoundException.class,
-						ex -> assertThat(ex.getErrorCode()).isEqualTo(UserErrorCode.USER_NOT_FOUND));
+		var result = adapter.loadNotificationSenders(Set.of("user-1"));
+
+		assertThat(result.get("user-1").avatarUrl()).isNull();
+		then(imagePathToUrlConverter).shouldHaveNoInteractions();
 	}
 }

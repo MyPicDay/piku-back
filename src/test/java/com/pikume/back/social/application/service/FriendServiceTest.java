@@ -16,7 +16,7 @@ import com.pikume.back.social.application.dto.FriendRequestResult;
 import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.FriendSummaryView;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.exception.FriendException;
 import com.pikume.back.social.domain.friend.exception.FriendNotFoundException;
@@ -108,7 +108,7 @@ class FriendServiceTest {
 			assertThat(response.message()).contains("보냈습니다");
 			InOrder inOrder = inOrder(saveFriendRequestPort, publishEventPort);
 			inOrder.verify(saveFriendRequestPort).saveIfAbsent(any(FriendRequest.class));
-			inOrder.verify(publishEventPort).publish(any(SocialEvent.FriendRequestEvent.class));
+			inOrder.verify(publishEventPort).publish(any(SocialNotificationEvent.FriendRequest.class));
 		}
 
 		@Test
@@ -130,7 +130,7 @@ class FriendServiceTest {
 			assertThat(response.message()).contains("수락");
 			then(saveFriendRequestPort).should().delete(existingRequest);
 			then(saveFriendPort).should().save(any());
-			then(publishEventPort).should().publish(any(SocialEvent.FriendAcceptedEvent.class));
+			then(publishEventPort).should().publish(any(SocialNotificationEvent.FriendAccepted.class));
 		}
 
 		@Test

@@ -17,7 +17,7 @@ import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 
 import java.util.Objects;
 
@@ -79,7 +79,7 @@ public class CommentService implements CommentUseCase {
 		}
 
 		if (!receiverId.equals(userId)) {
-			publishEventPort.publish(new SocialEvent.CommentCreatedEvent(
+			publishEventPort.publish(new SocialNotificationEvent.CommentCreated(
 					receiverId, userId, diaryId, isReply));
 		}
 

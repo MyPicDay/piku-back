@@ -13,7 +13,7 @@ import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.application.port.in.FriendUseCase;
 import com.pikume.back.social.application.port.out.*;
 import com.pikume.back.social.application.readmodel.FriendSummaryView;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.exception.AlreadyFriendsException;
@@ -75,7 +75,7 @@ public class FriendService implements FriendUseCase {
 			log.info("{},{} 사용자 친구 테이블 저장 요청", toUserId, fromUserId);
 			saveFriendPort.save(new Friend(fromUserId, toUserId));
 
-			publishEventPort.publish(new SocialEvent.FriendAcceptedEvent(toUserId, fromUserId));
+			publishEventPort.publish(new SocialNotificationEvent.FriendAccepted(toUserId, fromUserId));
 			return new FriendRequestResult(true, "친구 요청을 수락했습니다.");
 		}
 
@@ -87,7 +87,7 @@ public class FriendService implements FriendUseCase {
 			return friendRequestSentResult();
 		}
 
-		publishEventPort.publish(new SocialEvent.FriendRequestEvent(toUserId, fromUserId));
+		publishEventPort.publish(new SocialNotificationEvent.FriendRequest(toUserId, fromUserId));
 		return friendRequestSentResult();
 	}
 

@@ -18,7 +18,7 @@ import com.pikume.back.social.application.readmodel.CommentListView;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
 import com.pikume.back.social.domain.comment.exception.CommentException;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -74,7 +74,7 @@ class CommentServiceTest {
 			CommentResult response = commentService.createComment(1L, "댓글 내용", null, "user-id");
 
 			assertThat(response.content()).isEqualTo("댓글 내용");
-			then(publishEventPort).should().publish(any(SocialEvent.CommentCreatedEvent.class));
+			then(publishEventPort).should().publish(any(SocialNotificationEvent.CommentCreated.class));
 		}
 
 		@Test

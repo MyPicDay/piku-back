@@ -1,9 +1,7 @@
 package com.pikume.back.notification.application.dto;
 
-import com.pikume.back.notification.domain.vo.NotificationType;
-
 public record NotificationSsePayload(
-		NotificationType type,
+		NotificationKind type,
 		String message,
 		Long diaryId,
 		String senderId,

@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.LikeUseCase;
 import com.pikume.back.social.application.port.out.*;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 import com.pikume.back.social.domain.like.Like;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeErrorCode;
@@ -61,7 +61,7 @@ public class LikeService implements LikeUseCase {
 		}
 
 		if (shouldPublishLikeCreatedEvent) {
-			publishEventPort.publish(new SocialEvent.LikeCreatedEvent(
+			publishEventPort.publish(new SocialNotificationEvent.LikeCreated(
 					diaryOwnerId, userId, diaryId));
 		}
 

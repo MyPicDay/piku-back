@@ -6,37 +6,43 @@ import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
-import com.pikume.back.notification.application.port.out.LoadDiaryForNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadNotificationDiaryContextsPort;
+import com.pikume.back.notification.application.readmodel.NotificationDiaryContextView;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
-public class DiaryAdapterForNotification implements LoadDiaryForNotificationPort {
+public class DiaryAdapterForNotification implements LoadNotificationDiaryContextsPort {
 
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
 	private final ResolveImageUrlPort resolveImageUrlPort;
 
 	@Override
-	public String getDiaryThumbnailUrl(Long diaryId) {
-		DiaryNotificationInfo diaryInfo = getDiaryNotificationInfo(diaryId);
-		return diaryInfo != null ? diaryInfo.thumbnailUrl() : null;
-	}
-
-	@Override
-	public DiaryNotificationInfo getDiaryNotificationInfo(Long diaryId) {
-		if (diaryId == null) {
-			return null;
+	public Map<Long, NotificationDiaryContextView> loadNotificationDiaryContexts(Set<Long> diaryIds) {
+		if (diaryIds == null || diaryIds.isEmpty()) {
+			return Map.of();
 		}
-		DiarySummaryView diary = queryDiaryReadUseCase.getDiarySummaries(Set.of(diaryId)).get(diaryId);
-		if (diary == null) {
-			return null;
-		}
-		boolean anonymous = diary.status() == DiaryVisibility.ANONYMOUS;
-		return queryDiaryReadUseCase.getRepresentPhotoPaths(Set.of(diaryId)).values().stream()
-				.findFirst()
-				.map(path -> resolveImageUrlPort.getPhotoUrl(path, true))
-				.map(thumbnailUrl -> new DiaryNotificationInfo(diaryId, thumbnailUrl, anonymous))
-				.orElse(new DiaryNotificationInfo(diaryId, null, anonymous));
+		Map<Long, DiarySummaryView> diaries = queryDiaryReadUseCase.getDiarySummaries(diaryIds);
+		Map<Long, String> photoPaths = queryDiaryReadUseCase.getRepresentPhotoPaths(diaryIds);
+		return diaries.entrySet().stream()
+				.collect(Collectors.toMap(
+						Map.Entry::getKey,
+						entry -> {
+							Long diaryId = entry.getKey();
+							DiarySummaryView diary = entry.getValue();
+							String photoPath = photoPaths.get(diaryId);
+							String thumbnailUrl = photoPath == null
+									? null
+									: resolveImageUrlPort.getPhotoUrl(photoPath, true);
+							return new NotificationDiaryContextView(
+									diaryId,
+									thumbnailUrl,
+									null,
+									diary.userId(),
+									diary.status() == DiaryVisibility.ANONYMOUS);
+						}));
 	}
 }

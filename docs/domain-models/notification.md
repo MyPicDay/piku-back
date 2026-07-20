@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-15
+- Last Reviewed: 2026-07-20
 
 ## 도메인 개요
 
@@ -24,6 +24,28 @@ Notification 도메인은 **서비스에서 발생한 알림 대상 사건을 �
 - 사용자별 FCM 기기 토큰(`FcmToken`) 등록 및 갱신
 - 익명 일기 관련 알림의 발신자 비식별 처리
 
+### Application 구조
+
+Notification Application은 외부 행위자의 의도에 따라 기록, 목록 조회, 읽음, 삭제,
+전달, 스트림 구독과 Push Token 관리 유스케이스를 분리한다. Web·Social 이벤트·Diary와
+User의 요청은 In Port를 통해 진입하며, 저장소·SSE·FCM·트랜잭션 완료 시점과 다른
+Context 조회는 Notification이 소유한 목적별 Out Port 뒤에 둔다.
+
+- `NotificationRecordingService`는 알림 이력을 기록하고 전달 요청을 예약한다.
+- `NotificationPageQueryService`와 `NotificationListAssembler`는 알림 원본 Page를
+  Notification 목록 표현으로 조합한다.
+- `NotificationReadService`, `NotificationDeletionService`는 읽음과 삭제 생명주기를
+  조정한다.
+- `NotificationDeliveryService`는 SSE와 Push 전달을 best-effort로 수행한다.
+- `NotificationStreamSubscriptionService`는 사용자별 SSE 연결과 초기 요약 전달을
+  조정한다.
+- `PushTokenService`는 운영·비운영 환경 구현과 무관한 Token 등록·해제 의도를
+  제공한다.
+
+알림 전달 시점은 `ScheduleNotificationDeliveryPort`가 표현한다. Spring 트랜잭션
+동기화는 이 Port를 구현하는 Outgoing Adapter만 사용하며 Application Service는
+프레임워크의 트랜잭션 완료 API를 직접 사용하지 않는다.
+
 ### 도메인 경계
 
 - **Aggregate Root**: `Notification`, `FcmToken` (각각 독립적 Aggregate)
@@ -31,6 +53,11 @@ Notification 도메인은 **서비스에서 발생한 알림 대상 사건을 �
 - 실시간 연결 관리와 푸시 공급자 호출은 Notification 모델의 책임이 아니다.
 - 알림의 원인이 되는 업무 사실과 대상 컨텐츠의 상태는 Notification이 소유하지 않는다.
 - 알림 원인이 익명 일기인지 여부는 Diary가 제공한 조회 맥락을 사용하며 Notification이 일기 공개 범위를 독자적으로 판단하지 않는다.
+- User와 Diary의 내부 Entity·Repository를 직접 사용하지 않는다. Notification
+  Cross-context Adapter가 공급자의 공개 Application 계약을
+  `NotificationSenderView`, `NotificationDiaryContextView`로 번역한다.
+- Social의 알림 대상 사건은 Social Application의 공개
+  `SocialNotificationEvent` 계약으로 수신하고 Notification 명령으로 번역한다.
 
 ---
 
@@ -109,3 +136,21 @@ _Entity_
 
 - 하나의 기기(`deviceId`)를 식별하여 해당 기기에 대한 푸시 토큰(`token`)을 관리한다.
 - 특정 기기의 토큰은 만료될 수 있으며, 새 토큰이 발급되면 기존 값을 교체한다.
+- `prod` 환경에서는 JPA Adapter가 Token을 저장·조회·해제한다.
+- `!prod` 환경에서는 현재 Token 등록·조회·해제를 무저장으로 처리한다. 개발용 Token
+  저장은 별도 기능 변경으로 다룬다.
+
+---
+
+## 조회와 전달 경계
+
+- 알림 목록은 저장된 `Notification` Page를 먼저 조회한 뒤 User 발신자 요약과 Diary
+  맥락을 일괄 조회해 조합한다.
+- 연결된 Diary 맥락이 사라진 알림은 현재 목록에서 제외한다. 현재 Page에서 제외된
+  수만큼 응답의 전체 개수를 조정하는 기존 동작을 유지한다.
+- 닉네임, 아바타, 일기 식별자, 썸네일, 일기 날짜와 작성자 식별자처럼 원인 사건에
+  따라 존재하지 않을 수 있는 응답 메타데이터는 `null`을 허용한다.
+- 알림 저장이 커밋된 뒤 SSE와 Push 전달을 시작한다. SSE 실패가 Push 시도를 막지
+  않으며, 개별 Push 실패 Token은 해제를 시도한다.
+- 외부 전달은 현재 best-effort다. 재시도, Outbox, 중복 방지와 전달 보장 강화는
+  별도 기능·운영 설계 범위다.

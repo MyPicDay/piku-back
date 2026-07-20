@@ -13,7 +13,7 @@ import com.pikume.back.social.application.port.out.LoadDiaryInfoPort;
 import com.pikume.back.social.application.port.out.LoadLikePort;
 import com.pikume.back.social.application.port.out.PublishEventPort;
 import com.pikume.back.social.application.port.out.SaveLikePort;
-import com.pikume.back.social.domain.event.SocialEvent;
+import com.pikume.back.social.application.event.SocialNotificationEvent;
 import com.pikume.back.social.domain.like.Like;
 import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
 import com.pikume.back.social.domain.like.exception.LikeErrorCode;
@@ -65,7 +65,7 @@ class LikeServiceTest {
 			assertThat(response.likeCount()).isEqualTo(1L);
 			assertThat(response.liked()).isTrue();
 			then(saveLikePort).should().saveAndFlush(any(Like.class));
-			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
+			then(publishEventPort).should().publish(any(SocialNotificationEvent.LikeCreated.class));
 		}
 
 		@Test
@@ -117,7 +117,7 @@ class LikeServiceTest {
 
 			likeService.addLike("liker-id", 1L);
 
-			then(publishEventPort).should().publish(any(SocialEvent.LikeCreatedEvent.class));
+			then(publishEventPort).should().publish(any(SocialNotificationEvent.LikeCreated.class));
 		}
 
 		@Test
