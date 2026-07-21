@@ -55,7 +55,7 @@ public interface UserJpaRepository extends JpaRepository<User, String> {
 			@Param("startDateTime") LocalDateTime startDateTime,
 			@Param("endExclusiveDateTime") LocalDateTime endExclusiveDateTime);
 
-	@Query(value = "SELECT * FROM users WHERE nickname LIKE :keyword", nativeQuery = true)
+	@Query(value = "SELECT * FROM users WHERE nickname LIKE :keyword AND deleted_at IS NULL", nativeQuery = true)
 	Page<User> searchByName(@Param("keyword") String keyword, Pageable pageable);
 
 	boolean existsByNickname(Nickname nickname);
