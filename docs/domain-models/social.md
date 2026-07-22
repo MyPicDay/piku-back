@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-15
+- Last Reviewed: 2026-07-22
 
 ## 도메인 개요
 
@@ -27,7 +27,7 @@ Social 도메인은 **사용자 간의 친구 관계와 댓글, 좋아요 같은
 - 댓글(`Comment`) 작성, 답글(계층 구조), 수정, 소프트 삭제 관리
 - 익명 댓글의 원문 열람, 답글 작성과 수정·삭제 권한 계산
 - 좋아요(`Like`) 토글 및 일기별 좋아요 수 조회
-- 소셜 이벤트(`SocialEvent.FriendRequestEvent`, `SocialEvent.FriendAcceptedEvent`) 발행
+- 알림 기록에 필요한 공개 통합 사건(`SocialNotificationEvent`) 발행
 
 ### 도메인 경계
 
@@ -38,6 +38,19 @@ Social 도메인은 **사용자 간의 친구 관계와 댓글, 좋아요 같은
 - Social은 사용자와 일기를 식별자로 참조하며 해당 모델의 내부 상태를 소유하지 않는다.
 - Social은 Diary가 제공한 익명 여부와 작성자 여부를 사용해 댓글 접근 정책을 적용하며, 일기의 공개 범위를 독자적으로 재해석하지 않는다.
 - 친구 관계에서 발생한 중요한 사실은 도메인 이벤트로 표현할 수 있지만 전달 기술과 알림 생성은 Social 모델의 책임이 아니다.
+
+### Application 경계
+
+- Web 입력은 친구 요청·관계, 댓글, 좋아요의 명령과 조회 목적별 In Port를 사용한다.
+- Feed, Diary와 User는 Social의 공개 조회 In Port만 사용하며, 각 소비자의 Cross-context Adapter가 Social 결과를 소비자 모델로 번역한다.
+- Social Persistence Adapter는 Social Aggregate와 집계만 다루고 User·Diary 정보는 Social 소유 Out Port와 Cross-context Adapter를 통해 조회한다.
+- 이 계층 분리는 API 경로, 상태 코드, 성공 응답 구조와 이 문서의 기능 정책을 변경하지 않는다.
+
+### Notification 통합 계약
+
+- Social Application은 상태 변경 트랜잭션 안에서 타입이 명시된 `SocialNotificationEvent`를 발행한다.
+- Notification 입력 Adapter는 사건을 동기로 받아 Notification 기록 명령으로 번역하므로 Social 상태와 Notification 이력은 같은 트랜잭션에서 커밋되거나 롤백된다.
+- SSE와 FCM 같은 외부 전달만 Notification 소유 커밋 완료 경계 이후 best-effort로 실행된다.
 
 ---
 

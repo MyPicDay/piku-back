@@ -45,6 +45,12 @@ public class Comment extends BaseEntity {
 	}
 
 	public void connectParent(Comment parent) {
+		if (parent != null && !this.diaryId.equals(parent.diaryId)) {
+			throw new IllegalArgumentException("부모 댓글은 같은 일기에 속해야 합니다.");
+		}
+		if (parent != null && parent.parent != null) {
+			throw new IllegalArgumentException("답글에는 답글을 연결할 수 없습니다.");
+		}
 		if (this.parent != null) {
 			this.parent.getChildren().remove(this);
 		}

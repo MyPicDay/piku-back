@@ -7,9 +7,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
-import com.pikume.back.social.application.port.in.CommentUseCase;
-import com.pikume.back.social.application.port.in.FriendUseCase;
-import com.pikume.back.social.application.port.in.LikeUseCase;
+import com.pikume.back.social.application.port.in.QueryCommentEngagementUseCase;
+import com.pikume.back.social.application.port.in.QueryDiaryLikeEngagementUseCase;
+import com.pikume.back.social.application.port.in.QueryFriendshipUseCase;
 
 import java.util.List;
 import java.util.Map;
@@ -26,21 +26,21 @@ class SocialAdapterForFeedTest {
 	private SocialAdapterForFeed adapter;
 
 	@Mock
-	private FriendUseCase friendUseCase;
+	private QueryFriendshipUseCase queryFriendshipUseCase;
 	@Mock
-	private LikeUseCase likeUseCase;
+	private QueryDiaryLikeEngagementUseCase queryDiaryLikeEngagementUseCase;
 	@Mock
-	private CommentUseCase commentUseCase;
+	private QueryCommentEngagementUseCase queryCommentEngagementUseCase;
 
 	@Test
 	@DisplayName("Social 일괄 반응 결과를 Diary별 Feed 반응 모델로 번역한다")
 	void translatesEngagements() {
 		List<Long> diaryIds = List.of(1L, 2L);
-		given(commentUseCase.getCommentCountsForDiaries(diaryIds))
+		given(queryCommentEngagementUseCase.queryCommentCounts(diaryIds))
 				.willReturn(Map.of(1L, 3L));
-		given(likeUseCase.getLikeCountsForDiaries(diaryIds))
+		given(queryDiaryLikeEngagementUseCase.queryLikeCounts(diaryIds))
 				.willReturn(Map.of(1L, 5L));
-		given(likeUseCase.getLikedDiaryIds("viewer-id", diaryIds))
+		given(queryDiaryLikeEngagementUseCase.queryLikedDiaryIds("viewer-id", diaryIds))
 				.willReturn(Set.of(2L));
 
 		Map<Long, FeedEngagementView> result = adapter.loadEngagements("viewer-id", diaryIds);

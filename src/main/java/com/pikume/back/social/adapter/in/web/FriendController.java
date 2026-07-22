@@ -1,7 +1,6 @@
 package com.pikume.back.social.adapter.in.web;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,7 +26,11 @@ import com.pikume.back.social.application.dto.FriendRemovalResult;
 import com.pikume.back.social.application.dto.FriendRequestResult;
 import com.pikume.back.social.application.dto.FriendSummaryResult;
 import com.pikume.back.social.adapter.in.web.dto.*;
-import com.pikume.back.social.application.port.in.FriendUseCase;
+import com.pikume.back.social.application.port.in.CancelFriendRequestUseCase;
+import com.pikume.back.social.application.port.in.QueryFriendPageUseCase;
+import com.pikume.back.social.application.port.in.RejectFriendRequestUseCase;
+import com.pikume.back.social.application.port.in.RemoveFriendshipUseCase;
+import com.pikume.back.social.application.port.in.SendFriendRequestUseCase;
 
 @Tag(name = "Friend", description = "친구 관련 API")
 @RestController
@@ -36,7 +39,11 @@ import com.pikume.back.social.application.port.in.FriendUseCase;
 @Slf4j
 public class FriendController {
 
-	private final FriendUseCase friendUseCase;
+	private final SendFriendRequestUseCase sendFriendRequestUseCase;
+	private final RejectFriendRequestUseCase rejectFriendRequestUseCase;
+	private final CancelFriendRequestUseCase cancelFriendRequestUseCase;
+	private final RemoveFriendshipUseCase removeFriendshipUseCase;
+	private final QueryFriendPageUseCase queryFriendPageUseCase;
 
 	@Operation(summary = "친구 요청,수락", description = "사용자가 다른 사용자에게 친구 요청을 보내거나, 이미 요청이 있을 경우 수락합니다.")
 	@ApiResponses({
@@ -52,16 +59,13 @@ public class FriendController {
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@RequestBody FriendRequestDto requestDto) {
 		log.info("친구 요청(수락) 요청 {} 가 {}에게", customUserDetails.getId(), requestDto.getToUserId());
-		FriendRequestResult response = friendUseCase.sendFriendRequest(customUserDetails.getId(),
+		FriendRequestResult response = sendFriendRequestUseCase.sendFriendRequest(customUserDetails.getId(),
 				requestDto.getToUserId());
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
 	@Operation(summary = "친구 목록 조회", description = "친구들의 id,닉네임,아바타(프로필)을 반환합니다.")
-	@ApiResponses({
-			@ApiResponse(responseCode = "200", description = "친구 목록 반환"),
-			@ApiResponse(responseCode = "404", description = "사용자 정보 없음", content = @Content(mediaType = "application/json", examples = @ExampleObject(value = "null")))
-	})
+	@ApiResponse(responseCode = "200", description = "친구 목록 반환")
 	@GetMapping
 	public ResponseEntity<Page<FriendsDTO>> findFriendList(
 			@ParameterObject @PageableDefault(sort = "userId1", direction = Sort.Direction.DESC) Pageable pageable,
@@ -69,7 +73,7 @@ public class FriendController {
 		log.info("{} 의 친구 목록 조회 요청", customUserDetails.getId());
 
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<FriendsDTO> friendResults = friendUseCase.findFriendList(pageQuery, customUserDetails.getId())
+		PageResult<FriendsDTO> friendResults = queryFriendPageUseCase.queryFriendPage(pageQuery, customUserDetails.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> friends = SpringPageMapper.toSpringPage(friendResults, pageable);
 
@@ -77,8 +81,7 @@ public class FriendController {
 	}
 
 	@Operation(summary = "받은 요청 목록 조회", description = "나에게 온 친구 요청 목록을 조회합니다.", responses = {
-			@ApiResponse(responseCode = "200", description = "친구 요청 목록 조회 성공", content = @Content(array = @ArraySchema(schema = @Schema(implementation = FriendsDTO.class)))),
-			@ApiResponse(responseCode = "204", description = "받은 요청 없음 (No Content)"),
+			@ApiResponse(responseCode = "200", description = "친구 요청 목록 조회 성공"),
 			@ApiResponse(responseCode = "401", description = "인증되지 않은 사용자", content = @Content)
 	})
 	@GetMapping("/requests")
@@ -88,7 +91,8 @@ public class FriendController {
 		log.info("{} 의 받은 친구 요청 목록 조회", customUserDetails.getId());
 
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<FriendsDTO> requestResults = friendUseCase.findFriendRequests(pageQuery, customUserDetails.getId())
+		PageResult<FriendsDTO> requestResults = queryFriendPageUseCase
+				.queryReceivedFriendRequestPage(pageQuery, customUserDetails.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> requests = SpringPageMapper.toSpringPage(requestResults, pageable);
 
@@ -104,7 +108,7 @@ public class FriendController {
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@PathVariable String fromUserId) {
 		log.info("{} 가 {} 의 친구 요청 거절", customUserDetails.getId(), fromUserId);
-		FriendRequestResult response = friendUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
+		FriendRequestResult response = rejectFriendRequestUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
@@ -117,7 +121,7 @@ public class FriendController {
 			@AuthenticationPrincipal CustomUserDetails customUserDetails,
 			@PathVariable String toUserId) {
 		log.info("{} 가 {} 에게 보낸 친구 요청 취소", customUserDetails.getId(), toUserId);
-		FriendRequestResult response = friendUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
+		FriendRequestResult response = cancelFriendRequestUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
@@ -132,7 +136,7 @@ public class FriendController {
 
 		String fromUserId = customUserDetails.getId();
 		log.info("User {} is unfriending user {}", fromUserId, toUserId);
-		FriendRemovalResult response = friendUseCase.removeFriend(fromUserId, toUserId);
+		FriendRemovalResult response = removeFriendshipUseCase.removeFriend(fromUserId, toUserId);
 		return ResponseEntity.ok(toRemoveDto(response));
 	}
 

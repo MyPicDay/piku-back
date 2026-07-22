@@ -3,20 +3,18 @@ package com.pikume.back.social.application.event;
 /**
  * Social이 Notification 연동을 위해 공개하는 Application 이벤트입니다.
  */
-public final class SocialNotificationEvent {
+public sealed interface SocialNotificationEvent {
 
-	private SocialNotificationEvent() {
+	record CommentCreated(String receiverId, String senderId, Long diaryId, boolean isReply)
+			implements SocialNotificationEvent {
 	}
 
-	public record CommentCreated(String receiverId, String senderId, Long diaryId, boolean isReply) {
+	record LikeCreated(String receiverId, String senderId, Long diaryId) implements SocialNotificationEvent {
 	}
 
-	public record LikeCreated(String receiverId, String senderId, Long diaryId) {
+	record FriendRequest(String receiverId, String senderId) implements SocialNotificationEvent {
 	}
 
-	public record FriendRequest(String receiverId, String senderId) {
-	}
-
-	public record FriendAccepted(String receiverId, String senderId) {
+	record FriendAccepted(String receiverId, String senderId) implements SocialNotificationEvent {
 	}
 }

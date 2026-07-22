@@ -1,8 +1,10 @@
 package com.pikume.back.diary.application.service;
 
 import com.pikume.back.diary.application.dto.VisibleDiaryView;
+import com.pikume.back.diary.application.dto.VisibleDiaryReferenceView;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.port.in.QueryDiaryVisibilityUseCase;
+import com.pikume.back.diary.application.port.in.QueryVisibleDiaryReferenceUseCase;
 import com.pikume.back.diary.application.port.out.LoadDiaryDetailPort;
 import com.pikume.back.diary.domain.Diary;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +16,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class DiaryDetailQueryService implements QueryDiaryVisibilityUseCase {
+public class DiaryDetailQueryService implements QueryDiaryVisibilityUseCase, QueryVisibleDiaryReferenceUseCase {
 
 	private final LoadDiaryDetailPort loadDiaryPort;
 	private final DiaryVisibilityPolicy visibilityPolicy;
@@ -34,6 +36,15 @@ public class DiaryDetailQueryService implements QueryDiaryVisibilityUseCase {
 	@Override
 	public Optional<String> findVisibleOwnerUserIdByDiaryId(Long diaryId, String viewerId) {
 		return findVisibleDiaryById(diaryId, viewerId).map(VisibleDiaryView::userId);
+	}
+
+	@Override
+	public Optional<VisibleDiaryReferenceView> queryVisibleDiaryReference(Long diaryId, String viewerId) {
+		return findVisibleDiaryById(diaryId, viewerId)
+				.map(diary -> new VisibleDiaryReferenceView(
+						diary.diaryId(),
+						diary.userId(),
+						diary.status() == com.pikume.back.diary.domain.vo.DiaryVisibility.ANONYMOUS));
 	}
 
 	private VisibleDiaryView toView(Diary diary) {

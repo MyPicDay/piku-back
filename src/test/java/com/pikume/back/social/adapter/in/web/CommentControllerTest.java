@@ -20,9 +20,12 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
-import com.pikume.back.social.application.port.in.CommentUseCase;
-import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
-import com.pikume.back.social.domain.comment.exception.CommentException;
+import com.pikume.back.social.application.exception.SocialErrorCode;
+import com.pikume.back.social.application.exception.SocialException;
+import com.pikume.back.social.application.port.in.CreateCommentUseCase;
+import com.pikume.back.social.application.port.in.DeleteCommentUseCase;
+import com.pikume.back.social.application.port.in.QueryCommentPageUseCase;
+import com.pikume.back.social.application.port.in.UpdateCommentUseCase;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -39,7 +42,13 @@ class CommentControllerTest {
 	private CommentController commentController;
 
 	@Mock
-	private CommentUseCase commentUseCase;
+	private CreateCommentUseCase createCommentUseCase;
+	@Mock
+	private UpdateCommentUseCase updateCommentUseCase;
+	@Mock
+	private DeleteCommentUseCase deleteCommentUseCase;
+	@Mock
+	private QueryCommentPageUseCase queryCommentPageUseCase;
 
 	private MockMvc mockMvc;
 	private CustomUserDetails userDetails;
@@ -61,8 +70,8 @@ class CommentControllerTest {
 	@Test
 	@DisplayName("GET /api/comments는 비공개 일기 접근 시 404를 반환한다")
 	void getRootCommentsReturnsNotFoundWhenDiaryIsHidden() throws Exception {
-		given(commentUseCase.getRootCommentsByDiaryId(eq(1L), any(), eq("viewer-id")))
-				.willThrow(new CommentException(CommentErrorCode.DIARY_NOT_FOUND));
+		given(queryCommentPageUseCase.queryRootCommentPage(eq(1L), any(), eq("viewer-id")))
+				.willThrow(new SocialException(SocialErrorCode.DIARY_NOT_FOUND));
 
 		mockMvc.perform(get("/api/comments")
 						.param("diaryId", "1")
@@ -70,7 +79,7 @@ class CommentControllerTest {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.type").value(SocialProblemType.DIARY_NOT_FOUND.type().toString()))
 				.andExpect(jsonPath("$.status").value(404))
-				.andExpect(jsonPath("$.detail").value(CommentErrorCode.DIARY_NOT_FOUND.getMessage()));
+				.andExpect(jsonPath("$.detail").value(SocialErrorCode.DIARY_NOT_FOUND.message()));
 	}
 
 	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {

@@ -4,8 +4,10 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
-import com.pikume.back.social.application.port.in.LikeUseCase;
-import com.pikume.back.social.domain.like.exception.DuplicateLikeException;
+import com.pikume.back.social.application.exception.SocialErrorCode;
+import com.pikume.back.social.application.exception.SocialException;
+import com.pikume.back.social.application.port.in.AddDiaryLikeUseCase;
+import com.pikume.back.social.application.port.in.RemoveDiaryLikeUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,7 +38,9 @@ class LikeControllerTest {
 	private LikeController likeController;
 
 	@Mock
-	private LikeUseCase likeUseCase;
+	private AddDiaryLikeUseCase addDiaryLikeUseCase;
+	@Mock
+	private RemoveDiaryLikeUseCase removeDiaryLikeUseCase;
 
 	private MockMvc mockMvc;
 	private CustomUserDetails userDetails;
@@ -56,8 +60,8 @@ class LikeControllerTest {
 	@Test
 	@DisplayName("POST /api/likes/diary/{diaryId}는 중복 좋아요 충돌 시 409를 반환한다")
 	void addLikeReturnsConflictWhenDuplicateLikeExceptionOccurs() throws Exception {
-		given(likeUseCase.addLike(eq("user-1"), anyLong()))
-				.willThrow(new DuplicateLikeException("좋아요 중복 저장이 감지되었습니다.", null));
+		given(addDiaryLikeUseCase.addLike(eq("user-1"), anyLong()))
+				.willThrow(new SocialException(SocialErrorCode.DUPLICATE_LIKE));
 
 		mockMvc.perform(post("/api/likes/diary/1")
 						.accept(MediaType.APPLICATION_JSON))

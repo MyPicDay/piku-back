@@ -1,8 +1,7 @@
 package com.pikume.back.social.adapter.in.web.problem;
 
 import com.pikume.back.global.error.ApiProblemType;
-import com.pikume.back.social.domain.comment.exception.CommentErrorCode;
-import com.pikume.back.social.domain.like.exception.LikeErrorCode;
+import com.pikume.back.social.application.exception.SocialErrorCode;
 import org.springframework.http.HttpStatus;
 
 import java.net.URI;
@@ -18,14 +17,10 @@ public enum SocialProblemType implements ApiProblemType {
 	PARENT_COMMENT_NOT_IN_SAME_DIARY("https://api.pikume.com/problems/social/parent-comment-not-in-same-diary", HttpStatus.BAD_REQUEST, "Bad Request"),
 	ALREADY_LIKED("https://api.pikume.com/problems/social/already-liked", HttpStatus.CONFLICT, "Conflict"),
 	DUPLICATE_LIKE("https://api.pikume.com/problems/social/duplicate-like", HttpStatus.CONFLICT, "Conflict"),
-	INVALID_FRIEND_REQUEST("https://api.pikume.com/problems/social/invalid-friend-request", HttpStatus.BAD_REQUEST,
-			"Bad Request"),
+	INVALID_FRIEND_REQUEST("https://api.pikume.com/problems/social/invalid-friend-request", HttpStatus.BAD_REQUEST, "Bad Request"),
 	ALREADY_FRIENDS("https://api.pikume.com/problems/social/already-friends", HttpStatus.CONFLICT, "Conflict"),
-	FRIEND_REQUEST_NOT_FOUND("https://api.pikume.com/problems/social/friend-request-not-found", HttpStatus.NOT_FOUND,
-			"Not Found"),
-	FRIEND_NOT_FOUND("https://api.pikume.com/problems/social/friend-not-found", HttpStatus.NOT_FOUND, "Not Found"),
-	DATABASE_ERROR("https://api.pikume.com/problems/social/database-error", HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error"),
-	INTERNAL_SERVER_ERROR("https://api.pikume.com/problems/social/internal-server-error", HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
+	FRIEND_REQUEST_NOT_FOUND("https://api.pikume.com/problems/social/friend-request-not-found", HttpStatus.NOT_FOUND, "Not Found"),
+	FRIEND_NOT_FOUND("https://api.pikume.com/problems/social/friend-not-found", HttpStatus.NOT_FOUND, "Not Found");
 
 	private final URI type;
 	private final HttpStatus status;
@@ -37,25 +32,22 @@ public enum SocialProblemType implements ApiProblemType {
 		this.title = title;
 	}
 
-	public static SocialProblemType from(CommentErrorCode errorCode) {
+	public static SocialProblemType from(SocialErrorCode errorCode) {
 		return switch (errorCode) {
+			case INVALID_FRIEND_PARTICIPANT, SELF_FRIEND_REQUEST -> INVALID_FRIEND_REQUEST;
+			case INVALID_COMMENT_PARTICIPANT -> INVALID_COMMENT_REQUEST;
+			case ALREADY_FRIENDS -> ALREADY_FRIENDS;
+			case FRIEND_REQUEST_NOT_FOUND, SENT_FRIEND_REQUEST_NOT_FOUND -> FRIEND_REQUEST_NOT_FOUND;
+			case FRIEND_NOT_FOUND -> FRIEND_NOT_FOUND;
 			case DIARY_NOT_FOUND -> DIARY_NOT_FOUND;
 			case COMMENT_NOT_FOUND -> COMMENT_NOT_FOUND;
 			case DELETED_COMMENT -> DELETED_COMMENT;
 			case INVALID_PARENT_COMMENT -> INVALID_PARENT_COMMENT;
-			case UNAUTHORIZED_ACCESS -> UNAUTHORIZED_COMMENT_ACCESS;
-			case INVALID_REQUEST -> INVALID_COMMENT_REQUEST;
 			case PARENT_COMMENT_NOT_IN_SAME_DIARY -> PARENT_COMMENT_NOT_IN_SAME_DIARY;
-			case DATABASE_ERROR -> DATABASE_ERROR;
-			case INTERNAL_SERVER_ERROR -> INTERNAL_SERVER_ERROR;
-		};
-	}
-
-	public static SocialProblemType from(LikeErrorCode errorCode) {
-		return switch (errorCode) {
-			case DIARY_NOT_FOUND -> DIARY_NOT_FOUND;
+			case UNAUTHORIZED_COMMENT_ACCESS -> UNAUTHORIZED_COMMENT_ACCESS;
 			case ALREADY_LIKED -> ALREADY_LIKED;
 			case LIKE_NOT_FOUND -> LIKE_NOT_FOUND;
+			case DUPLICATE_LIKE -> DUPLICATE_LIKE;
 		};
 	}
 
