@@ -8,7 +8,8 @@ services:
     build:
       context: .
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       PROFILE: dev
       SERVER_PORT: ${SERVER_PORT:-8080}
@@ -21,7 +22,7 @@ services:
       - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
     volumes:
       - ./logs:/app/logs
-      - ./${GOOGLE_APPLICATION_CREDENTIALS}:/app/firebase-credentials.json:ro
+      - ./${GOOGLE_APPLICATION_CREDENTIALS:-firebase-json-key.json}:/app/firebase-credentials.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${SERVER_PORT:-8080}/actuator || exit 1"]
