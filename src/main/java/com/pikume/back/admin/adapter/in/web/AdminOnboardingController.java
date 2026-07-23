@@ -10,11 +10,17 @@ import com.pikume.back.admin.application.service.AdminOtpRegistrationResult;
 import com.pikume.back.admin.application.service.AdminTemporaryLoginResult;
 import com.pikume.back.security.config.AdminSessionCookieManager;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +31,29 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 
 @Tag(name = "Admin Onboarding", description = "관리자 최초 로그인과 온보딩 API")
+@ApiResponses({
+		@ApiResponse(responseCode = "400", description = "유효하지 않은 온보딩 요청",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "401", description = "임시 자격 증명 또는 OTP 인증 실패",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "403", description = "Origin 또는 CSRF 검증 실패",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "409", description = "관리자 로그인 아이디 중복",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "423", description = "관리자 계정 잠금",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "429", description = "OTP 인증 일시 차단",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "503", description = "관리자 인증 저장소 확인 불가",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class)))
+})
 @RestController
 @ConditionalOnProperty(prefix = "admin.api", name = "onboarding-enabled", havingValue = "true")
 @RequestMapping("/api/admin/auth")

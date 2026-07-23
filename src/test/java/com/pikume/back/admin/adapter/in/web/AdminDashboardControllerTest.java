@@ -3,7 +3,7 @@ package com.pikume.back.admin.adapter.in.web;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminDashboardUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.service.AdminDashboardResponse;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -48,7 +48,7 @@ class AdminDashboardControllerTest {
 	void setUp() {
 		mockMvc = MockMvcBuilders.standaloneSetup(new AdminDashboardController(adminDashboardUseCase))
 				.setControllerAdvice(new AdminExceptionHandler(
-						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
+						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class)))
 				.setMessageConverters(new MappingJackson2HttpMessageConverter(
 						Jackson2ObjectMapperBuilder.json()
 								.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
@@ -93,7 +93,7 @@ class AdminDashboardControllerTest {
 		MockMvc unauthenticatedMockMvc = MockMvcBuilders
 				.standaloneSetup(new AdminDashboardController(adminDashboardUseCase))
 				.setControllerAdvice(new AdminExceptionHandler(
-						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
+						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class)))
 				.setCustomArgumentResolvers(new AdminPrincipalResolver(null))
 				.build();
 

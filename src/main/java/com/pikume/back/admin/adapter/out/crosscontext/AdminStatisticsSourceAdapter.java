@@ -1,9 +1,9 @@
 package com.pikume.back.admin.adapter.out.crosscontext;
 
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsSourcePort;
-import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
-import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.in.QueryDiaryDashboardStatisticsUseCase;
 import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import java.util.List;
 public class AdminStatisticsSourceAdapter implements QueryAdminStatisticsSourcePort {
 
 	private final QueryUserDashboardStatisticsUseCase queryUserDashboardStatisticsUseCase;
-	private final LoadDiaryPort loadDiaryPort;
+	private final QueryDiaryDashboardStatisticsUseCase diaryStatisticsUseCase;
 	private final QueryAiPhotoDashboardStatisticsUseCase aiPhotoStatisticsUseCase;
 
 	@Override
@@ -34,7 +34,7 @@ public class AdminStatisticsSourceAdapter implements QueryAdminStatisticsSourceP
 
 	@Override
 	public List<AdminDailyCount> countDiaryCreationsByDate(LocalDate startDate, LocalDate endDate) {
-		return loadDiaryPort.countCreatedDiariesByDate(startDate, endDate)
+		return diaryStatisticsUseCase.countDiaryCreationsByDate(startDate, endDate)
 				.stream()
 				.map(row -> new AdminDailyCount(row.date(), row.count()))
 				.toList();

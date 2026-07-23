@@ -3,7 +3,7 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.adapter.out.persistence.AdminAccountJpaRepository;
 import com.pikume.back.admin.adapter.out.persistence.AdminSessionJpaRepository;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
 import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
@@ -68,7 +68,7 @@ class AdminOnboardingConcurrencyIntegrationTest {
 
 			List<Object> outcomes = List.of(first.get(), second.get());
 
-			assertThat(outcomes).containsExactlyInAnyOrder("success", AdminProblem.DUPLICATE_LOGIN_ID);
+			assertThat(outcomes).containsExactlyInAnyOrder("success", AdminErrorCode.DUPLICATE_LOGIN_ID);
 			assertThat(adminAccountJpaRepository.findByLoginId("shared-ops")).isPresent();
 			assertThat(adminAccountJpaRepository.findAll())
 					.filteredOn(admin -> "shared-ops".equals(admin.getLoginId()))
@@ -101,7 +101,7 @@ class AdminOnboardingConcurrencyIntegrationTest {
 			List<Object> outcomes = List.of(first.get(), second.get());
 			AdminAccount persisted = adminAccountJpaRepository.findById(admin.getId()).orElseThrow();
 
-			assertThat(outcomes).containsExactlyInAnyOrder("success", AdminProblem.UNAUTHENTICATED);
+			assertThat(outcomes).containsExactlyInAnyOrder("success", AdminErrorCode.UNAUTHENTICATED);
 			assertThat(persisted.getLoginId()).isIn("first-ops", "second-ops");
 			assertThat(persisted.getAuthenticationVersion()).isEqualTo(admin.getAuthenticationVersion() + 1);
 		} finally {
@@ -122,7 +122,7 @@ class AdminOnboardingConcurrencyIntegrationTest {
 			adminOnboardingUseCase.setCredentials(sessionToken, loginId, "Password1!");
 			return "success";
 		} catch (AdminException exception) {
-			return exception.problem();
+			return exception.errorCode();
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
 			throw new IllegalStateException(exception);

@@ -1,9 +1,9 @@
 package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminDailyStatisticsPort;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminDailyStatisticsPort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsSourcePort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminDailyStatistics;
@@ -30,9 +30,9 @@ import static org.mockito.BDDMockito.given;
 class AdminStatisticsQueryServiceTest {
 
 	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
+	private QueryAdminAccountPort queryAdminAccountPort;
 	@Mock
-	private LoadAdminDailyStatisticsPort loadAdminDailyStatisticsPort;
+	private QueryAdminDailyStatisticsPort queryAdminDailyStatisticsPort;
 	@Mock
 	private QueryAdminStatisticsSourcePort queryAdminStatisticsSourcePort;
 	@Mock
@@ -44,9 +44,9 @@ class AdminStatisticsQueryServiceTest {
 		LocalDate today = LocalDate.now();
 		LocalDate startDate = today.minusDays(2);
 		LocalDate yesterday = today.minusDays(1);
-		given(loadAdminAccountPort.findById("admin-1")).willReturn(Optional.of(admin()));
+		given(queryAdminAccountPort.findAccount("admin-1")).willReturn(Optional.of(admin()));
 		given(queryAdminStatisticsSourcePort.countCurrentMembers()).willReturn(42L);
-		given(loadAdminDailyStatisticsPort.findByDateBetween(startDate, today))
+		given(queryAdminDailyStatisticsPort.queryStatisticsPeriod(startDate, today))
 				.willReturn(List.of(AdminDailyStatistics.of(
 						startDate,
 						10,
@@ -78,11 +78,11 @@ class AdminStatisticsQueryServiceTest {
 	@DisplayName("통계 조회 기간은 최대 1년으로 제한한다")
 	void getStatisticsRejectsRangeLongerThanOneYear() {
 		LocalDate today = LocalDate.now();
-		given(loadAdminAccountPort.findById("admin-1")).willReturn(Optional.of(admin()));
+		given(queryAdminAccountPort.findAccount("admin-1")).willReturn(Optional.of(admin()));
 
 		assertThatThrownBy(() -> service().getStatistics("admin-1", today.minusYears(1).minusDays(1), today))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_REQUEST));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.INVALID_REQUEST));
 	}
 
 	@Test
@@ -90,17 +90,17 @@ class AdminStatisticsQueryServiceTest {
 	void getStatisticsCsvRejectsViewer() {
 		LocalDate startDate = LocalDate.of(2026, 6, 11);
 		LocalDate endDate = LocalDate.of(2026, 6, 17);
-		given(loadAdminAccountPort.findById("viewer-1")).willReturn(Optional.of(admin(AdminRole.VIEWER)));
+		given(queryAdminAccountPort.findAccount("viewer-1")).willReturn(Optional.of(admin(AdminRole.VIEWER)));
 
 		assertThatThrownBy(() -> service().getStatisticsCsv("viewer-1", startDate, endDate))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 	}
 
 	private AdminStatisticsQueryService service() {
 		return new AdminStatisticsQueryService(
-				loadAdminAccountPort,
-				loadAdminDailyStatisticsPort,
+				queryAdminAccountPort,
+				queryAdminDailyStatisticsPort,
 				queryAdminStatisticsSourcePort,
 				adminDailyStatisticsCalculator);
 	}

@@ -2,7 +2,7 @@ package com.pikume.back.admin.application.port.out;
 
 import com.pikume.back.admin.domain.AdminSession;
 
-public interface SaveAdminSessionPort {
+public interface RecordAdminSessionPort {
 
-	AdminSession save(AdminSession adminSession);
+	AdminSession recordSession(AdminSession adminSession);
 }

@@ -1,13 +1,13 @@
 package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAuditLogPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAuditTrailPort;
+import com.pikume.back.admin.application.port.out.RecordAdminAccountPort;
+import com.pikume.back.admin.application.port.out.AppendAdminAuditLogPort;
 import com.pikume.back.admin.application.port.out.SearchAdminAccountsPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -38,15 +38,15 @@ import static org.mockito.BDDMockito.then;
 class AdminAccountOperationServiceTest {
 
 	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
+	private QueryAdminAccountPort queryAdminAccountPort;
 	@Mock
-	private SaveAdminAccountPort saveAdminAccountPort;
+	private RecordAdminAccountPort recordAdminAccountPort;
 	@Mock
 	private SearchAdminAccountsPort searchAdminAccountsPort;
 	@Mock
-	private SaveAdminAuditLogPort saveAdminAuditLogPort;
+	private AppendAdminAuditLogPort appendAdminAuditLogPort;
 	@Mock
-	private LoadAdminAuditLogPort loadAdminAuditLogPort;
+	private QueryAdminAuditTrailPort queryAdminAuditTrailPort;
 	@Mock
 	private GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	@Mock
@@ -54,7 +54,7 @@ class AdminAccountOperationServiceTest {
 	@Mock
 	private AdminPasswordPort adminPasswordPort;
 	@Mock
-	private com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
+	private com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase adminSessionLifecyclePort;
 
 	@Test
 	@DisplayName("관리자 목록 조회는 관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 반환한다")
@@ -62,8 +62,8 @@ class AdminAccountOperationServiceTest {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.VIEWER, "viewer@pikume.com");
 		target.completeCredentialSetup("viewer-june", "password-hash");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(searchAdminAccountsPort.findAll()).willReturn(List.of(target));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(searchAdminAccountsPort.queryAccounts()).willReturn(List.of(target));
 
 		List<AdminAccountSummaryResult> result = service().list(actor.getId());
 
@@ -79,8 +79,8 @@ class AdminAccountOperationServiceTest {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
 		target.completeCredentialSetup("ops-june", "password-hash");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
 
 		AdminAccountDetailResult result = service().detailById(actor.getId(), target.getId());
 
@@ -100,8 +100,8 @@ class AdminAccountOperationServiceTest {
 				null,
 				"email: old-admin@pikume.com -> 관리자@pikume.com",
 				LocalDateTime.of(2026, 6, 21, 12, 0));
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAuditLogPort.findLatest(50)).willReturn(List.of(auditLog));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAuditTrailPort.queryLatestEntries(50)).willReturn(List.of(auditLog));
 
 		List<AdminAuditLogResult> result = service().auditLogs(actor.getId(), 50);
 
@@ -114,14 +114,14 @@ class AdminAccountOperationServiceTest {
 	void changeEmailAuditDoesNotStoreEmailValues() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
-		given(loadAdminAccountPort.existsByEmail("changed@pikume.com")).willReturn(false);
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.emailAlreadyRegistered("changed@pikume.com")).willReturn(false);
 
 		service().changeEmail(actor.getId(), target.getId(), "changed@pikume.com");
 
 		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
-		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		then(appendAdminAuditLogPort).should().appendAuditLog(auditCaptor.capture());
 		assertThat(auditCaptor.getValue().getAction()).isEqualTo(AdminAuditAction.EMAIL_CHANGED);
 		assertThat(auditCaptor.getValue().getDetail()).isEqualTo("email changed");
 		assertThat(auditCaptor.getValue().getDetail()).doesNotContain("@", "operator@pikume.com", "changed@pikume.com");
@@ -131,11 +131,11 @@ class AdminAccountOperationServiceTest {
 	@DisplayName("SUPER_ADMIN이 아니면 운영 기능을 사용할 수 없다")
 	void nonSuperAdminCannotOperateAccounts() {
 		AdminAccount actor = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
 
 		assertThatThrownBy(() -> service().list(actor.getId()))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 	}
 
 	@Test
@@ -143,22 +143,22 @@ class AdminAccountOperationServiceTest {
 	void deactivateRequiresReasonAndWritesAuditLog() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
-		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
 				.willReturn(1L);
 		AdminAccountOperationService service = service();
 
 		assertThatThrownBy(() -> service.deactivate(actor.getId(), target.getId(), " "))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_REQUEST));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.INVALID_REQUEST));
 
 		service.deactivate(actor.getId(), target.getId(), "퇴사");
 
 		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
 		assertThat(target.getStatus()).isEqualTo(AdminAccountStatus.INACTIVE);
 		then(adminSessionLifecyclePort).should().revokeActiveSessions(eq(target.getId()), any(LocalDateTime.class));
-		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		then(appendAdminAuditLogPort).should().appendAuditLog(auditCaptor.capture());
 		assertThat(auditCaptor.getValue().getAction()).isEqualTo(AdminAuditAction.DEACTIVATED);
 		assertThat(auditCaptor.getValue().getReason()).isEqualTo("퇴사");
 	}
@@ -168,15 +168,15 @@ class AdminAccountOperationServiceTest {
 	void auditLogRedactsEmailFromFreeText() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
-		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
 				.willReturn(1L);
 
 		service().deactivate(actor.getId(), target.getId(), "operator@pikume.com 계정 퇴사");
 
 		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
-		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		then(appendAdminAuditLogPort).should().appendAuditLog(auditCaptor.capture());
 		assertThat(auditCaptor.getValue().getReason()).isEqualTo("[email removed] 계정 퇴사");
 	}
 
@@ -185,9 +185,9 @@ class AdminAccountOperationServiceTest {
 	void changeRoleRevokesActiveSessions() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
-		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
 				.willReturn(1L);
 
 		service().changeRole(actor.getId(), target.getId(), AdminRole.VIEWER);
@@ -200,17 +200,17 @@ class AdminAccountOperationServiceTest {
 	@DisplayName("자기 계정은 비활성화하거나 등급을 변경할 수 없다")
 	void cannotOperateOwnAdminAccount() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
 				.willReturn(2L);
 		AdminAccountOperationService service = service();
 
 		assertThatThrownBy(() -> service.deactivate(actor.getId(), actor.getId(), "퇴사"))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 		assertThatThrownBy(() -> service.changeRole(actor.getId(), actor.getId(), AdminRole.OPERATOR))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 	}
 
 	@Test
@@ -218,18 +218,18 @@ class AdminAccountOperationServiceTest {
 	void cannotRemoveLastSuperAdmin() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "actor@pikume.com");
 		AdminAccount target = admin(AdminRole.SUPER_ADMIN, "target@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
-		given(loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE))
 				.willReturn(1L);
 		AdminAccountOperationService service = service();
 
 		assertThatThrownBy(() -> service.deactivate(actor.getId(), target.getId(), "퇴사"))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 		assertThatThrownBy(() -> service.changeRole(actor.getId(), target.getId(), AdminRole.OPERATOR))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.FORBIDDEN));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.FORBIDDEN));
 	}
 
 	@Test
@@ -237,8 +237,8 @@ class AdminAccountOperationServiceTest {
 	void reissueTemporaryPasswordReturnsPasswordOnce() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
 		AdminAccount target = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.findById(target.getId())).willReturn(Optional.of(target));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(target.getId())).willReturn(Optional.of(target));
 		given(generateTemporaryPasswordPort.generate()).willReturn("TempPass1!234567");
 		given(adminPasswordPort.encode("TempPass1!234567")).willReturn("encoded-temp");
 
@@ -253,11 +253,11 @@ class AdminAccountOperationServiceTest {
 
 	private AdminAccountOperationService service() {
 		return new AdminAccountOperationService(
-				loadAdminAccountPort,
-				saveAdminAccountPort,
+				queryAdminAccountPort,
+				recordAdminAccountPort,
 				searchAdminAccountsPort,
-				saveAdminAuditLogPort,
-				loadAdminAuditLogPort,
+				appendAdminAuditLogPort,
+				queryAdminAuditTrailPort,
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
 				adminPasswordPort,

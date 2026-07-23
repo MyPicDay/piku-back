@@ -1,10 +1,10 @@
 package com.pikume.back.admin.adapter.out.persistence;
 
-import com.pikume.back.admin.application.port.out.LoadAdminDailyStatisticsPort;
+import com.pikume.back.admin.application.port.out.QueryAdminDailyStatisticsPort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsEventPort;
-import com.pikume.back.admin.application.port.out.SaveAdminDailyStatisticsPort;
-import com.pikume.back.admin.application.port.out.SaveAdminStatisticsEventPort;
-import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.admin.application.port.out.RecordAdminDailyStatisticsPort;
+import com.pikume.back.admin.application.port.out.RecordAdminStatisticsEventPort;
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.admin.domain.AdminDailyStatistics;
 import com.pikume.back.admin.domain.AdminStatisticsEvent;
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
@@ -20,17 +20,17 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class AdminStatisticsPersistenceAdapter implements
-		SaveAdminStatisticsEventPort,
+		RecordAdminStatisticsEventPort,
 		QueryAdminStatisticsEventPort,
-		LoadAdminDailyStatisticsPort,
-		SaveAdminDailyStatisticsPort {
+		QueryAdminDailyStatisticsPort,
+		RecordAdminDailyStatisticsPort {
 
 	private final AdminStatisticsEventJpaRepository adminStatisticsEventJpaRepository;
 	private final AdminDailyStatisticsJpaRepository adminDailyStatisticsJpaRepository;
 	private final NamedParameterJdbcTemplate jdbcTemplate;
 
 	@Override
-	public AdminStatisticsEvent save(AdminStatisticsEvent event) {
+	public AdminStatisticsEvent recordStatisticsEvent(AdminStatisticsEvent event) {
 		return adminStatisticsEventJpaRepository.save(event);
 	}
 
@@ -82,12 +82,12 @@ public class AdminStatisticsPersistenceAdapter implements
 	}
 
 	@Override
-	public List<AdminDailyStatistics> findByDateBetween(LocalDate startDate, LocalDate endDate) {
+	public List<AdminDailyStatistics> queryStatisticsPeriod(LocalDate startDate, LocalDate endDate) {
 		return adminDailyStatisticsJpaRepository.findByMetricDateBetween(startDate, endDate);
 	}
 
 	@Override
-	public AdminDailyStatistics save(AdminDailyStatistics statistics) {
+	public AdminDailyStatistics recordDailyStatistics(AdminDailyStatistics statistics) {
 		return adminDailyStatisticsJpaRepository.save(statistics);
 	}
 

@@ -4,10 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.admin.adapter.in.web.dto.request.CreateAdminAccountRequest;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.service.AdminAccountSummaryResult;
 import com.pikume.back.admin.application.service.AdminAccountDetailResult;
 import com.pikume.back.admin.application.service.CreateAdminAccountCommand;
@@ -60,7 +60,7 @@ class AdminAccountControllerTest {
 		AdminAccountController controller = new AdminAccountController(createAdminAccountUseCase, adminAccountOperationUseCase);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 				.setControllerAdvice(new AdminExceptionHandler(
-						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
+						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class)))
 				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
 						"admin-1",
 						AdminRole.SUPER_ADMIN.name(),
@@ -149,7 +149,7 @@ class AdminAccountControllerTest {
 	@DisplayName("POST /api/admin/accounts는 권한 부족 시 Problem Details를 반환한다")
 	void createReturnsProblemDetailsWhenForbidden() throws Exception {
 		given(createAdminAccountUseCase.create(any(CreateAdminAccountCommand.class)))
-				.willThrow(new AdminException(AdminProblem.FORBIDDEN, "SUPER_ADMIN만 관리자 계정을 생성할 수 있습니다."));
+				.willThrow(new AdminException(AdminErrorCode.FORBIDDEN, "SUPER_ADMIN만 관리자 계정을 생성할 수 있습니다."));
 
 		mockMvc.perform(post("/api/admin/accounts")
 						.contentType(MediaType.APPLICATION_JSON)

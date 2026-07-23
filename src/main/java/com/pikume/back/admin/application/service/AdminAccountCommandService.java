@@ -1,13 +1,13 @@
 package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.AppendAdminAuditLogPort;
+import com.pikume.back.admin.application.port.out.RecordAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminAuditAction;
@@ -24,9 +24,9 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 
-	private final LoadAdminAccountPort loadAdminAccountPort;
-	private final SaveAdminAccountPort saveAdminAccountPort;
-	private final SaveAdminAuditLogPort saveAdminAuditLogPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
+	private final RecordAdminAccountPort recordAdminAccountPort;
+	private final AppendAdminAuditLogPort appendAdminAuditLogPort;
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	private final AdminPasswordPort adminPasswordPort;
@@ -34,20 +34,20 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 	@Override
 	@Transactional
 	public CreateAdminAccountResult create(CreateAdminAccountCommand command) {
-		AdminAccount actor = loadAdminAccountPort.findById(command.actorAdminId())
-				.orElseThrow(() -> new AdminException(AdminProblem.FORBIDDEN, "관리자 계정 생성 권한이 없습니다."));
+		AdminAccount actor = queryAdminAccountPort.findAccount(command.actorAdminId())
+				.orElseThrow(() -> new AdminException(AdminErrorCode.FORBIDDEN, "관리자 계정 생성 권한이 없습니다."));
 		if (!actor.isSuperAdmin()) {
-			throw new AdminException(AdminProblem.FORBIDDEN, "SUPER_ADMIN만 관리자 계정을 생성할 수 있습니다.");
+			throw new AdminException(AdminErrorCode.FORBIDDEN, "SUPER_ADMIN만 관리자 계정을 생성할 수 있습니다.");
 		}
 
 		String email = AdminEmail.normalize(command.email());
-		if (loadAdminAccountPort.existsByEmail(email)) {
-			throw new AdminException(AdminProblem.DUPLICATE_EMAIL, "이미 등록된 관리자 이메일입니다.");
+		if (queryAdminAccountPort.emailAlreadyRegistered(email)) {
+			throw new AdminException(AdminErrorCode.DUPLICATE_EMAIL, "이미 등록된 관리자 이메일입니다.");
 		}
 
 		AdminRole role = command.role();
 		if (role == null) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "관리자 등급은 필수입니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "관리자 등급은 필수입니다.");
 		}
 
 		String temporaryPassword = generateTemporaryPasswordPort.generate();
@@ -61,14 +61,14 @@ public class AdminAccountCommandService implements CreateAdminAccountUseCase {
 				issuedAt,
 				expiresAt);
 
-		AdminAccount saved = saveAdminAccountPort.save(adminAccount);
+		AdminAccount saved = recordAdminAccountPort.recordAccount(adminAccount);
 		boolean guideEmailSent = true;
 		try {
 			sendAdminGuideEmailPort.sendAccountCreatedGuide(saved.getEmail(), saved.getEmail(), expiresAt);
 		} catch (RuntimeException e) {
 			guideEmailSent = false;
 		}
-		saveAdminAuditLogPort.save(AdminAuditLog.record(
+		appendAdminAuditLogPort.appendAuditLog(AdminAuditLog.record(
 				actor.getId(),
 				saved.getId(),
 				AdminAuditAction.ADMIN_CREATED,

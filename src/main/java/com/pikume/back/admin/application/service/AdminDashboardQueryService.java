@@ -1,9 +1,10 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminDashboardUseCase;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
 import com.pikume.back.admin.application.port.out.QueryAdminDashboardSourcePort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsEventPort;
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
@@ -27,25 +28,25 @@ public class AdminDashboardQueryService implements AdminDashboardUseCase {
 
 	private static final ZoneId STATISTICS_ZONE = ZoneId.of("Asia/Seoul");
 
-	private final LoadAdminAccountPort loadAdminAccountPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
 	private final QueryAdminDashboardSourcePort sourcePort;
 	private final QueryAdminStatisticsEventPort eventPort;
 	private final Clock clock;
 
 	@Autowired
 	public AdminDashboardQueryService(
-			LoadAdminAccountPort loadAdminAccountPort,
+			QueryAdminAccountPort queryAdminAccountPort,
 			QueryAdminDashboardSourcePort sourcePort,
 			QueryAdminStatisticsEventPort eventPort) {
-		this(loadAdminAccountPort, sourcePort, eventPort, Clock.system(STATISTICS_ZONE));
+		this(queryAdminAccountPort, sourcePort, eventPort, Clock.system(STATISTICS_ZONE));
 	}
 
 	AdminDashboardQueryService(
-			LoadAdminAccountPort loadAdminAccountPort,
+			QueryAdminAccountPort queryAdminAccountPort,
 			QueryAdminDashboardSourcePort sourcePort,
 			QueryAdminStatisticsEventPort eventPort,
 			Clock clock) {
-		this.loadAdminAccountPort = loadAdminAccountPort;
+		this.queryAdminAccountPort = queryAdminAccountPort;
 		this.sourcePort = sourcePort;
 		this.eventPort = eventPort;
 		this.clock = clock;
@@ -155,7 +156,7 @@ public class AdminDashboardQueryService implements AdminDashboardUseCase {
 	}
 
 	private void requireAdmin(String actorAdminId) {
-		loadAdminAccountPort.findById(actorAdminId)
-				.orElseThrow(() -> new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다."));
+		queryAdminAccountPort.findAccount(actorAdminId)
+				.orElseThrow(() -> new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다."));
 	}
 }

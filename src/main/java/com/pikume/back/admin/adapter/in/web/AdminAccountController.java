@@ -5,7 +5,7 @@ import com.pikume.back.admin.adapter.in.web.dto.request.ChangeAdminEmailRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.ChangeAdminRoleRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.DeactivateAdminAccountRequest;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.in.CreateAdminAccountUseCase;
 import com.pikume.back.admin.application.service.AdminAccountDetailResult;
@@ -16,12 +16,16 @@ import com.pikume.back.admin.application.service.AdminTemporaryPasswordResult;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.security.config.AdminUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +39,26 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @Tag(name = "Admin Accounts", description = "관리자 계정 운영 API")
+@ApiResponses({
+		@ApiResponse(responseCode = "400", description = "유효하지 않은 관리자 계정 요청",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "401", description = "관리자 인증 필요",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "403", description = "관리자 계정 운영 권한 없음",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "404", description = "관리자 계정 없음",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "409", description = "관리자 식별 정보 중복",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "503", description = "관리자 인증 저장소 확인 불가",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class)))
+})
 @RestController
 @ConditionalOnProperty(prefix = "admin.api", name = "account-management-enabled", havingValue = "true")
 @RequestMapping("/api/admin/accounts")
@@ -59,12 +83,7 @@ public class AdminAccountController {
 	}
 
 	@Operation(summary = "관리자 계정 생성", description = "SUPER_ADMIN이 관리자 계정을 생성하고 임시 패스워드를 한 번만 반환합니다.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "201", description = "관리자 계정 생성 성공"),
-			@ApiResponse(responseCode = "401", description = "관리자 인증 필요"),
-			@ApiResponse(responseCode = "403", description = "관리자 생성 권한 없음"),
-			@ApiResponse(responseCode = "409", description = "관리자 이메일 중복")
-	})
+	@ApiResponse(responseCode = "201", description = "관리자 계정 생성 성공")
 	@PostMapping
 	public ResponseEntity<CreateAdminAccountResult> create(
 			@AuthenticationPrincipal AdminUserDetails admin,
@@ -144,7 +163,7 @@ public class AdminAccountController {
 
 	private String requireAdminId(AdminUserDetails admin) {
 		if (admin == null) {
-			throw new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
+			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}
 		return admin.getId();
 	}

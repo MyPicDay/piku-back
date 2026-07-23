@@ -1,15 +1,15 @@
 package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
-import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
+import com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAuditLogPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAuditTrailPort;
+import com.pikume.back.admin.application.port.out.AppendAdminAuditLogPort;
+import com.pikume.back.admin.application.port.out.RecordAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SearchAdminAccountsPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -35,21 +35,21 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	private static final int AUDIT_LOG_LIMIT_MAX = 200;
 	private static final AdminRoleGuard ADMIN_ROLE_GUARD = new AdminRoleGuard();
 
-	private final LoadAdminAccountPort loadAdminAccountPort;
-	private final SaveAdminAccountPort saveAdminAccountPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
+	private final RecordAdminAccountPort recordAdminAccountPort;
 	private final SearchAdminAccountsPort searchAdminAccountsPort;
-	private final SaveAdminAuditLogPort saveAdminAuditLogPort;
-	private final LoadAdminAuditLogPort loadAdminAuditLogPort;
+	private final AppendAdminAuditLogPort appendAdminAuditLogPort;
+	private final QueryAdminAuditTrailPort queryAdminAuditTrailPort;
 	private final GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	private final SendAdminGuideEmailPort sendAdminGuideEmailPort;
 	private final AdminPasswordPort adminPasswordPort;
-	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
+	private final ManageAdminSessionLifecycleUseCase adminSessionLifecyclePort;
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<AdminAccountSummaryResult> list(String actorAdminId) {
 		requireSuperAdmin(actorAdminId);
-		return searchAdminAccountsPort.findAll()
+		return searchAdminAccountsPort.queryAccounts()
 				.stream()
 				.map(AdminAccountSummaryResult::from)
 				.toList();
@@ -59,7 +59,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	@Transactional(readOnly = true)
 	public AdminAccountDetailResult detailById(String actorAdminId, String targetAdminId) {
 		requireSuperAdmin(actorAdminId);
-		return loadAdminAccountPort.findById(targetAdminId)
+		return queryAdminAccountPort.findAccount(targetAdminId)
 				.map(AdminAccountDetailResult::from)
 				.orElseThrow(this::notFound);
 	}
@@ -68,7 +68,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	@Transactional
 	public void changeRole(String actorAdminId, String targetAdminId, AdminRole role) {
 		if (role == null) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "변경할 관리자 등급은 필수입니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "변경할 관리자 등급은 필수입니다.");
 		}
 		AdminAccount actor = requireSuperAdmin(actorAdminId);
 		AdminAccount target = requireTarget(targetAdminId);
@@ -85,7 +85,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	public void deactivate(String actorAdminId, String targetAdminId, String reason) {
 		AdminAccount actor = requireSuperAdmin(actorAdminId);
 		if (!StringUtils.hasText(reason)) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "관리자 계정 비활성화 사유는 필수입니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "관리자 계정 비활성화 사유는 필수입니다.");
 		}
 		AdminAccount target = requireTarget(targetAdminId);
 		validateCanDeactivate(actor, target);
@@ -118,7 +118,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		requireSuperAdmin(actorAdminId);
 		AdminAccount target = requireTarget(targetAdminId);
 		if (target.hasLoginId()) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "정식 로그인 아이디 설정 이후에는 임시 패스워드를 재발급할 수 없습니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "정식 로그인 아이디 설정 이후에는 임시 패스워드를 재발급할 수 없습니다.");
 		}
 		AdminTemporaryPasswordResult result = reissueTemporaryPassword(target);
 		adminSessionLifecyclePort.revokeActiveSessions(target.getId(), LocalDateTime.now());
@@ -142,8 +142,8 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		requireSuperAdmin(actorAdminId);
 		AdminAccount target = requireTarget(targetAdminId);
 		String normalizedEmail = AdminEmail.normalize(newEmail);
-		if (!target.getEmail().equals(normalizedEmail) && loadAdminAccountPort.existsByEmail(normalizedEmail)) {
-			throw new AdminException(AdminProblem.DUPLICATE_EMAIL, "이미 등록된 관리자 이메일입니다.");
+		if (!target.getEmail().equals(normalizedEmail) && queryAdminAccountPort.emailAlreadyRegistered(normalizedEmail)) {
+			throw new AdminException(AdminErrorCode.DUPLICATE_EMAIL, "이미 등록된 관리자 이메일입니다.");
 		}
 		target.changeEmail(normalizedEmail);
 		audit(actorAdminId, target.getId(), AdminAuditAction.EMAIL_CHANGED, null, "email changed");
@@ -154,7 +154,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	public List<AdminAuditLogResult> auditLogs(String actorAdminId, int limit) {
 		requireSuperAdmin(actorAdminId);
 		int boundedLimit = Math.max(1, Math.min(limit, AUDIT_LOG_LIMIT_MAX));
-		return loadAdminAuditLogPort.findLatest(boundedLimit)
+		return queryAdminAuditTrailPort.queryLatestEntries(boundedLimit)
 				.stream()
 				.map(AdminAuditLogResult::from)
 				.toList();
@@ -165,7 +165,7 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		LocalDateTime issuedAt = LocalDateTime.now();
 		LocalDateTime expiresAt = issuedAt.plusHours(24);
 		target.reissueTemporaryPassword(adminPasswordPort.encode(temporaryPassword), issuedAt, expiresAt);
-		saveAdminAccountPort.save(target);
+		recordAdminAccountPort.recordAccount(target);
 		boolean guideEmailSent = true;
 		try {
 			sendAdminGuideEmailPort.sendAccountCreatedGuide(target.getEmail(), target.getEmail(), expiresAt);
@@ -176,28 +176,28 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 	}
 
 	private AdminAccount requireSuperAdmin(String actorAdminId) {
-		AdminAccount actor = loadAdminAccountPort.findById(actorAdminId)
-				.orElseThrow(() -> new AdminException(AdminProblem.FORBIDDEN, "SUPER_ADMIN 권한이 필요합니다."));
+		AdminAccount actor = queryAdminAccountPort.findAccount(actorAdminId)
+				.orElseThrow(() -> new AdminException(AdminErrorCode.FORBIDDEN, "SUPER_ADMIN 권한이 필요합니다."));
 		if (!actor.isSuperAdmin()) {
-			throw new AdminException(AdminProblem.FORBIDDEN, "SUPER_ADMIN 권한이 필요합니다.");
+			throw new AdminException(AdminErrorCode.FORBIDDEN, "SUPER_ADMIN 권한이 필요합니다.");
 		}
 		return actor;
 	}
 
 	private AdminAccount requireTarget(String targetAdminId) {
-		return loadAdminAccountPort.findById(targetAdminId)
+		return queryAdminAccountPort.findAccount(targetAdminId)
 				.orElseThrow(this::notFound);
 	}
 
 	private AdminException notFound() {
-		return new AdminException(AdminProblem.NOT_FOUND, "관리자 계정을 찾을 수 없습니다.");
+		return new AdminException(AdminErrorCode.NOT_FOUND, "관리자 계정을 찾을 수 없습니다.");
 	}
 
 	private void validateCanChangeRole(AdminAccount actor, AdminAccount target, AdminRole role) {
 		try {
 			ADMIN_ROLE_GUARD.validateCanChangeRole(actor, target, role, activeSuperAdminCount());
 		} catch (AdminDomainException e) {
-			throw new AdminException(AdminProblem.FORBIDDEN, e.getMessage());
+			throw new AdminException(AdminErrorCode.FORBIDDEN, e.getMessage());
 		}
 	}
 
@@ -205,16 +205,16 @@ public class AdminAccountOperationService implements AdminAccountOperationUseCas
 		try {
 			ADMIN_ROLE_GUARD.validateCanDeactivate(actor, target, activeSuperAdminCount());
 		} catch (AdminDomainException e) {
-			throw new AdminException(AdminProblem.FORBIDDEN, e.getMessage());
+			throw new AdminException(AdminErrorCode.FORBIDDEN, e.getMessage());
 		}
 	}
 
 	private long activeSuperAdminCount() {
-		return loadAdminAccountPort.countByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE);
+		return queryAdminAccountPort.countAccountsByRoleAndStatus(AdminRole.SUPER_ADMIN, AdminAccountStatus.ACTIVE);
 	}
 
 	private void audit(String actorAdminId, String targetAdminId, AdminAuditAction action, String reason, String detail) {
-		saveAdminAuditLogPort.save(AdminAuditLog.record(
+		appendAdminAuditLogPort.appendAuditLog(AdminAuditLog.record(
 				actorAdminId,
 				targetAdminId,
 				action,

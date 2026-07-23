@@ -1,14 +1,15 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
-import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
+import com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminAccountStatus;
@@ -28,40 +29,40 @@ public class AdminAuthService implements AdminAuthUseCase {
 
 	private static final String AUTHENTICATION_FLOW = "official";
 
-	private final LoadAdminAccountPort loadAdminAccountPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
 	private final AdminPasswordPort adminPasswordPort;
 	private final AdminOtpPort adminOtpPort;
 	private final ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
-	private final AdminSessionLifecyclePort adminSessionLifecyclePort;
+	private final ManageAdminSessionLifecycleUseCase adminSessionLifecyclePort;
 	private final AdminSessionTelemetryPort telemetryPort;
 
 	@Override
 	@Transactional(noRollbackFor = AdminException.class)
 	public AdminLoginChallengeResult login(String sessionToken, String loginId, String password) {
 		String normalizedLoginId = AdminLoginId.normalize(loginId);
-		AdminAccount admin = loadAccount(() -> loadAdminAccountPort.findByLoginId(normalizedLoginId))
+		AdminAccount admin = loadAccount(() -> queryAdminAccountPort.findAccountByLoginId(normalizedLoginId))
 				.orElseThrow(() -> rejectLogin(
-						AdminProblem.INVALID_CREDENTIALS,
+						AdminErrorCode.INVALID_CREDENTIALS,
 						"관리자 로그인 정보가 올바르지 않습니다.",
 						"invalid_credentials"));
 		LocalDateTime now = LocalDateTime.now();
 		admin.releaseExpiredLock(now);
 		if (admin.isLockedAt(now)) {
-			throw rejectLogin(AdminProblem.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.", "account_locked");
+			throw rejectLogin(AdminErrorCode.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.", "account_locked");
 		}
 		if (!canUseOfficialLogin(admin)) {
 			throw rejectLogin(
-					AdminProblem.INVALID_CREDENTIALS,
+					AdminErrorCode.INVALID_CREDENTIALS,
 					"관리자 로그인 정보가 올바르지 않습니다.",
 					"invalid_credentials");
 		}
 		if (!StringUtils.hasText(password) || !adminPasswordPort.matches(password, admin.getPasswordHash())) {
 			admin.recordPasswordFailure(now);
 			if (admin.isLockedAt(now)) {
-				throw rejectLogin(AdminProblem.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.", "account_locked");
+				throw rejectLogin(AdminErrorCode.ACCOUNT_LOCKED, "관리자 계정이 잠겨 있습니다.", "account_locked");
 			}
 			throw rejectLogin(
-					AdminProblem.INVALID_CREDENTIALS,
+					AdminErrorCode.INVALID_CREDENTIALS,
 					"관리자 로그인 정보가 올바르지 않습니다.",
 					"invalid_credentials");
 		}
@@ -83,26 +84,26 @@ public class AdminAuthService implements AdminAuthUseCase {
 		}
 		if (admin.isOtpBlockedAt(now)) {
 			telemetryPort.otpRejected(AUTHENTICATION_FLOW, "blocked");
-			throw new AdminException(AdminProblem.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
+			throw new AdminException(AdminErrorCode.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
 		}
 		if (!StringUtils.hasText(admin.getOtpSecret())) {
 			telemetryPort.otpRejected(AUTHENTICATION_FLOW, "not_registered");
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "OTP가 등록되어 있지 않습니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "OTP가 등록되어 있지 않습니다.");
 		}
 		String secret = protectAdminOtpSecretPort.reveal(admin.getOtpSecret());
 		if (!adminOtpPort.verify(secret, otpCode)) {
 			admin.recordOtpFailure(now);
 			if (admin.isOtpBlockedAt(now)) {
 				telemetryPort.otpRejected(AUTHENTICATION_FLOW, "blocked");
-				throw new AdminException(AdminProblem.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
+				throw new AdminException(AdminErrorCode.OTP_BLOCKED, "OTP 인증이 일시적으로 차단되었습니다.");
 			}
 			telemetryPort.otpRejected(AUTHENTICATION_FLOW, "invalid_code");
-			throw new AdminException(AdminProblem.OTP_VERIFICATION_FAILED, "OTP 인증 코드가 올바르지 않습니다.");
+			throw new AdminException(AdminErrorCode.OTP_VERIFICATION_FAILED, "OTP 인증 코드가 올바르지 않습니다.");
 		}
 		admin.resetOtpFailures();
 		admin.recordLoginSuccess(now);
 		admin.advanceAuthenticationVersion();
-		AdminSessionCredentials credentials = adminSessionLifecyclePort.completeAuthentication(
+		AdminSessionCredentialResult credentials = adminSessionLifecyclePort.completeAuthentication(
 				sessionToken, admin, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
 		telemetryPort.otpSucceeded(AUTHENTICATION_FLOW, admin.getId());
 		return result(admin, credentials);
@@ -129,7 +130,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 		adminSessionLifecyclePort.revokeActiveSessions(admin.getId(), LocalDateTime.now());
 	}
 
-	private AdminAuthenticationResult result(AdminAccount admin, AdminSessionCredentials credentials) {
+	private AdminAuthenticationResult result(AdminAccount admin, AdminSessionCredentialResult credentials) {
 		return new AdminAuthenticationResult(
 				credentials, admin.getNickname(), admin.getRole());
 	}
@@ -140,17 +141,17 @@ public class AdminAuthService implements AdminAuthUseCase {
 	}
 
 	private AdminAccount requireAdmin(String adminId) {
-		return loadAccount(() -> loadAdminAccountPort.findById(adminId))
+		return loadAccount(() -> queryAdminAccountPort.findAccount(adminId))
 				.orElseThrow(this::invalidCredentials);
 	}
 
 	private AdminException invalidCredentials() {
-		return new AdminException(AdminProblem.INVALID_CREDENTIALS, "관리자 로그인 정보가 올바르지 않습니다.");
+		return new AdminException(AdminErrorCode.INVALID_CREDENTIALS, "관리자 로그인 정보가 올바르지 않습니다.");
 	}
 
-	private AdminException rejectLogin(AdminProblem problem, String detail, String reason) {
+	private AdminException rejectLogin(AdminErrorCode errorCode, String detail, String reason) {
 		telemetryPort.loginRejected(AUTHENTICATION_FLOW, reason);
-		return new AdminException(problem, detail);
+		return new AdminException(errorCode, detail);
 	}
 
 	private <T> T loadAccount(Supplier<T> load) {
@@ -171,7 +172,7 @@ public class AdminAuthService implements AdminAuthUseCase {
 				|| password.equals(loginId) || password.contains(loginId)
 				|| !password.matches(".*[A-Z].*") || !password.matches(".*[a-z].*")
 				|| !password.matches(".*\\d.*") || !password.matches(".*[^A-Za-z0-9].*")) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "관리자 패스워드 정책을 만족해야 합니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "관리자 패스워드 정책을 만족해야 합니다.");
 		}
 	}
 }

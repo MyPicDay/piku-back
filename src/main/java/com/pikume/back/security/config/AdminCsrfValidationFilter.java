@@ -1,9 +1,9 @@
 package com.pikume.back.security.config;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.port.in.AdminSessionSecurityUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -26,7 +26,7 @@ public class AdminCsrfValidationFilter extends OncePerRequestFilter {
 	private final AdminSecurityProperties properties;
 	private final AdminSessionSecurityUseCase adminSessionSecurityUseCase;
 	private final AdminProblemResponseWriter problemWriter;
-	private final AdminSessionTelemetryPort telemetryPort;
+	private final RecordAdminSecurityEventUseCase recordAdminSecurityEventUseCase;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -37,23 +37,35 @@ public class AdminCsrfValidationFilter extends OncePerRequestFilter {
 		}
 		String sessionToken = cookie(request, properties.sessionCookieName());
 		if (sessionToken == null) {
-			telemetryPort.csrfRejected("session_missing");
-			problemWriter.write(request, response, AdminProblem.UNAUTHENTICATED, "관리자 세션이 필요합니다.");
+			recordAdminSecurityEventUseCase.recordCsrfRejection("session_missing");
+			problemWriter.write(
+					request,
+					response,
+					SecurityProblemType.ADMIN_UNAUTHENTICATED,
+					"관리자 세션이 필요합니다.");
 			return;
 		}
 		String csrfCookie = cookie(request, properties.csrfCookieName());
 		String csrfHeader = request.getHeader(properties.csrfHeaderName());
 		if (!constantTimeEquals(csrfCookie, csrfHeader)) {
-			telemetryPort.csrfRejected("cookie_header_mismatch");
-			problemWriter.write(request, response, AdminProblem.CSRF_INVALID, "관리자 CSRF 토큰이 유효하지 않습니다.");
+			recordAdminSecurityEventUseCase.recordCsrfRejection("cookie_header_mismatch");
+			problemWriter.write(
+					request,
+					response,
+					SecurityProblemType.ADMIN_CSRF_INVALID,
+					"관리자 CSRF 토큰이 유효하지 않습니다.");
 			return;
 		}
 		try {
 			adminSessionSecurityUseCase.validateCsrf(sessionToken, csrfHeader, LocalDateTime.now());
 			filterChain.doFilter(request, response);
 		} catch (AdminException exception) {
-			telemetryPort.csrfRejected("server_session_mismatch");
-			problemWriter.write(request, response, exception.problem(), exception.getMessage());
+			recordAdminSecurityEventUseCase.recordCsrfRejection("server_session_mismatch");
+			problemWriter.write(
+					request,
+					response,
+					SecurityProblemType.fromAdminErrorCode(exception.errorCode()),
+					exception.getMessage());
 		}
 	}
 

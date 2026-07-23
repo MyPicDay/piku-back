@@ -1,8 +1,8 @@
 package com.pikume.back.security.config;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
-import com.pikume.back.admin.application.service.AdminSessionCredentials;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,18 +21,18 @@ public class AdminSessionCookieManager {
 	public String requireSessionToken(HttpServletRequest request) {
 		String value = cookieValue(request, properties.sessionCookieName());
 		if (value == null || value.isBlank()) {
-			throw new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 세션이 필요합니다.");
+			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 세션이 필요합니다.");
 		}
 		return value;
 	}
 
-	public ResponseCookie sessionCookie(AdminSessionCredentials credentials, Duration maxAge) {
+	public ResponseCookie sessionCookie(AdminSessionCredentialResult credentials, Duration maxAge) {
 		return ResponseCookie.from(properties.sessionCookieName(), credentials.sessionToken())
 				.httpOnly(true).secure(properties.secureCookies()).path("/api/admin")
 				.maxAge(maxAge).sameSite("Strict").build();
 	}
 
-	public ResponseCookie csrfCookie(AdminSessionCredentials credentials, Duration maxAge) {
+	public ResponseCookie csrfCookie(AdminSessionCredentialResult credentials, Duration maxAge) {
 		ResponseCookie.ResponseCookieBuilder cookie = ResponseCookie
 				.from(properties.csrfCookieName(), credentials.csrfToken())
 				.httpOnly(false).secure(properties.secureCookies()).path("/")
@@ -50,7 +50,7 @@ public class AdminSessionCookieManager {
 	}
 
 	public ResponseCookie expiredCsrfCookie() {
-		AdminSessionCredentials empty = new AdminSessionCredentials("", "");
+		AdminSessionCredentialResult empty = new AdminSessionCredentialResult("", "");
 		return csrfCookie(empty, Duration.ZERO);
 	}
 

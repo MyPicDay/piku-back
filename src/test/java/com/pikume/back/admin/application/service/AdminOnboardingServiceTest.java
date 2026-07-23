@@ -1,12 +1,13 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
-import com.pikume.back.admin.application.port.out.SaveAdminCredentialsPort;
+import com.pikume.back.admin.application.port.out.CommitAdminCredentialsPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.admin.domain.AdminSessionPhase;
@@ -30,19 +31,19 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("AdminOnboardingService")
 class AdminOnboardingServiceTest {
 
-	@Mock LoadAdminAccountPort loadAdminAccountPort;
+	@Mock QueryAdminAccountPort queryAdminAccountPort;
 	@Mock AdminPasswordPort adminPasswordPort;
 	@Mock AdminOtpPort adminOtpPort;
 	@Mock ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
-	@Mock com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
+	@Mock com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase adminSessionLifecyclePort;
 	@Mock AdminSessionTelemetryPort telemetryPort;
-	@Mock SaveAdminCredentialsPort saveAdminCredentialsPort;
+	@Mock CommitAdminCredentialsPort commitAdminCredentialsPort;
 
 	@Test
 	@DisplayName("임시 로그인 성공은 사전 세션을 자격 증명 설정 단계에 결합한다")
 	void temporaryLoginBindsPreAuthenticationSession() {
 		AdminAccount admin = invitedAdmin();
-		given(loadAdminAccountPort.findByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
+		given(queryAdminAccountPort.findAccountByEmail("operator@pikume.com")).willReturn(Optional.of(admin));
 		given(adminPasswordPort.matches("TempPass1!", "temp-hash")).willReturn(true);
 
 		AdminTemporaryLoginResult result = service().temporaryLogin(
@@ -61,7 +62,7 @@ class AdminOnboardingServiceTest {
 	@Test
 	@DisplayName("임시 로그인 계정 저장소 장애는 인증 저장소 예외로 변환한다")
 	void temporaryLoginStoreFailureIsServiceUnavailable() {
-		given(loadAdminAccountPort.findByEmail("operator@pikume.com"))
+		given(queryAdminAccountPort.findAccountByEmail("operator@pikume.com"))
 				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
 		assertThatThrownBy(() -> service().temporaryLogin(
@@ -86,7 +87,7 @@ class AdminOnboardingServiceTest {
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_CREDENTIALS),
 				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin);
 		given(adminPasswordPort.encode("Password1!")).willReturn("password-hash");
-		given(saveAdminCredentialsPort.saveIfLoginIdAvailable(admin)).willReturn(true);
+		given(commitAdminCredentialsPort.commitIfLoginIdAvailable(admin)).willReturn(true);
 
 		service().setCredentials("raw-session", "ops-june", "Password1!");
 
@@ -110,12 +111,12 @@ class AdminOnboardingServiceTest {
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_SET_CREDENTIALS),
 				org.mockito.ArgumentMatchers.any(LocalDateTime.class))).willReturn(admin);
 		given(adminPasswordPort.encode("Password1!")).willReturn("password-hash");
-		given(saveAdminCredentialsPort.saveIfLoginIdAvailable(admin)).willReturn(false);
+		given(commitAdminCredentialsPort.commitIfLoginIdAvailable(admin)).willReturn(false);
 
 		assertThatThrownBy(() -> service().setCredentials("raw-session", "ops-june", "Password1!"))
 				.isInstanceOfSatisfying(com.pikume.back.admin.application.exception.AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(
-								com.pikume.back.admin.application.exception.AdminProblem.DUPLICATE_LOGIN_ID));
+						assertThat(exception.errorCode()).isEqualTo(
+								com.pikume.back.admin.application.exception.AdminErrorCode.DUPLICATE_LOGIN_ID));
 
 		then(adminSessionLifecyclePort).should(org.mockito.Mockito.never()).advancePhase(
 				org.mockito.ArgumentMatchers.anyString(),
@@ -186,11 +187,11 @@ class AdminOnboardingServiceTest {
 				org.mockito.ArgumentMatchers.same(admin),
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.ONBOARDING_VERIFY_OTP),
 				org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
-				.willReturn(new AdminSessionCredentials("new-session", "new-csrf"));
+				.willReturn(new AdminSessionCredentialResult("new-session", "new-csrf"));
 
 		AdminAuthenticationResult result = service().verifyOtp("raw-session", "123456");
 
-		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
+		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentialResult("new-session", "new-csrf"));
 		assertThat(admin.isOtpRegistered()).isTrue();
 		then(adminSessionLifecyclePort).should().requirePhaseForUpdate(
 				org.mockito.ArgumentMatchers.eq("raw-session"),
@@ -200,8 +201,8 @@ class AdminOnboardingServiceTest {
 	}
 
 	private AdminOnboardingService service() {
-		return new AdminOnboardingService(loadAdminAccountPort, adminPasswordPort, adminOtpPort,
-				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort, saveAdminCredentialsPort);
+		return new AdminOnboardingService(queryAdminAccountPort, adminPasswordPort, adminOtpPort,
+				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort, commitAdminCredentialsPort);
 	}
 
 	private AdminAccount invitedAdmin() {

@@ -1,12 +1,13 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.AdminOtpPort;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
 import com.pikume.back.admin.application.port.out.ProtectAdminOtpSecretPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminRole;
@@ -31,18 +32,18 @@ import static org.mockito.BDDMockito.then;
 @DisplayName("AdminAuthService")
 class AdminAuthServiceTest {
 
-	@Mock LoadAdminAccountPort loadAdminAccountPort;
+	@Mock QueryAdminAccountPort queryAdminAccountPort;
 	@Mock AdminPasswordPort adminPasswordPort;
 	@Mock AdminOtpPort adminOtpPort;
 	@Mock ProtectAdminOtpSecretPort protectAdminOtpSecretPort;
-	@Mock com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort adminSessionLifecyclePort;
+	@Mock com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase adminSessionLifecyclePort;
 	@Mock AdminSessionTelemetryPort telemetryPort;
 
 	@Test
 	@DisplayName("정식 로그인 성공은 사전 세션을 OTP 검증 단계에 결합한다")
 	void loginBindsPreAuthenticationSession() {
 		AdminAccount admin = readyAdmin();
-		given(loadAdminAccountPort.findByLoginId("ops-june")).willReturn(Optional.of(admin));
+		given(queryAdminAccountPort.findAccountByLoginId("ops-june")).willReturn(Optional.of(admin));
 		given(adminPasswordPort.matches("AdminPass1!", admin.getPasswordHash())).willReturn(true);
 
 		AdminLoginChallengeResult result = service().login("raw-session", "ops-june", "AdminPass1!");
@@ -60,11 +61,11 @@ class AdminAuthServiceTest {
 	@Test
 	@DisplayName("정식 로그인 실패는 계정 존재 여부 없이 제한된 실패 사유만 기록한다")
 	void loginFailureRecordsGenericReason() {
-		given(loadAdminAccountPort.findByLoginId("missing-admin")).willReturn(Optional.empty());
+		given(queryAdminAccountPort.findAccountByLoginId("missing-admin")).willReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service().login("raw-session", "missing-admin", "WrongPass1!"))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.INVALID_CREDENTIALS));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.INVALID_CREDENTIALS));
 
 		then(telemetryPort).should().loginRejected("official", "invalid_credentials");
 	}
@@ -72,7 +73,7 @@ class AdminAuthServiceTest {
 	@Test
 	@DisplayName("정식 로그인 계정 저장소 장애는 인증 저장소 예외로 변환한다")
 	void loginStoreFailureIsServiceUnavailable() {
-		given(loadAdminAccountPort.findByLoginId("ops-june"))
+		given(queryAdminAccountPort.findAccountByLoginId("ops-june"))
 				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
 		assertThatThrownBy(() -> service().login("raw-session", "ops-june", "AdminPass1!"))
@@ -101,11 +102,11 @@ class AdminAuthServiceTest {
 				org.mockito.ArgumentMatchers.same(admin),
 				org.mockito.ArgumentMatchers.eq(AdminSessionPhase.LOGIN_VERIFY_OTP),
 				org.mockito.ArgumentMatchers.any(LocalDateTime.class)))
-				.willReturn(new AdminSessionCredentials("new-session", "new-csrf"));
+				.willReturn(new AdminSessionCredentialResult("new-session", "new-csrf"));
 
 		AdminAuthenticationResult result = service().verifyOtp("raw-session", "123456");
 
-		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
+		assertThat(result.credentials()).isEqualTo(new AdminSessionCredentialResult("new-session", "new-csrf"));
 		assertThat(result.nickname()).isEqualTo("운영자1");
 		assertThat(result.role()).isEqualTo(AdminRole.OPERATOR);
 		assertThat(admin.getAuthenticationVersion()).isEqualTo(3L);
@@ -120,7 +121,7 @@ class AdminAuthServiceTest {
 	@DisplayName("로그아웃은 인증 버전을 증가시키고 현재 세션을 폐기한다")
 	void logoutInvalidatesCurrentAuthentication() {
 		AdminAccount admin = readyAdmin();
-		given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+		given(queryAdminAccountPort.findAccount(admin.getId())).willReturn(Optional.of(admin));
 		long before = admin.getAuthenticationVersion();
 
 		service().logout(admin.getId(), "session-1");
@@ -133,7 +134,7 @@ class AdminAuthServiceTest {
 	}
 
 	private AdminAuthService service() {
-		return new AdminAuthService(loadAdminAccountPort, adminPasswordPort, adminOtpPort,
+		return new AdminAuthService(queryAdminAccountPort, adminPasswordPort, adminOtpPort,
 				protectAdminOtpSecretPort, adminSessionLifecyclePort, telemetryPort);
 	}
 

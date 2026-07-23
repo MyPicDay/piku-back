@@ -5,11 +5,11 @@ import com.pikume.back.admin.adapter.in.web.dto.request.AdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.VerifyAdminOtpRequest;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.service.AdminAuthStep;
 import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 import com.pikume.back.admin.application.service.AdminLoginChallengeResult;
-import com.pikume.back.admin.application.service.AdminSessionCredentials;
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.config.AdminSecurityProperties;
@@ -48,7 +48,7 @@ class AdminAuthControllerTest {
 		AdminSessionCookieManager manager = new AdminSessionCookieManager(properties());
 		mockMvc = MockMvcBuilders.standaloneSetup(new AdminAuthController(adminAuthUseCase, manager))
 				.setControllerAdvice(new AdminExceptionHandler(
-						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class))).build();
+						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class))).build();
 	}
 
 	@Test
@@ -108,7 +108,7 @@ class AdminAuthControllerTest {
 	}
 
 	private AdminAuthenticationResult authenticationResult() {
-		return new AdminAuthenticationResult(new AdminSessionCredentials("new-session", "new-csrf"),
+		return new AdminAuthenticationResult(new AdminSessionCredentialResult("new-session", "new-csrf"),
 				"운영자1", AdminRole.OPERATOR);
 	}
 

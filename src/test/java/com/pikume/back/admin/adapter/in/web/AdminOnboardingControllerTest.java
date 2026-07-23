@@ -5,10 +5,10 @@ import com.pikume.back.admin.adapter.in.web.dto.request.SetAdminCredentialsReque
 import com.pikume.back.admin.adapter.in.web.dto.request.TemporaryAdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminOnboardingUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.service.AdminOnboardingStep;
 import com.pikume.back.admin.application.service.AdminAuthenticationResult;
-import com.pikume.back.admin.application.service.AdminSessionCredentials;
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.application.service.AdminTemporaryLoginResult;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -49,7 +49,7 @@ class AdminOnboardingControllerTest {
 				List.of("http://localhost:3000"), "pk-a91f", "pk-b74d", "X-PK-C83F", false, ""));
 		mockMvc = MockMvcBuilders.standaloneSetup(new AdminOnboardingController(adminOnboardingUseCase, manager))
 				.setControllerAdvice(new AdminExceptionHandler(
-						new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class))).build();
+						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class))).build();
 	}
 
 	@Test
@@ -76,7 +76,7 @@ class AdminOnboardingControllerTest {
 	void verifyOtpDoesNotExposeIdentifiers() throws Exception {
 		given(adminOnboardingUseCase.verifyOtp("raw-session", "123456"))
 				.willReturn(new AdminAuthenticationResult(
-						new AdminSessionCredentials("new-session", "new-csrf"),
+						new AdminSessionCredentialResult("new-session", "new-csrf"),
 						"운영자1",
 						AdminRole.OPERATOR));
 

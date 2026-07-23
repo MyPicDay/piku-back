@@ -1,4 +1,4 @@
-package com.pikume.back.admin.application.service;
+package com.pikume.back.admin.application.dto;
 
 import java.time.LocalDate;
 

@@ -1,9 +1,9 @@
 package com.pikume.back.admin.adapter.out.crosscontext;
 
-import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.creative.application.port.out.LoadGenerationStatisticsPort;
-import com.pikume.back.diary.application.port.out.LoadDiaryPort;
+import com.pikume.back.diary.application.port.in.QueryDiaryDashboardStatisticsUseCase;
 import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ class AdminStatisticsSourceAdapterTest {
 	@Mock
 	private QueryUserDashboardStatisticsUseCase queryUserDashboardStatisticsUseCase;
 	@Mock
-	private LoadDiaryPort loadDiaryPort;
+	private QueryDiaryDashboardStatisticsUseCase diaryStatisticsUseCase;
 	@Mock
 	private QueryAiPhotoDashboardStatisticsUseCase aiPhotoStatisticsUseCase;
 
@@ -69,8 +69,9 @@ class AdminStatisticsSourceAdapterTest {
 	void countDiaryCreationsByDateMapsDiaryCounts() {
 		LocalDate startDate = LocalDate.of(2026, 6, 10);
 		LocalDate endDate = LocalDate.of(2026, 6, 11);
-		given(loadDiaryPort.countCreatedDiariesByDate(startDate, endDate))
-				.willReturn(List.of(new LoadDiaryPort.DailyCount(endDate, 5L)));
+		given(diaryStatisticsUseCase.countDiaryCreationsByDate(startDate, endDate))
+				.willReturn(List.of(
+						new QueryDiaryDashboardStatisticsUseCase.DailyCount(endDate, 5L)));
 
 		List<AdminDailyCount> result = adapter().countDiaryCreationsByDate(startDate, endDate);
 
@@ -92,6 +93,6 @@ class AdminStatisticsSourceAdapterTest {
 
 	private AdminStatisticsSourceAdapter adapter() {
 		return new AdminStatisticsSourceAdapter(
-				queryUserDashboardStatisticsUseCase, loadDiaryPort, aiPhotoStatisticsUseCase);
+				queryUserDashboardStatisticsUseCase, diaryStatisticsUseCase, aiPhotoStatisticsUseCase);
 	}
 }

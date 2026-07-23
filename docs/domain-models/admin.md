@@ -34,6 +34,10 @@ Admin 도메인은 **일반 사용자와 분리된 운영자 계정, 관리자 �
 - `AdminAuditLog`, `AdminStatisticsEvent`, `AdminDailyStatistics`는 관리자 운영 추적과 조회용 통계 데이터를 표현한다.
 - 관리자 쿠키, CSRF, Origin과 보안 필터 동작은 Admin 모델의 책임이 아니다. 일반 사용자용 인증 정보는 관리자 인증 수단으로 사용하지 않는다.
 - `AdminStatisticsEvent`와 `AdminDailyStatistics`는 운영 지표의 정의와 집계 결과를 소유하지만, 지표를 구성하는 원천 업무 사실의 소유권까지 가져오지 않는다.
+- Admin Application은 오류를 HTTP와 무관한 `AdminErrorCode`로 표현하고, Admin Web Adapter와 Security가 각자의 Problem 타입으로 RFC 9457 응답을 만든다.
+- Security는 Admin의 공개 세션 In Port와 공개 Result만 사용한다. 인증된 관리자 Role은 공개 Result에서 문자열 코드로 전달하며 Security가 Admin Domain 타입을 직접 사용하지 않는다.
+- Security에서 발생한 CSRF, Origin 거부와 세션 저장소 장애 관측 사건은 Admin 공개 In Port로 전달되고 Admin 소유 Telemetry Out Port가 기록한다.
+- 회원, 일기와 AI 이미지 통계 원천은 User, Diary와 Creative의 공개 Application 계약으로 조회하며 Admin Cross-context Adapter가 `AdminDailyCount` 의미로 번역한다.
 
 ### 관리자 접근 정책
 

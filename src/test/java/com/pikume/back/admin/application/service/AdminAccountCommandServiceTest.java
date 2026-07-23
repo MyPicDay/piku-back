@@ -3,9 +3,9 @@ package com.pikume.back.admin.application.service;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.port.out.GenerateTemporaryPasswordPort;
 import com.pikume.back.admin.application.port.out.AdminPasswordPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAuditLogPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.AppendAdminAuditLogPort;
+import com.pikume.back.admin.application.port.out.RecordAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SendAdminGuideEmailPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminAuditLog;
@@ -31,11 +31,11 @@ import static org.mockito.BDDMockito.then;
 class AdminAccountCommandServiceTest {
 
 	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
+	private QueryAdminAccountPort queryAdminAccountPort;
 	@Mock
-	private SaveAdminAccountPort saveAdminAccountPort;
+	private RecordAdminAccountPort recordAdminAccountPort;
 	@Mock
-	private SaveAdminAuditLogPort saveAdminAuditLogPort;
+	private AppendAdminAuditLogPort appendAdminAuditLogPort;
 	@Mock
 	private GenerateTemporaryPasswordPort generateTemporaryPasswordPort;
 	@Mock
@@ -47,11 +47,11 @@ class AdminAccountCommandServiceTest {
 	@DisplayName("SUPER_ADMIN은 임시 패스워드를 한 번만 포함한 관리자 계정 생성 결과를 받는다")
 	void superAdminCreatesAdminAccount() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.existsByEmail("viewer@pikume.com")).willReturn(false);
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.emailAlreadyRegistered("viewer@pikume.com")).willReturn(false);
 		given(generateTemporaryPasswordPort.generate()).willReturn("TempPass1!234567");
 		given(adminPasswordPort.encode("TempPass1!234567")).willReturn("encoded-temp");
-		given(saveAdminAccountPort.save(any(AdminAccount.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(recordAdminAccountPort.recordAccount(any(AdminAccount.class))).willAnswer(invocation -> invocation.getArgument(0));
 		AdminAccountCommandService service = service();
 
 		CreateAdminAccountResult result = service.create(new CreateAdminAccountCommand(
@@ -62,8 +62,8 @@ class AdminAccountCommandServiceTest {
 
 		ArgumentCaptor<AdminAccount> savedCaptor = ArgumentCaptor.forClass(AdminAccount.class);
 		ArgumentCaptor<AdminAuditLog> auditCaptor = ArgumentCaptor.forClass(AdminAuditLog.class);
-		then(saveAdminAccountPort).should().save(savedCaptor.capture());
-		then(saveAdminAuditLogPort).should().save(auditCaptor.capture());
+		then(recordAdminAccountPort).should().recordAccount(savedCaptor.capture());
+		then(appendAdminAuditLogPort).should().appendAuditLog(auditCaptor.capture());
 		assertThat(savedCaptor.getValue().getEmail()).isEqualTo("viewer@pikume.com");
 		assertThat(savedCaptor.getValue().getTemporaryPasswordHash()).isEqualTo("encoded-temp");
 		assertThat(auditCaptor.getValue().getDetail()).doesNotContain("@", "viewer");
@@ -80,7 +80,7 @@ class AdminAccountCommandServiceTest {
 	@DisplayName("SUPER_ADMIN이 아니면 관리자 계정을 생성할 수 없다")
 	void nonSuperAdminCannotCreateAdminAccount() {
 		AdminAccount actor = admin(AdminRole.OPERATOR, "operator@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
 		AdminAccountCommandService service = service();
 
 		assertThatThrownBy(() -> service.create(new CreateAdminAccountCommand(
@@ -95,8 +95,8 @@ class AdminAccountCommandServiceTest {
 	@DisplayName("중복 이메일로 관리자 계정을 생성할 수 없다")
 	void duplicateEmailCannotBeCreated() {
 		AdminAccount actor = admin(AdminRole.SUPER_ADMIN, "super@pikume.com");
-		given(loadAdminAccountPort.findById(actor.getId())).willReturn(Optional.of(actor));
-		given(loadAdminAccountPort.existsByEmail("viewer@pikume.com")).willReturn(true);
+		given(queryAdminAccountPort.findAccount(actor.getId())).willReturn(Optional.of(actor));
+		given(queryAdminAccountPort.emailAlreadyRegistered("viewer@pikume.com")).willReturn(true);
 		AdminAccountCommandService service = service();
 
 		assertThatThrownBy(() -> service.create(new CreateAdminAccountCommand(
@@ -109,9 +109,9 @@ class AdminAccountCommandServiceTest {
 
 	private AdminAccountCommandService service() {
 		return new AdminAccountCommandService(
-				loadAdminAccountPort,
-				saveAdminAccountPort,
-				saveAdminAuditLogPort,
+				queryAdminAccountPort,
+				recordAdminAccountPort,
+				appendAdminAuditLogPort,
 				generateTemporaryPasswordPort,
 				sendAdminGuideEmailPort,
 				adminPasswordPort);

@@ -1,6 +1,6 @@
 package com.pikume.back.admin.application.service;
 
-import com.pikume.back.admin.application.port.out.SaveAdminStatisticsEventPort;
+import com.pikume.back.admin.application.port.out.RecordAdminStatisticsEventPort;
 import com.pikume.back.admin.domain.AdminStatisticsEvent;
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
 import org.junit.jupiter.api.DisplayName;
@@ -19,19 +19,20 @@ import static org.mockito.Mockito.times;
 class AdminStatisticsEventServiceTest {
 
 	@Mock
-	private SaveAdminStatisticsEventPort saveAdminStatisticsEventPort;
+	private RecordAdminStatisticsEventPort recordAdminStatisticsEventPort;
 
 	@Test
 	@DisplayName("Creative의 통계 기록 의도를 Admin 통계 이벤트로 번역한다")
 	void recordsAiPhotoStatisticsEvents() {
-		AdminStatisticsEventService service = new AdminStatisticsEventService(saveAdminStatisticsEventPort);
+		AdminStatisticsEventService service = new AdminStatisticsEventService(recordAdminStatisticsEventPort);
 
 		service.recordAiPhotoRequest("user-1");
 		service.recordAiPhotoSuccess("user-1");
 		service.recordAiPhotoFailure("user-1");
 
 		ArgumentCaptor<AdminStatisticsEvent> eventCaptor = ArgumentCaptor.forClass(AdminStatisticsEvent.class);
-		then(saveAdminStatisticsEventPort).should(times(3)).save(eventCaptor.capture());
+		then(recordAdminStatisticsEventPort).should(times(3))
+				.recordStatisticsEvent(eventCaptor.capture());
 		assertThat(eventCaptor.getAllValues())
 				.extracting(AdminStatisticsEvent::getEventType)
 				.containsExactly(

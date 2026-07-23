@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Backend Engineers, Operators
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-19
+- Last Reviewed: 2026-07-23
 
 ## 목적
 
@@ -29,6 +29,8 @@
 - 단계 전환 로그에서 관리자 식별자, 세션 식별자, 이전 단계, 다음 단계와 전환 시각을 확인한다.
 - 단계 전환 로그에는 세션 토큰, CSRF 토큰, 패스워드와 OTP 비밀키 원문을 기록하지 않는다.
 - CSRF와 Origin 거부는 `admin.security.csrf.rejected`, `admin.security.origin.rejected`로 확인한다.
+
+Security Filter는 위 관측 Adapter를 직접 호출하지 않는다. CSRF·Origin 거부와 세션 저장소 장애를 Admin 공개 Application In Port에 전달하고, Admin이 소유한 Telemetry Out Port와 Micrometer Adapter가 기존 지표를 기록한다.
 
 ## Redis 장애
 

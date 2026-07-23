@@ -1,8 +1,9 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
 import com.pikume.back.admin.application.port.out.QueryAdminDashboardSourcePort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsEventPort;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -37,7 +38,7 @@ class AdminDashboardQueryServiceTest {
 			SEOUL);
 
 	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
+	private QueryAdminAccountPort queryAdminAccountPort;
 	@Mock
 	private QueryAdminDashboardSourcePort sourcePort;
 	@Mock
@@ -46,7 +47,7 @@ class AdminDashboardQueryServiceTest {
 	@Test
 	@DisplayName("서울 날짜 기준 핵심 지표와 고정 기간을 계산한다")
 	void getDashboardCalculatesKeyMetricsWithFixedPeriods() {
-		given(loadAdminAccountPort.findById("admin-1")).willReturn(Optional.of(admin()));
+		given(queryAdminAccountPort.findAccount("admin-1")).willReturn(Optional.of(admin()));
 		LocalDate recent30Start = LocalDate.of(2026, 5, 24);
 		LocalDate previous30Start = LocalDate.of(2026, 4, 24);
 		LocalDate previous30End = LocalDate.of(2026, 5, 23);
@@ -76,7 +77,7 @@ class AdminDashboardQueryServiceTest {
 	@Test
 	@DisplayName("최근 7일 일간 데이터는 빈 날짜를 0으로 채우고 AI 성공과 실패를 합산한다")
 	void getDashboardZeroFillsDailySeriesAndSummarizesAiPhotos() {
-		given(loadAdminAccountPort.findById("admin-1")).willReturn(Optional.of(admin()));
+		given(queryAdminAccountPort.findAccount("admin-1")).willReturn(Optional.of(admin()));
 		stubKeyMetrics();
 		LocalDate startDate = LocalDate.of(2026, 6, 16);
 		given(eventPort.countDistinctActiveUsersByDate(startDate, TODAY)).willReturn(List.of(
@@ -129,7 +130,7 @@ class AdminDashboardQueryServiceTest {
 	@Test
 	@DisplayName("최근 4개 ISO 주를 반환하고 현재 주는 일요일까지 표시한다")
 	void getDashboardBuildsFourIsoWeekBuckets() {
-		given(loadAdminAccountPort.findById("admin-1")).willReturn(Optional.of(admin()));
+		given(queryAdminAccountPort.findAccount("admin-1")).willReturn(Optional.of(admin()));
 		stubKeyMetrics();
 		LocalDate dailyStart = LocalDate.of(2026, 6, 16);
 		given(eventPort.countDistinctActiveUsersByDate(dailyStart, TODAY)).willReturn(List.of());
@@ -165,11 +166,11 @@ class AdminDashboardQueryServiceTest {
 	@Test
 	@DisplayName("인증 관리자 계정이 없으면 미인증 오류를 반환한다")
 	void getDashboardRequiresAdmin() {
-		given(loadAdminAccountPort.findById("missing")).willReturn(Optional.empty());
+		given(queryAdminAccountPort.findAccount("missing")).willReturn(Optional.empty());
 
 		assertThatThrownBy(() -> service().getDashboard("missing"))
 				.isInstanceOfSatisfying(AdminException.class, exception ->
-						assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
+						assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.UNAUTHENTICATED));
 	}
 
 	private void stubKeyMetrics() {
@@ -186,7 +187,7 @@ class AdminDashboardQueryServiceTest {
 	}
 
 	private AdminDashboardQueryService service() {
-		return new AdminDashboardQueryService(loadAdminAccountPort, sourcePort, eventPort, CLOCK);
+		return new AdminDashboardQueryService(queryAdminAccountPort, sourcePort, eventPort, CLOCK);
 	}
 
 	private AdminAccount admin() {

@@ -1,9 +1,10 @@
 package com.pikume.back.security.config;
 
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
 import com.pikume.back.admin.application.port.in.AdminSessionSecurityUseCase;
-import com.pikume.back.admin.application.service.AuthenticatedAdminSession;
+import com.pikume.back.admin.application.dto.AuthenticatedAdminSessionResult;
+import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -36,16 +37,21 @@ public class AdminSessionAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 		try {
-			AuthenticatedAdminSession session = adminSessionSecurityUseCase.authenticate(rawSessionToken, LocalDateTime.now());
+			AuthenticatedAdminSessionResult session =
+					adminSessionSecurityUseCase.authenticate(rawSessionToken, LocalDateTime.now());
 			AdminUserDetails principal = new AdminUserDetails(
-					session.adminId(), session.role().name(), session.sessionId());
+					session.adminId(), session.role(), session.sessionId());
 			SecurityContextHolder.getContext().setAuthentication(
 					new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
 			filterChain.doFilter(request, response);
 		} catch (AdminException exception) {
 			SecurityContextHolder.clearContext();
-			if (exception.problem() == AdminProblem.SESSION_STORE_UNAVAILABLE) {
-				problemWriter.write(request, response, exception.problem(), exception.getMessage());
+			if (exception.errorCode() == AdminErrorCode.SESSION_STORE_UNAVAILABLE) {
+				problemWriter.write(
+						request,
+						response,
+						SecurityProblemType.fromAdminErrorCode(exception.errorCode()),
+						exception.getMessage());
 				return;
 			}
 			filterChain.doFilter(request, response);

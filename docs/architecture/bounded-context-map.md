@@ -38,7 +38,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 
 | 영역 | 경계 상태 | 전략 분류 | 현재 모델과 책임 | 확인할 경계 질문 |
 | --- | --- | --- | --- | --- |
-| **Admin** | Working Context | 미분류 | 관리자 계정, 자격 증명, OTP, 세션, 감사와 운영 통계 | 운영 통계가 독립된 언어와 생명주기를 가져 별도 분석 영역으로 분리되어야 하는가? |
+| **Admin** | Working Context | 미분류 | 관리자 계정, 자격 증명, OTP, 세션, 감사와 운영 통계 및 공개 보안 계약 | 운영 통계가 독립된 언어와 생명주기를 가져 별도 분석 영역으로 분리되어야 하는가? |
 | **Character** | Working Context | Supporting | 고정·사용자 캐릭터, 이미지 참조와 고정 자산 카탈로그 | 사용자 아바타 선택과 향후 AI 캐릭터 생성 중 어떤 정책을 Character가 계속 소유할 것인가? |
 | **Creative** | Working Context | Supporting | AI 일기 이미지 생성, 생성 상태, 할당량, 생성 자산과 이력 | 생성 자산과 Diary 기록 표현의 소유권이 계속 분리되어 있는가? |
 | **Diary** | Working Context | Core | 일기 내용, 날짜, 사진, 생성 이미지 연결, 공개 범위, 기록 생명주기, 달력과 회고 조회 | 공개·피드·소셜 정책 중 어떤 규칙을 Diary가 소유해야 하는가? |
@@ -65,7 +65,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 
 현재 `user.auth`는 별도 Bounded Context가 아니라 User Context 내부의 계정 등록·자격 증명 관리 기능으로 해석한다. 일반 사용자 로그인·재발급·로그아웃 조정 책임은 User Application이 소유하며, Security에는 비밀번호·JWT·갱신 세션과 Web 인증 표현의 기술 구현만 남는다.
 
-관리자 계정과 인증 정책은 Admin Context가 소유한다. 일반 사용자 인증과 기술 구현을 재사용할 수는 있지만 계정 모델, 세션 정책과 Ubiquitous Language를 공유하지 않는다.
+관리자 계정과 인증 정책은 Admin Context가 소유한다. 일반 사용자 인증과 기술 구현을 재사용할 수는 있지만 계정 모델, 세션 정책과 Ubiquitous Language를 공유하지 않는다. Security는 Admin 공개 In Port와 공개 Result를 Spring Security Principal, Cookie와 RFC 9457 응답으로 번역하며 Admin Domain, Out Port와 Web Adapter를 직접 참조하지 않는다.
 
 ## 5. 기술 모듈
 
@@ -73,7 +73,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | --- | --- | --- |
 | **global** | 공통 오류 처리, 설정, 저장소 기반 기능과 유틸리티 | 특정 Context의 Domain 타입과 비즈니스 규칙을 소유하지 않는다. |
 | **tools** | 운영·개발용 생성기와 변환 도구 | 제품 Domain 모델과 분리한다. |
-| **security** | 비밀번호 보호, 토큰, 보안 필터, 쿠키와 세션 저장 기술 | User와 Admin의 Application Port를 구현하는 기술 Adapter이며 Domain 모델과 유스케이스를 소유하지 않는다. |
+| **security** | 비밀번호 보호, 토큰, 보안 필터, 쿠키와 세션 저장 기술 | User와 Admin의 공개 Application 계약을 기술 표현으로 번역하며 Domain 모델, Application Out Port와 유스케이스를 소유하지 않는다. |
 
 `global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
 
@@ -115,7 +115,7 @@ flowchart LR
 
 | 소비자·요청자 | 공급자·수행자 | 현재 목적 | 현재 경계 상태 |
 | --- | --- | --- | --- |
-| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | 공급자의 공개 Application 계약을 사용하고 관리자 통계 의미로 변환한다. |
+| Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | Admin 소유 목적별 Out Port와 Cross-context Adapter가 공급자의 공개 Application 계약을 `AdminDailyCount`와 관리자 대시보드 의미로 변환한다. 공급자의 Domain, Out Port와 Persistence 타입은 노출하지 않는다. |
 | Creative | Character, User | 이미지 생성용 사용자 아바타 참조 조회 | User 공개 조회 계약을 Creative 참조로 번역하고 Character 참조 형식과 Object Storage 로드는 Creative의 목적별 경계에서 분리한다. |
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
 | Diary | User | 작성자 확인 | 현재 Diary 생성·조회 흐름에는 User 조회가 필요하지 않다. 필요 시 Diary 소유 Out Port와 User 공개 참조 계약을 사용한다. |

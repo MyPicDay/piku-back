@@ -1,6 +1,6 @@
 package com.pikume.back.security.config;
 
-import com.pikume.back.admin.application.service.AdminSessionCredentials;
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +40,7 @@ class AdminSessionCookieManagerTest {
 				"__Secure-pk-a91f", "__Secure-pk-b74d", "X-PK-C83F", true, "pikume.com"));
 	}
 
-	private AdminSessionCredentials credentials() {
-		return new AdminSessionCredentials("raw-session", "raw-csrf");
+	private AdminSessionCredentialResult credentials() {
+		return new AdminSessionCredentialResult("raw-session", "raw-csrf");
 	}
 }

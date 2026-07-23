@@ -4,6 +4,7 @@ import com.pikume.back.admin.application.port.in.RecordAdminStatisticsEventUseCa
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.util.RequestUtil;
+import com.pikume.back.security.config.AdminSecurityChainExtension;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +25,7 @@ import java.util.HexFormat;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class AdminVisitStatisticsFilter extends OncePerRequestFilter {
+public class AdminVisitStatisticsFilter extends OncePerRequestFilter implements AdminSecurityChainExtension {
 
 	private static final String API_PREFIX = "/api/";
 	private static final String ADMIN_PREFIX = "/api/admin/";

@@ -1,8 +1,8 @@
 package com.pikume.back.admin.adapter.out.persistence;
 
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.SaveAdminCredentialsPort;
-import com.pikume.back.admin.application.port.out.SaveAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.CommitAdminCredentialsPort;
+import com.pikume.back.admin.application.port.out.RecordAdminAccountPort;
 import com.pikume.back.admin.application.port.out.SearchAdminAccountsPort;
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.domain.AdminAccount;
@@ -20,60 +20,60 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class AdminAccountPersistenceAdapter implements
-		LoadAdminAccountPort,
-		SaveAdminAccountPort,
-		SaveAdminCredentialsPort,
+		QueryAdminAccountPort,
+		RecordAdminAccountPort,
+		CommitAdminCredentialsPort,
 		SearchAdminAccountsPort {
 
 	private final AdminAccountJpaRepository adminAccountJpaRepository;
 
 	@Override
-	public Optional<AdminAccount> findById(String adminId) {
+	public Optional<AdminAccount> findAccount(String adminId) {
 		return adminAccountJpaRepository.findById(adminId);
 	}
 
 	@Override
-	public Optional<AdminAccount> findByIdForUpdate(String adminId) {
+	public Optional<AdminAccount> lockAccount(String adminId) {
 		return adminAccountJpaRepository.findByIdForUpdate(adminId);
 	}
 
 	@Override
-	public Optional<AdminAccount> findByEmail(String email) {
+	public Optional<AdminAccount> findAccountByEmail(String email) {
 		return adminAccountJpaRepository.findByEmail(email);
 	}
 
 	@Override
-	public Optional<AdminAccount> findByLoginId(String loginId) {
+	public Optional<AdminAccount> findAccountByLoginId(String loginId) {
 		return adminAccountJpaRepository.findByLoginId(loginId);
 	}
 
 	@Override
-	public boolean existsByEmail(String email) {
+	public boolean emailAlreadyRegistered(String email) {
 		return adminAccountJpaRepository.existsByEmail(email);
 	}
 
 	@Override
-	public boolean existsByLoginId(String loginId) {
+	public boolean loginIdAlreadyRegistered(String loginId) {
 		return adminAccountJpaRepository.existsByLoginId(loginId);
 	}
 
 	@Override
-	public long countByRoleAndStatus(AdminRole role, AdminAccountStatus status) {
+	public long countAccountsByRoleAndStatus(AdminRole role, AdminAccountStatus status) {
 		return adminAccountJpaRepository.countByRoleAndStatus(role, status);
 	}
 
 	@Override
-	public List<AdminAccount> findAll() {
+	public List<AdminAccount> queryAccounts() {
 		return adminAccountJpaRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
 	}
 
 	@Override
-	public AdminAccount save(AdminAccount adminAccount) {
+	public AdminAccount recordAccount(AdminAccount adminAccount) {
 		return adminAccountJpaRepository.save(adminAccount);
 	}
 
 	@Override
-	public boolean saveIfLoginIdAvailable(AdminAccount adminAccount) {
+	public boolean commitIfLoginIdAvailable(AdminAccount adminAccount) {
 		try {
 			adminAccountJpaRepository.saveAndFlush(adminAccount);
 			return true;

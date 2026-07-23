@@ -1,6 +1,6 @@
 package com.pikume.back.security.config;
 
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -20,7 +20,7 @@ public class AdminOriginValidationFilter extends OncePerRequestFilter {
 	private static final String ADMIN_PATH_PREFIX = "/api/admin";
 	private final AdminSecurityProperties properties;
 	private final AdminProblemResponseWriter problemWriter;
-	private final AdminSessionTelemetryPort telemetryPort;
+	private final RecordAdminSecurityEventUseCase recordAdminSecurityEventUseCase;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -28,7 +28,7 @@ public class AdminOriginValidationFilter extends OncePerRequestFilter {
 		if (requiresOriginValidation(request)) {
 			String origin = request.getHeader(HttpHeaders.ORIGIN);
 			if (!properties.allowsOrigin(origin)) {
-				telemetryPort.originRejected();
+				recordAdminSecurityEventUseCase.recordOriginRejection();
 				problemWriter.write(request, response, SecurityProblemType.ADMIN_ORIGIN_FORBIDDEN,
 						"허용되지 않은 관리자 Origin입니다.");
 				return;

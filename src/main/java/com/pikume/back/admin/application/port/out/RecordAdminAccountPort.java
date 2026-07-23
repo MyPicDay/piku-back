@@ -2,7 +2,7 @@ package com.pikume.back.admin.application.port.out;
 
 import com.pikume.back.admin.domain.AdminAccount;
 
-public interface SaveAdminAccountPort {
+public interface RecordAdminAccountPort {
 
-	AdminAccount save(AdminAccount adminAccount);
+	AdminAccount recordAccount(AdminAccount adminAccount);
 }

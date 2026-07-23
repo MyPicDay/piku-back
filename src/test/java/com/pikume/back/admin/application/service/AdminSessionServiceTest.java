@@ -1,14 +1,16 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
+import com.pikume.back.admin.application.dto.AuthenticatedAdminSessionResult;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.out.AdminSessionCacheEntry;
 import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
-import com.pikume.back.admin.application.port.out.SaveAdminSessionPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminSessionPort;
+import com.pikume.back.admin.application.port.out.RecordAdminSessionPort;
 import com.pikume.back.admin.application.port.out.TouchAdminSessionPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminRole;
@@ -36,9 +38,9 @@ import static org.mockito.Mockito.never;
 class AdminSessionServiceTest {
 
 	@Mock
-	private LoadAdminSessionPort loadAdminSessionPort;
+	private QueryAdminSessionPort queryAdminSessionPort;
 	@Mock
-	private SaveAdminSessionPort saveAdminSessionPort;
+	private RecordAdminSessionPort recordAdminSessionPort;
 	@Mock
 	private TouchAdminSessionPort touchAdminSessionPort;
 	@Mock
@@ -46,7 +48,7 @@ class AdminSessionServiceTest {
 	@Mock
 	private AdminSessionCredentialPort adminSessionCredentialPort;
 	@Mock
-	private LoadAdminAccountPort loadAdminAccountPort;
+	private QueryAdminAccountPort queryAdminAccountPort;
 	@Mock
 	private AdminSessionTelemetryPort telemetryPort;
 
@@ -61,14 +63,14 @@ class AdminSessionServiceTest {
 					.willReturn("raw-session", "raw-csrf");
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCredentialPort.hash("raw-csrf")).willReturn("csrf-hash");
-			given(saveAdminSessionPort.save(any(AdminSession.class)))
+			given(recordAdminSessionPort.recordSession(any(AdminSession.class)))
 					.willAnswer(invocation -> invocation.getArgument(0));
 
-			AdminSessionCredentials result = service().initialize(LocalDateTime.now());
+			AdminSessionCredentialResult result = service().initialize(LocalDateTime.now());
 
 			assertThat(result.sessionToken()).isEqualTo("raw-session");
 			assertThat(result.csrfToken()).isEqualTo("raw-csrf");
-			then(saveAdminSessionPort).should().save(any(AdminSession.class));
+			then(recordAdminSessionPort).should().recordSession(any(AdminSession.class));
 		}
 
 	}
@@ -85,16 +87,16 @@ class AdminSessionServiceTest {
 			AdminSession session = authenticatedSession(admin, now);
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash")).willReturn(Optional.empty());
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
-			given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(queryAdminAccountPort.findAccount(admin.getId())).willReturn(Optional.of(admin));
 			given(touchAdminSessionPort.touchAuthenticated(
 					"session-hash", admin.getAuthenticationVersion(), now, now.plusMinutes(30)))
 					.willReturn(true);
 
-			AuthenticatedAdminSession result = service().authenticate("raw-session", now);
+			AuthenticatedAdminSessionResult result = service().authenticate("raw-session", now);
 
 			assertThat(result.adminId()).isEqualTo(admin.getId());
-			assertThat(result.role()).isEqualTo(AdminRole.OPERATOR);
+			assertThat(result.role()).isEqualTo(AdminRole.OPERATOR.name());
 			then(adminSessionCachePort).should().put(any(AdminSessionCacheEntry.class));
 		}
 
@@ -114,11 +116,11 @@ class AdminSessionServiceTest {
 					now.plusMinutes(30));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash")).willReturn(Optional.of(staleEntry));
-			given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+			given(queryAdminAccountPort.findAccount(admin.getId())).willReturn(Optional.of(admin));
 
 			assertThatThrownBy(() -> service().authenticate("raw-session", now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.UNAUTHENTICATED));
 			then(adminSessionCachePort).should().evict("session-hash");
 			then(touchAdminSessionPort).should(never())
 					.touchAuthenticated(any(), any(Long.class), any(), any());
@@ -129,12 +131,12 @@ class AdminSessionServiceTest {
 		void failsClosedWhenDatabaseIsUnavailable() {
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash")).willReturn(Optional.empty());
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash"))
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash"))
 					.willThrow(new IllegalStateException("db unavailable"));
 
 			assertThatThrownBy(() -> service().authenticate("raw-session", LocalDateTime.now()))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.SESSION_STORE_UNAVAILABLE));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.SESSION_STORE_UNAVAILABLE));
 		}
 
 		@Test
@@ -146,13 +148,13 @@ class AdminSessionServiceTest {
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash"))
 					.willThrow(new IllegalStateException("redis unavailable"));
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
-			given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(queryAdminAccountPort.findAccount(admin.getId())).willReturn(Optional.of(admin));
 			given(touchAdminSessionPort.touchAuthenticated(
 					"session-hash", admin.getAuthenticationVersion(), now, now.plusMinutes(30)))
 					.willReturn(true);
 
-			AuthenticatedAdminSession result = service().authenticate("raw-session", now);
+			AuthenticatedAdminSessionResult result = service().authenticate("raw-session", now);
 
 			assertThat(result.adminId()).isEqualTo(admin.getId());
 			then(telemetryPort).should().cacheOperationFailed("read");
@@ -167,11 +169,11 @@ class AdminSessionServiceTest {
 			AdminSessionCacheEntry cached = AdminSessionCacheEntry.from(authenticatedSession(admin, now));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash")).willReturn(Optional.of(cached));
-			given(loadAdminAccountPort.findById(admin.getId())).willThrow(new IllegalStateException("db unavailable"));
+			given(queryAdminAccountPort.findAccount(admin.getId())).willThrow(new IllegalStateException("db unavailable"));
 
 			assertThatThrownBy(() -> service().authenticate("raw-session", now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.SESSION_STORE_UNAVAILABLE));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.SESSION_STORE_UNAVAILABLE));
 		}
 
 		@Test
@@ -182,14 +184,14 @@ class AdminSessionServiceTest {
 			AdminSessionCacheEntry cached = AdminSessionCacheEntry.from(authenticatedSession(admin, now));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
 			given(adminSessionCachePort.findByTokenHash("session-hash")).willReturn(Optional.of(cached));
-			given(loadAdminAccountPort.findById(admin.getId())).willReturn(Optional.of(admin));
+			given(queryAdminAccountPort.findAccount(admin.getId())).willReturn(Optional.of(admin));
 			given(touchAdminSessionPort.touchAuthenticated(
 					"session-hash", admin.getAuthenticationVersion(), now, now.plusMinutes(30)))
 					.willReturn(false);
 
 			assertThatThrownBy(() -> service().authenticate("raw-session", now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.UNAUTHENTICATED));
 			then(adminSessionCachePort).should().evict("session-hash");
 		}
 	}
@@ -205,7 +207,7 @@ class AdminSessionServiceTest {
 			AdminSession session = AdminSession.startAnonymous(
 					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash")).willReturn(Optional.of(session));
 			given(adminSessionCredentialPort.matches("raw-csrf", "csrf-hash")).willReturn(true);
 
 			service().validateCsrf("raw-session", "raw-csrf", now);
@@ -220,12 +222,12 @@ class AdminSessionServiceTest {
 			AdminSession session = AdminSession.startAnonymous(
 					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash")).willReturn(Optional.of(session));
 			given(adminSessionCredentialPort.matches("wrong-csrf", "csrf-hash")).willReturn(false);
 
 			assertThatThrownBy(() -> service().validateCsrf("raw-session", "wrong-csrf", now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.CSRF_INVALID));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.CSRF_INVALID));
 		}
 	}
 
@@ -240,9 +242,9 @@ class AdminSessionServiceTest {
 			AdminSession session = AdminSession.startAnonymous(
 					"session-hash", "csrf-hash", now.minusSeconds(1), now.plusMinutes(10));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+			given(queryAdminSessionPort.lockSessionByTokenHash("session-hash"))
 					.willReturn(Optional.of(session));
-			given(saveAdminSessionPort.save(session)).willReturn(session);
+			given(recordAdminSessionPort.recordSession(session)).willReturn(session);
 
 			service().bindPreAuthentication(
 					"raw-session", "admin-1", 3L, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
@@ -266,7 +268,7 @@ class AdminSessionServiceTest {
 			session.bindAdmin("admin-1", 2L, AdminSessionPhase.ONBOARDING_SET_CREDENTIALS,
 					now.plusMinutes(10), now.minusSeconds(1));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("session-hash")).willReturn(Optional.of(session));
+			given(queryAdminSessionPort.findSessionByTokenHash("session-hash")).willReturn(Optional.of(session));
 
 			service().advancePhase(
 					"raw-session",
@@ -292,13 +294,13 @@ class AdminSessionServiceTest {
 			session.bindAdmin("admin-1", 2L, AdminSessionPhase.ONBOARDING_REGISTER_OTP,
 					now.plusMinutes(10), now.minusSeconds(1));
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+			given(queryAdminSessionPort.lockSessionByTokenHash("session-hash"))
 					.willReturn(Optional.of(session));
 
 			assertThatThrownBy(() -> service().requirePhaseForUpdate(
 					"raw-session", AdminSessionPhase.ONBOARDING_SET_CREDENTIALS, now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.UNAUTHENTICATED));
 		}
 
 		@Test
@@ -312,14 +314,14 @@ class AdminSessionServiceTest {
 					AdminSessionPhase.LOGIN_VERIFY_OTP, now.plusMinutes(10), now.minusSeconds(1));
 			admin.advanceAuthenticationVersion();
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHashForUpdate("session-hash"))
+			given(queryAdminSessionPort.lockSessionByTokenHash("session-hash"))
 					.willReturn(Optional.of(session));
-			given(loadAdminAccountPort.findByIdForUpdate(admin.getId())).willReturn(Optional.of(admin));
+			given(queryAdminAccountPort.lockAccount(admin.getId())).willReturn(Optional.of(admin));
 
 			assertThatThrownBy(() -> service().requirePhaseForUpdate(
 					"raw-session", AdminSessionPhase.LOGIN_VERIFY_OTP, now))
 					.isInstanceOfSatisfying(AdminException.class, exception ->
-							assertThat(exception.problem()).isEqualTo(AdminProblem.UNAUTHENTICATED));
+							assertThat(exception.errorCode()).isEqualTo(AdminErrorCode.UNAUTHENTICATED));
 		}
 
 		@Test
@@ -333,20 +335,20 @@ class AdminSessionServiceTest {
 					AdminSessionPhase.LOGIN_VERIFY_OTP, now.plusMinutes(5), now.minusSeconds(30));
 			AdminSession previous = authenticatedSession(admin, now);
 			given(adminSessionCredentialPort.hash("raw-session")).willReturn("old-session-hash");
-			given(loadAdminSessionPort.findBySessionTokenHash("old-session-hash")).willReturn(Optional.of(preSession));
-			given(loadAdminSessionPort.findActiveByAdminId(admin.getId())).willReturn(java.util.List.of(previous, preSession));
+			given(queryAdminSessionPort.findSessionByTokenHash("old-session-hash")).willReturn(Optional.of(preSession));
+			given(queryAdminSessionPort.findActiveSessions(admin.getId())).willReturn(java.util.List.of(previous, preSession));
 			given(adminSessionCredentialPort.generate()).willReturn("new-session", "new-csrf");
 			given(adminSessionCredentialPort.hash("new-session")).willReturn("new-session-hash");
 			given(adminSessionCredentialPort.hash("new-csrf")).willReturn("new-csrf-hash");
 
-			AdminSessionCredentials credentials = service().completeAuthentication(
+			AdminSessionCredentialResult credentials = service().completeAuthentication(
 					"raw-session", admin, AdminSessionPhase.LOGIN_VERIFY_OTP, now);
 
-			assertThat(credentials).isEqualTo(new AdminSessionCredentials("new-session", "new-csrf"));
+			assertThat(credentials).isEqualTo(new AdminSessionCredentialResult("new-session", "new-csrf"));
 			assertThat(previous.getStatus()).isEqualTo(com.pikume.back.admin.domain.AdminSessionStatus.REVOKED);
 			assertThat(preSession.getPhase()).isEqualTo(AdminSessionPhase.AUTHENTICATED);
 			assertThat(preSession.getSessionTokenHash()).isEqualTo("new-session-hash");
-			then(saveAdminSessionPort).should().save(preSession);
+			then(recordAdminSessionPort).should().recordSession(preSession);
 			then(adminSessionCachePort).should().evict("old-session-hash");
 			then(telemetryPort).should().phaseChanged(
 					preSession.getId(),
@@ -359,12 +361,12 @@ class AdminSessionServiceTest {
 
 	private AdminSessionService service() {
 		return new AdminSessionService(
-				loadAdminSessionPort,
-				saveAdminSessionPort,
+				queryAdminSessionPort,
+				recordAdminSessionPort,
 				touchAdminSessionPort,
 				adminSessionCachePort,
 				adminSessionCredentialPort,
-				loadAdminAccountPort,
+				queryAdminAccountPort,
 				telemetryPort);
 	}
 

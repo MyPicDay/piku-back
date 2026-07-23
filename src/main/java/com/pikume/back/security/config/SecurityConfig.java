@@ -1,6 +1,5 @@
 package com.pikume.back.security.config;
 
-import com.pikume.back.admin.adapter.in.web.AdminVisitStatisticsFilter;
 import com.pikume.back.security.adapter.in.web.ProblemDetailAccessDeniedHandler;
 import com.pikume.back.security.adapter.in.web.ProblemDetailAuthenticationEntryPoint;
 import com.pikume.back.security.jwt.JwtFilter;
@@ -38,7 +37,7 @@ public class SecurityConfig {
 	private final AdminOriginValidationFilter adminOriginValidationFilter;
 	private final AdminCsrfValidationFilter adminCsrfValidationFilter;
 	private final AdminSessionAuthenticationFilter adminSessionAuthenticationFilter;
-	private final AdminVisitStatisticsFilter adminVisitStatisticsFilter;
+	private final AdminSecurityChainExtension adminSecurityChainExtension;
 	private final AdminSecurityProperties adminSecurityProperties;
 	private final Environment env;
 	private final ProblemDetailAuthenticationEntryPoint authenticationEntryPoint;
@@ -92,7 +91,7 @@ public class SecurityConfig {
 		http.addFilterBefore(adminOriginValidationFilter, CorsFilter.class);
 		http.addFilterAfter(adminCsrfValidationFilter, AdminOriginValidationFilter.class);
 		http.addFilterAfter(adminSessionAuthenticationFilter, AdminCsrfValidationFilter.class);
-		http.addFilterAfter(adminVisitStatisticsFilter, AdminSessionAuthenticationFilter.class);
+		http.addFilterAfter(adminSecurityChainExtension, AdminSessionAuthenticationFilter.class);
 		return http.build();
 	}
 

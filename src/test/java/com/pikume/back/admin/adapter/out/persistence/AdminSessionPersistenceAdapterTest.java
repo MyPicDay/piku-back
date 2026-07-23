@@ -32,7 +32,7 @@ class AdminSessionPersistenceAdapterTest {
 	void savesAndFlushesSessionChanges() {
 		given(adminSessionJpaRepository.saveAndFlush(adminSession)).willReturn(adminSession);
 
-		AdminSession saved = adapter().save(adminSession);
+		AdminSession saved = adapter().recordSession(adminSession);
 
 		assertThat(saved).isSameAs(adminSession);
 		then(adminSessionJpaRepository).should().saveAndFlush(adminSession);
@@ -44,7 +44,7 @@ class AdminSessionPersistenceAdapterTest {
 		given(adminSessionJpaRepository.saveAndFlush(adminSession))
 				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
-		assertThatThrownBy(() -> adapter().save(adminSession))
+		assertThatThrownBy(() -> adapter().recordSession(adminSession))
 				.isInstanceOf(AdminAuthenticationStoreException.class)
 				.hasMessage("관리자 세션 저장소를 사용할 수 없습니다.");
 	}
@@ -55,7 +55,7 @@ class AdminSessionPersistenceAdapterTest {
 		given(adminSessionJpaRepository.findBySessionTokenHash("session-hash"))
 				.willReturn(Optional.of(adminSession));
 
-		assertThat(adapter().findBySessionTokenHash("session-hash")).contains(adminSession);
+		assertThat(adapter().findSessionByTokenHash("session-hash")).contains(adminSession);
 
 		assertThat(meterRegistry.timer(
 				"admin.session.database.lookup", "operation", "token_hash").count()).isEqualTo(1);
@@ -67,7 +67,7 @@ class AdminSessionPersistenceAdapterTest {
 		given(adminSessionJpaRepository.findBySessionTokenHash("session-hash"))
 				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
-		assertThatThrownBy(() -> adapter().findBySessionTokenHash("session-hash"))
+		assertThatThrownBy(() -> adapter().findSessionByTokenHash("session-hash"))
 				.isInstanceOf(AdminAuthenticationStoreException.class)
 				.hasMessage("관리자 세션 저장소를 사용할 수 없습니다.");
 	}

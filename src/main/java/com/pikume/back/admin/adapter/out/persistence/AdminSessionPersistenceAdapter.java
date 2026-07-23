@@ -2,8 +2,8 @@ package com.pikume.back.admin.adapter.out.persistence;
 
 import com.pikume.back.admin.application.exception.AdminAuthenticationStoreException;
 import com.pikume.back.admin.application.port.out.CountAdminSessionsPort;
-import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
-import com.pikume.back.admin.application.port.out.SaveAdminSessionPort;
+import com.pikume.back.admin.application.port.out.QueryAdminSessionPort;
+import com.pikume.back.admin.application.port.out.RecordAdminSessionPort;
 import com.pikume.back.admin.application.port.out.TouchAdminSessionPort;
 import com.pikume.back.admin.domain.AdminSession;
 import com.pikume.back.admin.domain.AdminSessionPhase;
@@ -23,8 +23,8 @@ import java.util.function.Supplier;
 @Component
 @RequiredArgsConstructor
 public class AdminSessionPersistenceAdapter implements
-		LoadAdminSessionPort,
-		SaveAdminSessionPort,
+		QueryAdminSessionPort,
+		RecordAdminSessionPort,
 		TouchAdminSessionPort,
 		CountAdminSessionsPort {
 
@@ -32,32 +32,32 @@ public class AdminSessionPersistenceAdapter implements
 	private final MeterRegistry meterRegistry;
 
 	@Override
-	public Optional<AdminSession> findById(String sessionId) {
+	public Optional<AdminSession> findSession(String sessionId) {
 		return recordLookup("session_id", () -> adminSessionJpaRepository.findById(sessionId));
 	}
 
 	@Override
-	public Optional<AdminSession> findBySessionTokenHash(String sessionTokenHash) {
+	public Optional<AdminSession> findSessionByTokenHash(String sessionTokenHash) {
 		return recordLookup(
 				"token_hash", () -> adminSessionJpaRepository.findBySessionTokenHash(sessionTokenHash));
 	}
 
 	@Override
-	public Optional<AdminSession> findBySessionTokenHashForUpdate(String sessionTokenHash) {
+	public Optional<AdminSession> lockSessionByTokenHash(String sessionTokenHash) {
 		return recordLookup(
 				"token_hash_for_update",
 				() -> adminSessionJpaRepository.findBySessionTokenHashForUpdate(sessionTokenHash));
 	}
 
 	@Override
-	public List<AdminSession> findActiveByAdminId(String adminId) {
+	public List<AdminSession> findActiveSessions(String adminId) {
 		return recordLookup(
 				"active_by_admin",
 				() -> adminSessionJpaRepository.findByAdminIdAndStatus(adminId, AdminSessionStatus.ACTIVE));
 	}
 
 	@Override
-	public AdminSession save(AdminSession adminSession) {
+	public AdminSession recordSession(AdminSession adminSession) {
 		try {
 			return adminSessionJpaRepository.saveAndFlush(adminSession);
 		} catch (DataAccessException exception) {

@@ -1,12 +1,12 @@
-package com.pikume.back.admin.application.port.out;
+package com.pikume.back.admin.application.port.in;
 
-import com.pikume.back.admin.application.service.AdminSessionCredentials;
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminSessionPhase;
 
 import java.time.LocalDateTime;
 
-public interface AdminSessionLifecyclePort {
+public interface ManageAdminSessionLifecycleUseCase {
 
 	void bindPreAuthentication(String rawSessionToken, String adminId, long authenticationVersion,
 			AdminSessionPhase nextPhase, LocalDateTime now);
@@ -17,8 +17,11 @@ public interface AdminSessionLifecyclePort {
 	String advancePhase(String rawSessionToken, AdminSessionPhase expectedPhase,
 			AdminSessionPhase nextPhase, long currentAuthenticationVersion, LocalDateTime now);
 
-	AdminSessionCredentials completeAuthentication(String rawSessionToken, AdminAccount admin,
-			AdminSessionPhase expectedPhase, LocalDateTime now);
+	AdminSessionCredentialResult completeAuthentication(
+			String rawSessionToken,
+			AdminAccount admin,
+			AdminSessionPhase expectedPhase,
+			LocalDateTime now);
 
 	void revokeActiveSessions(String adminId, LocalDateTime now);
 

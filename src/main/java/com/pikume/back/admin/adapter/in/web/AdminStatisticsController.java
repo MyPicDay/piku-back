@@ -1,16 +1,21 @@
 package com.pikume.back.admin.adapter.in.web;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
 import com.pikume.back.admin.application.service.AdminStatisticsResponse;
 import com.pikume.back.security.config.AdminUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +26,20 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 @Tag(name = "Admin Statistics", description = "관리자 통계 조회 API")
+@ApiResponses({
+		@ApiResponse(responseCode = "400", description = "유효하지 않은 통계 조회 기간",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "401", description = "관리자 인증 필요",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "403", description = "통계 조회 또는 내보내기 권한 없음",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "503", description = "관리자 인증 저장소 확인 불가",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class)))
+})
 @RestController
 @RequestMapping("/api/admin/statistics")
 @RequiredArgsConstructor
@@ -52,7 +71,7 @@ public class AdminStatisticsController {
 
 	private String requireAdminId(AdminUserDetails admin) {
 		if (admin == null) {
-			throw new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
+			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}
 		return admin.getId();
 	}

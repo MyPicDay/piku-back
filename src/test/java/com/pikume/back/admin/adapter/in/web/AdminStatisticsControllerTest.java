@@ -3,7 +3,7 @@ package com.pikume.back.admin.adapter.in.web;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.pikume.back.admin.adapter.in.web.problem.AdminExceptionHandler;
 import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
-import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
+import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.service.AdminDailyStatisticsResult;
 import com.pikume.back.admin.application.service.AdminStatisticsResponse;
 import com.pikume.back.admin.domain.AdminRole;
@@ -54,7 +54,7 @@ class AdminStatisticsControllerTest {
 		AdminStatisticsController controller = new AdminStatisticsController(adminStatisticsUseCase);
 			mockMvc = MockMvcBuilders.standaloneSetup(controller)
 					.setControllerAdvice(new AdminExceptionHandler(
-							new ProblemDetailFactory(), mock(AdminSessionTelemetryPort.class)))
+							new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class)))
 					.setMessageConverters(
 							new StringHttpMessageConverter(StandardCharsets.UTF_8),
 							new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()

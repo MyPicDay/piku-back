@@ -5,7 +5,7 @@ import com.pikume.back.admin.domain.AdminDailyStatistics;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface LoadAdminDailyStatisticsPort {
+public interface QueryAdminDailyStatisticsPort {
 
-	List<AdminDailyStatistics> findByDateBetween(LocalDate startDate, LocalDate endDate);
+	List<AdminDailyStatistics> queryStatisticsPeriod(LocalDate startDate, LocalDate endDate);
 }

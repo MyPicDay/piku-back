@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface SearchAdminAccountsPort {
 
-	List<AdminAccount> findAll();
+	List<AdminAccount> queryAccounts();
 }

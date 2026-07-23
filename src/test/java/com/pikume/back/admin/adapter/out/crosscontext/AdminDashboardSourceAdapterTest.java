@@ -1,6 +1,6 @@
 package com.pikume.back.admin.adapter.out.crosscontext;
 
-import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryDashboardStatisticsUseCase;
 import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;

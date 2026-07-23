@@ -27,7 +27,7 @@ class AdminAccountPersistenceAdapterTest {
 		given(adminAccountJpaRepository.saveAndFlush(adminAccount))
 				.willThrow(new DataIntegrityViolationException("duplicate login id"));
 
-		assertThat(adapter().saveIfLoginIdAvailable(adminAccount)).isFalse();
+		assertThat(adapter().commitIfLoginIdAvailable(adminAccount)).isFalse();
 	}
 
 	@Test
@@ -36,7 +36,7 @@ class AdminAccountPersistenceAdapterTest {
 		given(adminAccountJpaRepository.saveAndFlush(adminAccount))
 				.willThrow(new DataAccessResourceFailureException("db unavailable"));
 
-		assertThatThrownBy(() -> adapter().saveIfLoginIdAvailable(adminAccount))
+		assertThatThrownBy(() -> adapter().commitIfLoginIdAvailable(adminAccount))
 				.isInstanceOf(AdminAuthenticationStoreException.class);
 	}
 

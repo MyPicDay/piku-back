@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Backend Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-21
+- Last Reviewed: 2026-07-23
 
 ## 목적
 
@@ -15,11 +15,12 @@
 
 - Web Adapter는 쿠키와 요청 값을 읽고 인증 유스케이스를 호출하며, 완료된 세션 자격 증명을 쿠키로 전달한다.
 - 인증 및 온보딩 유스케이스는 계정 상태, 자격 증명, OTP 정책을 검증하고 다음 세션 단계를 결정한다.
-- `AdminSessionSecurityUseCase`는 익명 사전 세션 생성과 인증 완료 세션 검증을 담당한다.
-- `AdminSessionLifecyclePort`는 사전 세션 결합, 단계 검증, 단계 전환, 인증 완료를 위한 경계다.
+- `AdminSessionSecurityUseCase`는 익명 사전 세션 생성과 인증 완료 세션 검증을 담당하며 Security에는 전용 공개 Result만 반환한다.
+- `ManageAdminSessionLifecycleUseCase`는 사전 세션 결합, 단계 검증, 단계 전환, 인증 완료를 위한 Admin 내부 Application 협력 경계다.
 - `AdminSession`은 현재 인증 단계와 세션 활성 상태를 보호한다.
 - 계정, 패스워드, OTP, 세션 저장 기술은 각각의 Out Port와 Adapter 뒤에 위치한다.
-- 보안 필터는 Origin과 CSRF를 검증하며, 인증 완료 이후에는 관리자 세션을 Spring Security 인증 주체로 변환한다.
+- 보안 필터는 Origin과 CSRF를 검증하며, 인증 완료 이후에는 Admin 공개 Result를 Spring Security 인증 주체로 변환한다.
+- Security는 Admin Telemetry Out Port를 직접 호출하지 않는다. CSRF·Origin 거부와 저장소 장애 사건은 `RecordAdminSecurityEventUseCase`로 전달한다.
 
 ## 정식 로그인 흐름
 
@@ -146,6 +147,8 @@ sequenceDiagram
 ## 오류 경계
 
 - Web Adapter와 보안 필터는 인증 실패를 RFC 9457 Problem Details 응답으로 변환한다.
+- Admin Application은 `AdminErrorCode`만 반환하고 HTTP type, status와 title은 Admin Web 또는 Security Adapter가 결정한다.
+- 기존 관리자 Problem type URI, status, detail과 `Cache-Control: no-store` 계약은 Adapter 번역 이후에도 유지한다.
 - 유스케이스는 저장 기술 예외를 관리자 인증 저장소 오류로 변환한다.
 - 세션 단계 불일치, 만료, 폐기, 계정 불일치는 인증되지 않은 요청으로 처리한다.
 - OTP 실패와 계정 잠금은 도메인 정책에 따라 실패 횟수와 차단 상태를 갱신한다.

@@ -4,7 +4,7 @@ import com.pikume.back.admin.domain.AdminAuditLog;
 
 import java.util.List;
 
-public interface LoadAdminAuditLogPort {
+public interface QueryAdminAuditTrailPort {
 
-	List<AdminAuditLog> findLatest(int limit);
+	List<AdminAuditLog> queryLatestEntries(int limit);
 }

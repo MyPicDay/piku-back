@@ -1,16 +1,18 @@
 package com.pikume.back.admin.application.service;
 
+import com.pikume.back.admin.application.dto.AdminSessionCredentialResult;
+import com.pikume.back.admin.application.dto.AuthenticatedAdminSessionResult;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
+import com.pikume.back.admin.application.port.in.ManageAdminSessionLifecycleUseCase;
 import com.pikume.back.admin.application.port.in.AdminSessionSecurityUseCase;
 import com.pikume.back.admin.application.port.out.AdminSessionCacheEntry;
 import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
 import com.pikume.back.admin.application.port.out.AdminSessionTelemetryPort;
-import com.pikume.back.admin.application.port.out.AdminSessionLifecyclePort;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminSessionPort;
-import com.pikume.back.admin.application.port.out.SaveAdminSessionPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminSessionPort;
+import com.pikume.back.admin.application.port.out.RecordAdminSessionPort;
 import com.pikume.back.admin.application.port.out.TouchAdminSessionPort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminAccountStatus;
@@ -25,23 +27,23 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSessionLifecyclePort {
+public class AdminSessionService implements AdminSessionSecurityUseCase, ManageAdminSessionLifecycleUseCase {
 
 	private static final long PRE_AUTHENTICATION_MINUTES = 10;
 	private static final long IDLE_TIMEOUT_MINUTES = 30;
 	private static final long ABSOLUTE_TIMEOUT_HOURS = 8;
 
-	private final LoadAdminSessionPort loadAdminSessionPort;
-	private final SaveAdminSessionPort saveAdminSessionPort;
+	private final QueryAdminSessionPort queryAdminSessionPort;
+	private final RecordAdminSessionPort recordAdminSessionPort;
 	private final TouchAdminSessionPort touchAdminSessionPort;
 	private final AdminSessionCachePort adminSessionCachePort;
 	private final AdminSessionCredentialPort adminSessionCredentialPort;
-	private final LoadAdminAccountPort loadAdminAccountPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
 	private final AdminSessionTelemetryPort telemetryPort;
 
 	@Transactional
 	@Override
-	public AdminSessionCredentials initialize(LocalDateTime now) {
+	public AdminSessionCredentialResult initialize(LocalDateTime now) {
 		String sessionToken = adminSessionCredentialPort.generate();
 		String csrfToken = adminSessionCredentialPort.generate();
 		AdminSession session = AdminSession.startAnonymous(
@@ -49,14 +51,14 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 				adminSessionCredentialPort.hash(csrfToken),
 				now,
 				now.plusMinutes(PRE_AUTHENTICATION_MINUTES));
-		saveAdminSessionPort.save(session);
+		recordAdminSessionPort.recordSession(session);
 		telemetryPort.sessionIssued();
-		return new AdminSessionCredentials(sessionToken, csrfToken);
+		return new AdminSessionCredentialResult(sessionToken, csrfToken);
 	}
 
 	@Transactional
 	@Override
-	public AuthenticatedAdminSession authenticate(String rawSessionToken, LocalDateTime now) {
+	public AuthenticatedAdminSessionResult authenticate(String rawSessionToken, LocalDateTime now) {
 		String sessionTokenHash = adminSessionCredentialPort.hash(rawSessionToken);
 		AdminSessionCacheEntry entry = loadSessionEntry(sessionTokenHash, now);
 		AdminAccount admin = loadCurrentAdmin(entry.adminId());
@@ -92,8 +94,8 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 				entry.absoluteExpiresAt(), effectiveIdleExpiresAt);
 		putQuietly(refreshed);
 
-		return new AuthenticatedAdminSession(
-				entry.sessionId(), entry.adminId(), admin.getRole());
+		return new AuthenticatedAdminSessionResult(
+				entry.sessionId(), entry.adminId(), admin.getRole().name());
 	}
 
 	@Transactional(readOnly = true)
@@ -102,7 +104,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 		String sessionTokenHash = adminSessionCredentialPort.hash(rawSessionToken);
 		AdminSession session;
 		try {
-			session = loadAdminSessionPort.findBySessionTokenHash(sessionTokenHash)
+			session = queryAdminSessionPort.findSessionByTokenHash(sessionTokenHash)
 					.orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
@@ -113,7 +115,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 			throw unauthenticated();
 		}
 		if (!adminSessionCredentialPort.matches(rawCsrfToken, session.getCsrfTokenHash())) {
-			throw new AdminException(AdminProblem.CSRF_INVALID, "관리자 CSRF 토큰이 유효하지 않습니다.");
+			throw new AdminException(AdminErrorCode.CSRF_INVALID, "관리자 CSRF 토큰이 유효하지 않습니다.");
 		}
 	}
 
@@ -129,7 +131,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 			AdminSessionPhase previousPhase = session.getPhase();
 			session.bindAdmin(adminId, authenticationVersion, nextPhase,
 					now.plusMinutes(PRE_AUTHENTICATION_MINUTES), now);
-			saveAdminSessionPort.save(session);
+			recordAdminSessionPort.recordSession(session);
 			telemetryPort.phaseChanged(session.getId(), adminId, previousPhase, nextPhase, now);
 		} catch (AdminException exception) {
 			throw exception;
@@ -165,7 +167,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 		try {
 			AdminSessionPhase previousPhase = session.getPhase();
 			session.advance(expectedPhase, nextPhase, currentAuthenticationVersion, now);
-			saveAdminSessionPort.save(session);
+			recordAdminSessionPort.recordSession(session);
 			telemetryPort.phaseChanged(
 					session.getId(), session.getAdminId(), previousPhase, nextPhase, now);
 			return session.getAdminId();
@@ -176,7 +178,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 	@Transactional
 	@Override
-	public AdminSessionCredentials completeAuthentication(String rawSessionToken, AdminAccount admin,
+	public AdminSessionCredentialResult completeAuthentication(String rawSessionToken, AdminAccount admin,
 			AdminSessionPhase expectedPhase, LocalDateTime now) {
 		String oldTokenHash = adminSessionCredentialPort.hash(rawSessionToken);
 		AdminSession session = loadSessionByHash(oldTokenHash);
@@ -186,12 +188,12 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 			throw unauthenticated();
 		}
 
-		loadAdminSessionPort.findActiveByAdminId(admin.getId()).stream()
+		queryAdminSessionPort.findActiveSessions(admin.getId()).stream()
 				.filter(active -> !active.getId().equals(session.getId()))
 				.filter(AdminSession::isAuthenticated)
 				.forEach(active -> {
 					active.revoke(now);
-					saveAdminSessionPort.save(active);
+					recordAdminSessionPort.recordSession(active);
 					evictQuietly(active.getSessionTokenHash());
 					telemetryPort.sessionRevoked();
 				});
@@ -206,20 +208,20 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 				now.plusHours(ABSOLUTE_TIMEOUT_HOURS),
 				now.plusMinutes(IDLE_TIMEOUT_MINUTES),
 				now);
-		saveAdminSessionPort.save(session);
+		recordAdminSessionPort.recordSession(session);
 		telemetryPort.phaseChanged(
 				session.getId(), admin.getId(), previousPhase, AdminSessionPhase.AUTHENTICATED, now);
 		evictQuietly(oldTokenHash);
 		telemetryPort.sessionIssued();
-		return new AdminSessionCredentials(newSessionToken, newCsrfToken);
+		return new AdminSessionCredentialResult(newSessionToken, newCsrfToken);
 	}
 
 	@Transactional
 	@Override
 	public void revokeActiveSessions(String adminId, LocalDateTime now) {
-		loadAdminSessionPort.findActiveByAdminId(adminId).forEach(session -> {
+		queryAdminSessionPort.findActiveSessions(adminId).forEach(session -> {
 			session.revoke(now);
-			saveAdminSessionPort.save(session);
+			recordAdminSessionPort.recordSession(session);
 			evictQuietly(session.getSessionTokenHash());
 			telemetryPort.sessionRevoked();
 		});
@@ -228,11 +230,11 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 	@Transactional
 	@Override
 	public void revokeCurrent(String adminId, String sessionId, LocalDateTime now) {
-		loadAdminSessionPort.findById(sessionId)
+		queryAdminSessionPort.findSession(sessionId)
 				.filter(session -> session.belongsTo(adminId))
 				.ifPresent(session -> {
 					session.revoke(now);
-					saveAdminSessionPort.save(session);
+					recordAdminSessionPort.recordSession(session);
 					evictQuietly(session.getSessionTokenHash());
 					telemetryPort.sessionRevoked();
 				});
@@ -245,7 +247,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 	private AdminSession loadSessionForUpdate(String rawSessionToken) {
 		String tokenHash = adminSessionCredentialPort.hash(rawSessionToken);
 		try {
-			return loadAdminSessionPort.findBySessionTokenHashForUpdate(tokenHash)
+			return queryAdminSessionPort.lockSessionByTokenHash(tokenHash)
 					.orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
@@ -256,7 +258,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 	private AdminSession loadSessionByHash(String tokenHash) {
 		try {
-			return loadAdminSessionPort.findBySessionTokenHash(tokenHash).orElseThrow(this::unauthenticated);
+			return queryAdminSessionPort.findSessionByTokenHash(tokenHash).orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
@@ -278,7 +280,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 		telemetryPort.databaseFallback();
 		AdminSession session;
 		try {
-			session = loadAdminSessionPort.findBySessionTokenHash(sessionTokenHash)
+			session = queryAdminSessionPort.findSessionByTokenHash(sessionTokenHash)
 					.orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
@@ -294,7 +296,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 	private AdminAccount loadCurrentAdmin(String adminId) {
 		try {
-			return loadAdminAccountPort.findById(adminId).orElseThrow(this::unauthenticated);
+			return queryAdminAccountPort.findAccount(adminId).orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
@@ -304,7 +306,7 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 
 	private AdminAccount loadCurrentAdminForUpdate(String adminId) {
 		try {
-			return loadAdminAccountPort.findByIdForUpdate(adminId).orElseThrow(this::unauthenticated);
+			return queryAdminAccountPort.lockAccount(adminId).orElseThrow(this::unauthenticated);
 		} catch (AdminException exception) {
 			throw exception;
 		} catch (RuntimeException exception) {
@@ -340,13 +342,13 @@ public class AdminSessionService implements AdminSessionSecurityUseCase, AdminSe
 	}
 
 	private AdminException unauthenticated() {
-		return new AdminException(AdminProblem.UNAUTHENTICATED, "유효한 관리자 세션이 필요합니다.");
+		return new AdminException(AdminErrorCode.UNAUTHENTICATED, "유효한 관리자 세션이 필요합니다.");
 	}
 
 	private AdminException sessionStoreUnavailable(RuntimeException cause) {
 		telemetryPort.sessionStoreUnavailable();
 		AdminException exception = new AdminException(
-				AdminProblem.SESSION_STORE_UNAVAILABLE,
+				AdminErrorCode.SESSION_STORE_UNAVAILABLE,
 				"관리자 세션 저장소를 확인할 수 없습니다.");
 		exception.initCause(cause);
 		return exception;

@@ -1,10 +1,10 @@
 package com.pikume.back.admin.application.service;
 
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
-import com.pikume.back.admin.application.port.out.LoadAdminAccountPort;
-import com.pikume.back.admin.application.port.out.LoadAdminDailyStatisticsPort;
+import com.pikume.back.admin.application.port.out.QueryAdminAccountPort;
+import com.pikume.back.admin.application.port.out.QueryAdminDailyStatisticsPort;
 import com.pikume.back.admin.application.port.out.QueryAdminStatisticsSourcePort;
 import com.pikume.back.admin.domain.AdminAccount;
 import com.pikume.back.admin.domain.AdminDailyStatistics;
@@ -28,8 +28,8 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 
 	private static final ZoneId STATISTICS_ZONE = ZoneId.of("Asia/Seoul");
 
-	private final LoadAdminAccountPort loadAdminAccountPort;
-	private final LoadAdminDailyStatisticsPort loadAdminDailyStatisticsPort;
+	private final QueryAdminAccountPort queryAdminAccountPort;
+	private final QueryAdminDailyStatisticsPort queryAdminDailyStatisticsPort;
 	private final QueryAdminStatisticsSourcePort queryAdminStatisticsSourcePort;
 	private final AdminDailyStatisticsCalculator adminDailyStatisticsCalculator;
 
@@ -80,7 +80,7 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 		LocalDate today = LocalDate.now(STATISTICS_ZONE);
 		Map<LocalDate, AdminDailyStatisticsResult> calculated = adminDailyStatisticsCalculator.calculate(startDate, endDate);
 		Map<LocalDate, AdminDailyStatisticsResult> aggregated = new LinkedHashMap<>();
-		for (AdminDailyStatistics statistics : loadAdminDailyStatisticsPort.findByDateBetween(startDate, endDate)) {
+		for (AdminDailyStatistics statistics : queryAdminDailyStatisticsPort.queryStatisticsPeriod(startDate, endDate)) {
 			aggregated.put(statistics.getMetricDate(), AdminDailyStatisticsResult.from(statistics));
 		}
 
@@ -130,22 +130,22 @@ public class AdminStatisticsQueryService implements AdminStatisticsUseCase {
 		LocalDate normalizedEndDate = endDate == null ? today : endDate;
 		LocalDate normalizedStartDate = startDate == null ? normalizedEndDate.minusDays(6) : startDate;
 		if (normalizedStartDate.isAfter(normalizedEndDate)) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "시작일은 종료일보다 늦을 수 없습니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "시작일은 종료일보다 늦을 수 없습니다.");
 		}
 		if (normalizedStartDate.plusYears(1).isBefore(normalizedEndDate)) {
-			throw new AdminException(AdminProblem.INVALID_REQUEST, "통계 조회 기간은 최대 1년입니다.");
+			throw new AdminException(AdminErrorCode.INVALID_REQUEST, "통계 조회 기간은 최대 1년입니다.");
 		}
 		return new Period(normalizedStartDate, normalizedEndDate);
 	}
 
 	private AdminAccount requireAdmin(String actorAdminId) {
-		return loadAdminAccountPort.findById(actorAdminId)
-				.orElseThrow(() -> new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다."));
+		return queryAdminAccountPort.findAccount(actorAdminId)
+				.orElseThrow(() -> new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다."));
 	}
 
 	private void requireCsvExportRole(AdminAccount actor) {
 		if (actor.getRole() != AdminRole.SUPER_ADMIN && actor.getRole() != AdminRole.OPERATOR) {
-			throw new AdminException(AdminProblem.FORBIDDEN, "통계 CSV 내보내기 권한이 없습니다.");
+			throw new AdminException(AdminErrorCode.FORBIDDEN, "통계 CSV 내보내기 권한이 없습니다.");
 		}
 	}
 

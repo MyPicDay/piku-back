@@ -1,6 +1,6 @@
 package com.pikume.back.admin.application.port.out;
 
-import com.pikume.back.admin.application.service.AdminDailyCount;
+import com.pikume.back.admin.application.dto.AdminDailyCount;
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
 
 import java.time.LocalDate;

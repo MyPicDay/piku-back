@@ -4,7 +4,7 @@ import com.pikume.back.admin.adapter.in.web.dto.request.AdminLoginRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.ChangeAdminPasswordRequest;
 import com.pikume.back.admin.adapter.in.web.dto.request.VerifyAdminOtpRequest;
 import com.pikume.back.admin.application.exception.AdminException;
-import com.pikume.back.admin.application.exception.AdminProblem;
+import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAuthUseCase;
 import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 import com.pikume.back.admin.application.service.AdminLoginChallengeResult;
@@ -12,10 +12,16 @@ import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.security.config.AdminSessionCookieManager;
 import com.pikume.back.security.config.AdminUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -27,6 +33,26 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 
 @Tag(name = "Admin Auth", description = "관리자 세션 로그인과 로그아웃 API")
+@ApiResponses({
+		@ApiResponse(responseCode = "400", description = "유효하지 않은 인증 요청",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "401", description = "관리자 인증 실패",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "403", description = "Origin 또는 CSRF 검증 실패",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "423", description = "관리자 계정 잠금",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "429", description = "OTP 인증 일시 차단",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class))),
+		@ApiResponse(responseCode = "503", description = "관리자 인증 저장소 확인 불가",
+				content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+						schema = @Schema(implementation = ProblemDetail.class)))
+})
 @RestController
 @RequestMapping("/api/admin/auth")
 @RequiredArgsConstructor
@@ -56,7 +82,7 @@ public class AdminAuthController {
 	@PostMapping("/logout")
 	public ResponseEntity<MessageResponse> logout(@AuthenticationPrincipal AdminUserDetails admin) {
 		if (admin == null) {
-			throw new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
+			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}
 		adminAuthUseCase.logout(admin.getId(), admin.getSessionId());
 		return ResponseEntity.ok()
@@ -73,7 +99,7 @@ public class AdminAuthController {
 			@AuthenticationPrincipal AdminUserDetails admin,
 			@RequestBody ChangeAdminPasswordRequest request) {
 		if (admin == null) {
-			throw new AdminException(AdminProblem.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
+			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}
 		adminAuthUseCase.changePassword(admin.getId(), request.currentPassword(), request.newPassword());
 		return ResponseEntity.ok(new MessageResponse("패스워드 변경 완료"));

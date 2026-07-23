@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Backend Engineers, Frontend Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-06-21
+- Last Reviewed: 2026-07-23
 
 ## 목적
 
@@ -174,6 +174,8 @@ sequenceDiagram
 ## 오류 처리
 
 관리자 인증, Origin, CSRF, 권한 오류는 RFC 9457 Problem Details 형식이다. 프론트엔드는 문자열 비교 대신 `status`와 `type`을 기준으로 분기한다.
+
+백엔드 내부 오류 코드와 Security 번역 경계는 프론트엔드 계약이 아니다. 모든 관리자 오류 응답은 캐시되지 않도록 `Cache-Control: no-store`를 유지하며, 아래 type URI와 상태 의미는 패키지 구조 변경과 무관하게 유지된다.
 
 | 상황 | 상태 | 프론트엔드 처리 |
 | --- | --- | --- |
