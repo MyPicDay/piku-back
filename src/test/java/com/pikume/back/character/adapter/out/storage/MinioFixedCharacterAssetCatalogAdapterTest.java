@@ -41,7 +41,7 @@ class MinioFixedCharacterAssetCatalogAdapterTest {
 							.isTruncated(false)
 							.build());
 
-			List<String> result = adapter.listFixedCharacterObjectKeys();
+			List<String> result = adapter.loadFixedCharacterObjectKeys();
 
 			assertThat(result).containsExactly(
 					"public/characters/fixed/base_image_1.webp",

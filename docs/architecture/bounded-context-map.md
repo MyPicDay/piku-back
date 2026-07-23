@@ -39,7 +39,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | 영역 | 경계 상태 | 전략 분류 | 현재 모델과 책임 | 확인할 경계 질문 |
 | --- | --- | --- | --- | --- |
 | **Admin** | Working Context | 미분류 | 관리자 계정, 자격 증명, OTP, 세션, 감사와 운영 통계 | 운영 통계가 독립된 언어와 생명주기를 가져 별도 분석 영역으로 분리되어야 하는가? |
-| **Character** | Boundary Candidate | 미분류 | 고정·사용자 캐릭터와 이미지 자산 | 캐릭터 자산이 Creative·User와 구분되는 고유한 생명주기와 언어를 가지는가? |
+| **Character** | Working Context | Supporting | 고정·사용자 캐릭터, 이미지 참조와 고정 자산 카탈로그 | 사용자 아바타 선택과 향후 AI 캐릭터 생성 중 어떤 정책을 Character가 계속 소유할 것인가? |
 | **Creative** | Working Context | Supporting | AI 일기 이미지 생성, 생성 상태, 할당량, 생성 자산과 이력 | 생성 자산과 Diary 기록 표현의 소유권이 계속 분리되어 있는가? |
 | **Diary** | Working Context | Core | 일기 내용, 날짜, 사진, 생성 이미지 연결, 공개 범위, 기록 생명주기, 달력과 회고 조회 | 공개·피드·소셜 정책 중 어떤 규칙을 Diary가 소유해야 하는가? |
 | **Feed** | Working Context | 미분류 | 피드 후보·목록 구성, 정렬과 열람 행위 | Feed가 독립된 도메인 모델인가, Application Read Model 영역인가? |

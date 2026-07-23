@@ -15,12 +15,12 @@ class CharacterTest {
 	class AiCharacterCreation {
 
 		@Test
-		@DisplayName("userId와 imageUrl로 AI 캐릭터를 생성한다")
+		@DisplayName("userId와 이미지 참조로 AI 캐릭터를 생성한다")
 		void createsAiCharacterWithUserId() {
-			Character character = new Character("user-42", "ai_image.png");
+			Character character = Character.aiGenerated("user-42", "ai_image.png");
 
 			assertThat(character.getUserId()).isEqualTo("user-42");
-			assertThat(character.getImageUrl()).isEqualTo("ai_image.png");
+			assertThat(character.getImageReference()).isEqualTo("ai_image.png");
 			assertThat(character.getType()).isEqualTo(CharacterCreationType.AI_GENERATED);
 		}
 
@@ -29,10 +29,17 @@ class CharacterTest {
 		void aiCharacterDoesNotRequireUserObject() {
 			String userId = "user-123";
 
-			Character character = new Character(userId, "generated.png");
+			Character character = Character.aiGenerated(userId, "generated.png");
 
 			assertThat(character.getUserId()).isEqualTo(userId);
 			assertThat(character.getType()).isEqualTo(CharacterCreationType.AI_GENERATED);
+		}
+
+		@Test
+		@DisplayName("AI 생성 캐릭터는 사용자 식별자가 필요하다")
+		void requiresUserId() {
+			assertThatThrownBy(() -> Character.aiGenerated(" ", "generated.png"))
+					.isInstanceOf(IllegalArgumentException.class);
 		}
 	}
 
@@ -41,13 +48,20 @@ class CharacterTest {
 	class FixedCharacterCreation {
 
 		@Test
-		@DisplayName("imageUrl과 FIXED 타입으로 고정 캐릭터를 생성한다")
+		@DisplayName("이미지 참조로 고정 캐릭터를 생성한다")
 		void createsFixedCharacter() {
-			Character character = new Character("base_image_1.webp", CharacterCreationType.FIXED);
+			Character character = Character.fixed("base_image_1.webp");
 
-			assertThat(character.getImageUrl()).isEqualTo("base_image_1.webp");
+			assertThat(character.getImageReference()).isEqualTo("base_image_1.webp");
 			assertThat(character.getType()).isEqualTo(CharacterCreationType.FIXED);
 			assertThat(character.getUserId()).isNull();
+		}
+
+		@Test
+		@DisplayName("고정 캐릭터는 빈 이미지 참조로 생성할 수 없다")
+		void requiresImageReference() {
+			assertThatThrownBy(() -> Character.fixed(" "))
+					.isInstanceOf(IllegalArgumentException.class);
 		}
 	}
 }

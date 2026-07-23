@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
+import com.pikume.back.character.domain.vo.CharacterImageReference;
 import com.pikume.back.global.entity.BaseEntity;
 
 /**
@@ -25,25 +26,26 @@ public class Character extends BaseEntity {
 	@Column(name = "user_id", length = 36)
 	private String userId;
 
-	private String imageUrl;
+	@Column(name = "image_url", nullable = false)
+	private String imageReference;
 
 	@Enumerated(EnumType.STRING)
 	private CharacterCreationType type;
 
-	/**
-	 * AI 생성 캐릭터 생성자
-	 */
-	public Character(String userId, String imageUrl) {
+	private Character(String userId, CharacterImageReference imageReference, CharacterCreationType type) {
 		this.userId = userId;
-		this.imageUrl = imageUrl;
-		this.type = CharacterCreationType.AI_GENERATED;
+		this.imageReference = imageReference.value();
+		this.type = type;
 	}
 
-	/**
-	 * 고정 캐릭터 생성자
-	 */
-	public Character(String imageUrl, CharacterCreationType type) {
-		this.imageUrl = imageUrl;
-		this.type = type;
+	public static Character fixed(String imageReference) {
+		return new Character(null, CharacterImageReference.of(imageReference), CharacterCreationType.FIXED);
+	}
+
+	public static Character aiGenerated(String userId, String imageReference) {
+		if (userId == null || userId.isBlank()) {
+			throw new IllegalArgumentException("AI 생성 캐릭터에는 사용자 식별자가 필요합니다.");
+		}
+		return new Character(userId.trim(), CharacterImageReference.of(imageReference), CharacterCreationType.AI_GENERATED);
 	}
 }

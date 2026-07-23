@@ -1,8 +1,7 @@
 package com.pikume.back.character.adapter.out.storage;
 
-import com.pikume.back.character.application.port.out.FixedCharacterAssetCatalogPort;
+import com.pikume.back.character.application.port.out.LoadFixedCharacterAssetsPort;
 import com.pikume.back.global.storage.StorageProperties;
-import com.pikume.back.global.util.CharacterAvatarPathNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -16,7 +15,7 @@ import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
-public class MinioFixedCharacterAssetCatalogAdapter implements FixedCharacterAssetCatalogPort {
+public class MinioFixedCharacterAssetCatalogAdapter implements LoadFixedCharacterAssetsPort {
 
 	private static final Set<String> SUPPORTED_IMAGE_EXTENSIONS = Set.of(
 			".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp");
@@ -25,14 +24,14 @@ public class MinioFixedCharacterAssetCatalogAdapter implements FixedCharacterAss
 	private final StorageProperties storageProperties;
 
 	@Override
-	public List<String> listFixedCharacterObjectKeys() {
+	public List<String> loadFixedCharacterObjectKeys() {
 		List<String> objectKeys = new ArrayList<>();
 		String continuationToken = null;
 
 		do {
 			ListObjectsV2Request request = ListObjectsV2Request.builder()
 					.bucket(storageProperties.getBucket())
-					.prefix(CharacterAvatarPathNormalizer.FIXED_CHARACTER_PUBLIC_PREFIX)
+					.prefix(FixedCharacterObjectKeyPolicy.FIXED_CHARACTER_PUBLIC_PREFIX)
 					.continuationToken(continuationToken)
 					.build();
 			ListObjectsV2Response response = s3Client.listObjectsV2(request);
@@ -54,10 +53,10 @@ public class MinioFixedCharacterAssetCatalogAdapter implements FixedCharacterAss
 	}
 
 	private boolean isSupportedFixedCharacterImage(String objectKey) {
-		if (objectKey == null || !objectKey.startsWith(CharacterAvatarPathNormalizer.FIXED_CHARACTER_PUBLIC_PREFIX)) {
+		if (objectKey == null || !objectKey.startsWith(FixedCharacterObjectKeyPolicy.FIXED_CHARACTER_PUBLIC_PREFIX)) {
 			return false;
 		}
-		if (objectKey.equals(CharacterAvatarPathNormalizer.FIXED_CHARACTER_PUBLIC_PREFIX)) {
+		if (objectKey.equals(FixedCharacterObjectKeyPolicy.FIXED_CHARACTER_PUBLIC_PREFIX)) {
 			return false;
 		}
 		String lowerCaseKey = objectKey.toLowerCase(Locale.ROOT);

@@ -1,0 +1,82 @@
+# Character 도메인 모델
+
+- Status: Active
+- Audience: Engineers
+- Source of Truth: Yes
+- Last Reviewed: 2026-07-23
+
+## 도메인 개요
+
+Character는 사용자가 프로필과 AI 이미지 생성에 참조할 수 있는 고정 캐릭터 카탈로그와 사용자별 AI 생성 캐릭터의 이미지 참조를 관리한다.
+
+### 목적
+
+- 서비스가 제공하는 고정 캐릭터 카탈로그를 조회하고 저장소 자산과 동기화한다.
+- 선택된 고정 캐릭터 식별자를 canonical 이미지 Object Key로 해석한다.
+- 사용자별 AI 생성 캐릭터와 소유 사용자의 관계를 기록한다.
+- User와 Creative가 저장소 구현이나 Character 영속 모델을 직접 사용하지 않도록 공개 Application 계약을 제공한다.
+
+## Character
+
+_Aggregate Root_
+
+### 속성
+
+- `id`: 캐릭터 식별자
+- `userId`: AI 생성 캐릭터의 소유 사용자 식별자. 고정 캐릭터에는 존재하지 않는다.
+- `imageReference`: 이미지 자산을 가리키는 저장 참조
+- `type`: 고정 캐릭터 또는 AI 생성 캐릭터
+
+### 생성 규칙
+
+- 고정 캐릭터는 사용자 식별자를 갖지 않는다.
+- AI 생성 캐릭터는 비어 있지 않은 사용자 식별자를 반드시 갖는다.
+- 모든 캐릭터는 비어 있지 않은 이미지 참조를 갖는다.
+- 생성 유형은 생성 시 결정되며 현재 모델에서 변경하지 않는다.
+
+## 이미지 참조
+
+`imageReference`는 Character가 저장한 이미지 자산 참조다. 신규 고정 캐릭터는 `public/characters/fixed/` 아래의 canonical Object Key를 사용한다.
+
+기존 데이터와 외부 계약의 호환을 위해 다음 읽기 형식을 지원한다.
+
+- 파일명만 저장된 고정 캐릭터 참조
+- `characters/fixed/`로 시작하는 레거시 참조
+- canonical 고정 캐릭터 Object Key
+- 이미 완성된 절대 URL
+
+경로 이탈, 빈 경로와 역슬래시가 포함된 고정 캐릭터 참조는 유효한 Object Key로 해석하지 않는다. 저장소 접두사, 지원 확장자와 URL 생성은 Character의 Storage 또는 Web Adapter가 담당하며 Domain Aggregate는 공급자 URL을 생성하지 않는다.
+
+## 고정 캐릭터 카탈로그
+
+- 공개 목록은 같은 기본 이름의 PNG와 WebP가 함께 있으면 WebP를 우선한다.
+- WebP가 없으면 PNG를 그대로 제공한다.
+- 저장소 카탈로그와 DB를 동기화할 때 DB에 없는 canonical Object Key만 추가한다.
+- 저장소 조회에 실패하거나 카탈로그가 비어 있으면 기존 DB 카탈로그를 유지한다.
+- 잘못된 저장 참조와 지원하지 않는 자산은 동기화 및 공개 목록에서 건너뛴다.
+- 저장소에 없는 기존 DB 행은 자동으로 삭제하지 않는다.
+
+시작 시 카탈로그 동기화는 best-effort 초기화다. 저장소 조회 실패는 애플리케이션 시작과 기존 카탈로그 조회 가능 상태를 중단하지 않는다.
+
+## 경계와 소유권
+
+- Character는 생성 유형, 캐릭터 소유자, 이미지 참조와 고정 카탈로그 선택·동기화 정책을 소유한다.
+- User는 사용자가 선택한 아바타 참조를 소유하고 Character의 고정 참조 해석 계약을 사용한다.
+- Creative는 이미지 생성 입력을 소유하고 Character 또는 User가 제공한 참조를 생성 요청 표현으로 번역한다.
+- Global은 저장소 설정과 객체 URL 해석 같은 중립 기술 능력만 제공하며 Character 접두사와 카탈로그 정책을 소유하지 않는다.
+- Object Storage Provider, 버킷과 SDK 타입은 Character Application과 Domain에 노출하지 않는다.
+
+## 공개 계약
+
+- 고정 캐릭터 카탈로그 조회
+- 캐릭터 식별자에 대한 고정 이미지 Object Key 해석
+- 시작 시 고정 카탈로그 동기화
+
+User가 사용하는 기존 조회 계약은 소비자 전환 전까지 고정 참조 해석만 제공하는 호환 계약으로 유지한다. 사용되지 않는 AI 캐릭터 로컬 저장과 직접 고정 캐릭터 저장 계약은 공개 유스케이스로 간주하지 않는다.
+
+## 오류와 API 표현
+
+- 잘못된 고정 캐릭터 식별자와 참조는 참조 없음으로 처리한다.
+- 공개 카탈로그 저장소 조회 실패는 기술 중립 Character 오류로 변환한다.
+- Web Adapter는 Character 오류를 RFC 9457 Problem Details로 변환하며 저장소 내부 정보와 Object Key 오류 원인을 노출하지 않는다.
+- 표시 URL 생성은 Web Adapter가 수행하므로 Application Result는 저장 참조를 반환한다.

@@ -1,6 +1,6 @@
 package com.pikume.back.character.adapter.config;
 
-import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
+import com.pikume.back.character.application.port.in.SynchronizeFixedCharacterCatalogUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,16 +15,16 @@ import static org.mockito.Mockito.verify;
 class CharacterDataInitializerTest {
 
 	@Mock
-	private ManageCharacterUseCase manageCharacterUseCase;
+	private SynchronizeFixedCharacterCatalogUseCase synchronizeFixedCharacterCatalogUseCase;
 
 	@Test
 	@DisplayName("Application use case로 fixed character catalog 동기화를 위임한다")
 	void delegatesFixedCharacterCatalogSynchronizationToUseCase() throws Exception {
-		CharacterDataInitializer initializer = new CharacterDataInitializer(manageCharacterUseCase);
+		CharacterDataInitializer initializer = new CharacterDataInitializer(synchronizeFixedCharacterCatalogUseCase);
 
 		initializer.run();
 
-		verify(manageCharacterUseCase).synchronizeFixedCharactersFromStorageCatalog();
+		verify(synchronizeFixedCharacterCatalogUseCase).synchronizeFixedCharacterCatalog();
 	}
 
 	@Test
@@ -32,8 +32,8 @@ class CharacterDataInitializerTest {
 	void initializerDoesNotDependOnStorageCatalogPort() {
 		Class<?>[] constructorParameterTypes = CharacterDataInitializer.class.getDeclaredConstructors()[0].getParameterTypes();
 
-		then(manageCharacterUseCase).shouldHaveNoInteractions();
+		then(synchronizeFixedCharacterCatalogUseCase).shouldHaveNoInteractions();
 		org.assertj.core.api.Assertions.assertThat(constructorParameterTypes)
-				.containsExactly(ManageCharacterUseCase.class);
+				.containsExactly(SynchronizeFixedCharacterCatalogUseCase.class);
 	}
 }

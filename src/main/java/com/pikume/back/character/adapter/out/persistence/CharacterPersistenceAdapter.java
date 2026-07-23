@@ -2,8 +2,9 @@ package com.pikume.back.character.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.character.application.port.out.LoadCharacterPort;
-import com.pikume.back.character.application.port.out.SaveCharacterPort;
+import com.pikume.back.character.application.port.out.LoadCharacterReferencePort;
+import com.pikume.back.character.application.port.out.LoadFixedCharactersPort;
+import com.pikume.back.character.application.port.out.RecordFixedCharacterPort;
 import com.pikume.back.character.domain.Character;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
 
@@ -16,22 +17,23 @@ import java.util.Optional;
  */
 @Component
 @RequiredArgsConstructor
-public class CharacterPersistenceAdapter implements LoadCharacterPort, SaveCharacterPort {
+public class CharacterPersistenceAdapter
+		implements LoadCharacterReferencePort, LoadFixedCharactersPort, RecordFixedCharacterPort {
 
 	private final CharacterJpaRepository characterJpaRepository;
 
 	@Override
-	public Optional<Character> findById(Long id) {
+	public Optional<Character> loadCharacterReference(Long id) {
 		return characterJpaRepository.findById(id);
 	}
 
 	@Override
-	public List<Character> findByType(CharacterCreationType type) {
-		return characterJpaRepository.findByType(type);
+	public List<Character> loadFixedCharacters() {
+		return characterJpaRepository.findByType(CharacterCreationType.FIXED);
 	}
 
 	@Override
-	public Character save(Character character) {
+	public Character recordFixedCharacter(Character character) {
 		return characterJpaRepository.save(character);
 	}
 }

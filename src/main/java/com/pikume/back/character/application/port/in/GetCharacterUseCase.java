@@ -1,32 +1,11 @@
 package com.pikume.back.character.application.port.in;
 
-import com.pikume.back.character.application.dto.CharacterResult;
-
-import java.util.List;
 import java.util.Optional;
 
 /**
- * 캐릭터 조회 유스케이스 (Inbound Port)
+ * User 소비자가 전환되기 전까지 유지하는 고정 캐릭터 참조 호환 계약이다.
  */
 public interface GetCharacterUseCase {
 
-	/**
-	 * 고정 캐릭터 목록을 조회합니다. 응답의 imageUrl은 클라이언트 표시용 URL입니다.
-	 */
-	List<CharacterResult> getFixedCharacters();
-
-	/**
-	 * ID로 캐릭터를 조회합니다.
-	 */
-	CharacterResult getCharacterById(Long id);
-
-	/**
-	 * 고정 캐릭터 이미지 object key를 조회합니다. 없거나 유효하지 않으면 Optional.empty()를 반환합니다.
-	 */
 	Optional<String> findFixedCharacterObjectKey(Long characterId);
-
-	/**
-	 * 고정 캐릭터 이미지가 존재하는지 확인합니다.
-	 */
-	boolean isCharacterFixedImageExists(Long characterId);
 }

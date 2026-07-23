@@ -1,7 +1,6 @@
 package com.pikume.back.character.adapter.in.web.dto;
 
 import lombok.Getter;
-import com.pikume.back.character.application.dto.CharacterResult;
 import com.pikume.back.character.domain.vo.CharacterCreationType;
 
 /**
@@ -20,13 +19,4 @@ public class CharacterResponse {
 		this.type = type;
 	}
 
-	public static CharacterResponse fromResult(CharacterResult character) {
-		if (character == null)
-			return null;
-
-		return new CharacterResponse(
-				character.id(),
-				character.imageUrl(),
-				character.type());
-	}
 }

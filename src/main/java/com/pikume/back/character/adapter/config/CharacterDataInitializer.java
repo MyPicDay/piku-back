@@ -2,7 +2,7 @@ package com.pikume.back.character.adapter.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.pikume.back.character.application.port.in.ManageCharacterUseCase;
+import com.pikume.back.character.application.port.in.SynchronizeFixedCharacterCatalogUseCase;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CharacterDataInitializer implements CommandLineRunner {
 
-	private final ManageCharacterUseCase manageCharacterUseCase;
+	private final SynchronizeFixedCharacterCatalogUseCase synchronizeFixedCharacterCatalogUseCase;
 
 	@Override
 	public void run(String... args) throws Exception {
 		log.info("고정 캐릭터 데이터 동기화를 시작합니다...");
 
-		int newCharactersAdded = manageCharacterUseCase.synchronizeFixedCharactersFromStorageCatalog();
+		int newCharactersAdded = synchronizeFixedCharacterCatalogUseCase.synchronizeFixedCharacterCatalog();
 
 		if (newCharactersAdded > 0) {
 			log.info("새로운 고정 캐릭터 {}개가 DB에 추가되었습니다.", newCharactersAdded);
