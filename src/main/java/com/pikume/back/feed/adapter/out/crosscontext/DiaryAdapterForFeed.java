@@ -3,9 +3,9 @@ package com.pikume.back.feed.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.dto.FeedCursor;
 import com.pikume.back.feed.application.dto.FeedLatestCursorCandidate;
 import com.pikume.back.feed.application.dto.FeedVisibility;
@@ -140,7 +140,7 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 				.toList();
 	}
 
-	private FeedVisibility toFeedVisibility(DiaryVisibility visibility) {
+	private FeedVisibility toFeedVisibility(DiaryVisibilityScope visibility) {
 		return switch (visibility) {
 			case PUBLIC -> FeedVisibility.PUBLIC;
 			case FRIENDS -> FeedVisibility.FRIENDS;
@@ -149,12 +149,12 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 		};
 	}
 
-	private DiaryVisibility toDiaryVisibility(FeedVisibility visibility) {
+	private DiaryVisibilityScope toDiaryVisibility(FeedVisibility visibility) {
 		return switch (visibility) {
-			case PUBLIC -> DiaryVisibility.PUBLIC;
-			case FRIENDS -> DiaryVisibility.FRIENDS;
-			case PRIVATE -> DiaryVisibility.PRIVATE;
-			case ANONYMOUS -> DiaryVisibility.ANONYMOUS;
+			case PUBLIC -> DiaryVisibilityScope.PUBLIC;
+			case FRIENDS -> DiaryVisibilityScope.FRIENDS;
+			case PRIVATE -> DiaryVisibilityScope.PRIVATE;
+			case ANONYMOUS -> DiaryVisibilityScope.ANONYMOUS;
 		};
 	}
 

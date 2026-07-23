@@ -152,10 +152,9 @@ class NotificationArchitectureTest {
 		assertThat(crossContextAdapters.resolve("UserAdapterForNotification.java")).exists();
 		assertThat(javaSources(crossContextAdapters)
 				.filter(path -> contains(path, ".adapter.out.persistence")
-						|| contains(path, "com.pikume.back.diary.domain.Diary;")
-						|| contains(path, "com.pikume.back.diary.domain.Photo;")
+						|| contains(path, "com.pikume.back.diary.domain")
 						|| contains(path, "com.pikume.back.diary.application.port.out")
-						|| contains(path, "com.pikume.back.user.domain.User;")
+						|| contains(path, "com.pikume.back.user.domain")
 						|| contains(path, "com.pikume.back.user.application.port.out"))
 				.map(Path::toString)
 				.toList()).isEmpty();

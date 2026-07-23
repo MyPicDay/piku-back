@@ -1,8 +1,8 @@
 package com.pikume.back.notification.adapter.out.crosscontext;
 
 import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.notification.application.readmodel.NotificationDiaryContextView;
 import org.junit.jupiter.api.DisplayName;
@@ -42,7 +42,7 @@ class DiaryAdapterForNotificationTest {
 						new DiarySummaryView(
 								10L,
 								"owner-id",
-								DiaryVisibility.ANONYMOUS,
+								DiaryVisibilityScope.ANONYMOUS,
 								"content",
 								LocalDate.of(2026, 7, 20),
 								LocalDateTime.of(2026, 7, 20, 12, 0))));
@@ -72,7 +72,7 @@ class DiaryAdapterForNotificationTest {
 						new DiarySummaryView(
 								10L,
 								"owner-id",
-								DiaryVisibility.PUBLIC,
+								DiaryVisibilityScope.PUBLIC,
 								"content",
 								LocalDate.of(2026, 7, 20),
 								LocalDateTime.of(2026, 7, 20, 12, 0))));

@@ -8,9 +8,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
@@ -52,7 +52,7 @@ class DiaryAdapterForFeedTest {
 						new DiarySummaryView(
 								1L,
 								"writer-id",
-								DiaryVisibility.PUBLIC,
+								DiaryVisibilityScope.PUBLIC,
 								"content",
 								LocalDate.of(2026, 3, 8),
 								LocalDateTime.of(2026, 3, 8, 10, 0))));

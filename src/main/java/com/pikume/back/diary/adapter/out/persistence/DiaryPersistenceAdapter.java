@@ -7,7 +7,6 @@ import com.pikume.back.diary.application.dto.DiaryGalleryRow;
 import com.pikume.back.diary.application.dto.DiaryMonthCountDTO;
 import com.pikume.back.diary.application.dto.DiaryPhotoRow;
 import com.pikume.back.diary.application.dto.PhotoOptimizationTarget;
-import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryForCommandPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryCalendarPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryDetailPort;
@@ -34,7 +33,7 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
-public class DiaryPersistenceAdapter implements LoadDiaryPort, LoadDiaryForCommandPort,
+public class DiaryPersistenceAdapter implements LoadDiaryForCommandPort,
 		LoadDiaryDetailPort, LoadDiaryReadPort, LoadDiaryCalendarPort, LoadDiaryGalleryPort, LoadDiaryFeedPort,
 		LoadDiaryStatisticsPort, RecordDiaryPort, RecordDiaryPhotoPort, LoadPhotoOptimizationPort,
 		SavePhotoOptimizationPort {
@@ -100,24 +99,6 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, LoadDiaryForComma
 			return List.of();
 		}
 		return diaryJpaRepository.countDiariesPerMonthByStatuses(ownerId, statuses);
-	}
-
-	@Override
-	public List<LoadDiaryPort.DailyCount> countCreatedDiariesByDate(LocalDate startDate, LocalDate endDate) {
-		return diaryJpaRepository.countCreatedDiariesByDate(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay())
-				.stream()
-				.map(row -> new LoadDiaryPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
-				.toList();
-	}
-
-	@Override
-	public long countAllCreatedDiaries() {
-		return diaryJpaRepository.count();
-	}
-
-	@Override
-	public long countCreatedDiariesBefore(LocalDateTime cutoffExclusive) {
-		return diaryJpaRepository.countByCreatedAtBefore(cutoffExclusive);
 	}
 
 	@Override
@@ -205,18 +186,23 @@ public class DiaryPersistenceAdapter implements LoadDiaryPort, LoadDiaryForComma
 
 	@Override
 	public long countAllCreated() {
-		return countAllCreatedDiaries();
+		return diaryJpaRepository.count();
 	}
 
 	@Override
 	public long countCreatedBefore(LocalDateTime cutoffExclusive) {
-		return countCreatedDiariesBefore(cutoffExclusive);
+		return diaryJpaRepository.countByCreatedAtBefore(cutoffExclusive);
 	}
 
 	@Override
 	public List<LoadDiaryStatisticsPort.DailyCount> countCreatedByDate(LocalDate startDate, LocalDate endDate) {
-		return countCreatedDiariesByDate(startDate, endDate).stream()
-				.map(row -> new LoadDiaryStatisticsPort.DailyCount(row.date(), row.count()))
+		return diaryJpaRepository.countCreatedDiariesByDate(
+						startDate.atStartOfDay(),
+						endDate.plusDays(1).atStartOfDay())
+				.stream()
+				.map(row -> new LoadDiaryStatisticsPort.DailyCount(
+						toLocalDate(row.getMetricDate()),
+						row.getMetricCount()))
 				.toList();
 	}
 

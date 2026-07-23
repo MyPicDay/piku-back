@@ -36,6 +36,7 @@ class DiaryArchitectureTest {
 				.filter(path -> contains(path, "LoadDiaryPort") || contains(path, "SaveDiaryPort"))
 				.map(Path::toString)
 				.toList()).isEmpty();
+		assertThat(DIARY_APPLICATION.resolve("port/out/LoadDiaryPort.java")).doesNotExist();
 	}
 
 	@Test
@@ -74,6 +75,18 @@ class DiaryArchitectureTest {
 
 		assertThat(contains(adapter, "com.pikume.back.creative.application.port.out")).isFalse();
 		assertThat(contains(adapter, "com.pikume.back.global.port.out")).isFalse();
+	}
+
+	@Test
+	@DisplayName("Diary의 Feed·목록 공개 계약은 Diary Domain 타입을 노출하지 않는다")
+	void publishedFeedAndSummaryContractsDoNotExposeDomainTypes() {
+		for (Path contract : List.of(
+				DIARY_APPLICATION.resolve("port/in/QueryDiaryFeedUseCase.java"),
+				DIARY_APPLICATION.resolve("dto/DiarySummaryView.java"),
+				DIARY_APPLICATION.resolve("dto/VisibleDiaryDetailView.java"))) {
+			assertThat(contains(contract, "com.pikume.back.diary.domain.")).isFalse();
+			assertThat(contains(contract, "DiaryVisibilityScope")).isTrue();
+		}
 	}
 
 	private java.util.stream.Stream<Path> javaSources(Path root) throws IOException {

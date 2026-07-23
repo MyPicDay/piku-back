@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-16
+- Last Reviewed: 2026-07-23
 
 ## 도메인 개요
 
@@ -40,8 +40,9 @@ Diary 도메인은 **감정 일기 기록과 시각적 회고**를 담당한다.
 
 - Diary는 Feed에 공개 범위 검증이 끝난 일기 상세, 피드 후보와 사진 object key를 제공한다. Feed는 Diary Entity나 저장 Port를 직접 사용하지 않는다.
 - Diary는 Social과 Notification에 일기의 존재 여부, 공개 의미, 익명 여부와 필요한 최소 참조 정보만 제공한다. 댓글·좋아요와 알림 생명주기는 각 Context가 소유한다.
+- Feed와 Notification에 공개하는 Application 계약은 Diary Domain Enum 대신 같은 의미의 공개 범위 값을 사용하며, Diary Application이 Domain 공개 범위와 상호 번역한다.
 - Diary는 Admin에 생성 건수와 기간별 집계만 공개한다.
-- 현재 Admin의 기존 집계 호출을 깨지 않기 위해 `LoadDiaryPort`에는 생성 통계 전용 호환 계약만 남아 있다. Admin이 공개 In Port로 전환되면 이 호환 계약을 제거한다.
+- Admin은 Diary의 공개 통계 조회 계약을 사용하며 Diary 저장 Port를 직접 참조하지 않는다.
 - Creative는 이미지 생성 과정, 생성 이력과 일기에 연결되기 전 임시 생성 자산을 소유한다. Diary는 일기에 연결된 사진 순서, 대표 여부, 공개 범위와 표시 object key를 소유한다.
 - 일기에 연결할 생성 이미지는 요청한 사용자의 소유이며, 폐기되지 않았고, 다른 일기에 연결되지 않은 상태여야 한다. 하나의 일기 생성 요청에서 같은 생성 이미지 ID를 중복 사용할 수 없다.
 - 친구 관계, 생성 이미지, 본문 분석과 알림은 Diary가 소유한 목적별 Out Port로 요청하며 대상 Context의 Domain 타입을 Diary Application 계약에 노출하지 않는다.

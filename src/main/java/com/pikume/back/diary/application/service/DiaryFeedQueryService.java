@@ -3,6 +3,7 @@ package com.pikume.back.diary.application.service;
 import com.pikume.back.diary.application.dto.DiaryFeedCandidateView;
 import com.pikume.back.diary.application.dto.DiaryPhotoRow;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.dto.VisibleDiaryDetailView;
 import com.pikume.back.diary.application.policy.DiaryVisibilityPolicy;
 import com.pikume.back.diary.application.port.in.QueryDiaryFeedUseCase;
@@ -33,7 +34,7 @@ public class DiaryFeedQueryService implements QueryDiaryFeedUseCase {
 				.map(diary -> new VisibleDiaryDetailView(
 						diary.getId(),
 						diary.getUserId(),
-						diary.getStatus(),
+						toVisibilityScope(diary.getStatus()),
 						diary.getContent(),
 						loadDiaryPort.findPhotoRowsByDiaryIds(Set.of(diary.getId())).stream()
 								.map(this::toPhotoView)
@@ -44,13 +45,19 @@ public class DiaryFeedQueryService implements QueryDiaryFeedUseCase {
 	}
 
 	@Override
-	public List<Long> findDiaryIdsByStatusAndUserIds(DiaryVisibility status, List<String> userIds, int limit) {
-		return loadDiaryPort.findRecentIdsByStatusAndUserIds(status, userIds, limit);
+	public List<Long> findDiaryIdsByStatusAndUserIds(
+			DiaryVisibilityScope status,
+			List<String> userIds,
+			int limit) {
+		return loadDiaryPort.findRecentIdsByStatusAndUserIds(toDomainVisibility(status), userIds, limit);
 	}
 
 	@Override
-	public List<Long> findDiaryIdsByStatus(DiaryVisibility status, String excludedUserId, int limit) {
-		return loadDiaryPort.findRecentIdsByStatusExcludingUser(status, excludedUserId, limit);
+	public List<Long> findDiaryIdsByStatus(DiaryVisibilityScope status, String excludedUserId, int limit) {
+		return loadDiaryPort.findRecentIdsByStatusExcludingUser(
+				toDomainVisibility(status),
+				excludedUserId,
+				limit);
 	}
 
 	@Override
@@ -65,5 +72,23 @@ public class DiaryFeedQueryService implements QueryDiaryFeedUseCase {
 
 	private DiaryPhotoView toPhotoView(DiaryPhotoRow row) {
 		return new DiaryPhotoView(row.diaryId(), row.displayObjectKey(), row.represent());
+	}
+
+	private DiaryVisibility toDomainVisibility(DiaryVisibilityScope visibility) {
+		return switch (visibility) {
+			case PUBLIC -> DiaryVisibility.PUBLIC;
+			case FRIENDS -> DiaryVisibility.FRIENDS;
+			case PRIVATE -> DiaryVisibility.PRIVATE;
+			case ANONYMOUS -> DiaryVisibility.ANONYMOUS;
+		};
+	}
+
+	private DiaryVisibilityScope toVisibilityScope(DiaryVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> DiaryVisibilityScope.PUBLIC;
+			case FRIENDS -> DiaryVisibilityScope.FRIENDS;
+			case PRIVATE -> DiaryVisibilityScope.PRIVATE;
+			case ANONYMOUS -> DiaryVisibilityScope.ANONYMOUS;
+		};
 	}
 }

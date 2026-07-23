@@ -3,9 +3,11 @@ package com.pikume.back.diary.application.service;
 import com.pikume.back.diary.application.dto.DiaryPhotoRow;
 import com.pikume.back.diary.application.dto.DiaryPhotoView;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.application.port.out.LoadDiaryReadPort;
 import com.pikume.back.diary.domain.Diary;
+import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +34,7 @@ public class DiaryReadQueryService implements QueryDiaryReadUseCase {
 				diary -> new DiarySummaryView(
 						diary.getId(),
 						diary.getUserId(),
-						diary.getStatus(),
+						toVisibilityScope(diary.getStatus()),
 						diary.getContent(),
 						diary.getDate(),
 						diary.getCreatedAt()),
@@ -57,5 +59,14 @@ public class DiaryReadQueryService implements QueryDiaryReadUseCase {
 		return loadDiaryPort.findPhotoRowsByDiaryIds(diaryIds).stream()
 				.filter(DiaryPhotoRow::represent)
 				.collect(Collectors.toMap(DiaryPhotoRow::diaryId, DiaryPhotoRow::displayObjectKey, (left, right) -> left));
+	}
+
+	private DiaryVisibilityScope toVisibilityScope(DiaryVisibility visibility) {
+		return switch (visibility) {
+			case PUBLIC -> DiaryVisibilityScope.PUBLIC;
+			case FRIENDS -> DiaryVisibilityScope.FRIENDS;
+			case PRIVATE -> DiaryVisibilityScope.PRIVATE;
+			case ANONYMOUS -> DiaryVisibilityScope.ANONYMOUS;
+		};
 	}
 }

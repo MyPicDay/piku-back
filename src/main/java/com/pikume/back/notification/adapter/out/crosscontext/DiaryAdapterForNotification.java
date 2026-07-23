@@ -3,8 +3,8 @@ package com.pikume.back.notification.adapter.out.crosscontext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
+import com.pikume.back.diary.application.dto.DiaryVisibilityScope;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
-import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationDiaryContextsPort;
 import com.pikume.back.notification.application.readmodel.NotificationDiaryContextView;
@@ -44,7 +44,7 @@ public class DiaryAdapterForNotification implements LoadNotificationDiaryContext
 									thumbnailUrl,
 									null,
 									diary.userId(),
-									diary.status() == DiaryVisibility.ANONYMOUS);
+									diary.status() == DiaryVisibilityScope.ANONYMOUS);
 						}));
 	}
 }
