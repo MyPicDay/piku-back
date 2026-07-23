@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -78,6 +79,7 @@ class FriendControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"toUserId\":\"user-2\"}"))
 				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type").value(SocialProblemType.INVALID_FRIEND_REQUEST.type().toString()))
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("자신에게 요청 할 수 없습니다."));

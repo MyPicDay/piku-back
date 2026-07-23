@@ -2,7 +2,7 @@ package com.pikume.back.social.domain.comment;
 
 import jakarta.persistence.*;
 import lombok.*;
-import com.pikume.back.global.entity.BaseEntity;
+import com.pikume.back.social.domain.SocialAuditableEntity;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,7 +14,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @Table(name = "comments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Comment extends BaseEntity {
+public class Comment extends SocialAuditableEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

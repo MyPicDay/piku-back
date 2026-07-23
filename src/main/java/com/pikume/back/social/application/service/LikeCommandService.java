@@ -58,6 +58,7 @@ public class LikeCommandService implements AddDiaryLikeUseCase, RemoveDiaryLikeU
 		Like like = loadDiaryLikesPort.loadActiveLike(userId, diaryId)
 				.orElseThrow(() -> new SocialException(SocialErrorCode.LIKE_NOT_FOUND));
 		like.cancel();
+		recordDiaryLikePort.recordLike(like);
 		return new LikeResult(diaryId, loadDiaryLikesPort.countActiveLikes(diaryId), false);
 	}
 

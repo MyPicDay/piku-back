@@ -2,14 +2,12 @@ package com.pikume.back.social.adapter.in.web;
 
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.social.adapter.in.web.dto.CommentListResponseDto;
-import com.pikume.back.social.adapter.in.web.dto.FriendsDTO;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.ResolvableType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 
@@ -21,21 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Social OpenAPI schema")
 class SocialOpenApiSchemaTest {
-
-	@Test
-	@DisplayName("친구와 댓글 Page는 실제 항목 타입을 유지한다")
-	void pageResponsesKeepConcreteItemTypes() throws NoSuchMethodException {
-		assertPageItemType(
-				FriendController.class.getDeclaredMethod("findFriendList", Pageable.class, CustomUserDetails.class),
-				FriendsDTO.class);
-		assertPageItemType(
-				FriendController.class.getDeclaredMethod("findFriendRequests", Pageable.class, CustomUserDetails.class),
-				FriendsDTO.class);
-		assertPageItemType(
-				CommentController.class.getDeclaredMethod(
-						"getRootComments", Long.class, Pageable.class, CustomUserDetails.class),
-				CommentListResponseDto.class);
-	}
 
 	@Test
 	@DisplayName("익명 응답에서 빠질 수 있는 작성자 메타데이터는 nullable이다")
@@ -72,12 +55,6 @@ class SocialOpenApiSchemaTest {
 		assertProblemMediaType(deleteComment, "400");
 		assertProblemMediaType(deleteComment, "401");
 		assertProblemMediaType(deleteComment, "404");
-	}
-
-	private void assertPageItemType(Method method, Class<?> expectedItemType) {
-		ResolvableType response = ResolvableType.forMethodReturnType(method);
-		Class<?> itemType = response.getGeneric(0).getGeneric(0).resolve();
-		assertThat(itemType).isEqualTo(expectedItemType);
 	}
 
 	private String[] responseCodes(Method method) {

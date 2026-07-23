@@ -72,4 +72,17 @@ class LikeCommandServiceTest {
 				.isInstanceOfSatisfying(SocialException.class,
 						exception -> assertThat(exception.getErrorCode()).isEqualTo(SocialErrorCode.ALREADY_LIKED));
 	}
+
+	@Test
+	void recordsCancelledLikeThroughOutputPort() {
+		Like like = Like.builder().userId("liker").diaryId(1L).build();
+		given(resolveInteractionDiaryPort.resolveVisibleDiary(1L, "liker"))
+				.willReturn(Optional.of(new InteractionDiaryView(1L, "owner", false, false)));
+		given(loadDiaryLikesPort.loadActiveLike("liker", 1L)).willReturn(Optional.of(like));
+
+		service.removeLike("liker", 1L);
+
+		assertThat(like.isActive()).isFalse();
+		verify(recordDiaryLikePort).recordLike(like);
+	}
 }

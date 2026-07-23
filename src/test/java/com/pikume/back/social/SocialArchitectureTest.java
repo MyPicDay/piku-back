@@ -23,6 +23,7 @@ class SocialArchitectureTest {
 		List<String> forbiddenDependencies = List.of(
 				"com.pikume.back.social.application.",
 				"com.pikume.back.social.adapter.",
+				"com.pikume.back.global.entity.",
 				"com.pikume.back.diary.",
 				"com.pikume.back.feed.",
 				"com.pikume.back.notification.",

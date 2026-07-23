@@ -27,6 +27,7 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -66,6 +67,7 @@ class LikeControllerTest {
 		mockMvc.perform(post("/api/likes/diary/1")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isConflict())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type").value(SocialProblemType.DUPLICATE_LIKE.type().toString()))
 				.andExpect(jsonPath("$.status").value(409))
 				.andExpect(jsonPath("$.detail").value("좋아요 중복 저장이 감지되었습니다."));

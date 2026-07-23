@@ -31,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -77,6 +78,7 @@ class CommentControllerTest {
 						.param("diaryId", "1")
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type").value(SocialProblemType.DIARY_NOT_FOUND.type().toString()))
 				.andExpect(jsonPath("$.status").value(404))
 				.andExpect(jsonPath("$.detail").value(SocialErrorCode.DIARY_NOT_FOUND.message()));

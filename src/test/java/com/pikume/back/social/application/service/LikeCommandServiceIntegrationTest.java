@@ -83,6 +83,19 @@ class LikeCommandServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 	}
 
 	@Test
+	@DisplayName("좋아요 최초 저장 시 생성·수정 시각을 함께 기록한다")
+	void recordsAuditTimestampsWhenLikeIsCreated() {
+		likeCommandService.addLike(likerId, diaryId);
+		flushAndClear();
+
+		Like savedLike = likeJpaRepository.findByUserIdAndDiaryId(likerId, diaryId).orElseThrow();
+
+		assertThat(savedLike.getCreatedAt()).isNotNull();
+		assertThat(savedLike.getUpdatedAt()).isNotNull();
+		assertThat(savedLike.getUpdatedAt()).isAfterOrEqualTo(savedLike.getCreatedAt());
+	}
+
+	@Test
 	@DisplayName("좋아요하지 않은 일기에 좋아요 취소를 누르면 LIKE_NOT_FOUND 예외가 발생한다")
 	void throwsWhenRemoveLikeWithoutExistingLike() {
 		assertThatThrownBy(() -> likeCommandService.removeLike(likerId, diaryId))
