@@ -20,4 +20,5 @@
 - [Notification](../domain-models/notification.md): 알림 이력·전달과 기기 푸시 토큰
 - [Recommendation](../domain-models/recommendation.md): 일기 분석 메타데이터, 사용자 주제 친화도와 후보 점수
 - [Social](../domain-models/social.md): 친구 관계, 댓글과 좋아요
+- [Support](../domain-models/support.md): 사용자 문의, 선택적 첨부와 운영 알림
 - [User](../domain-models/user.md): 사용자 식별, 프로필 관리와 닉네임 점유

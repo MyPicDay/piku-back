@@ -46,7 +46,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | **Notification** | Working Context | 미분류 | 알림 이력, 읽음·삭제, 전달 요청과 기기 토큰 | 알림 기록·표현 정책과 best-effort 전달 보장을 어느 수준까지 같은 모델에서 다룰 것인가? |
 | **Recommendation** | Working Context | Supporting | 일기 분석 메타데이터, 사용자 주제 친화도와 후보 점수 | 향후 추천 정책이 제품 차별화의 핵심으로 성장하면 전략 분류를 다시 평가해야 하는가? |
 | **Social** | Working Context | 미분류 | 친구 요청·관계, 댓글, 답글과 좋아요 | 친구 관계와 일기 반응이 하나의 언어와 모델에 속하는가? |
-| **Support** | Boundary Candidate | 미분류 | 사용자 문의, 문의 이미지와 피드백 전달 | Support가 독립된 모델 경계를 가져야 하는가, 단순 지원 유스케이스인가? |
+| **Support** | Working Context | Supporting | 사용자 문의, 선택적 첨부 참조와 운영 알림 | 문의 답변·상태 워크플로가 추가되면 현재 단일 Aggregate 경계를 어떻게 확장할 것인가? |
 | **User** | Working Context | 미분류 | 일반 사용자 계정 생명주기, 자격 증명, 이메일 검증, 인증 유스케이스, 프로필과 닉네임 점유 | 계정·인증 Application과 Security Adapter의 기술 책임이 분리되어 있는가? |
 
 `미분류`는 중요도가 낮다는 의미가 아니라 제품 전략과 모델 근거를 대화로 더 확인해야 한다는 뜻이다. 코드 규모, 트래픽과 현재 패키지 구조만으로 전략 분류를 대신하지 않는다.
@@ -127,7 +127,7 @@ flowchart LR
 | Notification | User, Diary | 알림 기록·목록·전달 표현용 발신자와 일기 맥락 조회 | Notification 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 User·Diary 공개 Application 계약을 Notification 소유 Read Model로 번역한다. 공급자의 내부 모델과 저장소는 노출하지 않는다. |
 | Social | User, Diary | 친구·댓글·좋아요 대상 검증과 응답 정보 조회 | Social 소유 목적별 Out Port와 Cross-context Adapter가 User·Diary 공개 Application 계약을 참가자 프로필과 일기 상호작용 맥락으로 번역한다. 공급자의 Domain·Out Port·Persistence 타입은 Social에 노출하지 않는다. |
 | Social | Notification | 친구·댓글·좋아요 알림 기록 요청 | Social Application의 공개 `SocialNotificationEvent`를 Notification 입력 Adapter가 Notification 기록 명령으로 번역한다. 사건 수신과 이력 저장은 현재 Social 상태 변경 트랜잭션에 동기로 참여하고, SSE·FCM 외부 전달만 이력 커밋 이후 best-effort로 수행한다. |
-| Support | User | 문의 제출 사용자 확인 | Support 소유 Out Port와 User 공개 참조 계약을 사용한다. |
+| Support | User | 문의 제출 사용자 확인 | Support 소유 제출자 확인 Out Port와 Cross-context Adapter가 User 공개 참조 계약을 문의 제출자 존재 의미로 번역한다. |
 | User | Character, Diary, Social | 프로필 아바타와 일기·친구 정보 조회 | User 소유 목적 중심 Out Port와 공급자 공개 계약을 사용하며 조회 결과만 Application Read Model로 조합한다. |
 | User | Notification | 로그아웃 기기의 푸시 토큰 해제 | User 소유 Out Port와 Notification 공개 계약을 사용한다. 푸시 토큰 해제 실패는 로그아웃 세션 삭제를 되돌리지 않는 부가 작업으로 취급한다. |
 

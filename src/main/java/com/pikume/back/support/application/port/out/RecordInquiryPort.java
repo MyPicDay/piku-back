@@ -2,7 +2,7 @@ package com.pikume.back.support.application.port.out;
 
 import com.pikume.back.support.domain.Inquiry;
 
-public interface SaveInquiryPort {
+public interface RecordInquiryPort {
 
-	Inquiry save(Inquiry inquiry);
+	Inquiry recordInquiry(Inquiry inquiry);
 }
