@@ -15,7 +15,7 @@ import com.pikume.back.admin.application.service.CreateAdminAccountResult;
 import com.pikume.back.admin.domain.AdminAccountStatus;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,7 +61,7 @@ class AdminAccountControllerTest {
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
 				.setControllerAdvice(new AdminExceptionHandler(
 						new ProblemDetailFactory(), mock(RecordAdminSecurityEventUseCase.class)))
-				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
+				.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminPrincipal(
 						"admin-1",
 						AdminRole.SUPER_ADMIN.name(),
 						"session-1")))
@@ -163,10 +163,10 @@ class AdminAccountControllerTest {
 				.andExpect(jsonPath("$.instance").value("/api/admin/accounts"));
 	}
 
-	private record AdminPrincipalResolver(AdminUserDetails adminUserDetails) implements HandlerMethodArgumentResolver {
+	private record AdminPrincipalResolver(AdminPrincipal adminUserDetails) implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(AdminUserDetails.class);
+			return parameter.getParameterType().equals(AdminPrincipal.class);
 		}
 
 		@Override

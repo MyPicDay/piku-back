@@ -34,7 +34,7 @@ class FeedArchitectureTest {
 				"org.springframework.transaction.support.",
 				"ImagePathToUrlConverter",
 				"ResolveImageUrlPort",
-				"CustomUserDetails");
+				"UserPrincipal");
 
 		assertThat(javaSources(APPLICATION)
 				.filter(path -> forbiddenDependencies.stream().anyMatch(fragment -> contains(path, fragment)))

@@ -1,6 +1,4 @@
 package com.pikume.back.security.adapter.out.token;
-
-import com.pikume.back.security.jwt.JwtProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +11,7 @@ class JwtTokenProtectionAdapterTest {
 	@Test
 	@DisplayName("JWT 구현을 User 토큰 목적 계약으로 감싼다")
 	void delegatesJwtOperations() {
-		JwtProvider provider = mock(JwtProvider.class);
+		JwtTokenProvider provider = mock(JwtTokenProvider.class);
 		given(provider.generateAccessToken("user-1")).willReturn("access");
 		given(provider.generateRefreshToken()).willReturn("refresh");
 		given(provider.validateToken("refresh")).willReturn(true);

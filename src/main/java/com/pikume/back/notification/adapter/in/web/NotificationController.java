@@ -1,6 +1,6 @@
 package com.pikume.back.notification.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.pagination.PageQuery;
@@ -51,7 +51,7 @@ public class NotificationController {
 	@Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 알림 목록을 조회합니다.")
 	@GetMapping("/notifications")
 	public ResponseEntity<NotificationPageResponse> getNotifications(
-			@AuthenticationPrincipal CustomUserDetails userDetails,
+			@AuthenticationPrincipal UserPrincipal userDetails,
 			@PageableDefault Pageable pageable) {
 		Pageable sortedPageable = PageRequest.of(
 				pageable.getPageNumber(),
@@ -79,7 +79,7 @@ public class NotificationController {
 	@PatchMapping("/{notificationId}")
 	public ResponseEntity<?> markAsRead(
 			@PathVariable Long notificationId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		if (markNotificationReadUseCase.markNotificationRead(notificationId, userDetails.getId())) {
 			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}
@@ -89,7 +89,7 @@ public class NotificationController {
 	@Operation(summary = "알림 모두 읽음 처리", description = "사용자의 모든 알림을 읽음 상태로 표시합니다.")
 	@PatchMapping("/notifications")
 	public ResponseEntity<Void> markAllAsRead(
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		markAllNotificationsReadUseCase.markAllNotificationsRead(userDetails.getId());
 		return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 	}
@@ -107,7 +107,7 @@ public class NotificationController {
 	@DeleteMapping("/{notificationId}")
 	public ResponseEntity<?> deleteNotification(
 			@PathVariable Long notificationId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		if (deleteNotificationUseCase.deleteNotification(notificationId, userDetails.getId())) {
 			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}

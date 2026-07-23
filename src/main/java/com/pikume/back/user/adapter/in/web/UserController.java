@@ -14,7 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
@@ -51,7 +51,7 @@ public class UserController {
 	@GetMapping("/{userId}/profile-preview")
 	public ResponseEntity<ProfilePreviewResponse> queryProfilePreview(
 			@PathVariable String userId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		log.info("event=profile_preview_requested outcome=accepted userId={}", userId);
 
 		String loginUserId = userDetails != null ? userDetails.getId() : null;
@@ -64,7 +64,7 @@ public class UserController {
 	@GetMapping("/{userId}")
 	public ResponseEntity<UserProfileResponse> queryUserProfile(
 			@PathVariable String userId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		UserProfileResult result = queryUserProfileUseCase.queryUserProfile(userId, userDetails.getId());
 
 		return ResponseEntity.ok(UserProfileResponse.from(result, imagePathToUrlConverter));
@@ -77,7 +77,7 @@ public class UserController {
 	@GetMapping("/nickname/availability")
 	public ResponseEntity<?> checkNickname(
 			@RequestParam String nickname,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		boolean reserved = reserveNicknameUseCase.reserveIfAvailable(nickname, userDetails.getId());
 		if (reserved) {
 			NicknameCheckResponse response = new NicknameCheckResponse(true, "사용 가능한 닉네임입니다.");
@@ -103,7 +103,7 @@ public class UserController {
 	})
 	@PatchMapping("/profile")
 	public ResponseEntity<?> changeNickname(
-			@AuthenticationPrincipal CustomUserDetails userDetails,
+			@AuthenticationPrincipal UserPrincipal userDetails,
 			@RequestBody UpdateProfileRequest updateProfileRequest) {
 		UpdateProfileCommand command = new UpdateProfileCommand(
 				userDetails.getId(),
@@ -119,9 +119,9 @@ public class UserController {
 
 	@PutMapping("/profile-image")
 	public ResponseEntity<?> updateProfileImage(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails,
+			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@RequestParam Long imageId) {
-		updateUserProfileUseCase.updateProfileImage(customUserDetails.getId(), imageId);
+		updateUserProfileUseCase.updateProfileImage(userPrincipal.getId(), imageId);
 		return ResponseEntity.ok().build();
 	}
 

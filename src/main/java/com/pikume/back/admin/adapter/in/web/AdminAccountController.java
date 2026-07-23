@@ -14,7 +14,7 @@ import com.pikume.back.admin.application.service.CreateAdminAccountCommand;
 import com.pikume.back.admin.application.service.CreateAdminAccountResult;
 import com.pikume.back.admin.application.service.AdminTemporaryPasswordResult;
 import com.pikume.back.global.dto.MessageResponse;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -70,14 +70,14 @@ public class AdminAccountController {
 
 	@Operation(summary = "관리자 목록 조회", description = "관리자 식별값과 마스킹된 이메일 및 로그인 아이디를 포함한 계정 목록을 조회합니다.")
 	@GetMapping
-	public ResponseEntity<List<AdminAccountSummaryResult>> list(@AuthenticationPrincipal AdminUserDetails admin) {
+	public ResponseEntity<List<AdminAccountSummaryResult>> list(@AuthenticationPrincipal AdminPrincipal admin) {
 		return ResponseEntity.ok(adminAccountOperationUseCase.list(requireAdminId(admin)));
 	}
 
 	@Operation(summary = "관리자 상세 조회", description = "관리자 식별값으로 상세 정보를 조회하며 이메일과 로그인 아이디는 마스킹해 반환합니다.")
 	@GetMapping("/{adminId}")
 	public ResponseEntity<AdminAccountDetailResult> detail(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId) {
 		return ResponseEntity.ok(adminAccountOperationUseCase.detailById(requireAdminId(admin), adminId));
 	}
@@ -86,7 +86,7 @@ public class AdminAccountController {
 	@ApiResponse(responseCode = "201", description = "관리자 계정 생성 성공")
 	@PostMapping
 	public ResponseEntity<CreateAdminAccountResult> create(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@RequestBody CreateAdminAccountRequest request) {
 		CreateAdminAccountResult result = createAdminAccountUseCase.create(new CreateAdminAccountCommand(
 				requireAdminId(admin),
@@ -99,7 +99,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 등급 변경", description = "SUPER_ADMIN이 관리자 등급을 변경합니다.")
 	@PatchMapping("/{adminId}/role")
 	public ResponseEntity<MessageResponse> changeRole(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId,
 			@RequestBody ChangeAdminRoleRequest request) {
 		adminAccountOperationUseCase.changeRole(requireAdminId(admin), adminId, request.role());
@@ -109,7 +109,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 계정 비활성화", description = "SUPER_ADMIN이 관리자 계정을 비활성화합니다. 사유는 필수입니다.")
 	@PatchMapping("/{adminId}/deactivation")
 	public ResponseEntity<MessageResponse> deactivate(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId,
 			@RequestBody DeactivateAdminAccountRequest request) {
 		adminAccountOperationUseCase.deactivate(requireAdminId(admin), adminId, request.reason());
@@ -119,7 +119,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 계정 재활성화", description = "SUPER_ADMIN이 관리자 계정을 재활성화합니다.")
 	@PatchMapping("/{adminId}/reactivation")
 	public ResponseEntity<MessageResponse> reactivate(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId) {
 		adminAccountOperationUseCase.reactivate(requireAdminId(admin), adminId);
 		return ResponseEntity.ok(new MessageResponse("관리자 계정 재활성화 완료"));
@@ -128,7 +128,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 계정 잠금 해제", description = "SUPER_ADMIN이 잠긴 관리자 계정을 해제합니다.")
 	@PatchMapping("/{adminId}/unlock")
 	public ResponseEntity<MessageResponse> unlock(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId) {
 		adminAccountOperationUseCase.unlock(requireAdminId(admin), adminId);
 		return ResponseEntity.ok(new MessageResponse("관리자 계정 잠금 해제 완료"));
@@ -137,7 +137,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 임시 패스워드 재발급", description = "SUPER_ADMIN이 최초 설정 전 관리자 임시 패스워드를 재발급합니다.")
 	@PostMapping("/{adminId}/temporary-password")
 	public ResponseEntity<AdminTemporaryPasswordResult> reissueTemporaryPassword(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId) {
 		return ResponseEntity.ok(adminAccountOperationUseCase.reissueTemporaryPassword(requireAdminId(admin), adminId));
 	}
@@ -145,7 +145,7 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 OTP 초기화", description = "SUPER_ADMIN이 관리자 OTP를 초기화하고 활성 세션을 폐기합니다.")
 	@PostMapping("/{adminId}/otp/reset")
 	public ResponseEntity<MessageResponse> resetOtp(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId) {
 		adminAccountOperationUseCase.resetOtp(requireAdminId(admin), adminId);
 		return ResponseEntity.ok(new MessageResponse("관리자 OTP 초기화 완료"));
@@ -154,14 +154,14 @@ public class AdminAccountController {
 	@Operation(summary = "관리자 이메일 변경", description = "SUPER_ADMIN이 관리자 이메일을 변경합니다.")
 	@PatchMapping("/{adminId}/email")
 	public ResponseEntity<MessageResponse> changeEmail(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@PathVariable String adminId,
 			@RequestBody ChangeAdminEmailRequest request) {
 		adminAccountOperationUseCase.changeEmail(requireAdminId(admin), adminId, request.email());
 		return ResponseEntity.ok(new MessageResponse("관리자 이메일 변경 완료"));
 	}
 
-	private String requireAdminId(AdminUserDetails admin) {
+	private String requireAdminId(AdminPrincipal admin) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}

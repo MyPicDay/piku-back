@@ -1,6 +1,6 @@
 package com.pikume.back.security.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.auth.application.dto.LoginResult;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
@@ -23,7 +23,7 @@ public class AuthUserResponseMapper {
 				imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatarPath()));
 	}
 
-	public UserInfo toDisplayUserInfo(CustomUserDetails userDetails) {
+	public UserInfo toDisplayUserInfo(UserPrincipal userDetails) {
 		if (userDetails == null) {
 			return null;
 		}

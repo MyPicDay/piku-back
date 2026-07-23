@@ -1,6 +1,6 @@
 package com.pikume.back.social.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
@@ -44,12 +44,12 @@ class LikeControllerTest {
 	private RemoveDiaryLikeUseCase removeDiaryLikeUseCase;
 
 	private MockMvc mockMvc;
-	private CustomUserDetails userDetails;
+	private UserPrincipal userDetails;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
-		userDetails = new CustomUserDetails("user-1", "user");
+		userDetails = new UserPrincipal("user-1", "user");
 		mockMvc = MockMvcBuilders.standaloneSetup(likeController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
 				.setControllerAdvice(
@@ -102,10 +102,10 @@ class LikeControllerTest {
 	}
 	*/
 
-	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {
+	private record AuthenticationPrincipalResolver(UserPrincipal userDetails) implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(CustomUserDetails.class);
+			return parameter.getParameterType().equals(UserPrincipal.class);
 		}
 
 		@Override

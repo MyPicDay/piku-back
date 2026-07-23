@@ -9,7 +9,7 @@ import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
 import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
-import com.pikume.back.security.jwt.JwtProvider;
+import com.pikume.back.security.adapter.out.token.JwtTokenProvider;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 import org.junit.jupiter.api.DisplayName;
@@ -48,7 +48,7 @@ class AuthSessionSecurityIntegrationTest {
 	private MockMvc mockMvc;
 
 	@Autowired
-	private JwtProvider jwtProvider;
+	private JwtTokenProvider jwtProvider;
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
@@ -200,6 +200,26 @@ class AuthSessionSecurityIntegrationTest {
 		assertThat(configuration.getAllowedOrigins()).containsExactly("http://localhost:3000");
 		assertThat(configuration.getAllowedOrigins()).doesNotContain("https://www.pikume.com");
 		assertThat(configuration.getAllowedHeaders()).doesNotContain("*");
+	}
+
+	@Test
+	@DisplayName("일반 API CORS는 기존 Web Origin과 Authorization 노출 계약을 유지한다")
+	void userCorsKeepsExistingWebOriginsAndAuthorizationHeader() {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/diary");
+
+		CorsConfiguration configuration = corsConfigurationSource.getCorsConfiguration(request);
+
+		assertThat(configuration).isNotNull();
+		assertThat(configuration.getAllowedOrigins()).containsExactly(
+				"http://localhost:3000",
+				"http://localhost:3001",
+				"https://pikume.com",
+				"https://www.pikume.com");
+		assertThat(configuration.getAllowedMethods())
+				.containsExactly("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
+		assertThat(configuration.getAllowedHeaders()).containsExactly("*");
+		assertThat(configuration.getExposedHeaders()).containsExactly(HttpHeaders.AUTHORIZATION);
+		assertThat(configuration.getAllowCredentials()).isTrue();
 	}
 
 	@Test

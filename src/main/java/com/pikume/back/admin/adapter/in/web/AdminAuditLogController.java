@@ -4,7 +4,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminAccountOperationUseCase;
 import com.pikume.back.admin.application.service.AdminAuditLogResult;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -45,7 +45,7 @@ public class AdminAuditLogController {
 	@Operation(summary = "관리자 작업 감사 로그 조회", description = "최신 관리자 작업 감사 로그를 조회합니다.")
 	@GetMapping
 	public ResponseEntity<List<AdminAuditLogResult>> list(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@RequestParam(defaultValue = "50") int limit) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");

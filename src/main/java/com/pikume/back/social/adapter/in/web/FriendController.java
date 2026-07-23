@@ -18,7 +18,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
@@ -56,10 +56,10 @@ public class FriendController {
 	})
 	@PostMapping
 	public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails,
+			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@RequestBody FriendRequestDto requestDto) {
-		log.info("친구 요청(수락) 요청 {} 가 {}에게", customUserDetails.getId(), requestDto.getToUserId());
-		FriendRequestResult response = sendFriendRequestUseCase.sendFriendRequest(customUserDetails.getId(),
+		log.info("친구 요청(수락) 요청 {} 가 {}에게", userPrincipal.getId(), requestDto.getToUserId());
+		FriendRequestResult response = sendFriendRequestUseCase.sendFriendRequest(userPrincipal.getId(),
 				requestDto.getToUserId());
 		return ResponseEntity.ok(toResponseDto(response));
 	}
@@ -69,11 +69,11 @@ public class FriendController {
 	@GetMapping
 	public ResponseEntity<Page<FriendsDTO>> findFriendList(
 			@ParameterObject @PageableDefault(sort = "userId1", direction = Sort.Direction.DESC) Pageable pageable,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-		log.info("{} 의 친구 목록 조회 요청", customUserDetails.getId());
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
+		log.info("{} 의 친구 목록 조회 요청", userPrincipal.getId());
 
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
-		PageResult<FriendsDTO> friendResults = queryFriendPageUseCase.queryFriendPage(pageQuery, customUserDetails.getId())
+		PageResult<FriendsDTO> friendResults = queryFriendPageUseCase.queryFriendPage(pageQuery, userPrincipal.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> friends = SpringPageMapper.toSpringPage(friendResults, pageable);
 
@@ -87,12 +87,12 @@ public class FriendController {
 	@GetMapping("/requests")
 	public ResponseEntity<Page<FriendsDTO>> findFriendRequests(
 			@ParameterObject @PageableDefault Pageable pageable,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
-		log.info("{} 의 받은 친구 요청 목록 조회", customUserDetails.getId());
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
+		log.info("{} 의 받은 친구 요청 목록 조회", userPrincipal.getId());
 
 		PageQuery pageQuery = SpringPageMapper.toPageQuery(pageable);
 		PageResult<FriendsDTO> requestResults = queryFriendPageUseCase
-				.queryReceivedFriendRequestPage(pageQuery, customUserDetails.getId())
+				.queryReceivedFriendRequestPage(pageQuery, userPrincipal.getId())
 				.map(this::toFriendsDto);
 		Page<FriendsDTO> requests = SpringPageMapper.toSpringPage(requestResults, pageable);
 
@@ -105,10 +105,10 @@ public class FriendController {
 	})
 	@DeleteMapping("/requests/{fromUserId}")
 	public ResponseEntity<FriendRequestResponseDto> rejectFriendRequest(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails,
+			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@PathVariable String fromUserId) {
-		log.info("{} 가 {} 의 친구 요청 거절", customUserDetails.getId(), fromUserId);
-		FriendRequestResult response = rejectFriendRequestUseCase.rejectFriendRequest(customUserDetails.getId(), fromUserId);
+		log.info("{} 가 {} 의 친구 요청 거절", userPrincipal.getId(), fromUserId);
+		FriendRequestResult response = rejectFriendRequestUseCase.rejectFriendRequest(userPrincipal.getId(), fromUserId);
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
@@ -118,10 +118,10 @@ public class FriendController {
 	})
 	@DeleteMapping("/cancel/{toUserId}")
 	public ResponseEntity<FriendRequestResponseDto> cancelFriendRequest(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails,
+			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@PathVariable String toUserId) {
-		log.info("{} 가 {} 에게 보낸 친구 요청 취소", customUserDetails.getId(), toUserId);
-		FriendRequestResult response = cancelFriendRequestUseCase.cancelFriendRequest(customUserDetails.getId(), toUserId);
+		log.info("{} 가 {} 에게 보낸 친구 요청 취소", userPrincipal.getId(), toUserId);
+		FriendRequestResult response = cancelFriendRequestUseCase.cancelFriendRequest(userPrincipal.getId(), toUserId);
 		return ResponseEntity.ok(toResponseDto(response));
 	}
 
@@ -131,10 +131,10 @@ public class FriendController {
 	})
 	@DeleteMapping("/{toUserId}")
 	public ResponseEntity<FriendRemoveDTO> removeFriend(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails,
+			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@PathVariable String toUserId) {
 
-		String fromUserId = customUserDetails.getId();
+		String fromUserId = userPrincipal.getId();
 		log.info("User {} is unfriending user {}", fromUserId, toUserId);
 		FriendRemovalResult response = removeFriendshipUseCase.removeFriend(fromUserId, toUserId);
 		return ResponseEntity.ok(toRemoveDto(response));

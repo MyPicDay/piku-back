@@ -16,7 +16,7 @@ import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
@@ -52,12 +52,12 @@ class CommentControllerTest {
 	private QueryCommentPageUseCase queryCommentPageUseCase;
 
 	private MockMvc mockMvc;
-	private CustomUserDetails userDetails;
+	private UserPrincipal userDetails;
 	private final ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 
 	@BeforeEach
 	void setUp() {
-		userDetails = new CustomUserDetails("viewer-id", "viewer");
+		userDetails = new UserPrincipal("viewer-id", "viewer");
 		mockMvc = MockMvcBuilders.standaloneSetup(commentController)
 				.setCustomArgumentResolvers(
 						new AuthenticationPrincipalResolver(userDetails),
@@ -84,10 +84,10 @@ class CommentControllerTest {
 				.andExpect(jsonPath("$.detail").value(SocialErrorCode.DIARY_NOT_FOUND.message()));
 	}
 
-	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {
+	private record AuthenticationPrincipalResolver(UserPrincipal userDetails) implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(CustomUserDetails.class);
+			return parameter.getParameterType().equals(UserPrincipal.class);
 		}
 
 		@Override

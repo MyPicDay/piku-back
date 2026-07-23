@@ -1,6 +1,6 @@
 package com.pikume.back.security.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.util.ImagePathToUrlConverter;
 import com.pikume.back.user.auth.application.dto.LoginResult;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
@@ -43,7 +43,7 @@ class AuthUserResponseMapperTest {
 	@Test
 	@DisplayName("인증 principal의 avatar path를 display URL로 변환한다")
 	void convertsCurrentUserPrincipalAvatarPathToDisplayUrl() {
-		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
+		UserPrincipal userDetails = UserPrincipal.withAvatarPath(
 				"user-1",
 				"pikume",
 				"public/characters/fixed/base_image_1.webp");

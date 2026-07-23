@@ -22,6 +22,17 @@
 - 보안 필터는 Origin과 CSRF를 검증하며, 인증 완료 이후에는 Admin 공개 Result를 Spring Security 인증 주체로 변환한다.
 - Security는 Admin Telemetry Out Port를 직접 호출하지 않는다. CSRF·Origin 거부와 저장소 장애 사건은 `RecordAdminSecurityEventUseCase`로 전달한다.
 
+## Security Filter Chain
+
+관리자 경로에는 일반 사용자 Bearer Token Chain보다 먼저 평가되는 `Order(1)` 전용 Chain을 사용한다.
+
+1. CORS 처리 전에 관리자 Origin을 검증한다.
+2. Origin 검증 뒤 관리자 CSRF Cookie와 Header 및 서버 세션 값을 검증한다.
+3. 유효한 관리자 세션 Cookie를 Admin 공개 `AuthenticatedAdminSessionResult`로 조회하고 `AdminPrincipal`로 변환한다.
+4. 인증 Filter 뒤에 `AdminSecurityChainExtension`을 배치해 Admin 소유 추가 Filter를 조합한다.
+
+Origin, CSRF와 세션 Filter는 Admin Domain·Out Port·Service를 직접 참조하지 않는다. 모든 Filter 실패 응답은 Security 소유 `SecurityProblemResponseWriter`가 공통 `ProblemDetailFactory`로 직렬화하며 `application/problem+json`, UTF-8과 `Cache-Control: no-store`를 적용한다.
+
 ## 정식 로그인 흐름
 
 정식 로그인은 익명 사전 세션에서 시작해 `LOGIN_VERIFY_OTP`를 거쳐 `AUTHENTICATED`로 전환된다.
@@ -149,6 +160,7 @@ sequenceDiagram
 - Web Adapter와 보안 필터는 인증 실패를 RFC 9457 Problem Details 응답으로 변환한다.
 - Admin Application은 `AdminErrorCode`만 반환하고 HTTP type, status와 title은 Admin Web 또는 Security Adapter가 결정한다.
 - 기존 관리자 Problem type URI, status, detail과 `Cache-Control: no-store` 계약은 Adapter 번역 이후에도 유지한다.
+- 인증 Entry Point와 권한 거부 Handler는 Spring 내부 예외 메시지를 외부 detail로 전달하지 않고 중립적인 문구를 사용한다.
 - 유스케이스는 저장 기술 예외를 관리자 인증 저장소 오류로 변환한다.
 - 세션 단계 불일치, 만료, 폐기, 계정 불일치는 인증되지 않은 요청으로 처리한다.
 - OTP 실패와 계정 잠금은 도메인 정책에 따라 실패 횟수와 차단 상태를 갱신한다.

@@ -21,8 +21,9 @@ class ProblemDetailAuthenticationEntryPointTest {
 	@DisplayName("인증 실패 시 401 Problem Details를 반환한다")
 	void commenceReturnsProblemDetails() throws Exception {
 		ProblemDetailAuthenticationEntryPoint entryPoint = new ProblemDetailAuthenticationEntryPoint(
-				new ObjectMapper(),
-				new com.pikume.back.global.error.ProblemDetailFactory());
+				new SecurityProblemResponseWriter(
+						new ObjectMapper(),
+						new com.pikume.back.global.error.ProblemDetailFactory()));
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/protected");
 		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
 
@@ -32,8 +33,11 @@ class ProblemDetailAuthenticationEntryPointTest {
 		assertThat(response.getContentType()).startsWith("application/problem+json");
 		assertThat(response.getContentType()).contains("charset=UTF-8");
 		assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+		assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("type").asText())
 				.isEqualTo("https://api.pikume.com/problems/security/unauthenticated");
+		assertThat(objectMapper.readTree(response.getContentAsString()).get("detail").asText())
+				.isEqualTo("인증이 필요합니다.");
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("instance").asText())
 				.isEqualTo("/api/protected");
 	}

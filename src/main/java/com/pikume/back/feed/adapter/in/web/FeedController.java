@@ -26,7 +26,7 @@ import com.pikume.back.feed.application.dto.FeedSortMode;
 import com.pikume.back.feed.application.port.in.QueryFeedDetailUseCase;
 import com.pikume.back.feed.application.port.in.QueryFeedPageUseCase;
 import com.pikume.back.feed.application.port.in.RecordFeedClickUseCase;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 
 @Tag(name = "Feed", description = "피드 관련 API")
 @RestController
@@ -59,10 +59,10 @@ public class FeedController {
 	@Operation(summary = "일기 상세 조회", description = "특정 일기의 상세 정보를 조회합니다.")
 	@GetMapping("/{diaryId}")
 	public ResponseEntity<FeedDiaryResponse> getDiaryWithPhotos(@PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
 		log.info("Diary 조회 요청 - diaryId: {}", diaryId);
 
-		String viewerId = customUserDetails != null ? customUserDetails.getId() : null;
+		String viewerId = userPrincipal != null ? userPrincipal.getId() : null;
 		FeedDiaryResult result = queryFeedDetailUseCase.queryDetail(diaryId, viewerId);
 		if (viewerId != null) {
 			recordFeedClickUseCase.recordClick(viewerId, diaryId);
@@ -97,9 +97,9 @@ public class FeedController {
 			@Parameter(description = "피드 정렬 모드. 생략 시 recommended(추천순)이며, latest는 기록일 최신순입니다.",
 					schema = @Schema(allowableValues = {"recommended", "latest"}, defaultValue = "recommended"))
 			@RequestParam(required = false) String sort,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
 		FeedSortMode sortMode = feedSortRequestMapper.map(sort);
-		String viewerId = customUserDetails != null ? customUserDetails.getId() : null;
+		String viewerId = userPrincipal != null ? userPrincipal.getId() : null;
 		FeedCursorPage<FeedDiaryResult> page = queryFeedPageUseCase.queryPage(
 				new FeedCursorRequest(cursor, limit, sortMode),
 				viewerId);

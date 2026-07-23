@@ -1,4 +1,4 @@
-package com.pikume.back.security.config;
+package com.pikume.back.security.principal;
 
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
@@ -9,13 +9,13 @@ import java.util.Collection;
 import java.util.List;
 
 @Getter
-public class AdminUserDetails implements UserDetails {
+public class AdminPrincipal implements UserDetails {
 
 	private final String id;
 	private final String role;
 	private final String sessionId;
 
-	public AdminUserDetails(String id, String role, String sessionId) {
+	public AdminPrincipal(String id, String role, String sessionId) {
 		this.id = id;
 		this.role = role;
 		this.sessionId = sessionId;

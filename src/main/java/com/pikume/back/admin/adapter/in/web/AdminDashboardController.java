@@ -4,7 +4,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminDashboardUseCase;
 import com.pikume.back.admin.application.service.AdminDashboardResponse;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -43,7 +43,7 @@ public class AdminDashboardController {
 	@Operation(summary = "관리자 통합 대시보드 조회")
 	@GetMapping("/dashboard")
 	public ResponseEntity<AdminDashboardResponse> dashboard(
-			@AuthenticationPrincipal AdminUserDetails admin) {
+			@AuthenticationPrincipal AdminPrincipal admin) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}

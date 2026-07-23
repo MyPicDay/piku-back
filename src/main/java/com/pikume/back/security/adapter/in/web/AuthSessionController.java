@@ -1,10 +1,12 @@
 package com.pikume.back.security.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.adapter.in.web.dto.response.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,12 +30,22 @@ public class AuthSessionController {
 
 	@Operation(summary = "현재 인증 사용자 조회", description = "Access Token을 검증하고 현재 인증된 사용자 정보를 반환합니다.")
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "토큰 검증 성공"),
-			@ApiResponse(responseCode = "401", description = "인증 필요")
+			@ApiResponse(
+					responseCode = "200",
+					description = "토큰 검증 성공",
+					content = @Content(
+							mediaType = "application/json",
+							schema = @Schema(implementation = LoginResponse.class))),
+			@ApiResponse(
+					responseCode = "401",
+					description = "인증 필요",
+					content = @Content(
+							mediaType = "application/problem+json",
+							schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	@GetMapping("/me")
 	public ResponseEntity<?> getCurrentUser(
-			@AuthenticationPrincipal CustomUserDetails userDetails,
+			@AuthenticationPrincipal UserPrincipal userDetails,
 			HttpServletRequest request) {
 		if (userDetails == null || userDetails.getId() == null) {
 			ProblemDetail problemDetail = problemDetailFactory.create(

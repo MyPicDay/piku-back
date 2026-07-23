@@ -1,6 +1,8 @@
 package com.pikume.back.security.adapter.in.web;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +28,7 @@ import com.pikume.back.user.auth.application.dto.ReissueSessionResult;
 import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
 import com.pikume.back.security.adapter.in.web.dto.request.LoginRequest;
 import com.pikume.back.security.adapter.in.web.dto.response.LoginResponse;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.util.CookieUtils;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.user.auth.application.port.in.LoginUseCase;
@@ -49,8 +51,18 @@ public class LoginController {
 
 	@Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인을 진행하고 Access/Refresh 토큰을 발급합니다.")
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "로그인 성공"),
-			@ApiResponse(responseCode = "401", description = "로그인 실패")
+			@ApiResponse(
+					responseCode = "200",
+					description = "로그인 성공",
+					content = @Content(
+							mediaType = "application/json",
+							schema = @Schema(implementation = LoginResponse.class))),
+			@ApiResponse(
+					responseCode = "401",
+					description = "로그인 실패",
+					content = @Content(
+							mediaType = "application/problem+json",
+							schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest dto, HttpServletRequest request) {
@@ -80,8 +92,18 @@ public class LoginController {
 
 	@Operation(summary = "Access Token 재발급", description = "Cookie에 담긴 Refresh Token을 사용하여 새로운 Access Token을 재발급합니다.")
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "토큰 재발급 성공"),
-			@ApiResponse(responseCode = "401", description = "Refresh Token 만료")
+			@ApiResponse(
+					responseCode = "200",
+					description = "토큰 재발급 성공",
+					content = @Content(
+							mediaType = "application/json",
+							schema = @Schema(implementation = MessageResponse.class))),
+			@ApiResponse(
+					responseCode = "401",
+					description = "Refresh Token 만료",
+					content = @Content(
+							mediaType = "application/problem+json",
+							schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	@PostMapping("/reissue")
 	public ResponseEntity<?> reissue(HttpServletRequest request) {
@@ -104,11 +126,21 @@ public class LoginController {
 
 	@Operation(summary = "로그아웃", description = "사용자 로그아웃을 처리하고 Refresh Token을 삭제합니다.")
 	@ApiResponses(value = {
-			@ApiResponse(responseCode = "200", description = "로그아웃 성공"),
-			@ApiResponse(responseCode = "401", description = "로그인 상태가 아님")
+			@ApiResponse(
+					responseCode = "200",
+					description = "로그아웃 성공",
+					content = @Content(
+							mediaType = "application/json",
+							schema = @Schema(implementation = MessageResponse.class))),
+			@ApiResponse(
+					responseCode = "401",
+					description = "로그인 상태가 아님",
+					content = @Content(
+							mediaType = "application/problem+json",
+							schema = @Schema(implementation = ProblemDetail.class)))
 	})
 	@PostMapping("/logout")
-	public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails user, HttpServletRequest request) {
+	public ResponseEntity<?> logout(@AuthenticationPrincipal UserPrincipal user, HttpServletRequest request) {
 		if (user == null || user.getId() == null) {
 			return buildProblem(SecurityProblemType.UNAUTHENTICATED, "로그인 상태가 아닙니다.", request);
 		}

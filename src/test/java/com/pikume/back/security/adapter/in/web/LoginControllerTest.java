@@ -15,7 +15,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
@@ -203,7 +203,7 @@ class LoginControllerTest {
 		request.addHeader(AuthWebConstants.DEVICE_ID_HEADER, "ios");
 
 		ResponseEntity<?> response = loginController.logout(
-				new CustomUserDetails("user1", "pikume"),
+				new UserPrincipal("user1", "pikume"),
 				request);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);

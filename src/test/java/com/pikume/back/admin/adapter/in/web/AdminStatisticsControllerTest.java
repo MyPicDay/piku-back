@@ -8,7 +8,7 @@ import com.pikume.back.admin.application.service.AdminDailyStatisticsResult;
 import com.pikume.back.admin.application.service.AdminStatisticsResponse;
 import com.pikume.back.admin.domain.AdminRole;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,7 @@ class AdminStatisticsControllerTest {
 							new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
 									.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
 									.build()))
-					.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminUserDetails(
+					.setCustomArgumentResolvers(new AdminPrincipalResolver(new AdminPrincipal(
 							"admin-1",
 							AdminRole.OPERATOR.name(),
 							"session-1")))
@@ -106,10 +106,10 @@ class AdminStatisticsControllerTest {
 				.andExpect(content().string(containsString("2026-06-11,42")));
 	}
 
-	private record AdminPrincipalResolver(AdminUserDetails adminUserDetails) implements HandlerMethodArgumentResolver {
+	private record AdminPrincipalResolver(AdminPrincipal adminUserDetails) implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(AdminUserDetails.class);
+			return parameter.getParameterType().equals(AdminPrincipal.class);
 		}
 
 		@Override

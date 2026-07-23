@@ -1,6 +1,6 @@
 package com.pikume.back.support.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.support.application.dto.SubmitInquiryCommand;
 import com.pikume.back.support.application.port.in.SubmitInquiryUseCase;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +32,7 @@ class InquiryControllerTest {
 		var response = controller.saveInquiry(
 				"문의 내용",
 				image,
-				new CustomUserDetails("user-1", "nickname"));
+				new UserPrincipal("user-1", "nickname"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 		assertThat(response.getBody()).isNull();

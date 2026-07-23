@@ -1,6 +1,7 @@
 package com.pikume.back.security.config;
 
 import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
+import com.pikume.back.security.adapter.in.web.SecurityProblemResponseWriter;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,7 +20,7 @@ public class AdminOriginValidationFilter extends OncePerRequestFilter {
 
 	private static final String ADMIN_PATH_PREFIX = "/api/admin";
 	private final AdminSecurityProperties properties;
-	private final AdminProblemResponseWriter problemWriter;
+	private final SecurityProblemResponseWriter problemWriter;
 	private final RecordAdminSecurityEventUseCase recordAdminSecurityEventUseCase;
 
 	@Override

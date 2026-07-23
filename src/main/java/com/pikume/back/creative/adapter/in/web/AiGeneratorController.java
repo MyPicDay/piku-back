@@ -6,7 +6,7 @@ import com.pikume.back.creative.adapter.in.web.dto.GenerateDiaryImageRequest;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.creative.application.port.in.QueryAiGenerationQuotaUseCase;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -60,9 +60,9 @@ public class AiGeneratorController {
 	@PostMapping("/diary/ai/generate")
 	public ResponseEntity<AiDiaryResponse> generateDiaryImage(
 			@Valid @RequestBody GenerateDiaryImageRequest request,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-		String userId = customUserDetails.getId();
+		String userId = userPrincipal.getId();
 		GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(request.content(), userId);
 		return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
 	}
@@ -83,9 +83,9 @@ public class AiGeneratorController {
 	})
 	@GetMapping("/diary/ai/generate")
 	public ResponseEntity<AiGenerationQuotaResponse> getRemainingRequests(
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+			@AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-		int remainingCount = queryAiGenerationQuotaUseCase.getRemainingGenerationCount(customUserDetails.getId());
+		int remainingCount = queryAiGenerationQuotaUseCase.getRemainingGenerationCount(userPrincipal.getId());
 		return ResponseEntity.ok(new AiGenerationQuotaResponse(remainingCount));
 	}
 }

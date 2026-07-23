@@ -23,7 +23,7 @@ class CreativeOpenApiTest {
 		Method method = AiGeneratorController.class.getDeclaredMethod(
 				"generateDiaryImage",
 				com.pikume.back.creative.adapter.in.web.dto.GenerateDiaryImageRequest.class,
-				com.pikume.back.global.config.CustomUserDetails.class);
+				com.pikume.back.security.principal.UserPrincipal.class);
 		Map<String, ApiResponse> responses = Arrays.stream(method.getAnnotation(ApiResponses.class).value())
 				.collect(Collectors.toMap(ApiResponse::responseCode, Function.identity()));
 

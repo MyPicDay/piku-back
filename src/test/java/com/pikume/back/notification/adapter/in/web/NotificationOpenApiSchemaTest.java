@@ -1,7 +1,7 @@
 package com.pikume.back.notification.adapter.in.web;
 
 import com.pikume.back.notification.adapter.in.web.dto.NotificationPageResponse;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -56,11 +56,11 @@ class NotificationOpenApiSchemaTest {
 		assertProblemDetails404(NotificationController.class.getDeclaredMethod(
 				"markAsRead",
 				Long.class,
-				CustomUserDetails.class));
+				UserPrincipal.class));
 		assertProblemDetails404(NotificationController.class.getDeclaredMethod(
 				"deleteNotification",
 				Long.class,
-				CustomUserDetails.class));
+				UserPrincipal.class));
 	}
 
 	private void assertProblemDetails404(Method method) {

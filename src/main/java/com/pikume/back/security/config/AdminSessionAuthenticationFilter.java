@@ -4,7 +4,9 @@ import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.port.in.AdminSessionSecurityUseCase;
 import com.pikume.back.admin.application.dto.AuthenticatedAdminSessionResult;
+import com.pikume.back.security.adapter.in.web.SecurityProblemResponseWriter;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
+import com.pikume.back.security.principal.AdminPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -26,7 +28,7 @@ public class AdminSessionAuthenticationFilter extends OncePerRequestFilter {
 
 	private final AdminSecurityProperties properties;
 	private final AdminSessionSecurityUseCase adminSessionSecurityUseCase;
-	private final AdminProblemResponseWriter problemWriter;
+	private final SecurityProblemResponseWriter problemWriter;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -39,7 +41,7 @@ public class AdminSessionAuthenticationFilter extends OncePerRequestFilter {
 		try {
 			AuthenticatedAdminSessionResult session =
 					adminSessionSecurityUseCase.authenticate(rawSessionToken, LocalDateTime.now());
-			AdminUserDetails principal = new AdminUserDetails(
+			AdminPrincipal principal = new AdminPrincipal(
 					session.adminId(), session.role(), session.sessionId());
 			SecurityContextHolder.getContext().setAuthentication(
 					new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));

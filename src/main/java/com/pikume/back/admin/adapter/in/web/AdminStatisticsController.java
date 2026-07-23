@@ -4,7 +4,7 @@ import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.exception.AdminErrorCode;
 import com.pikume.back.admin.application.port.in.AdminStatisticsUseCase;
 import com.pikume.back.admin.application.service.AdminStatisticsResponse;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -50,7 +50,7 @@ public class AdminStatisticsController {
 	@Operation(summary = "관리자 통계 대시보드 조회", description = "기본 기간은 오늘을 포함한 최근 7일입니다.")
 	@GetMapping("/dashboard")
 	public ResponseEntity<AdminStatisticsResponse> dashboard(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 		return ResponseEntity.ok(adminStatisticsUseCase.getStatistics(requireAdminId(admin), startDate, endDate));
@@ -59,7 +59,7 @@ public class AdminStatisticsController {
 	@Operation(summary = "관리자 통계 CSV 조회", description = "화면 조회와 같은 기간 제한을 적용합니다.")
 	@GetMapping(value = "/dashboard.csv", produces = "text/csv")
 	public ResponseEntity<String> dashboardCsv(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 		String csv = adminStatisticsUseCase.getStatisticsCsv(requireAdminId(admin), startDate, endDate);
@@ -69,7 +69,7 @@ public class AdminStatisticsController {
 				.body(csv);
 	}
 
-	private String requireAdminId(AdminUserDetails admin) {
+	private String requireAdminId(AdminPrincipal admin) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}

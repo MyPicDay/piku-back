@@ -24,7 +24,7 @@ class SupportOpenApiTest {
 				"saveInquiry",
 				String.class,
 				org.springframework.web.multipart.MultipartFile.class,
-				com.pikume.back.global.config.CustomUserDetails.class);
+				com.pikume.back.security.principal.UserPrincipal.class);
 		Map<String, ApiResponse> responses = Arrays.stream(method.getAnnotation(ApiResponses.class).value())
 				.collect(Collectors.toMap(ApiResponse::responseCode, Function.identity()));
 

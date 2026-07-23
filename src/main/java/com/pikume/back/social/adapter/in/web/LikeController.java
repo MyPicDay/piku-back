@@ -14,7 +14,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
 import com.pikume.back.social.application.dto.LikeResult;
 import com.pikume.back.social.application.port.in.AddDiaryLikeUseCase;
@@ -40,7 +40,7 @@ public class LikeController {
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<LikeResponse> addLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		LikeResult response = addDiaryLikeUseCase.addLike(userDetails.getId(), diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
@@ -54,7 +54,7 @@ public class LikeController {
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<LikeResponse> removeLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		LikeResult response = removeDiaryLikeUseCase.removeLike(userDetails.getId(), diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
@@ -64,7 +64,7 @@ public class LikeController {
 	@GetMapping("/diary/{diaryId}")
 	public ResponseEntity<LikeResponse> getLikeStatus(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		String userId = userDetails != null ? userDetails.getId() : null;
 		LikeResult response = queryDiaryLikeEngagementUseCase.queryLikeStatus(userId, diaryId);
 		return ResponseEntity.ok(toResponse(response));
@@ -74,7 +74,7 @@ public class LikeController {
 	@GetMapping("/diary/{diaryId}/count")
 	public ResponseEntity<Long> getLikeCount(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		String userId = userDetails != null ? userDetails.getId() : null;
 		long count = queryDiaryLikeEngagementUseCase.queryVisibleLikeCount(userId, diaryId);
 		return ResponseEntity.ok(count);

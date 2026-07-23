@@ -1,6 +1,6 @@
 package com.pikume.back.notification.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.notification.application.port.in.SubscribeNotificationStreamUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,7 +24,7 @@ public class NotificationStreamController {
 
 	@Operation(summary = "SSE 구독 시작", description = "서버-전송 이벤트 연결")
 	@GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public SseEmitter subscribe(@AuthenticationPrincipal CustomUserDetails userDetails) {
+	public SseEmitter subscribe(@AuthenticationPrincipal UserPrincipal userDetails) {
 		SseEmitterConnection connection = new SseEmitterConnection(DEFAULT_SSE_TIMEOUT);
 		subscribeNotificationStreamUseCase.subscribeToNotifications(userDetails.getId(), connection);
 		return connection.emitter();

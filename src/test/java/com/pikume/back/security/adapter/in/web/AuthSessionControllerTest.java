@@ -1,6 +1,6 @@
 package com.pikume.back.security.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
@@ -28,7 +28,7 @@ class AuthSessionControllerTest {
 	@Test
 	@DisplayName("GET /api/auth/me는 인증 사용자를 LoginResponse 형태로 반환한다")
 	void getCurrentUserReturnsLoginResponseShape() throws Exception {
-		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
+		UserPrincipal userDetails = UserPrincipal.withAvatarPath(
 				"user-1",
 				"pikume",
 				"public/characters/fixed/base_image_1.webp");
@@ -65,17 +65,17 @@ class AuthSessionControllerTest {
 				.andExpect(jsonPath("$.instance").value("/api/auth/me"));
 	}
 
-	private MockMvc mockMvcWith(CustomUserDetails userDetails) {
+	private MockMvc mockMvcWith(UserPrincipal userDetails) {
 		AuthSessionController authSessionController = new AuthSessionController(problemDetailFactory, authUserResponseMapper);
 		return MockMvcBuilders.standaloneSetup(authSessionController)
 				.setCustomArgumentResolvers(new AuthenticationPrincipalResolver(userDetails))
 				.build();
 	}
 
-	private record AuthenticationPrincipalResolver(CustomUserDetails userDetails) implements HandlerMethodArgumentResolver {
+	private record AuthenticationPrincipalResolver(UserPrincipal userDetails) implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(CustomUserDetails.class);
+			return parameter.getParameterType().equals(UserPrincipal.class);
 		}
 
 		@Override

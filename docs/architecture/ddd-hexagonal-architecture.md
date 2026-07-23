@@ -48,9 +48,13 @@
 
 - 계정 등록, 이메일 검증, 비밀번호 재설정과 로그인 가능 상태는 해당 계정 Context가 소유한다.
 - 로그인, 세션 재발급과 로그아웃은 계정 Context의 Application 유스케이스다.
-- 비밀번호 해시, 토큰 생성·검증, 보안 필터, 쿠키와 세션 저장은 Out Port 뒤의 Security Adapter가 구현한다.
-- Security는 여러 Context에서 재사용할 수 있는 기술 경계이며 독립된 비즈니스 Context로 간주하지 않는다.
+- 비밀번호 해시, JWT 생성·검증과 갱신 세션 저장은 Out Port 뒤의 Security Adapter가 구현한다.
+- Bearer Token·관리자 Cookie를 Spring Security 인증으로 변환하는 Filter는 Security의 입력 Web Adapter다.
+- 일반 사용자와 관리자 Principal은 Security가 소유한다. 다른 Context는 입력 Web Adapter에서 인증 식별자를 읽을 때만 Principal을 사용할 수 있고 Domain·Application 계약에는 노출하지 않는다.
+- Security는 여러 Context에서 재사용할 수 있는 기술 모듈이며 독립된 비즈니스 Context로 간주하지 않는다. 따라서 자체 Domain과 Application 유스케이스를 소유하지 않는다.
+- Security는 User·Admin의 공개 In Port와 공개 DTO만 호출할 수 있다. 두 Context의 Domain, Application Out Port·Service, Repository와 Adapter를 직접 참조하지 않는다.
 - 일반 사용자와 관리자는 기술 구현을 재사용할 수 있지만 계정 모델과 인증 정책을 공유하지 않는다.
+- 관리자 Filter Chain은 `Order(1)`, 일반 사용자 Filter Chain은 `Order(2)`로 유지한다. Origin, CORS, CSRF, 공개 경로와 Actuator IP 접근은 Security Configuration이 소유한다.
 
 ### Global 기술 모듈
 

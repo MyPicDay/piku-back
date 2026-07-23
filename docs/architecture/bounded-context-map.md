@@ -67,13 +67,15 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 
 관리자 계정과 인증 정책은 Admin Context가 소유한다. 일반 사용자 인증과 기술 구현을 재사용할 수는 있지만 계정 모델, 세션 정책과 Ubiquitous Language를 공유하지 않는다. Security는 Admin 공개 In Port와 공개 Result를 Spring Security Principal, Cookie와 RFC 9457 응답으로 번역하며 Admin Domain, Out Port와 Web Adapter를 직접 참조하지 않는다.
 
+Security 런타임은 두 Filter Chain으로 구성한다. `Order(1)` 관리자 Chain은 Origin, CSRF, 관리자 세션 인증과 Admin 확장 Filter 순서를 유지하고, `Order(2)` 일반 사용자 Chain은 Bearer Token 인증과 공개·보호 경로 및 Actuator IP 접근을 구성한다. CORS, Cookie, JWT, Principal과 Filter 오류 직렬화는 Security 기술 책임이며 User·Admin의 계정·세션 규칙으로 해석하지 않는다.
+
 ## 5. 기술 모듈
 
 | 모듈 | 현재 책임 | 경계 원칙 |
 | --- | --- | --- |
 | **global** | 공통 오류 처리, 설정, 저장소 기반 기능과 유틸리티 | 특정 Context의 Domain 타입과 비즈니스 규칙을 소유하지 않는다. |
 | **tools** | 운영·개발용 생성기와 변환 도구 | 제품 Domain 모델과 분리한다. |
-| **security** | 비밀번호 보호, 토큰, 보안 필터, 쿠키와 세션 저장 기술 | User와 Admin의 공개 Application 계약을 기술 표현으로 번역하며 Domain 모델, Application Out Port와 유스케이스를 소유하지 않는다. |
+| **security** | 비밀번호 보호, JWT·갱신 세션, Principal, 보안 필터, Cookie와 RFC 9457 Writer | User와 Admin의 공개 Application In Port·DTO를 기술 표현으로 번역하며 Domain 모델, Application 유스케이스와 다른 Context의 내부 계층을 소유하거나 참조하지 않는다. |
 
 `global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
 

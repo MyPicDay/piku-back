@@ -3,7 +3,7 @@ package com.pikume.back.diary.adapter.in.web;
 import com.pikume.back.diary.adapter.in.web.dto.*;
 import com.pikume.back.diary.application.dto.*;
 import com.pikume.back.diary.application.port.in.*;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
@@ -41,7 +41,7 @@ public class DiaryController {
 	public ResponseEntity<ResponseDiaryDTO> createDiary(
 			@Parameter(description = "일기 데이터 (JSON 형식)", schema = @Schema(implementation = DiaryDTO.class)) @Valid @RequestPart("diary") DiaryDTO diary,
 			@RequestPart(value = "photos", required = false) List<MultipartFile> photos,
-			@AuthenticationPrincipal CustomUserDetails userDetails) throws IOException {
+			@AuthenticationPrincipal UserPrincipal userDetails) throws IOException {
 		log.info("{}님 일기와 사진 {}개 등록 요청", userDetails.getId(), photos == null ? 0 : photos.size());
 		DiaryCreatedResult result = createDiaryUseCase.createDiary(
 				toCreateDiaryCommand(diary),
@@ -55,7 +55,7 @@ public class DiaryController {
 	@DeleteMapping("/{diaryId}")
 	public ResponseEntity<Void> deleteDiary(
 			@Parameter(description = "일기 ID") @PathVariable Long diaryId,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		log.info("{}님 일기 ID [{}] 삭제 요청", userDetails.getId(), diaryId);
 		deleteDiaryUseCase.deleteDiary(diaryId, userDetails.getId());
 		return ResponseEntity.noContent().build();
@@ -66,7 +66,7 @@ public class DiaryController {
 	public ResponseEntity<UpdateDiaryResponse> updateDiary(
 			@Parameter(description = "일기 ID") @PathVariable Long diaryId,
 			@Valid @RequestBody UpdateDiaryRequest request,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		log.info("{}님 일기 ID [{}] 수정 요청", userDetails.getId(), diaryId);
 		DiaryUpdatedResult result = updateDiaryUseCase.updateDiary(
 				diaryId,
@@ -86,7 +86,7 @@ public class DiaryController {
 			@PathVariable String userId,
 			@RequestParam @Min(1) int year,
 			@RequestParam @Min(1) @Max(12) int month,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		String viewerId = userDetails != null ? userDetails.getId() : null;
 		List<CalendarDiaryResponseDTO> diaries = getCalendarUseCase.findMonthlyDiaries(userId, viewerId, year, month).stream()
 				.map(this::toCalendarDiaryResponse)
@@ -110,7 +110,7 @@ public class DiaryController {
 			@PathVariable String userId,
 			@RequestParam(required = false) String cursor,
 			@RequestParam(defaultValue = "10") @Min(1) @Max(10) int limit,
-			@AuthenticationPrincipal CustomUserDetails userDetails) {
+			@AuthenticationPrincipal UserPrincipal userDetails) {
 		String viewerId = userDetails != null ? userDetails.getId() : null;
 		DiaryGalleryPage<DiaryGalleryItemView> page = getDiaryGalleryUseCase.findGallery(
 				userId,

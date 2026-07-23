@@ -21,8 +21,9 @@ class ProblemDetailAccessDeniedHandlerTest {
 	@DisplayName("권한 부족 시 403 Problem Details를 반환한다")
 	void handleReturnsProblemDetails() throws Exception {
 		ProblemDetailAccessDeniedHandler handler = new ProblemDetailAccessDeniedHandler(
-				new ObjectMapper(),
-				new com.pikume.back.global.error.ProblemDetailFactory());
+				new SecurityProblemResponseWriter(
+						new ObjectMapper(),
+						new com.pikume.back.global.error.ProblemDetailFactory()));
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/admin");
 		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
 
@@ -32,8 +33,11 @@ class ProblemDetailAccessDeniedHandlerTest {
 		assertThat(response.getContentType()).startsWith("application/problem+json");
 		assertThat(response.getContentType()).contains("charset=UTF-8");
 		assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
+		assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("type").asText())
 				.isEqualTo("https://api.pikume.com/problems/security/forbidden");
+		assertThat(objectMapper.readTree(response.getContentAsString()).get("detail").asText())
+				.isEqualTo("권한이 없습니다.");
 		assertThat(objectMapper.readTree(response.getContentAsString()).get("instance").asText())
 				.isEqualTo("/api/admin");
 	}

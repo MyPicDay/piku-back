@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.support.application.dto.InquiryAttachment;
 import com.pikume.back.support.application.dto.SubmitInquiryCommand;
 import com.pikume.back.support.application.port.in.SubmitInquiryUseCase;
@@ -63,8 +63,8 @@ public class InquiryController {
 	public ResponseEntity<Void> saveInquiry(
 			@RequestPart("content") @Valid @Size(max = 1000) String content,
 			@RequestPart(value = "image", required = false) MultipartFile image,
-			@AuthenticationPrincipal CustomUserDetails customUserDetails) throws IOException {
-		String userId = customUserDetails.getId();
+			@AuthenticationPrincipal UserPrincipal userPrincipal) throws IOException {
+		String userId = userPrincipal.getId();
 
 		submitInquiryUseCase.submitInquiry(new SubmitInquiryCommand(
 				userId,

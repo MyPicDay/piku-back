@@ -56,7 +56,7 @@ class AdminOpenApiTest {
 	void documentsNonDefaultSuccessStatuses() throws Exception {
 		Method createAccount = AdminAccountController.class.getDeclaredMethod(
 				"create",
-				com.pikume.back.security.config.AdminUserDetails.class,
+				com.pikume.back.security.principal.AdminPrincipal.class,
 				com.pikume.back.admin.adapter.in.web.dto.request.CreateAdminAccountRequest.class);
 		Method initializeCsrf = AdminCsrfController.class.getDeclaredMethod("initialize");
 

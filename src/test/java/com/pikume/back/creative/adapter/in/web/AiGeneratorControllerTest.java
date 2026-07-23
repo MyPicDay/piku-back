@@ -7,7 +7,7 @@ import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.exception.AiGenerationQuotaExceededException;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.creative.application.port.in.QueryAiGenerationQuotaUseCase;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class AiGeneratorControllerTest {
 
 		ResponseEntity<AiDiaryResponse> response = aiGeneratorController.generateDiaryImage(
 				new GenerateDiaryImageRequest("test diary"),
-				new CustomUserDetails("user1", "pikume"));
+				new UserPrincipal("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getBody()).isInstanceOf(AiDiaryResponse.class);
@@ -61,7 +61,7 @@ class AiGeneratorControllerTest {
 
 		assertThatThrownBy(() -> aiGeneratorController.generateDiaryImage(
 						new GenerateDiaryImageRequest("test diary"),
-						new CustomUserDetails("user1", "pikume")))
+						new UserPrincipal("user1", "pikume")))
 				.isInstanceOf(AiGenerationQuotaExceededException.class);
 	}
 
@@ -73,7 +73,7 @@ class AiGeneratorControllerTest {
 
 		assertThatThrownBy(() -> aiGeneratorController.generateDiaryImage(
 						new GenerateDiaryImageRequest("test diary"),
-						new CustomUserDetails("user1", "pikume")))
+						new UserPrincipal("user1", "pikume")))
 				.isInstanceOf(RuntimeException.class)
 				.hasMessage("internal provider error");
 	}
@@ -84,7 +84,7 @@ class AiGeneratorControllerTest {
 		given(queryAiGenerationQuotaUseCase.getRemainingGenerationCount("user1")).willReturn(2);
 
 		ResponseEntity<AiGenerationQuotaResponse> response = aiGeneratorController.getRemainingRequests(
-				new CustomUserDetails("user1", "pikume"));
+				new UserPrincipal("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
 		assertThat(response.getBody()).isEqualTo(new AiGenerationQuotaResponse(2));

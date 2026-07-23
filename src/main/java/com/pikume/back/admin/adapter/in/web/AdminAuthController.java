@@ -10,7 +10,7 @@ import com.pikume.back.admin.application.service.AdminAuthenticationResult;
 import com.pikume.back.admin.application.service.AdminLoginChallengeResult;
 import com.pikume.back.global.dto.MessageResponse;
 import com.pikume.back.security.config.AdminSessionCookieManager;
-import com.pikume.back.security.config.AdminUserDetails;
+import com.pikume.back.security.principal.AdminPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -80,7 +80,7 @@ public class AdminAuthController {
 
 	@Operation(summary = "관리자 로그아웃", description = "현재 관리자 세션과 관련 쿠키를 폐기합니다.")
 	@PostMapping("/logout")
-	public ResponseEntity<MessageResponse> logout(@AuthenticationPrincipal AdminUserDetails admin) {
+	public ResponseEntity<MessageResponse> logout(@AuthenticationPrincipal AdminPrincipal admin) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");
 		}
@@ -96,7 +96,7 @@ public class AdminAuthController {
 	@Operation(summary = "관리자 패스워드 변경")
 	@PatchMapping("/password")
 	public ResponseEntity<MessageResponse> changePassword(
-			@AuthenticationPrincipal AdminUserDetails admin,
+			@AuthenticationPrincipal AdminPrincipal admin,
 			@RequestBody ChangeAdminPasswordRequest request) {
 		if (admin == null) {
 			throw new AdminException(AdminErrorCode.UNAUTHENTICATED, "관리자 인증이 필요합니다.");

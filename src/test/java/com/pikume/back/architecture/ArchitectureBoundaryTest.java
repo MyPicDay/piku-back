@@ -52,7 +52,7 @@ class ArchitectureBoundaryTest {
 
 		assertThat(findJavaSourceViolations(
 				creativeApplication,
-				path -> sourceContains(path, "com.pikume.back.global.config.CustomUserDetails")))
+				path -> sourceContains(path, "com.pikume.back.security.principal.UserPrincipal")))
 				.isEmpty();
 	}
 
@@ -458,6 +458,23 @@ class ArchitectureBoundaryTest {
 				assertThat(findJavaSourceViolations(removedLayer, path -> true)).isEmpty();
 			}
 		}
+	}
+
+	@Test
+	@DisplayName("security principal은 Global이 아니라 Security가 소유하고 다른 context의 Web adapter에서만 사용한다.")
+	void securityOwnsPrincipalsUsedByWebAdapters() throws IOException {
+		Path productionSources = Path.of("src/main/java/com/pikume/back");
+		Path globalPrincipal = productionSources.resolve("global/config/CustomUserDetails.java");
+
+		assertThat(globalPrincipal).doesNotExist();
+		assertThat(productionSources.resolve("security/principal/UserPrincipal.java")).exists();
+		assertThat(productionSources.resolve("security/principal/AdminPrincipal.java")).exists();
+		assertThat(findJavaSourceViolations(
+				productionSources,
+				path -> !path.toString().contains("/security/")
+						&& sourceContains(path, "com.pikume.back.security.principal.")
+						&& !path.toString().contains("/adapter/in/web/")))
+				.isEmpty();
 	}
 
 	@Test

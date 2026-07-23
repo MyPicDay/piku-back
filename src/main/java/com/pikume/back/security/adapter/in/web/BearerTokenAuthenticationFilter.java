@@ -1,9 +1,9 @@
-package com.pikume.back.security.jwt;
+package com.pikume.back.security.adapter.in.web;
 
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.adapter.out.token.JwtTokenProvider;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.user.application.dto.UserIdentityView;
 import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
-import com.pikume.back.security.adapter.in.web.AuthWebConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,9 +25,9 @@ import java.io.IOException;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class JwtFilter extends OncePerRequestFilter {
+public class BearerTokenAuthenticationFilter extends OncePerRequestFilter {
 
-	private final JwtProvider jwtProvider;
+	private final JwtTokenProvider jwtTokenProvider;
 	private final QueryUserIdentityUseCase queryUserIdentityUseCase;
 	private final AuthenticationEntryPoint authenticationEntryPoint;
 
@@ -65,21 +65,24 @@ public class JwtFilter extends OncePerRequestFilter {
 	}
 
 	private Authentication authenticate(String token) {
-		if (!jwtProvider.validateToken(token)) {
+		if (!jwtTokenProvider.validateToken(token)) {
 			throw new BadCredentialsException("인증이 필요합니다.");
 		}
 
 		String userId = requireUserId(token);
 		UserIdentityView user = queryUserIdentityUseCase.queryUserIdentityById(userId)
 				.orElseThrow(() -> new BadCredentialsException("인증이 필요합니다."));
-		CustomUserDetails userDetails = CustomUserDetails.withAvatarPath(
+		UserPrincipal userPrincipal = UserPrincipal.withAvatarPath(
 				user.id(), user.nickname(), user.avatarPath());
-		return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+		return new UsernamePasswordAuthenticationToken(
+				userPrincipal,
+				null,
+				userPrincipal.getAuthorities());
 	}
 
 	private String requireUserId(String token) {
 		try {
-			return jwtProvider.getUserIdFromToken(token);
+			return jwtTokenProvider.getUserIdFromToken(token);
 		} catch (BadCredentialsException exception) {
 			throw new MissingJwtSubjectException(exception.getMessage(), exception);
 		}

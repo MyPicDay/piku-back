@@ -2,7 +2,7 @@ package com.pikume.back.admin.adapter.in.web;
 
 import com.pikume.back.admin.application.port.in.RecordAdminStatisticsEventUseCase;
 import com.pikume.back.admin.domain.AdminStatisticsEventType;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.util.RequestUtil;
 import com.pikume.back.security.config.AdminSecurityChainExtension;
 import jakarta.servlet.FilterChain;
@@ -62,7 +62,7 @@ public class AdminVisitStatisticsFilter extends OncePerRequestFilter implements 
 
 	private String currentUserId() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+		if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userDetails)) {
 			return null;
 		}
 		return userDetails.getId();

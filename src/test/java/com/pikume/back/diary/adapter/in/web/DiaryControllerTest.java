@@ -9,7 +9,7 @@ import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.InvalidDiaryGalleryCursorException;
 import com.pikume.back.diary.application.port.in.*;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -117,7 +117,7 @@ class DiaryControllerTest {
 		assertThatThrownBy(() -> diaryController.createDiary(
 				diary,
 				List.of(unreadablePhoto),
-				new CustomUserDetails("user1", "pikume")))
+				new UserPrincipal("user1", "pikume")))
 				.isInstanceOf(IOException.class);
 
 		then(createDiaryUseCase).shouldHaveNoInteractions();
@@ -356,13 +356,13 @@ class DiaryControllerTest {
 	private static class AuthenticationPrincipalResolver implements HandlerMethodArgumentResolver {
 		@Override
 		public boolean supportsParameter(MethodParameter parameter) {
-			return parameter.getParameterType().equals(CustomUserDetails.class);
+			return parameter.getParameterType().equals(UserPrincipal.class);
 		}
 
 		@Override
 		public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
 				NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-			return new CustomUserDetails("user1", "pikume");
+			return new UserPrincipal("user1", "pikume");
 		}
 	}
 }

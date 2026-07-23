@@ -3,6 +3,7 @@ package com.pikume.back.security.config;
 import com.pikume.back.admin.application.exception.AdminException;
 import com.pikume.back.admin.application.port.in.RecordAdminSecurityEventUseCase;
 import com.pikume.back.admin.application.port.in.AdminSessionSecurityUseCase;
+import com.pikume.back.security.adapter.in.web.SecurityProblemResponseWriter;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,7 +26,7 @@ public class AdminCsrfValidationFilter extends OncePerRequestFilter {
 
 	private final AdminSecurityProperties properties;
 	private final AdminSessionSecurityUseCase adminSessionSecurityUseCase;
-	private final AdminProblemResponseWriter problemWriter;
+	private final SecurityProblemResponseWriter problemWriter;
 	private final RecordAdminSecurityEventUseCase recordAdminSecurityEventUseCase;
 
 	@Override

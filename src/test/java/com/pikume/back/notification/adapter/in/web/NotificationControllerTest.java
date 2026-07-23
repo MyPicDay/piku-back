@@ -22,7 +22,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import com.pikume.back.global.config.CustomUserDetails;
+import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.notification.application.dto.NotificationKind;
@@ -84,7 +84,7 @@ class NotificationControllerTest {
 
 		ResponseEntity<?> response = notificationController.markAsRead(
 				1L,
-				new CustomUserDetails("user1", "pikume"));
+				new UserPrincipal("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -104,7 +104,7 @@ class NotificationControllerTest {
 
 		ResponseEntity<?> response = notificationController.deleteNotification(
 				1L,
-				new CustomUserDetails("user1", "pikume"));
+				new UserPrincipal("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(404);
 		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
@@ -136,7 +136,7 @@ class NotificationControllerTest {
 				.willReturn(new PageResult<>(List.of(item), 1, 2, 5));
 
 		ResponseEntity<?> response = notificationController.getNotifications(
-				new CustomUserDetails("user1", "pikume"),
+				new UserPrincipal("user1", "pikume"),
 				PageRequest.of(1, 2));
 
 		JsonNode json = new ObjectMapper().valueToTree(response.getBody());
@@ -224,7 +224,7 @@ class NotificationControllerTest {
 			@Override
 			public boolean supportsParameter(MethodParameter parameter) {
 				return parameter.hasParameterAnnotation(AuthenticationPrincipal.class)
-						&& parameter.getParameterType().equals(CustomUserDetails.class);
+						&& parameter.getParameterType().equals(UserPrincipal.class);
 			}
 
 			@Override
@@ -233,7 +233,7 @@ class NotificationControllerTest {
 					ModelAndViewContainer mavContainer,
 					@NotNull NativeWebRequest webRequest,
 					WebDataBinderFactory binderFactory) {
-				return new CustomUserDetails("user1", "pikume");
+				return new UserPrincipal("user1", "pikume");
 			}
 		};
 	}
