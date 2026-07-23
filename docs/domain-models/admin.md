@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-11
+- Last Reviewed: 2026-07-23
 
 ## 도메인 개요
 
@@ -248,6 +248,7 @@ _Entity_
 
 - 방문 수, 일일 고유 방문자 수, DAU, AI 사진 요청 수, AI 사진 실패 수는 관리자 통계 이벤트를 기반으로 계산한다.
 - AI 사진 요청과 실패는 각각 독립된 통계 사건으로 기록한다.
+- Creative에는 AI 사진 요청·성공·실패를 기록하는 의도별 공개 Application 계약을 제공하며 Admin의 통계 Event Enum을 노출하지 않는다.
 - 통계 사건의 완전 전달 보장은 1차 범위에 포함하지 않는다.
 
 ---

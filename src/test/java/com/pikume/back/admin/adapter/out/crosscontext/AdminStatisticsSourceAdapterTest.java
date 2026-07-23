@@ -2,7 +2,7 @@ package com.pikume.back.admin.adapter.out.crosscontext;
 
 import com.pikume.back.admin.application.service.AdminDailyCount;
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
-import com.pikume.back.creative.application.port.out.LoadGenerationPort;
+import com.pikume.back.creative.application.port.out.LoadGenerationStatisticsPort;
 import com.pikume.back.diary.application.port.out.LoadDiaryPort;
 import com.pikume.back.user.application.port.in.QueryUserDashboardStatisticsUseCase;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +38,7 @@ class AdminStatisticsSourceAdapterTest {
 
 		assertThat(dependencyTypes)
 				.contains(QueryAiPhotoDashboardStatisticsUseCase.class)
-				.doesNotContain(LoadGenerationPort.class);
+				.doesNotContain(LoadGenerationStatisticsPort.class);
 	}
 
 	@Test

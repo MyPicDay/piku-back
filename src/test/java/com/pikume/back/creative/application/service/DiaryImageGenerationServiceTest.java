@@ -8,7 +8,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.creative.application.dto.DiaryImageGenerationView;
-import com.pikume.back.creative.application.port.out.LoadGenerationPort;
+import com.pikume.back.creative.application.exception.CreativeException;
+import com.pikume.back.creative.application.port.out.LoadGenerationForDiaryPort;
 import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 
@@ -25,7 +26,7 @@ class DiaryImageGenerationServiceTest {
 	private DiaryImageGenerationService service;
 
 	@Mock
-	private LoadGenerationPort loadPort;
+	private LoadGenerationForDiaryPort loadPort;
 
 	@Mock
 	private RecordGenerationPort recordPort;
@@ -39,8 +40,8 @@ class DiaryImageGenerationServiceTest {
 		void updatesDiaryIdSuccessfully() {
 			Long historyId = 1L;
 			Long diaryId = 100L;
-			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
-			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
+			DiaryImageGeneration generation = DiaryImageGeneration.create("user-1", "prompt", "path");
+			given(loadPort.loadGenerationForDiary(historyId)).willReturn(Optional.of(generation));
 
 			service.attachGenerationToDiary(historyId, diaryId);
 
@@ -52,9 +53,9 @@ class DiaryImageGenerationServiceTest {
 		@DisplayName("이미 다른 일기에 연결된 생성 이력은 덮어쓰지 않는다")
 		void rejectsGenerationAlreadyAttachedToDiary() {
 			Long historyId = 1L;
-			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
+			DiaryImageGeneration generation = DiaryImageGeneration.create("user-1", "prompt", "path");
 			generation.attachToDiary(99L);
-			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
+			given(loadPort.loadGenerationForDiary(historyId)).willReturn(Optional.of(generation));
 
 			assertThatThrownBy(() -> service.attachGenerationToDiary(historyId, 100L))
 					.isInstanceOf(IllegalStateException.class)
@@ -68,9 +69,9 @@ class DiaryImageGenerationServiceTest {
 		@DisplayName("폐기된 생성 이력은 일기에 연결하지 않는다")
 		void rejectsDiscardedGeneration() {
 			Long historyId = 1L;
-			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", "path");
+			DiaryImageGeneration generation = DiaryImageGeneration.create("user-1", "prompt", "path");
 			generation.discard();
-			given(loadPort.loadGenerationForDiaryIntegration(historyId)).willReturn(Optional.of(generation));
+			given(loadPort.loadGenerationForDiary(historyId)).willReturn(Optional.of(generation));
 
 			assertThatThrownBy(() -> service.attachGenerationToDiary(historyId, 100L))
 					.isInstanceOf(IllegalStateException.class)
@@ -90,10 +91,10 @@ class DiaryImageGenerationServiceTest {
 		void returnsGeneration() {
 			Long generationId = 1L;
 			String path = "path/image.png";
-			DiaryImageGeneration generation = new DiaryImageGeneration("user-1", "prompt", path);
-			given(loadPort.loadGenerationForDiaryIntegration(generationId)).willReturn(Optional.of(generation));
+			DiaryImageGeneration generation = DiaryImageGeneration.create("user-1", "prompt", path);
+			given(loadPort.loadGenerationForDiary(generationId)).willReturn(Optional.of(generation));
 
-			DiaryImageGenerationView result = service.loadGenerationForDiary(generationId);
+			DiaryImageGenerationView result = service.queryGenerationForDiary(generationId);
 
 			assertThat(result.filePath()).isEqualTo(path);
 			assertThat(result.userId()).isEqualTo("user-1");
@@ -102,10 +103,10 @@ class DiaryImageGenerationServiceTest {
 		@Test
 		@DisplayName("조회 실패 시 예외 발생")
 		void throwsWhenNotFound() {
-			given(loadPort.loadGenerationForDiaryIntegration(1L)).willReturn(Optional.empty());
+			given(loadPort.loadGenerationForDiary(1L)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> service.loadGenerationForDiary(1L))
-					.isInstanceOf(RuntimeException.class);
+			assertThatThrownBy(() -> service.queryGenerationForDiary(1L))
+					.isInstanceOf(CreativeException.class);
 		}
 	}
 }

@@ -1,23 +1,13 @@
 package com.pikume.back.creative.application.port.out;
 
-import com.pikume.back.creative.domain.DiaryImageGeneration;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
-/**
- * 생성 이력 조회 Outbound Port
- */
-public interface LoadGenerationPort {
+public interface LoadGenerationStatisticsPort {
 
 	record DailyCount(LocalDate date, long count) {
 	}
-
-	Optional<DiaryImageGeneration> loadGenerationForDiaryIntegration(Long generationId);
-
-	boolean isGenerationAvailableForDiary(Long generationId, String userId);
 
 	List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate);
 

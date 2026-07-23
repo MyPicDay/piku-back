@@ -1,7 +1,7 @@
 package com.pikume.back.creative.application.service;
 
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
-import com.pikume.back.creative.application.port.out.LoadGenerationPort;
+import com.pikume.back.creative.application.port.out.LoadGenerationStatisticsPort;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +20,7 @@ import static org.mockito.BDDMockito.given;
 class AiPhotoDashboardStatisticsQueryServiceTest {
 
 	@Mock
-	private LoadGenerationPort loadGenerationPort;
+	private LoadGenerationStatisticsPort loadGenerationStatisticsPort;
 
 	@Test
 	@DisplayName("AI 생성 성공 누적과 일간 집계를 생성 이력 조회 포트에 위임한다")
@@ -28,13 +28,13 @@ class AiPhotoDashboardStatisticsQueryServiceTest {
 		LocalDate startDate = LocalDate.of(2026, 6, 16);
 		LocalDate endDate = LocalDate.of(2026, 6, 22);
 		LocalDateTime cutoff = startDate.atStartOfDay();
-		given(loadGenerationPort.countAllSuccessfulGenerations()).willReturn(50L);
-		given(loadGenerationPort.countSuccessfulGenerationsBefore(cutoff)).willReturn(40L);
-		given(loadGenerationPort.countAllSuccessfulGenerationsByDate(startDate, endDate))
-				.willReturn(List.of(new LoadGenerationPort.DailyCount(startDate, 4)));
+		given(loadGenerationStatisticsPort.countAllSuccessfulGenerations()).willReturn(50L);
+		given(loadGenerationStatisticsPort.countSuccessfulGenerationsBefore(cutoff)).willReturn(40L);
+		given(loadGenerationStatisticsPort.countAllSuccessfulGenerationsByDate(startDate, endDate))
+				.willReturn(List.of(new LoadGenerationStatisticsPort.DailyCount(startDate, 4)));
 
 		AiPhotoDashboardStatisticsQueryService service =
-				new AiPhotoDashboardStatisticsQueryService(loadGenerationPort);
+				new AiPhotoDashboardStatisticsQueryService(loadGenerationStatisticsPort);
 
 		assertThat(service.countAllSuccessfulGenerations()).isEqualTo(50);
 		assertThat(service.countSuccessfulGenerationsBefore(cutoff)).isEqualTo(40);
@@ -51,10 +51,10 @@ class AiPhotoDashboardStatisticsQueryServiceTest {
 	void delegatesCurrentSuccessfulGenerationStatisticsByDate() {
 		LocalDate startDate = LocalDate.of(2026, 6, 16);
 		LocalDate endDate = LocalDate.of(2026, 6, 22);
-		given(loadGenerationPort.countSuccessfulGenerationsByDate(startDate, endDate))
-				.willReturn(List.of(new LoadGenerationPort.DailyCount(endDate, 7)));
+		given(loadGenerationStatisticsPort.countSuccessfulGenerationsByDate(startDate, endDate))
+				.willReturn(List.of(new LoadGenerationStatisticsPort.DailyCount(endDate, 7)));
 		AiPhotoDashboardStatisticsQueryService service =
-				new AiPhotoDashboardStatisticsQueryService(loadGenerationPort);
+				new AiPhotoDashboardStatisticsQueryService(loadGenerationStatisticsPort);
 
 		List<QueryAiPhotoDashboardStatisticsUseCase.DailyCount> result =
 				service.countSuccessfulGenerationsByDate(startDate, endDate);

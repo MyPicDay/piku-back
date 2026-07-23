@@ -30,10 +30,14 @@ public class DiaryImageGeneration extends BaseEntity {
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
-	public DiaryImageGeneration(String userId, String prompt, String filePath) {
-		this.userId = userId;
-		this.prompt = prompt;
-		this.filePath = filePath;
+	private DiaryImageGeneration(String userId, String prompt, String filePath) {
+		this.userId = requireText(userId, "생성 사용자 식별자는 필수입니다.");
+		this.prompt = requireText(prompt, "생성 프롬프트는 필수입니다.");
+		this.filePath = requireText(filePath, "생성 이미지 참조는 필수입니다.");
+	}
+
+	public static DiaryImageGeneration create(String userId, String prompt, String filePath) {
+		return new DiaryImageGeneration(userId, prompt, filePath);
 	}
 
 	public void attachToDiary(Long diaryId) {
@@ -50,7 +54,7 @@ public class DiaryImageGeneration extends BaseEntity {
 	}
 
 	public void updateFilePath(String newFilePath) {
-		this.filePath = newFilePath;
+		this.filePath = requireText(newFilePath, "생성 이미지 참조는 필수입니다.");
 	}
 
 	public void discard() {
@@ -59,5 +63,12 @@ public class DiaryImageGeneration extends BaseEntity {
 
 	public boolean isDiscarded() {
 		return deletedAt != null;
+	}
+
+	private static String requireText(String value, String message) {
+		if (value == null || value.isBlank()) {
+			throw new IllegalArgumentException(message);
+		}
+		return value;
 	}
 }

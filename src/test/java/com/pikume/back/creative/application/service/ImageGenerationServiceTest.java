@@ -5,15 +5,16 @@ import com.pikume.back.creative.application.dto.CharacterReferenceImage;
 import com.pikume.back.creative.application.dto.GeneratedIllustrationPayload;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.exception.AiGenerationQuotaExceededException;
+import com.pikume.back.creative.application.exception.CreativeErrorCode;
+import com.pikume.back.creative.application.exception.CreativeException;
 import com.pikume.back.creative.application.policy.DiaryIllustrationPromptPolicy;
-import com.pikume.back.creative.application.port.in.ManageAiGenerationQuotaUseCase;
+import com.pikume.back.creative.application.port.in.ConsumeAiGenerationQuotaUseCase;
+import com.pikume.back.creative.application.port.in.PrepareCharacterReferenceUseCase;
 import com.pikume.back.creative.application.port.in.RecordAiPhotoStatisticsUseCase;
 import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.creative.application.port.out.GenerateDiaryIllustrationPort;
-import com.pikume.back.creative.application.port.out.LoadCharacterReferencePort;
 import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
-import com.pikume.back.creative.domain.exception.ImageGenerationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -45,13 +46,13 @@ class ImageGenerationServiceTest {
 	@Mock
 	private RecordGenerationPort recordGenerationPort;
 	@Mock
-	private LoadCharacterReferencePort loadCharacterReferencePort;
+	private PrepareCharacterReferenceUseCase prepareCharacterReferenceUseCase;
 	@Mock
 	private DiaryIllustrationPromptPolicy diaryIllustrationPromptPolicy;
 	@Mock
 	private CreativeImageStoragePort creativeImageStoragePort;
 	@Mock
-	private ManageAiGenerationQuotaUseCase manageAiGenerationQuotaUseCase;
+	private ConsumeAiGenerationQuotaUseCase consumeAiGenerationQuotaUseCase;
 	@Mock
 	private RecordAiPhotoStatisticsUseCase recordAiPhotoStatisticsUseCase;
 
@@ -64,9 +65,9 @@ class ImageGenerationServiceTest {
 		void generatesDiaryImageSuccessfully() {
 			String userId = "user-1";
 			String content = "Taking a walk in the park";
-			given(manageAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(loadCharacterReferencePort.loadCharacterReferenceForGeneration(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt(content)).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
@@ -86,11 +87,14 @@ class ImageGenerationServiceTest {
 			assertThat(result.filePath()).isEqualTo(privateObjectKey);
 			assertThat(result.imageUrl()).isEqualTo("http://url/generated.png");
 			then(recordGenerationPort).should().recordGeneration(any(DiaryImageGeneration.class));
-			then(manageAiGenerationQuotaUseCase).should(never()).releaseGenerationConsumption(userId);
+			then(consumeAiGenerationQuotaUseCase).should(never()).releaseGenerationConsumption(userId);
 
-			InOrder inOrder = inOrder(recordAiPhotoStatisticsUseCase, manageAiGenerationQuotaUseCase, generateDiaryIllustrationPort);
+			InOrder inOrder = inOrder(
+					recordAiPhotoStatisticsUseCase,
+					consumeAiGenerationQuotaUseCase,
+					generateDiaryIllustrationPort);
 			inOrder.verify(recordAiPhotoStatisticsUseCase).recordRequest(userId);
-			inOrder.verify(manageAiGenerationQuotaUseCase).tryConsumeForGeneration(userId);
+			inOrder.verify(consumeAiGenerationQuotaUseCase).tryConsumeForGeneration(userId);
 			inOrder.verify(generateDiaryIllustrationPort).generate(any());
 			then(recordAiPhotoStatisticsUseCase).should().recordSuccess(userId);
 		}
@@ -99,7 +103,7 @@ class ImageGenerationServiceTest {
 		@DisplayName("일일 한도에 도달하면 AI 생성 외부 포트를 호출하지 않는다")
 		void throwsWhenQuotaConsumptionIsRejected() {
 			String userId = "user-1";
-			given(manageAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(false, 3, 0));
 
 			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
@@ -117,15 +121,15 @@ class ImageGenerationServiceTest {
 		@DisplayName("참조 캐릭터 이미지를 찾지 못하면 선차감한 사용량을 취소한다")
 		void releasesConsumptionWhenCharacterReferenceMissing() {
 			String userId = "user-1";
-			given(manageAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(loadCharacterReferencePort.loadCharacterReferenceForGeneration(userId)).willReturn(Optional.empty());
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId)).willReturn(Optional.empty());
 
 			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
-					.isInstanceOf(ImageGenerationException.class)
+					.isInstanceOf(CreativeException.class)
 					.hasMessageContaining("참조 캐릭터 이미지");
 
-			then(manageAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
+			then(consumeAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
 			then(recordAiPhotoStatisticsUseCase).should().recordFailure(userId);
 			then(generateDiaryIllustrationPort).should(never()).generate(any());
 		}
@@ -134,19 +138,19 @@ class ImageGenerationServiceTest {
 		@DisplayName("외부 AI 이미지 생성 실패 시 선차감한 사용량을 취소한다")
 		void releasesConsumptionWhenIllustrationGenerationFails() {
 			String userId = "user-1";
-			given(manageAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(loadCharacterReferencePort.loadCharacterReferenceForGeneration(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt("content")).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
-					.willThrow(new ImageGenerationException("AI 이미지 생성에 실패했습니다."));
+					.willThrow(new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED));
 
 			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
-					.isInstanceOf(ImageGenerationException.class)
+					.isInstanceOf(CreativeException.class)
 					.hasMessageContaining("AI 이미지 생성에 실패했습니다.");
 
-			then(manageAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
+			then(consumeAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
 			then(recordAiPhotoStatisticsUseCase).should().recordFailure(userId);
 			then(recordGenerationPort).should(never()).recordGeneration(any());
 		}
@@ -155,21 +159,21 @@ class ImageGenerationServiceTest {
 		@DisplayName("이미지 저장 실패 시 선차감한 사용량을 취소한다")
 		void releasesConsumptionWhenStorageFails() {
 			String userId = "user-1";
-			given(manageAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(loadCharacterReferencePort.loadCharacterReferenceForGeneration(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt("content")).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
 					.willReturn(new GeneratedIllustrationPayload("base64_generated_image", "png"));
 			given(creativeImageStoragePort.storeGeneratedImage("base64_generated_image", userId, "png"))
-					.willThrow(new ImageGenerationException("이미지 저장 실패"));
+					.willThrow(new CreativeException(CreativeErrorCode.IMAGE_STORAGE_FAILED));
 
 			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
-					.isInstanceOf(ImageGenerationException.class)
-					.hasMessageContaining("이미지 저장 실패");
+					.isInstanceOf(CreativeException.class)
+					.hasMessageContaining("저장");
 
-			then(manageAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
+			then(consumeAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
 			then(recordAiPhotoStatisticsUseCase).should().recordFailure(userId);
 			then(recordGenerationPort).should(never()).recordGeneration(any());
 		}

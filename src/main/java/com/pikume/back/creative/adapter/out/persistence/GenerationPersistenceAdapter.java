@@ -2,7 +2,8 @@ package com.pikume.back.creative.adapter.out.persistence;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import com.pikume.back.creative.application.port.out.LoadGenerationPort;
+import com.pikume.back.creative.application.port.out.LoadGenerationForDiaryPort;
+import com.pikume.back.creative.application.port.out.LoadGenerationStatisticsPort;
 import com.pikume.back.creative.application.port.out.RecordGenerationPort;
 import com.pikume.back.creative.domain.DiaryImageGeneration;
 
@@ -17,12 +18,13 @@ import java.util.Optional;
  */
 @Component
 @RequiredArgsConstructor
-public class GenerationPersistenceAdapter implements LoadGenerationPort, RecordGenerationPort {
+public class GenerationPersistenceAdapter
+		implements LoadGenerationForDiaryPort, LoadGenerationStatisticsPort, RecordGenerationPort {
 
 	private final DiaryImageGenerationJpaRepository repository;
 
 	@Override
-	public Optional<DiaryImageGeneration> loadGenerationForDiaryIntegration(Long generationId) {
+	public Optional<DiaryImageGeneration> loadGenerationForDiary(Long generationId) {
 		return repository.findById(generationId);
 	}
 
@@ -32,22 +34,29 @@ public class GenerationPersistenceAdapter implements LoadGenerationPort, RecordG
 	}
 
 	@Override
-	public List<LoadGenerationPort.DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate) {
+	public List<LoadGenerationStatisticsPort.DailyCount> countSuccessfulGenerationsByDate(
+			LocalDate startDate,
+			LocalDate endDate
+	) {
 		return repository.countSuccessfulGenerationsByDate(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay())
 				.stream()
-				.map(row -> new LoadGenerationPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
+				.map(row -> new LoadGenerationStatisticsPort.DailyCount(
+						toLocalDate(row.getMetricDate()),
+						row.getMetricCount()))
 				.toList();
 	}
 
 	@Override
-	public List<LoadGenerationPort.DailyCount> countAllSuccessfulGenerationsByDate(
+	public List<LoadGenerationStatisticsPort.DailyCount> countAllSuccessfulGenerationsByDate(
 			LocalDate startDate,
 			LocalDate endDate) {
 		return repository.countAllSuccessfulGenerationsByDate(
 						startDate.atStartOfDay(),
 						endDate.plusDays(1).atStartOfDay())
 				.stream()
-				.map(row -> new LoadGenerationPort.DailyCount(toLocalDate(row.getMetricDate()), row.getMetricCount()))
+				.map(row -> new LoadGenerationStatisticsPort.DailyCount(
+						toLocalDate(row.getMetricDate()),
+						row.getMetricCount()))
 				.toList();
 	}
 

@@ -1,7 +1,7 @@
 package com.pikume.back.creative.application.service;
 
 import com.pikume.back.creative.application.port.in.QueryAiPhotoDashboardStatisticsUseCase;
-import com.pikume.back.creative.application.port.out.LoadGenerationPort;
+import com.pikume.back.creative.application.port.out.LoadGenerationStatisticsPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,21 +15,21 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AiPhotoDashboardStatisticsQueryService implements QueryAiPhotoDashboardStatisticsUseCase {
 
-	private final LoadGenerationPort loadGenerationPort;
+	private final LoadGenerationStatisticsPort loadGenerationStatisticsPort;
 
 	@Override
 	public long countAllSuccessfulGenerations() {
-		return loadGenerationPort.countAllSuccessfulGenerations();
+		return loadGenerationStatisticsPort.countAllSuccessfulGenerations();
 	}
 
 	@Override
 	public long countSuccessfulGenerationsBefore(LocalDateTime cutoffExclusive) {
-		return loadGenerationPort.countSuccessfulGenerationsBefore(cutoffExclusive);
+		return loadGenerationStatisticsPort.countSuccessfulGenerationsBefore(cutoffExclusive);
 	}
 
 	@Override
 	public List<DailyCount> countSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate) {
-		return loadGenerationPort.countSuccessfulGenerationsByDate(startDate, endDate)
+		return loadGenerationStatisticsPort.countSuccessfulGenerationsByDate(startDate, endDate)
 				.stream()
 				.map(row -> new DailyCount(row.date(), row.count()))
 				.toList();
@@ -37,7 +37,7 @@ public class AiPhotoDashboardStatisticsQueryService implements QueryAiPhotoDashb
 
 	@Override
 	public List<DailyCount> countAllSuccessfulGenerationsByDate(LocalDate startDate, LocalDate endDate) {
-		return loadGenerationPort.countAllSuccessfulGenerationsByDate(startDate, endDate)
+		return loadGenerationStatisticsPort.countAllSuccessfulGenerationsByDate(startDate, endDate)
 				.stream()
 				.map(row -> new DailyCount(row.date(), row.count()))
 				.toList();

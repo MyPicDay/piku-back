@@ -1,6 +1,5 @@
 package com.pikume.back.diary.adapter.out.storage;
 
-import com.pikume.back.creative.application.port.out.CreativeImageStoragePort;
 import com.pikume.back.global.dto.UploadedFileData;
 import com.pikume.back.global.port.out.LoadObjectPort;
 import com.pikume.back.global.port.out.ResolveImageUrlPort;
@@ -14,23 +13,13 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class SharedImageStorageCompatibilityAdapter
-		implements ResolveImageUrlPort, CreativeImageStoragePort, StoreObjectPort, LoadObjectPort {
+		implements ResolveImageUrlPort, StoreObjectPort, LoadObjectPort {
 
 	private final MinioPhotoStorageAdapter storageAdapter;
 
 	@Override
 	public String getPhotoUrl(String objectName, boolean isPublic) {
 		return storageAdapter.getPhotoUrl(objectName, isPublic);
-	}
-
-	@Override
-	public String resolveGeneratedImageUrl(String objectName, boolean isPublic) {
-		return storageAdapter.getPhotoUrl(objectName, isPublic);
-	}
-
-	@Override
-	public String storeGeneratedImage(String base64Data, String userId, String fileExtension) {
-		return storageAdapter.saveGeneratedImage(base64Data, userId, fileExtension);
 	}
 
 	@Override

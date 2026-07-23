@@ -13,7 +13,8 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import com.pikume.back.creative.application.dto.DiaryIllustrationRequest;
 import com.pikume.back.creative.application.dto.GeneratedIllustrationPayload;
 import com.pikume.back.creative.application.port.out.GenerateDiaryIllustrationPort;
-import com.pikume.back.creative.domain.exception.ImageGenerationException;
+import com.pikume.back.creative.application.exception.CreativeErrorCode;
+import com.pikume.back.creative.application.exception.CreativeException;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -56,26 +57,25 @@ public class GeminiDiaryIllustrationAdapter implements GenerateDiaryIllustration
 					.bodyToMono(String.class)
 					.timeout(timeout)
 					.doOnError(WebClientResponseException.class, error -> log.error(
-							"Gemini API 이미지 생성 HTTP 오류: status={}, body={}",
-							error.getStatusCode(),
-							error.getResponseBodyAsString()))
+							"Gemini API 이미지 생성 HTTP 오류: status={}",
+							error.getStatusCode()))
 					.block();
 
 			if (response == null || response.isBlank()) {
-				throw new ImageGenerationException("AI 이미지 생성 응답이 비어 있습니다.");
+				throw new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED);
 			}
 
 			String imageBase64 = extractImageFromResponse(response);
 			if (imageBase64.isBlank()) {
-				throw new ImageGenerationException("AI 이미지 데이터가 비어 있습니다.");
+				throw new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED);
 			}
 
 			return new GeneratedIllustrationPayload(imageBase64, "png");
-		} catch (ImageGenerationException e) {
+		} catch (CreativeException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("Gemini 일기 이미지 생성 실패", e);
-			throw new ImageGenerationException("AI 이미지 생성에 실패했습니다.", e);
+			log.error("Gemini 일기 이미지 생성 실패: {}", e.getClass().getSimpleName());
+			throw new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED, e);
 		}
 	}
 
@@ -126,12 +126,12 @@ public class GeminiDiaryIllustrationAdapter implements GenerateDiaryIllustration
 				}
 			}
 
-			throw new ImageGenerationException("AI 이미지 데이터가 응답에 포함되지 않았습니다.");
-		} catch (ImageGenerationException e) {
+			throw new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED);
+		} catch (CreativeException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("Gemini 이미지 응답 파싱 실패", e);
-			throw new ImageGenerationException("AI 이미지 응답 파싱에 실패했습니다.", e);
+			log.error("Gemini 이미지 응답 파싱 실패: {}", e.getClass().getSimpleName());
+			throw new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED, e);
 		}
 	}
 }
