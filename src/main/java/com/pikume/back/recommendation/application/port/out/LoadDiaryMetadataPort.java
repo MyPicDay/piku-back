@@ -10,11 +10,7 @@ import java.util.Optional;
  */
 public interface LoadDiaryMetadataPort {
 
-	Optional<DiaryMetadata> findByDiaryId(Long diaryId);
+	Optional<DiaryMetadata> loadByDiaryId(Long diaryId);
 
-	List<DiaryMetadata> findByDiaryIds(List<Long> diaryIds);
-
-	List<DiaryMetadata> findByPrimaryTopic(String topic);
-
-	boolean existsByDiaryId(Long diaryId);
+	List<DiaryMetadata> loadByDiaryIds(List<Long> diaryIds);
 }

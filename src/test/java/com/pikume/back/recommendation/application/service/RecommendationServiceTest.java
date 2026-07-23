@@ -1,17 +1,18 @@
 package com.pikume.back.recommendation.application.service;
 
+import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
+import com.pikume.back.recommendation.application.port.in.QueryUserTopicAffinitiesUseCase;
+import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
+import com.pikume.back.recommendation.application.port.out.RecommendationClockPort;
+import com.pikume.back.recommendation.domain.DiaryMetadata;
+import com.pikume.back.recommendation.domain.TopicScores;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
-import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
-import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
-import com.pikume.back.recommendation.domain.DiaryMetadata;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,158 +22,126 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("RecommendationService")
 class RecommendationServiceTest {
 
-	@InjectMocks
-	private RecommendationService recommendationService;
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 23, 12, 0);
 
 	@Mock
 	private LoadDiaryMetadataPort loadDiaryMetadataPort;
 
 	@Mock
-	private ManageUserPreferenceUseCase userPreferenceUseCase;
+	private QueryUserTopicAffinitiesUseCase queryUserTopicAffinitiesUseCase;
+
+	@Mock
+	private RecommendationClockPort recommendationClockPort;
+
+	private RecommendationService recommendationService;
+
+	@BeforeEach
+	void setUp() {
+		recommendationService = new RecommendationService(
+				loadDiaryMetadataPort,
+				queryUserTopicAffinitiesUseCase,
+				recommendationClockPort);
+	}
 
 	@Nested
-	@DisplayName("calculateScore - 일기 스코어 계산")
+	@DisplayName("calculateScore")
 	class CalculateScore {
 
 		@Test
-		@DisplayName("사용자 선호 토픽과 일치하면 높은 점수를 받는다")
+		@DisplayName("사용자 선호 주제와 일치하면 현재 공식에 따라 높은 점수를 받는다")
 		void matchingTopicHighScore() {
-			DiaryMetadata metadata = DiaryMetadata.builder()
-					.diaryId(1L)
-					.primaryTopic("travel")
-					.qualityScore(0.8)
-					.build();
+			given(recommendationClockPort.now()).willReturn(NOW);
+			DiaryMetadata metadata = metadata(1L, "travel", 0.8, NOW.minusHours(6));
 
-			Map<String, Double> userAffinities = Map.of("travel", 0.9, "food", 0.3);
-
-			double score = recommendationService.calculateScore(metadata, userAffinities, false);
+			double score = recommendationService.calculateScore(
+					metadata,
+					Map.of("travel", 0.9, "food", 0.3));
 
 			assertThat(score).isGreaterThan(0.5);
 		}
 
 		@Test
-		@DisplayName("친구 여부는 score bonus가 아니라 feed composition 단계에서만 반영한다")
-		void friendStatusDoesNotChangeScore() {
-			DiaryMetadata metadata = metadataWithAnalyzedAt(1L, "daily", 0.5, LocalDateTime.now().minusHours(6));
-
-			Map<String, Double> userAffinities = Map.of("daily", 0.5);
-
-			double nonFriendScore = recommendationService.calculateScore(metadata, userAffinities, false);
-			double friendScore = recommendationService.calculateScore(metadata, userAffinities, true);
-
-			assertThat(friendScore).isEqualTo(nonFriendScore);
-		}
-
-		@Test
 		@DisplayName("품질 점수가 높은 일기가 더 높은 점수를 받는다")
 		void highQualityHighScore() {
-			DiaryMetadata lowQuality = DiaryMetadata.builder()
-					.diaryId(1L)
-					.primaryTopic("travel")
-					.qualityScore(0.2)
-					.build();
+			given(recommendationClockPort.now()).willReturn(NOW);
+			DiaryMetadata lowQuality = metadata(1L, "travel", 0.2, NOW.minusHours(6));
+			DiaryMetadata highQuality = metadata(2L, "travel", 0.9, NOW.minusHours(6));
 
-			DiaryMetadata highQuality = DiaryMetadata.builder()
-					.diaryId(2L)
-					.primaryTopic("travel")
-					.qualityScore(0.9)
-					.build();
-
-			Map<String, Double> userAffinities = Map.of("travel", 0.5);
-
-			double lowScore = recommendationService.calculateScore(lowQuality, userAffinities, false);
-			double highScore = recommendationService.calculateScore(highQuality, userAffinities, false);
+			double lowScore = recommendationService.calculateScore(lowQuality, Map.of("travel", 0.5));
+			double highScore = recommendationService.calculateScore(highQuality, Map.of("travel", 0.5));
 
 			assertThat(highScore).isGreaterThan(lowScore);
 		}
 
 		@Test
-		@DisplayName("최신성이 높은 일기가 더 높은 점수를 받는다")
+		@DisplayName("기준 시각에 더 가까운 분석 결과가 더 높은 점수를 받는다")
 		void recentDiaryHighScore() {
-			DiaryMetadata recent = metadataWithAnalyzedAt(1L, "travel", 0.5, LocalDateTime.now().minusHours(2));
-			DiaryMetadata stale = metadataWithAnalyzedAt(2L, "travel", 0.5, LocalDateTime.now().minusDays(7));
+			given(recommendationClockPort.now()).willReturn(NOW);
+			DiaryMetadata recent = metadata(1L, "travel", 0.5, NOW.minusHours(2));
+			DiaryMetadata stale = metadata(2L, "travel", 0.5, NOW.minusDays(7));
 
-			Map<String, Double> userAffinities = Map.of("travel", 0.5);
-
-			double recentScore = recommendationService.calculateScore(recent, userAffinities, false);
-			double staleScore = recommendationService.calculateScore(stale, userAffinities, false);
+			double recentScore = recommendationService.calculateScore(recent, Map.of("travel", 0.5));
+			double staleScore = recommendationService.calculateScore(stale, Map.of("travel", 0.5));
 
 			assertThat(recentScore).isGreaterThan(staleScore);
 		}
 	}
 
 	@Nested
-	@DisplayName("scoreAndSort - 점수 계산 및 정렬")
-	class ScoreAndSort {
+	@DisplayName("scoreDiaryCandidates")
+	class ScoreDiaryCandidates {
 
 		@Test
-		@DisplayName("점수 순으로 정렬된 추천 목록을 반환한다")
-		void returnsSortedByScore() {
-			DiaryMetadata meta1 = DiaryMetadata.builder()
-					.diaryId(1L)
-					.primaryTopic("travel")
-					.qualityScore(0.9)
-					.build();
-			DiaryMetadata meta2 = DiaryMetadata.builder()
-					.diaryId(2L)
-					.primaryTopic("daily")
-					.qualityScore(0.5)
-					.build();
-
-			List<RecommendationScoreResult> result = recommendationService.scoreAndSort(
-					List.of(meta1, meta2),
-					Map.of("travel", 0.8),
-					List.of());
-
-			assertThat(result).hasSize(2);
-			assertThat(result.get(0).diaryId()).isEqualTo(1L);
-		}
-	}
-
-	@Nested
-	@DisplayName("getRecommendedDiaries - 추천 일기 목록 조회")
-	class GetRecommendedDiaries {
-
-		@Test
-		@DisplayName("후보가 비어있으면 빈 리스트를 반환한다")
+		@DisplayName("후보가 비어 있으면 빈 목록을 반환한다")
 		void returnsEmptyForNoCandidates() {
-			List<RecommendationScoreResult> result = recommendationService.getRecommendedDiaries(
-					"user-1", List.of(), List.of());
-
-			assertThat(result).isEmpty();
+			assertThat(recommendationService.scoreDiaryCandidates("user-1", List.of())).isEmpty();
 		}
 
 		@Test
-		@DisplayName("메타데이터가 있는 후보에 대해 스코어를 계산한다")
-		void scoresWithMetadata() {
-			DiaryMetadata meta = DiaryMetadata.builder()
-					.diaryId(1L)
-					.primaryTopic("travel")
-					.qualityScore(0.8)
-					.build();
+		@DisplayName("메타데이터가 없는 후보는 현재 기본 점수 0.3을 사용한다")
+		void usesDefaultScoreForMissingMetadata() {
+			given(loadDiaryMetadataPort.loadByDiaryIds(List.of(1L))).willReturn(List.of());
+			given(queryUserTopicAffinitiesUseCase.queryUserTopicAffinities("user-1")).willReturn(Map.of());
 
-			given(loadDiaryMetadataPort.findByDiaryIds(List.of(1L))).willReturn(List.of(meta));
-			given(userPreferenceUseCase.getUserAffinities("user-1")).willReturn(Map.of());
+			List<RecommendationScoreResult> result =
+					recommendationService.scoreDiaryCandidates("user-1", List.of(1L));
 
-			List<RecommendationScoreResult> result = recommendationService.getRecommendedDiaries(
-					"user-1", List.of(1L), List.of());
+			assertThat(result).containsExactly(new RecommendationScoreResult(1L, 0.3));
+		}
 
-			assertThat(result).hasSize(1);
-			assertThat(result.get(0).diaryId()).isEqualTo(1L);
-			assertThat(result.get(0).score()).isGreaterThan(0);
+		@Test
+		@DisplayName("같은 점수의 후보는 입력 순서를 유지한다")
+		void keepsInputOrderForEqualScores() {
+			given(recommendationClockPort.now()).willReturn(NOW);
+			DiaryMetadata first = metadata(1L, "daily", 0.5, NOW.minusHours(1));
+			DiaryMetadata second = metadata(2L, "daily", 0.5, NOW.minusHours(1));
+			given(loadDiaryMetadataPort.loadByDiaryIds(List.of(2L, 1L)))
+					.willReturn(List.of(first, second));
+			given(queryUserTopicAffinitiesUseCase.queryUserTopicAffinities("user-1"))
+					.willReturn(Map.of("daily", 0.5));
+
+			List<RecommendationScoreResult> result =
+					recommendationService.scoreDiaryCandidates("user-1", List.of(2L, 1L));
+
+			assertThat(result).extracting(RecommendationScoreResult::diaryId)
+					.containsExactly(2L, 1L);
 		}
 	}
 
-	private DiaryMetadata metadataWithAnalyzedAt(Long diaryId, String topic, double qualityScore,
-			LocalDateTime analyzedAt) {
-		DiaryMetadata metadata = DiaryMetadata.builder()
-				.diaryId(diaryId)
-				.primaryTopic(topic)
-				.qualityScore(qualityScore)
-				.build();
-		ReflectionTestUtils.setField(metadata, "analyzedAt", analyzedAt);
-		return metadata;
+	private DiaryMetadata metadata(
+			Long diaryId,
+			String topic,
+			double qualityScore,
+			LocalDateTime analyzedAt
+	) {
+		return DiaryMetadata.create(
+				diaryId,
+				topic,
+				TopicScores.from(Map.of(topic, 0.6)),
+				qualityScore,
+				analyzedAt);
 	}
 }

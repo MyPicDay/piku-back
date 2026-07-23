@@ -44,7 +44,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | **Diary** | Working Context | Core | 일기 내용, 날짜, 사진, 생성 이미지 연결, 공개 범위, 기록 생명주기, 달력과 회고 조회 | 공개·피드·소셜 정책 중 어떤 규칙을 Diary가 소유해야 하는가? |
 | **Feed** | Working Context | 미분류 | 피드 후보·목록 구성, 정렬과 열람 행위 | Feed가 독립된 도메인 모델인가, Application Read Model 영역인가? |
 | **Notification** | Working Context | 미분류 | 알림 이력, 읽음·삭제, 전달 요청과 기기 토큰 | 알림 기록·표현 정책과 best-effort 전달 보장을 어느 수준까지 같은 모델에서 다룰 것인가? |
-| **Recommendation** | Boundary Candidate | 미분류 | 일기 메타데이터, 사용자 선호와 추천 정보 | 추천 모델과 기술적 계산·캐시 책임이 분리되어 있는가? |
+| **Recommendation** | Working Context | Supporting | 일기 분석 메타데이터, 사용자 주제 친화도와 후보 점수 | 향후 추천 정책이 제품 차별화의 핵심으로 성장하면 전략 분류를 다시 평가해야 하는가? |
 | **Social** | Working Context | 미분류 | 친구 요청·관계, 댓글, 답글과 좋아요 | 친구 관계와 일기 반응이 하나의 언어와 모델에 속하는가? |
 | **Support** | Boundary Candidate | 미분류 | 사용자 문의, 문의 이미지와 피드백 전달 | Support가 독립된 모델 경계를 가져야 하는가, 단순 지원 유스케이스인가? |
 | **User** | Working Context | 미분류 | 일반 사용자 계정 생명주기, 자격 증명, 이메일 검증, 인증 유스케이스, 프로필과 닉네임 점유 | 계정·인증 Application과 Security Adapter의 기술 책임이 분리되어 있는가? |
@@ -123,7 +123,7 @@ flowchart LR
 | Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
 | Diary | Notification | 친구 공개 일기 알림 요청 | Diary 소유 알림 Out Port가 일기 식별자와 공개 의미만 전달하고 Cross-context Adapter가 Notification 계약으로 변환한다. |
 | Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Diary 소유 분석 Out Port가 저장 성공 이후의 best-effort 작업으로 요청하고 Cross-context Adapter가 Recommendation 공개 계약을 호출한다. |
-| Feed | User, Diary, Social, Recommendation | 피드 상세·후보·목록 조합용 정보 조회와 클릭 선호도 기록 | Feed 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 공급자의 공개 Application 계약을 Feed Read Model과 클릭 의도로 변환한다. Feed Application에는 공급자 타입을 노출하지 않는다. |
+| Feed | User, Diary, Social, Recommendation | 피드 상세·후보·목록 조합용 정보 조회와 클릭 선호도 기록 | Feed 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 공급자의 공개 Application 계약을 Feed Read Model과 클릭 의도로 변환한다. Feed Application에는 공급자 타입을 노출하지 않으며 친구 고정 슬롯과 후보 정렬은 Feed가 소유한다. |
 | Notification | User, Diary | 알림 기록·목록·전달 표현용 발신자와 일기 맥락 조회 | Notification 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 User·Diary 공개 Application 계약을 Notification 소유 Read Model로 번역한다. 공급자의 내부 모델과 저장소는 노출하지 않는다. |
 | Social | User, Diary | 친구·댓글·좋아요 대상 검증과 응답 정보 조회 | Social 소유 목적별 Out Port와 Cross-context Adapter가 User·Diary 공개 Application 계약을 참가자 프로필과 일기 상호작용 맥락으로 번역한다. 공급자의 Domain·Out Port·Persistence 타입은 Social에 노출하지 않는다. |
 | Social | Notification | 친구·댓글·좋아요 알림 기록 요청 | Social Application의 공개 `SocialNotificationEvent`를 Notification 입력 Adapter가 Notification 기록 명령으로 번역한다. 사건 수신과 이력 저장은 현재 Social 상태 변경 트랜잭션에 동기로 참여하고, SSE·FCM 외부 전달만 이력 커밋 이후 best-effort로 수행한다. |

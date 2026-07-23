@@ -2,7 +2,6 @@ package com.pikume.back.recommendation.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
@@ -25,20 +24,23 @@ public class UserPreference extends BaseEntity {
 	private String userId;
 
 	@Column(name = "topic_affinities", columnDefinition = "TEXT")
-	private String topicAffinities;
+	private TopicAffinities topicAffinities;
 
 	@Column(name = "last_updated_at")
 	private LocalDateTime lastUpdatedAt;
 
-	@Builder
-	public UserPreference(String userId, String topicAffinities) {
+	private UserPreference(String userId, TopicAffinities topicAffinities, LocalDateTime lastUpdatedAt) {
 		this.userId = userId;
-		this.topicAffinities = topicAffinities != null ? topicAffinities : "{}";
-		this.lastUpdatedAt = LocalDateTime.now();
+		this.topicAffinities = topicAffinities != null ? topicAffinities : TopicAffinities.empty();
+		this.lastUpdatedAt = lastUpdatedAt;
 	}
 
-	public void updateTopicAffinities(String topicAffinities) {
-		this.topicAffinities = topicAffinities;
-		this.lastUpdatedAt = LocalDateTime.now();
+	public static UserPreference create(String userId, LocalDateTime createdAt) {
+		return new UserPreference(userId, TopicAffinities.empty(), createdAt);
+	}
+
+	public void recordInteraction(String topic, InteractionType interactionType, LocalDateTime recordedAt) {
+		this.topicAffinities = topicAffinities.record(topic, interactionType);
+		this.lastUpdatedAt = recordedAt;
 	}
 }

@@ -8,9 +8,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
-import com.pikume.back.recommendation.application.port.in.AnalyzeDiaryContentUseCase;
-import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
+import com.pikume.back.recommendation.application.port.in.QueryDiaryMetadataUseCase;
+import com.pikume.back.recommendation.application.port.in.RecordTopicInteractionUseCase;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.BDDMockito.given;
@@ -24,9 +25,9 @@ class RecommendationAdapterForFeedTest {
 	private RecommendationAdapterForFeed adapter;
 
 	@Mock
-	private ManageUserPreferenceUseCase manageUserPreferenceUseCase;
+	private RecordTopicInteractionUseCase recordTopicInteractionUseCase;
 	@Mock
-	private AnalyzeDiaryContentUseCase analyzeDiaryContentUseCase;
+	private QueryDiaryMetadataUseCase queryDiaryMetadataUseCase;
 
 	@Nested
 	@DisplayName("recordClickPreference")
@@ -35,24 +36,28 @@ class RecommendationAdapterForFeedTest {
 		@Test
 		@DisplayName("일기 메타데이터 주제를 CLICK 상호작용으로 번역한다")
 		void translatesMetadataTopicToClickInteraction() {
-			given(analyzeDiaryContentUseCase.getMetadata(1L))
-					.willReturn(Optional.of(new DiaryMetadataResult(1L, "travel", "travel", 0.8)));
+			given(queryDiaryMetadataUseCase.queryDiaryMetadata(1L))
+					.willReturn(Optional.of(new DiaryMetadataResult(
+							1L,
+							"travel",
+							Map.of("travel", 0.6),
+							0.8)));
 
 			adapter.recordClickPreference("user-id", 1L);
 
-			then(manageUserPreferenceUseCase).should()
-					.recordInteraction("user-id", "travel", "CLICK");
+			then(recordTopicInteractionUseCase).should()
+					.recordClick("user-id", "travel");
 		}
 
 		@Test
 		@DisplayName("메타데이터가 없으면 daily 주제로 CLICK 상호작용을 기록한다")
 		void usesDailyWhenMetadataIsMissing() {
-			given(analyzeDiaryContentUseCase.getMetadata(1L)).willReturn(Optional.empty());
+			given(queryDiaryMetadataUseCase.queryDiaryMetadata(1L)).willReturn(Optional.empty());
 
 			adapter.recordClickPreference("user-id", 1L);
 
-			then(manageUserPreferenceUseCase).should()
-					.recordInteraction("user-id", "daily", "CLICK");
+			then(recordTopicInteractionUseCase).should()
+					.recordClick("user-id", "daily");
 		}
 	}
 }

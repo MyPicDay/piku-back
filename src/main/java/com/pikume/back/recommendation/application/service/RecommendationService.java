@@ -5,88 +5,63 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.recommendation.application.dto.RecommendationScoreResult;
-import com.pikume.back.recommendation.application.port.in.GetRecommendationUseCase;
-import com.pikume.back.recommendation.application.port.in.ManageUserPreferenceUseCase;
+import com.pikume.back.recommendation.application.port.in.QueryUserTopicAffinitiesUseCase;
+import com.pikume.back.recommendation.application.port.in.ScoreDiaryCandidatesUseCase;
 import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
+import com.pikume.back.recommendation.application.port.out.RecommendationClockPort;
 import com.pikume.back.recommendation.domain.DiaryMetadata;
+import com.pikume.back.recommendation.domain.RecommendationScore;
+import com.pikume.back.recommendation.domain.TopicAffinities;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class RecommendationService implements GetRecommendationUseCase {
+public class RecommendationService implements ScoreDiaryCandidatesUseCase {
 
 	private final LoadDiaryMetadataPort loadDiaryMetadataPort;
-	private final ManageUserPreferenceUseCase userPreferenceUseCase;
+	private final QueryUserTopicAffinitiesUseCase queryUserTopicAffinitiesUseCase;
+	private final RecommendationClockPort recommendationClockPort;
 
-	private static final double TOPIC_WEIGHT = 0.4;
-	private static final double QUALITY_WEIGHT = 0.3;
-	private static final double RECENCY_WEIGHT = 0.2;
-	private static final double DEFAULT_TOPIC_SCORE = 0.1;
-	private static final double DEFAULT_QUALITY_SCORE = 0.5;
-	private static final double DEFAULT_METADATA_SCORE = 0.3;
-	private static final double RECENCY_HALF_LIFE_HOURS = 72.0;
-
-	public double calculateScore(DiaryMetadata metadata, Map<String, Double> userAffinities, boolean isFriend) {
-		double topicScore = 0.0;
-		double qualityScore = metadata.getQualityScore() != null ? metadata.getQualityScore() : DEFAULT_QUALITY_SCORE;
-
-		if (metadata.getPrimaryTopic() != null) {
-			topicScore = userAffinities.getOrDefault(metadata.getPrimaryTopic(), DEFAULT_TOPIC_SCORE);
-		}
-
-		double baseScore = (TOPIC_WEIGHT * topicScore)
-				+ (QUALITY_WEIGHT * qualityScore)
-				+ (RECENCY_WEIGHT * calculateRecencyScore(metadata));
-
-		return Math.min(1.0, baseScore);
+	public double calculateScore(DiaryMetadata metadata, Map<String, Double> userAffinities) {
+		return RecommendationScore.calculate(
+				metadata,
+				TopicAffinities.from(userAffinities),
+				recommendationClockPort.now()).value();
 	}
 
 	public List<RecommendationScoreResult> scoreAndSort(List<DiaryMetadata> metadataList,
-			Map<String, Double> userAffinities,
-			List<Long> friendDiaryIds) {
-		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
-
+			Map<String, Double> userAffinities) {
 		return metadataList.stream()
-				.map(meta -> {
-					boolean isFriend = friendSet.contains(meta.getDiaryId());
-					double score = calculateScore(meta, userAffinities, isFriend);
-					return new RecommendationScoreResult(meta.getDiaryId(), score);
-				})
+				.map(metadata -> new RecommendationScoreResult(
+						metadata.getDiaryId(),
+						calculateScore(metadata, userAffinities)))
 				.sorted((a, b) -> Double.compare(b.score(), a.score()))
 				.collect(Collectors.toList());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
-	public List<RecommendationScoreResult> getRecommendedDiaries(String userId, List<Long> candidateDiaryIds,
-			List<Long> friendDiaryIds) {
+	public List<RecommendationScoreResult> scoreDiaryCandidates(String userId, List<Long> candidateDiaryIds) {
 		if (candidateDiaryIds == null || candidateDiaryIds.isEmpty()) {
 			return Collections.emptyList();
 		}
 
-		List<DiaryMetadata> metadataList = loadDiaryMetadataPort.findByDiaryIds(candidateDiaryIds);
+		List<DiaryMetadata> metadataList = loadDiaryMetadataPort.loadByDiaryIds(candidateDiaryIds);
 		Map<Long, DiaryMetadata> metadataMap = metadataList.stream()
 				.collect(Collectors.toMap(DiaryMetadata::getDiaryId, m -> m));
 
-		Map<String, Double> userAffinities = userPreferenceUseCase.getUserAffinities(userId);
-		Set<Long> friendSet = new HashSet<>(friendDiaryIds);
+		Map<String, Double> userAffinities =
+				queryUserTopicAffinitiesUseCase.queryUserTopicAffinities(userId);
 
 		List<RecommendationScoreResult> results = candidateDiaryIds.stream()
 				.map(diaryId -> {
 					DiaryMetadata metadata = metadataMap.get(diaryId);
-					double score;
-
-					if (metadata != null) {
-						score = calculateScore(metadata, userAffinities, friendSet.contains(diaryId));
-					} else {
-						score = DEFAULT_METADATA_SCORE;
-					}
-
+					double score = metadata != null
+							? calculateScore(metadata, userAffinities)
+							: RecommendationScore.withoutMetadata().value();
 					return new RecommendationScoreResult(diaryId, score);
 				})
 				.sorted((a, b) -> Double.compare(b.score(), a.score()))
@@ -95,16 +70,4 @@ public class RecommendationService implements GetRecommendationUseCase {
 		log.debug("추천 스코어링 완료 - 후보: {}, 메타데이터 있음: {}", candidateDiaryIds.size(), metadataMap.size());
 		return results;
 	}
-
-	private double calculateRecencyScore(DiaryMetadata metadata) {
-		LocalDateTime referenceTime = metadata.getAnalyzedAt() != null ? metadata.getAnalyzedAt() : metadata.getCreatedAt();
-		if (referenceTime == null) {
-			return 0.5;
-		}
-
-		long ageHours = Math.max(0L, Duration.between(referenceTime, LocalDateTime.now()).toHours());
-		double decayFactor = ageHours / RECENCY_HALF_LIFE_HOURS;
-		return 1.0 / (1.0 + decayFactor);
-	}
-
 }

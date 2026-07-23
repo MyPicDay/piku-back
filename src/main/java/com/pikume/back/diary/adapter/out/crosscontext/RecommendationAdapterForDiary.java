@@ -13,6 +13,6 @@ public class RecommendationAdapterForDiary implements AnalyzeDiaryContentPort {
 
 	@Override
 	public void analyze(Long diaryId, String content) {
-		analyzeDiaryContentUseCase.analyzeAndSave(diaryId, content);
+		analyzeDiaryContentUseCase.analyzeDiaryContent(diaryId, content);
 	}
 }

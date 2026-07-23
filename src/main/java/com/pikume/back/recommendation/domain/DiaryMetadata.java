@@ -2,7 +2,6 @@ package com.pikume.back.recommendation.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
@@ -29,7 +28,7 @@ public class DiaryMetadata extends BaseEntity {
 	private String primaryTopic;
 
 	@Column(columnDefinition = "TEXT")
-	private String topics;
+	private TopicScores topics;
 
 	@Column(name = "quality_score")
 	private Double qualityScore;
@@ -37,19 +36,39 @@ public class DiaryMetadata extends BaseEntity {
 	@Column(name = "analyzed_at")
 	private LocalDateTime analyzedAt;
 
-	@Builder
-	public DiaryMetadata(Long diaryId, String primaryTopic, String topics, Double qualityScore) {
+	private DiaryMetadata(
+			Long diaryId,
+			String primaryTopic,
+			TopicScores topics,
+			Double qualityScore,
+			LocalDateTime analyzedAt
+	) {
 		this.diaryId = diaryId;
 		this.primaryTopic = primaryTopic;
-		this.topics = topics;
+		this.topics = topics != null ? topics : TopicScores.empty();
 		this.qualityScore = qualityScore;
-		this.analyzedAt = LocalDateTime.now();
+		this.analyzedAt = analyzedAt;
 	}
 
-	public void updateAnalysis(String primaryTopic, String topics, Double qualityScore) {
+	public static DiaryMetadata create(
+			Long diaryId,
+			String primaryTopic,
+			TopicScores topics,
+			Double qualityScore,
+			LocalDateTime analyzedAt
+	) {
+		return new DiaryMetadata(diaryId, primaryTopic, topics, qualityScore, analyzedAt);
+	}
+
+	public void updateAnalysis(
+			String primaryTopic,
+			TopicScores topics,
+			Double qualityScore,
+			LocalDateTime analyzedAt
+	) {
 		this.primaryTopic = primaryTopic;
-		this.topics = topics;
+		this.topics = topics != null ? topics : TopicScores.empty();
 		this.qualityScore = qualityScore;
-		this.analyzedAt = LocalDateTime.now();
+		this.analyzedAt = analyzedAt;
 	}
 }

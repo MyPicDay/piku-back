@@ -1,120 +1,133 @@
 package com.pikume.back.recommendation.application.service;
 
+import com.pikume.back.recommendation.application.dto.DiaryContentAnalysis;
+import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
+import com.pikume.back.recommendation.application.port.out.ContentAnalyzerPort;
+import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
+import com.pikume.back.recommendation.application.port.out.RecordDiaryMetadataPort;
+import com.pikume.back.recommendation.application.port.out.RecommendationClockPort;
+import com.pikume.back.recommendation.domain.DiaryMetadata;
+import com.pikume.back.recommendation.domain.TopicScores;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.pikume.back.recommendation.application.dto.DiaryMetadataResult;
-import com.pikume.back.recommendation.application.port.out.ContentAnalyzerPort;
-import com.pikume.back.recommendation.application.port.out.LoadDiaryMetadataPort;
-import com.pikume.back.recommendation.application.port.out.SaveDiaryMetadataPort;
-import com.pikume.back.recommendation.domain.DiaryMetadata;
 
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("DiaryMetadataService")
 class DiaryMetadataServiceTest {
 
-	@InjectMocks
-	private DiaryMetadataService diaryMetadataService;
+	private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 23, 12, 0);
 
 	@Mock
 	private ContentAnalyzerPort contentAnalyzerPort;
-
 	@Mock
 	private LoadDiaryMetadataPort loadDiaryMetadataPort;
-
 	@Mock
-	private SaveDiaryMetadataPort saveDiaryMetadataPort;
+	private RecordDiaryMetadataPort recordDiaryMetadataPort;
+	@Mock
+	private RecommendationClockPort recommendationClockPort;
+
+	private DiaryMetadataService diaryMetadataService;
+
+	@BeforeEach
+	void setUp() {
+		diaryMetadataService = new DiaryMetadataService(
+				contentAnalyzerPort,
+				loadDiaryMetadataPort,
+				recordDiaryMetadataPort,
+				recommendationClockPort);
+	}
 
 	@Nested
-	@DisplayName("analyzeAndSave - 일기 분석 및 저장")
-	class AnalyzeAndSave {
+	@DisplayName("analyzeDiaryContent")
+	class AnalyzeDiaryContent {
 
 		@Test
-		@DisplayName("신규 일기인 경우 분석 후 저장한다")
-		void savesNewMetadata() {
-			Long diaryId = 1L;
-			String content = "오늘 제주도 여행을 갔다";
-			DiaryMetadata analysis = DiaryMetadata.builder()
-					.diaryId(diaryId)
-					.primaryTopic("travel")
-					.topics("{\"travel\":0.6}")
-					.qualityScore(0.5)
-					.build();
+		@DisplayName("신규 일기는 기술 중립 분석 결과를 메타데이터로 기록한다")
+		void recordsNewMetadata() {
+			DiaryContentAnalysis analysis =
+					new DiaryContentAnalysis("travel", Map.of("travel", 0.6), 0.5);
+			given(contentAnalyzerPort.analyze("오늘 제주도 여행을 갔다")).willReturn(analysis);
+			given(loadDiaryMetadataPort.loadByDiaryId(1L)).willReturn(Optional.empty());
+			given(recommendationClockPort.now()).willReturn(NOW);
 
-			given(contentAnalyzerPort.analyze(diaryId, content)).willReturn(analysis);
-			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.empty());
-			given(saveDiaryMetadataPort.save(analysis)).willReturn(analysis);
+			diaryMetadataService.analyzeDiaryContent(1L, "오늘 제주도 여행을 갔다");
 
-			diaryMetadataService.analyzeAndSave(diaryId, content);
-
-			verify(saveDiaryMetadataPort).save(analysis);
+			then(recordDiaryMetadataPort).should().recordDiaryMetadata(
+					org.mockito.ArgumentMatchers.argThat(metadata ->
+							metadata.getDiaryId().equals(1L)
+									&& metadata.getPrimaryTopic().equals("travel")
+									&& metadata.getTopics().values().equals(Map.of("travel", 0.6))
+									&& metadata.getAnalyzedAt().equals(NOW)));
 		}
 
 		@Test
-		@DisplayName("기존 메타데이터가 있으면 업데이트한다")
+		@DisplayName("기존 메타데이터는 새 분석 결과와 주입된 시각으로 갱신한다")
 		void updatesExistingMetadata() {
-			Long diaryId = 1L;
-			String content = "오늘 맛집 탐방";
-			DiaryMetadata existing = DiaryMetadata.builder()
-					.diaryId(diaryId)
-					.primaryTopic("travel")
-					.topics("{\"travel\":0.6}")
-					.qualityScore(0.5)
-					.build();
-			DiaryMetadata newAnalysis = DiaryMetadata.builder()
-					.diaryId(diaryId)
-					.primaryTopic("food")
-					.topics("{\"food\":0.6}")
-					.qualityScore(0.6)
-					.build();
+			DiaryMetadata existing = DiaryMetadata.create(
+					1L,
+					"travel",
+					TopicScores.from(Map.of("travel", 0.6)),
+					0.5,
+					NOW.minusDays(1));
+			DiaryContentAnalysis analysis =
+					new DiaryContentAnalysis("food", Map.of("food", 0.6), 0.6);
+			given(contentAnalyzerPort.analyze("오늘 맛집 탐방")).willReturn(analysis);
+			given(loadDiaryMetadataPort.loadByDiaryId(1L)).willReturn(Optional.of(existing));
+			given(recommendationClockPort.now()).willReturn(NOW);
 
-			given(contentAnalyzerPort.analyze(diaryId, content)).willReturn(newAnalysis);
-			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.of(existing));
+			diaryMetadataService.analyzeDiaryContent(1L, "오늘 맛집 탐방");
 
-			diaryMetadataService.analyzeAndSave(diaryId, content);
 			assertThat(existing.getPrimaryTopic()).isEqualTo("food");
+			assertThat(existing.getTopics().values()).containsEntry("food", 0.6);
+			assertThat(existing.getAnalyzedAt()).isEqualTo(NOW);
+			then(recordDiaryMetadataPort).should(never()).recordDiaryMetadata(existing);
 		}
 	}
 
 	@Nested
-	@DisplayName("getMetadata - 메타데이터 조회")
-	class GetMetadata {
+	@DisplayName("queryDiaryMetadata")
+	class QueryDiaryMetadata {
 
 		@Test
-		@DisplayName("존재하는 메타데이터를 반환한다")
-		void returnsMetadata() {
-			Long diaryId = 1L;
-			DiaryMetadata metadata = DiaryMetadata.builder()
-					.diaryId(diaryId)
-					.primaryTopic("travel")
-					.qualityScore(0.8)
-					.build();
+		@DisplayName("Domain Entity 대신 공개 메타데이터 결과를 반환한다")
+		void returnsMetadataResult() {
+			DiaryMetadata metadata = DiaryMetadata.create(
+					1L,
+					"travel",
+					TopicScores.from(Map.of("travel", 0.6)),
+					0.8,
+					NOW);
+			given(loadDiaryMetadataPort.loadByDiaryId(1L)).willReturn(Optional.of(metadata));
 
-			given(loadDiaryMetadataPort.findByDiaryId(diaryId)).willReturn(Optional.of(metadata));
+			Optional<DiaryMetadataResult> result = diaryMetadataService.queryDiaryMetadata(1L);
 
-			Optional<DiaryMetadataResult> result = diaryMetadataService.getMetadata(diaryId);
-
-			assertThat(result).isPresent();
-			assertThat(result.get().primaryTopic()).isEqualTo("travel");
+			assertThat(result).contains(new DiaryMetadataResult(
+					1L,
+					"travel",
+					Map.of("travel", 0.6),
+					0.8));
 		}
 
 		@Test
-		@DisplayName("존재하지 않으면 빈 Optional을 반환한다")
+		@DisplayName("메타데이터가 없으면 빈 Optional을 반환한다")
 		void returnsEmptyForMissing() {
-			given(loadDiaryMetadataPort.findByDiaryId(99L)).willReturn(Optional.empty());
+			given(loadDiaryMetadataPort.loadByDiaryId(99L)).willReturn(Optional.empty());
 
-			Optional<DiaryMetadataResult> result = diaryMetadataService.getMetadata(99L);
-
-			assertThat(result).isEmpty();
+			assertThat(diaryMetadataService.queryDiaryMetadata(99L)).isEmpty();
 		}
 	}
 }

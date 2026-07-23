@@ -1,11 +1,10 @@
 package com.pikume.back.recommendation.adapter.out.analyzer;
 
 import org.springframework.stereotype.Component;
+import com.pikume.back.recommendation.application.dto.DiaryContentAnalysis;
 import com.pikume.back.recommendation.application.port.out.ContentAnalyzerPort;
-import com.pikume.back.recommendation.domain.DiaryMetadata;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 로컬 키워드 기반 콘텐츠 분석기
@@ -29,17 +28,19 @@ public class LocalContentAnalyzerAdapter implements ContentAnalyzerPort {
 	}
 
 	@Override
-	public DiaryMetadata analyze(Long diaryId, String content) {
+	public DiaryContentAnalysis analyze(String content) {
 		if (content == null || content.isBlank()) {
-			return createMetadata(diaryId, DEFAULT_TOPIC, "{\"daily\":1.0}", calculateQualityScore(content));
+			return new DiaryContentAnalysis(
+					DEFAULT_TOPIC,
+					Map.of(DEFAULT_TOPIC, 1.0),
+					calculateQualityScore(content));
 		}
 
 		Map<String, Double> topicScores = calculateTopicScores(content);
-		String topicsJson = toTopicsJson(topicScores);
 		String primaryTopic = determinePrimaryTopic(topicScores);
 		double qualityScore = calculateQualityScore(content);
 
-		return createMetadata(diaryId, primaryTopic, topicsJson, qualityScore);
+		return new DiaryContentAnalysis(primaryTopic, scoresOrDailyDefault(topicScores), qualityScore);
 	}
 
 	private Map<String, Double> calculateTopicScores(String content) {
@@ -55,7 +56,7 @@ public class LocalContentAnalyzerAdapter implements ContentAnalyzerPort {
 					.count();
 
 			if (matchCount > 0) {
-				double score = Math.min(1.0, matchCount * 0.3);
+				double score = Math.min(1.0, Math.round(matchCount * 0.3 * 10.0) / 10.0);
 				scores.put(topic, score);
 			}
 		}
@@ -74,15 +75,8 @@ public class LocalContentAnalyzerAdapter implements ContentAnalyzerPort {
 				.orElse(DEFAULT_TOPIC);
 	}
 
-	private String toTopicsJson(Map<String, Double> topicScores) {
-		if (topicScores.isEmpty()) {
-			return "{\"daily\":1.0}";
-		}
-
-		String json = topicScores.entrySet().stream()
-				.map(e -> String.format("\"%s\":%.1f", e.getKey(), e.getValue()))
-				.collect(Collectors.joining(","));
-		return "{" + json + "}";
+	private Map<String, Double> scoresOrDailyDefault(Map<String, Double> topicScores) {
+		return topicScores.isEmpty() ? Map.of(DEFAULT_TOPIC, 1.0) : topicScores;
 	}
 
 	private double calculateQualityScore(String content) {
@@ -107,12 +101,4 @@ public class LocalContentAnalyzerAdapter implements ContentAnalyzerPort {
 		}
 	}
 
-	private DiaryMetadata createMetadata(Long diaryId, String primaryTopic, String topics, double qualityScore) {
-		return DiaryMetadata.builder()
-				.diaryId(diaryId)
-				.primaryTopic(primaryTopic)
-				.topics(topics)
-				.qualityScore(qualityScore)
-				.build();
-	}
 }

@@ -9,7 +9,5 @@ import java.util.Optional;
  */
 public interface LoadUserPreferencePort {
 
-	Optional<UserPreference> findByUserId(String userId);
-
-	boolean existsByUserId(String userId);
+	Optional<UserPreference> loadByUserId(String userId);
 }
