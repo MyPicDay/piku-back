@@ -29,7 +29,7 @@ public class InquiryAttachmentStorageAdapter implements StoreInquiryAttachmentPo
 					attachment.originalFilename(),
 					attachment.contentType(),
 					attachment.bytes());
-			return storeObjectPort.storeObject(file, objectKey);
+			return storeObjectPort.storeObject(file, objectKey, null);
 		} catch (RuntimeException exception) {
 			throw new SupportException(SupportErrorCode.ATTACHMENT_STORAGE_FAILED, exception);
 		}

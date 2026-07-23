@@ -1,9 +1,10 @@
 package com.pikume.back.social.adapter.out.crosscontext;
 
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.social.application.port.out.LoadSocialParticipantProfilesPort;
 import com.pikume.back.social.application.port.out.VerifySocialParticipantPort;
 import com.pikume.back.social.application.readmodel.SocialParticipantProfile;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.dto.UserSummaryView;
 import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
@@ -20,7 +21,7 @@ public class UserAdapterForSocial implements VerifySocialParticipantPort, LoadSo
 
 	private final QueryUserReferenceUseCase queryUserReferenceUseCase;
 	private final QueryUserSummaryUseCase queryUserSummaryUseCase;
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Override
 	public boolean participantExists(String userId) {
@@ -36,7 +37,15 @@ public class UserAdapterForSocial implements VerifySocialParticipantPort, LoadSo
 								user.id(),
 								user.nickname(),
 								user.avatarPath() != null
-										? imagePathToUrlConverter.userAvatarImageUrl(user.avatarPath())
+										? resolveAvatarUrl(user.avatarPath())
 										: null)));
+	}
+
+	private String resolveAvatarUrl(String storedPath) {
+		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
+		if (reference.isEmpty() || reference.absoluteUrl()) {
+			return reference.value();
+		}
+		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());
 	}
 }

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.port.out.ResolveImageUrlPort;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationDiaryContextsPort;
 import com.pikume.back.notification.application.readmodel.NotificationDiaryContextView;
 
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public class DiaryAdapterForNotification implements LoadNotificationDiaryContextsPort {
 
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
-	private final ResolveImageUrlPort resolveImageUrlPort;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Override
 	public Map<Long, NotificationDiaryContextView> loadNotificationDiaryContexts(Set<Long> diaryIds) {
@@ -36,7 +36,9 @@ public class DiaryAdapterForNotification implements LoadNotificationDiaryContext
 							String photoPath = photoPaths.get(diaryId);
 							String thumbnailUrl = photoPath == null
 									? null
-									: resolveImageUrlPort.getPhotoUrl(photoPath, true);
+									: resolveObjectUrlPort.resolveObjectUrl(
+											photoPath,
+											photoPath.startsWith("public/"));
 							return new NotificationDiaryContextView(
 									diaryId,
 									thumbnailUrl,

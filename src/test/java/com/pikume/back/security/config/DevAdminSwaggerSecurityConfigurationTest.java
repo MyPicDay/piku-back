@@ -1,6 +1,5 @@
-package com.pikume.back.global.config;
+package com.pikume.back.security.config;
 
-import com.pikume.back.security.config.AdminSecurityProperties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springdoc.core.properties.SwaggerUiConfigProperties;

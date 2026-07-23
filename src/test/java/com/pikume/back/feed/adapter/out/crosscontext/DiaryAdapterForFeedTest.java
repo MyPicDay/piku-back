@@ -13,7 +13,7 @@ import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.feed.application.dto.FeedVisibility;
 import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
-import com.pikume.back.global.port.out.ResolveImageUrlPort;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,7 +36,7 @@ class DiaryAdapterForFeedTest {
 	@Mock
 	private QueryDiaryReadUseCase queryDiaryReadUseCase;
 	@Mock
-	private ResolveImageUrlPort resolveImageUrlPort;
+	private ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Test
 	@DisplayName("Diary 공개 모델과 사진 참조를 Feed 목록 원천 모델로 번역한다")
@@ -44,7 +44,7 @@ class DiaryAdapterForFeedTest {
 		Set<Long> diaryIds = Set.of(1L);
 		given(queryDiaryReadUseCase.getDiaryPhotos(diaryIds))
 				.willReturn(List.of(new DiaryPhotoView(1L, "photos/one.jpg", true)));
-		given(resolveImageUrlPort.getPhotoUrl("photos/one.jpg", true))
+		given(resolveObjectUrlPort.resolveObjectUrl("photos/one.jpg", false))
 				.willReturn("https://cdn.example/one.jpg");
 		given(queryDiaryReadUseCase.getDiarySummaries(diaryIds))
 				.willReturn(Map.of(

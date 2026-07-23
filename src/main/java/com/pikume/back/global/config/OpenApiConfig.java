@@ -1,6 +1,5 @@
 package com.pikume.back.global.config;
 
-import com.pikume.back.security.config.AdminSecurityProperties;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -21,10 +20,10 @@ public class OpenApiConfig {
 	private static final String ADMIN_SESSION_SCHEME = "AdminSessionCookie";
 	private static final String ADMIN_CSRF_SCHEME = "AdminCsrfHeader";
 
-	private final AdminSecurityProperties adminSecurityProperties;
+	private final OpenApiSecuritySchemeNames securitySchemeNames;
 
-	public OpenApiConfig(AdminSecurityProperties adminSecurityProperties) {
-		this.adminSecurityProperties = adminSecurityProperties;
+	public OpenApiConfig(OpenApiSecuritySchemeNames securitySchemeNames) {
+		this.securitySchemeNames = securitySchemeNames;
 	}
 
 	@Bean
@@ -66,11 +65,11 @@ public class OpenApiConfig {
 				.addSecuritySchemes(ADMIN_SESSION_SCHEME, new SecurityScheme()
 						.type(SecurityScheme.Type.APIKEY)
 						.in(SecurityScheme.In.COOKIE)
-						.name(adminSecurityProperties.sessionCookieName()))
+						.name(securitySchemeNames.adminSessionCookie()))
 				.addSecuritySchemes(ADMIN_CSRF_SCHEME, new SecurityScheme()
 						.type(SecurityScheme.Type.APIKEY)
 						.in(SecurityScheme.In.HEADER)
-						.name(adminSecurityProperties.csrfHeaderName()));
+						.name(securitySchemeNames.adminCsrfHeader()));
 
 		return new OpenAPI()
 				.info(info)

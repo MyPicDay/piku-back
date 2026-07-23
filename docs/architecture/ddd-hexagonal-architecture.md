@@ -64,7 +64,8 @@
 - 객체 저장소의 바이트 로드·저장·표시 URL 해석처럼 공급자 중립적인 기술 능력은 Global 계약으로 둘 수 있다.
 - Object Key, 파일명, 공개 범위, 캐시 정책과 파일 생명주기의 결정은 해당 데이터를 사용하는 Context가 소유한다.
 - Security Principal, HTTP·Multipart 변환과 이미지 표시 URL 조합은 입력 또는 출력 Adapter가 담당하며 Application 계약에 노출하지 않는다.
-- Global 설정이 특정 Context 또는 Security 설정을 알아야 하는 조합은 전환 기간의 명시적 예외로만 허용하고 최종 조합 경계로 이동한다.
+- User가 저장한 아바타 참조의 레거시 형식 정규화는 User의 공개 Application 값이 담당하고, Web 또는 소비자 Cross-context Adapter가 중립 URL 해석 계약을 사용해 표시 URL로 변환한다.
+- Global 설정에 필요한 보안 문서 구성값은 Security가 중립 구성 계약으로 제공하며 Global은 Security 구현 설정을 직접 참조하지 않는다.
 
 ## 4. 프로젝트 기본값
 

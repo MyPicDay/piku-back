@@ -10,7 +10,6 @@ import com.pikume.back.diary.application.port.out.StoreOptimizedDiaryPhotoPort;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.storage.StorageProperties;
-import com.pikume.back.global.util.FileUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -24,9 +23,9 @@ import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
-import java.io.ByteArrayInputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Optional;
 
 import static com.pikume.back.diary.adapter.out.storage.PhotoObjectKeyConstants.PUBLIC_PREFIX;
@@ -40,15 +39,13 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 	private final PhotoUtil photoUtil;
 	private final StorageProperties storageProperties;
 	private final ImageCacheProperties imageCacheProperties;
-	private final FileUtil fileUtil;
 
 	public MinioPhotoStorageAdapter(S3Client s3Client, PhotoUtil photoUtil,
-			StorageProperties storageProperties, ImageCacheProperties imageCacheProperties, FileUtil fileUtil) {
+			StorageProperties storageProperties, ImageCacheProperties imageCacheProperties) {
 		this.s3Client = s3Client;
 		this.photoUtil = photoUtil;
 		this.storageProperties = storageProperties;
 		this.imageCacheProperties = imageCacheProperties;
-		this.fileUtil = fileUtil;
 	}
 
 	@Override
@@ -73,34 +70,6 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 			return objectKey;
 		} catch (RuntimeException exception) {
 			throw new RuntimeException("일기 사진 저장 중 오류가 발생했습니다.", exception);
-		}
-	}
-
-	public String storeObject(String contentType, byte[] bytes, String objectKey, String cacheControl) {
-		try {
-			if (bytes == null || bytes.length == 0) {
-				throw new IllegalArgumentException("빈 이미지는 저장할 수 없습니다.");
-			}
-			ensureBucketExists(storageProperties.getBucket());
-
-			PutObjectRequest.Builder requestBuilder = PutObjectRequest.builder()
-					.bucket(storageProperties.getBucket())
-					.key(objectKey)
-					.contentType(contentType)
-					.contentLength((long) bytes.length);
-
-			String effectiveCacheControl = hasText(cacheControl) ? cacheControl : cacheControlFor(objectKey);
-			if (hasText(effectiveCacheControl)) {
-				requestBuilder.cacheControl(effectiveCacheControl);
-			}
-
-			PutObjectRequest putObjectRequest = requestBuilder.build();
-
-			s3Client.putObject(putObjectRequest, RequestBody.fromBytes(bytes));
-
-			return objectKey;
-		} catch (Exception e) {
-			throw new RuntimeException("이미지 업로드 중 오류 발생", e);
 		}
 	}
 
@@ -249,9 +218,8 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 				throw new IllegalArgumentException("Base64 데이터가 비어있습니다.");
 			}
 
-			String cleanExtension = fileUtil.cleanExtension(fileExtension);
-			byte[] imageBytes = fileUtil.decodeBase64(base64Data);
-			ByteArrayInputStream inputStream = new ByteArrayInputStream(imageBytes);
+			String cleanExtension = cleanExtension(fileExtension);
+			byte[] imageBytes = Base64.getDecoder().decode(base64Data);
 
 			String objectName = photoUtil.generateDiaryAiImageObjectKey(cleanExtension);
 
@@ -260,11 +228,11 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 			PutObjectRequest putObjectRequest = PutObjectRequest.builder()
 					.bucket(storageProperties.getBucket())
 					.key(objectName)
-					.contentType(fileUtil.getContentType(cleanExtension))
+					.contentType(contentTypeForExtension(cleanExtension))
 					.cacheControl(cacheControlFor(objectName))
 					.build();
 
-			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, imageBytes.length));
+			s3Client.putObject(putObjectRequest, RequestBody.fromBytes(imageBytes));
 
 			log.info("Base64 이미지 저장 완료 - 사용자: {}, objectKey: {}, 크기: {} bytes", userId, objectName, imageBytes.length);
 			return objectName;
@@ -276,6 +244,22 @@ public class MinioPhotoStorageAdapter implements StoreDiaryPhotoPort, RelocateDi
 			log.error("AI 이미지 저장 중 예상하지 못한 오류 발생: {}", e.getMessage(), e);
 			throw new RuntimeException("AI 이미지 저장 중 오류가 발생했습니다.", e);
 		}
+	}
+
+	private String cleanExtension(String fileExtension) {
+		return fileExtension.startsWith(".") ? fileExtension.substring(1) : fileExtension;
+	}
+
+	private String contentTypeForExtension(String extension) {
+		return switch (extension.toLowerCase()) {
+			case "jpg", "jpeg" -> "image/jpeg";
+			case "png" -> "image/png";
+			case "gif" -> "image/gif";
+			case "webp" -> "image/webp";
+			case "bmp" -> "image/bmp";
+			case "svg" -> "image/svg+xml";
+			default -> "application/octet-stream";
+		};
 	}
 
 	public String moveToPublic(String sourceKey) {

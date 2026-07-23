@@ -17,7 +17,7 @@ import com.pikume.back.feed.application.readmodel.FeedDiaryCandidateView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryDetailView;
 import com.pikume.back.feed.application.readmodel.FeedDiaryItemSourceView;
 import com.pikume.back.feed.application.readmodel.FeedPhotoReferenceView;
-import com.pikume.back.global.port.out.ResolveImageUrlPort;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,7 +34,7 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 
 	private final QueryDiaryFeedUseCase queryDiaryFeedUseCase;
 	private final QueryDiaryReadUseCase queryDiaryReadUseCase;
-	private final ResolveImageUrlPort resolveImageUrlPort;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Override
 	public Optional<FeedDiaryDetailView> loadVisibleDiary(Long diaryId, String viewerId) {
@@ -45,7 +45,9 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 						toFeedVisibility(diary.status()),
 						diary.content(),
 						diary.photos().stream()
-								.map(photo -> resolveImageUrlPort.getPhotoUrl(photo.path(), photo.represent()))
+								.map(photo -> resolveObjectUrlPort.resolveObjectUrl(
+										photo.path(),
+										isPublicObjectKey(photo.path())))
 								.toList(),
 						diary.date(),
 						diary.createdAt()));
@@ -107,7 +109,9 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 		queryDiaryReadUseCase.getDiaryPhotos(diaryIds).forEach(photo -> photosByDiaryId
 				.computeIfAbsent(photo.diaryId(), ignored -> new ArrayList<>())
 				.add(new FeedPhotoReferenceView(
-						resolveImageUrlPort.getPhotoUrl(photo.path(), photo.represent()))));
+						resolveObjectUrlPort.resolveObjectUrl(
+								photo.path(),
+								isPublicObjectKey(photo.path())))));
 
 		return queryDiaryReadUseCase.getDiarySummaries(diaryIds).values().stream()
 				.collect(Collectors.toMap(
@@ -152,5 +156,9 @@ public class DiaryAdapterForFeed implements LoadFeedDiaryDetailPort, LoadLatestF
 			case PRIVATE -> DiaryVisibility.PRIVATE;
 			case ANONYMOUS -> DiaryVisibility.ANONYMOUS;
 		};
+	}
+
+	private boolean isPublicObjectKey(String objectKey) {
+		return objectKey != null && objectKey.startsWith("public/");
 	}
 }

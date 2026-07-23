@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.CommonProblemType;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameChangeResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.NicknameCheckResponse;
@@ -45,7 +45,7 @@ public class UserController {
 	private final UpdateUserProfileUseCase updateUserProfileUseCase;
 	private final ReserveNicknameUseCase reserveNicknameUseCase;
 	private final ProblemDetailFactory problemDetailFactory;
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Operation(summary = "프로필 미리보기 정보 반환", description = "사용자의 프로필 미리보기 시 사용될 정보를 조회하여 반환합니다.")
 	@GetMapping("/{userId}/profile-preview")
@@ -57,7 +57,7 @@ public class UserController {
 		String loginUserId = userDetails != null ? userDetails.getId() : null;
 		ProfilePreviewResult result = queryUserProfileUseCase.queryProfilePreview(userId, loginUserId);
 
-		return ResponseEntity.ok(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
+		return ResponseEntity.ok(ProfilePreviewResponse.from(result, resolveObjectUrlPort));
 	}
 
 	@Operation(summary = "사용자 프로필 조회")
@@ -67,7 +67,7 @@ public class UserController {
 			@AuthenticationPrincipal UserPrincipal userDetails) {
 		UserProfileResult result = queryUserProfileUseCase.queryUserProfile(userId, userDetails.getId());
 
-		return ResponseEntity.ok(UserProfileResponse.from(result, imagePathToUrlConverter));
+		return ResponseEntity.ok(UserProfileResponse.from(result, resolveObjectUrlPort));
 	}
 
 	@Operation(summary = "닉네임 중복조회 검사", responses = {

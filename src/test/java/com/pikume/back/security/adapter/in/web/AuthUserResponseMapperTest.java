@@ -1,7 +1,7 @@
 package com.pikume.back.security.adapter.in.web;
 
 import com.pikume.back.security.principal.UserPrincipal;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.auth.application.dto.LoginResult;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 import org.junit.jupiter.api.DisplayName;
@@ -22,7 +22,7 @@ class AuthUserResponseMapperTest {
 	private AuthUserResponseMapper authUserResponseMapper;
 
 	@Mock
-	private ImagePathToUrlConverter imagePathToUrlConverter;
+	private ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Test
 	@DisplayName("로그인 사용자 정보의 avatar path를 display URL로 변환한다")
@@ -31,7 +31,9 @@ class AuthUserResponseMapperTest {
 				"user-1",
 				"pikume",
 				"public/characters/fixed/base_image_1.webp");
-		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp"))
+		given(resolveObjectUrlPort.resolveObjectUrl(
+				"public/characters/fixed/base_image_1.webp",
+				true))
 				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
 		UserInfo result = authUserResponseMapper.toDisplayUserInfo(rawUserInfo);
@@ -47,7 +49,9 @@ class AuthUserResponseMapperTest {
 				"user-1",
 				"pikume",
 				"public/characters/fixed/base_image_1.webp");
-		given(imagePathToUrlConverter.userAvatarImageUrl("public/characters/fixed/base_image_1.webp"))
+		given(resolveObjectUrlPort.resolveObjectUrl(
+				"public/characters/fixed/base_image_1.webp",
+				true))
 				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
 
 		UserInfo result = authUserResponseMapper.toDisplayUserInfo(userDetails);

@@ -5,7 +5,6 @@ import com.pikume.back.diary.application.dto.DiaryPhotoUpload;
 import com.pikume.back.diary.domain.vo.DiaryPhotoType;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
 import com.pikume.back.global.storage.StorageProperties;
-import com.pikume.back.global.util.FileUtil;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +23,7 @@ import software.amazon.awssdk.core.ResponseBytes;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,9 +49,6 @@ class MinioPhotoStorageAdapterTest {
 
 	@Mock
 	private PhotoUtil photoUtil;
-
-	@Mock
-	private FileUtil fileUtil;
 
 	@Test
 	@DisplayName("public 객체 URL은 서버 S3 API 경로가 아니라 클라이언트 S3 이미지 조회 경로를 사용한다")
@@ -148,27 +145,6 @@ class MinioPhotoStorageAdapterTest {
 	}
 
 	@Test
-	@DisplayName("public WebP 객체 저장 시 앱 기본 public cache-control을 지정한다")
-	void storesPublicWebpObjectWithDefaultCacheControl() {
-		MinioPhotoStorageAdapter adapter = adapterWith(
-				"http://minio:9000",
-				"https://assets.example.com");
-		byte[] webp = "webp".getBytes(StandardCharsets.UTF_8);
-
-		String storedKey = adapter.storeObject(
-				"image/webp",
-				webp,
-				"public/diary-images/user/ab/cd/photo.webp",
-				null);
-
-		assertThat(storedKey).isEqualTo("public/diary-images/user/ab/cd/photo.webp");
-		then(s3Client).should().putObject(putObjectWithKeyAndCacheControl(
-				"public/diary-images/user/ab/cd/photo.webp",
-				"image/webp",
-				PUBLIC_CACHE_CONTROL), any(software.amazon.awssdk.core.sync.RequestBody.class));
-	}
-
-	@Test
 	@DisplayName("공개 일기 사용자 이미지는 대표 여부와 무관하게 public sharded key로 저장한다")
 	void savesPublicDiaryUserPhotoUnderPublicShard() {
 		MinioPhotoStorageAdapter adapter = adapterWith(
@@ -211,12 +187,12 @@ class MinioPhotoStorageAdapterTest {
 				"http://minio:9000",
 				"https://assets.example.com");
 		String objectKey = "private/diary-images/ai/ab/cd/generated.png";
-		given(fileUtil.cleanExtension("png")).willReturn("png");
-		given(fileUtil.decodeBase64("base64")).willReturn("image".getBytes(StandardCharsets.UTF_8));
-		given(fileUtil.getContentType("png")).willReturn("image/png");
 		given(photoUtil.generateDiaryAiImageObjectKey("png")).willReturn(objectKey);
 
-		String result = adapter.saveGeneratedImage("base64", "user-1", "png");
+		String result = adapter.saveGeneratedImage(
+				Base64.getEncoder().encodeToString("image".getBytes(StandardCharsets.UTF_8)),
+				"user-1",
+				"png");
 
 		assertThat(result).isEqualTo(objectKey);
 		then(s3Client).should().putObject(
@@ -390,7 +366,7 @@ class MinioPhotoStorageAdapterTest {
 				ACCESS_KEY,
 				SECRET_KEY,
 				BUCKET);
-		return new MinioPhotoStorageAdapter(s3Client, photoUtil, properties, new ImageCacheProperties(), fileUtil);
+		return new MinioPhotoStorageAdapter(s3Client, photoUtil, properties, new ImageCacheProperties());
 	}
 
 	private HeadObjectRequest headObjectWithKey(String key) {

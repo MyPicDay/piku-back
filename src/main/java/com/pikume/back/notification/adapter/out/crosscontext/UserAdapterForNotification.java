@@ -1,11 +1,12 @@
 package com.pikume.back.notification.adapter.out.crosscontext;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationSendersPort;
 import com.pikume.back.notification.application.readmodel.NotificationSenderView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.Set;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 public class UserAdapterForNotification implements LoadNotificationSendersPort {
 
 	private final QueryUserSummaryUseCase queryUserSummaryUseCase;
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Override
 	public Map<String, NotificationSenderView> loadNotificationSenders(Set<String> senderIds) {
@@ -33,7 +34,15 @@ public class UserAdapterForNotification implements LoadNotificationSendersPort {
 									entry.getValue().nickname(),
 									avatarPath == null
 											? null
-											: imagePathToUrlConverter.userAvatarImageUrl(avatarPath));
+											: resolveAvatarUrl(avatarPath));
 						}));
+	}
+
+	private String resolveAvatarUrl(String storedPath) {
+		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
+		if (reference.isEmpty() || reference.absoluteUrl()) {
+			return reference.value();
+		}
+		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());
 	}
 }

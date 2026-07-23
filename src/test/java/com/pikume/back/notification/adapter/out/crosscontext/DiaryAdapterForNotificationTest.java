@@ -3,7 +3,7 @@ package com.pikume.back.notification.adapter.out.crosscontext;
 import com.pikume.back.diary.application.dto.DiarySummaryView;
 import com.pikume.back.diary.application.port.in.QueryDiaryReadUseCase;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
-import com.pikume.back.global.port.out.ResolveImageUrlPort;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.notification.application.readmodel.NotificationDiaryContextView;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ class DiaryAdapterForNotificationTest {
 	@Mock
 	private QueryDiaryReadUseCase queryDiaryReadUseCase;
 	@Mock
-	private ResolveImageUrlPort resolveImageUrlPort;
+	private ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Test
 	@DisplayName("Diary 공개 계약을 Notification 소유 Context로 일괄 번역한다")
@@ -48,7 +48,8 @@ class DiaryAdapterForNotificationTest {
 								LocalDateTime.of(2026, 7, 20, 12, 0))));
 		given(queryDiaryReadUseCase.getRepresentPhotoPaths(diaryIds))
 				.willReturn(Map.of(10L, "photos/10.jpg"));
-		given(resolveImageUrlPort.getPhotoUrl("photos/10.jpg", true)).willReturn("thumbnail-url");
+		given(resolveObjectUrlPort.resolveObjectUrl("photos/10.jpg", false))
+				.willReturn("thumbnail-url");
 
 		Map<Long, NotificationDiaryContextView> result =
 				adapter.loadNotificationDiaryContexts(diaryIds);

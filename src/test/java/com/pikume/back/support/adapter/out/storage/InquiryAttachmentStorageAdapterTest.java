@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -27,7 +28,10 @@ class InquiryAttachmentStorageAdapterTest {
 	@Test
 	@DisplayName("Support 첨부를 중립 Object Storage 계약으로 저장한다")
 	void storesAttachmentThroughNeutralObjectPort() {
-		given(storeObjectPort.storeObject(any(UploadedFileData.class), any(String.class)))
+		given(storeObjectPort.storeObject(
+				any(UploadedFileData.class),
+				any(String.class),
+				isNull()))
 				.willAnswer(invocation -> invocation.getArgument(1));
 		InquiryAttachmentStorageAdapter adapter = adapter();
 
@@ -41,13 +45,17 @@ class InquiryAttachmentStorageAdapterTest {
 						file.originalFilename().equals("inquiry.png")
 								&& file.contentType().equals("image/png")
 								&& java.util.Arrays.equals(file.bytes(), "data".getBytes())),
-				org.mockito.ArgumentMatchers.eq(reference));
+				org.mockito.ArgumentMatchers.eq(reference),
+				isNull());
 	}
 
 	@Test
 	@DisplayName("Storage 원인을 노출하지 않는 Support 오류로 변환한다")
 	void translatesStorageFailure() {
-		given(storeObjectPort.storeObject(any(UploadedFileData.class), any(String.class)))
+		given(storeObjectPort.storeObject(
+				any(UploadedFileData.class),
+				any(String.class),
+				isNull()))
 				.willThrow(new IllegalStateException("bucket secret"));
 
 		assertThatThrownBy(() -> adapter().storeInquiryAttachment(

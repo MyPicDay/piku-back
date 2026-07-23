@@ -2,7 +2,8 @@ package com.pikume.back.feed.adapter.out.crosscontext;
 
 import com.pikume.back.feed.application.port.out.LoadFeedAuthorsPort;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 public class UserAdapterForFeed implements LoadFeedAuthorsPort {
 
 	private final QueryUserSummaryUseCase queryUserSummaryUseCase;
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Override
 	public Map<String, FeedAuthorView> loadAuthors(Set<String> userIds) {
@@ -27,7 +28,15 @@ public class UserAdapterForFeed implements LoadFeedAuthorsPort {
 								entry.getKey(),
 								entry.getValue().nickname(),
 								entry.getValue().avatarPath() != null
-										? imagePathToUrlConverter.userAvatarImageUrl(entry.getValue().avatarPath())
+										? resolveAvatarUrl(entry.getValue().avatarPath())
 										: null)));
+	}
+
+	private String resolveAvatarUrl(String storedPath) {
+		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
+		if (reference.isEmpty() || reference.absoluteUrl()) {
+			return reference.value();
+		}
+		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());
 	}
 }

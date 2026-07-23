@@ -2,7 +2,7 @@ package com.pikume.back.notification.adapter.out.crosscontext;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.application.dto.UserSummaryView;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 
@@ -18,9 +18,9 @@ import static org.mockito.Mockito.mock;
 class UserAdapterForNotificationTest {
 
 	private final QueryUserSummaryUseCase queryUserSummaryUseCase = mock(QueryUserSummaryUseCase.class);
-	private final ImagePathToUrlConverter imagePathToUrlConverter = mock(ImagePathToUrlConverter.class);
+	private final ResolveObjectUrlPort resolveObjectUrlPort = mock(ResolveObjectUrlPort.class);
 	private final UserAdapterForNotification adapter = new UserAdapterForNotification(
-			queryUserSummaryUseCase, imagePathToUrlConverter);
+			queryUserSummaryUseCase, resolveObjectUrlPort);
 
 	@Test
 	@DisplayName("User 공개 계약을 Notification 소유 발신자 View로 일괄 번역한다")
@@ -29,7 +29,8 @@ class UserAdapterForNotificationTest {
 				.willReturn(Map.of(
 						"user-1",
 						new UserSummaryView("user-1", "피쿠", "avatars/user-1.png")));
-		given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user-1.png")).willReturn("avatar-url");
+		given(resolveObjectUrlPort.resolveObjectUrl("avatars/user-1.png", false))
+				.willReturn("avatar-url");
 
 		var result = adapter.loadNotificationSenders(Set.of("user-1", "missing"));
 
@@ -49,6 +50,6 @@ class UserAdapterForNotificationTest {
 		var result = adapter.loadNotificationSenders(Set.of("user-1"));
 
 		assertThat(result.get("user-1").avatarUrl()).isNull();
-		then(imagePathToUrlConverter).shouldHaveNoInteractions();
+		then(resolveObjectUrlPort).shouldHaveNoInteractions();
 	}
 }

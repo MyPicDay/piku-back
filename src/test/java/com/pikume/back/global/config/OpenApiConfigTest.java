@@ -1,6 +1,5 @@
 package com.pikume.back.global.config;
 
-import com.pikume.back.security.config.AdminSecurityProperties;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -8,8 +7,6 @@ import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springdoc.core.models.GroupedOpenApi;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,7 +57,6 @@ class OpenApiConfigTest {
 	}
 
 	private OpenApiConfig config() {
-		return new OpenApiConfig(new AdminSecurityProperties(
-				List.of("http://localhost:3000"), "pk-a91f", "pk-b74d", "X-PK-C83F", false, ""));
+		return new OpenApiConfig(new OpenApiSecuritySchemeNames("pk-a91f", "X-PK-C83F"));
 	}
 }

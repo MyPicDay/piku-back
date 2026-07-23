@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
 import com.pikume.back.user.adapter.in.web.dto.response.ProfilePreviewResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.UserProfileResponse;
@@ -42,7 +42,7 @@ class UserControllerTest {
 	private ReserveNicknameUseCase reserveNicknameUseCase;
 
 	@Mock
-	private ImagePathToUrlConverter imagePathToUrlConverter;
+	private ResolveObjectUrlPort resolveObjectUrlPort;
 
 	private UserController userController;
 
@@ -53,7 +53,7 @@ class UserControllerTest {
 				updateUserProfileUseCase,
 				reserveNicknameUseCase,
 				new ProblemDetailFactory(),
-				imagePathToUrlConverter);
+				resolveObjectUrlPort);
 	}
 
 	@Test
@@ -67,13 +67,15 @@ class UserControllerTest {
 				12L,
 				"NONE");
 		given(queryUserProfileUseCase.queryProfilePreview("user1", null)).willReturn(result);
-		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+		given(resolveObjectUrlPort.resolveObjectUrl(
+				"public/characters/fixed/avatar-object-key",
+				true))
 				.willReturn("https://assets.example.com/avatar.webp");
 
 		ResponseEntity<?> response = userController.queryProfilePreview("user1", null);
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
-		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result, imagePathToUrlConverter));
+		assertThat(response.getBody()).isEqualTo(ProfilePreviewResponse.from(result, resolveObjectUrlPort));
 	}
 
 	@Test
@@ -89,7 +91,9 @@ class UserControllerTest {
 				true,
 				List.of(new UserProfileResult.MonthlyDiaryCount(2026, 7, 4L)));
 		given(queryUserProfileUseCase.queryUserProfile("user1", "user1")).willReturn(result);
-		given(imagePathToUrlConverter.userAvatarImageUrl("avatar-object-key"))
+		given(resolveObjectUrlPort.resolveObjectUrl(
+				"public/characters/fixed/avatar-object-key",
+				true))
 				.willReturn("https://assets.example.com/avatar.webp");
 
 		ResponseEntity<?> response = userController.queryUserProfile(
@@ -97,7 +101,7 @@ class UserControllerTest {
 				new UserPrincipal("user1", "pikume"));
 
 		assertThat(response.getStatusCode().value()).isEqualTo(200);
-		assertThat(response.getBody()).isEqualTo(UserProfileResponse.from(result, imagePathToUrlConverter));
+		assertThat(response.getBody()).isEqualTo(UserProfileResponse.from(result, resolveObjectUrlPort));
 	}
 
 	@Test

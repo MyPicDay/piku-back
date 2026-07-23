@@ -81,9 +81,9 @@ class CreativeArchitectureTest {
 	void creativeOwnsGeneratedImageStorageAdapter() {
 		assertThat(CREATIVE.resolve("adapter/out/storage/CreativeImageStorageAdapter.java")).exists();
 		assertThat(CREATIVE.resolve("adapter/out/storage/CreativeImageObjectKeyPolicy.java")).exists();
-		assertThat(contains(
-				Path.of("src/main/java/com/pikume/back/diary/adapter/out/storage/SharedImageStorageCompatibilityAdapter.java"),
-				"CreativeImageStoragePort")).isFalse();
+		assertThat(Path.of(
+				"src/main/java/com/pikume/back/diary/adapter/out/storage/SharedImageStorageCompatibilityAdapter.java"))
+				.doesNotExist();
 	}
 
 	@Test

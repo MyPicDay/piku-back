@@ -1,5 +1,6 @@
 package com.pikume.back.security.config;
 
+import com.pikume.back.global.config.OpenApiSecuritySchemeNames;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -13,5 +14,13 @@ public class SecurityBeanConfiguration {
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
+	}
+
+	@Bean
+	public OpenApiSecuritySchemeNames openApiSecuritySchemeNames(
+			AdminSecurityProperties adminSecurityProperties) {
+		return new OpenApiSecuritySchemeNames(
+				adminSecurityProperties.sessionCookieName(),
+				adminSecurityProperties.csrfHeaderName());
 	}
 }

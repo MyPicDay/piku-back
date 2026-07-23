@@ -1,6 +1,6 @@
 package com.pikume.back.social.adapter.out.crosscontext;
 
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.application.dto.UserReferenceView;
 import com.pikume.back.user.application.dto.UserSummaryView;
 import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
@@ -24,13 +24,13 @@ class UserAdapterForSocialTest {
 	@InjectMocks private UserAdapterForSocial adapter;
 	@Mock private QueryUserReferenceUseCase queryUserReferenceUseCase;
 	@Mock private QueryUserSummaryUseCase queryUserSummaryUseCase;
-	@Mock private ImagePathToUrlConverter imagePathToUrlConverter;
+	@Mock private ResolveObjectUrlPort resolveObjectUrlPort;
 
 	@Test
 	void translatesPublicUserContractsToSocialProfile() {
 		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user")))
 				.willReturn(Map.of("user", new UserSummaryView("user", "닉네임", "avatars/user.png")));
-		given(imagePathToUrlConverter.userAvatarImageUrl("avatars/user.png"))
+		given(resolveObjectUrlPort.resolveObjectUrl("avatars/user.png", false))
 				.willReturn("https://cdn/avatar.png");
 
 		var result = adapter.loadProfiles(Set.of("user")).get("user");

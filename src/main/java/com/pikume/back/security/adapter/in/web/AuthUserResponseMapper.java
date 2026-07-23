@@ -1,7 +1,8 @@
 package com.pikume.back.security.adapter.in.web;
 
+import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.security.principal.UserPrincipal;
-import com.pikume.back.global.util.ImagePathToUrlConverter;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.auth.application.dto.LoginResult;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AuthUserResponseMapper {
 
-	private final ImagePathToUrlConverter imagePathToUrlConverter;
+	private final ResolveObjectUrlPort resolveObjectUrlPort;
 
 	public UserInfo toDisplayUserInfo(LoginResult.UserInfo userInfo) {
 		if (userInfo == null) {
@@ -20,7 +21,7 @@ public class AuthUserResponseMapper {
 		return new UserInfo(
 				userInfo.id(),
 				userInfo.nickname(),
-				imagePathToUrlConverter.userAvatarImageUrl(userInfo.avatarPath()));
+				resolveAvatarUrl(userInfo.avatarPath()));
 	}
 
 	public UserInfo toDisplayUserInfo(UserPrincipal userDetails) {
@@ -30,6 +31,14 @@ public class AuthUserResponseMapper {
 		return new UserInfo(
 				userDetails.getId(),
 				userDetails.getNickname(),
-				imagePathToUrlConverter.userAvatarImageUrl(userDetails.getAvatarPath()));
+				resolveAvatarUrl(userDetails.getAvatarPath()));
+	}
+
+	private String resolveAvatarUrl(String storedPath) {
+		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
+		if (reference.isEmpty() || reference.absoluteUrl()) {
+			return reference.value();
+		}
+		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());
 	}
 }

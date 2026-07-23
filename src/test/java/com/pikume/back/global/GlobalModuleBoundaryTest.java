@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,33 +26,27 @@ class GlobalModuleBoundaryTest {
 			"com.pikume.back.support.",
 			"com.pikume.back.user.",
 			"com.pikume.back.security.");
-	private static final Map<String, String> STAGED_COMPATIBILITY_DEPENDENCIES = Map.of(
-			"src/main/java/com/pikume/back/global/util/FileUtil.java",
-			"com.pikume.back.character.domain.vo.CharacterCreationType",
-			"src/main/java/com/pikume/back/global/config/OpenApiConfig.java",
-			"com.pikume.back.security.config.AdminSecurityProperties");
 
 	@Test
-	@DisplayName("Global은 단계적 호환 대상으로 고정한 두 의존 외에 Context 타입을 참조하지 않는다")
-	void globalDoesNotAddContextDependenciesBeyondStagedCompatibility() throws IOException {
+	@DisplayName("Global은 어떤 Context나 Security 구현 타입도 참조하지 않는다")
+	void globalDoesNotDependOnContextsOrSecurityImplementations() throws IOException {
 		List<String> violations = javaSources(GLOBAL)
 				.flatMap(path -> CONTEXT_PACKAGES.stream()
 						.filter(contextPackage -> contains(path, contextPackage))
 						.map(contextPackage -> path + " -> " + contextPackage))
-				.filter(violation -> !isStagedCompatibilityDependency(violation))
 				.toList();
 
 		assertThat(violations).isEmpty();
 	}
 
 	@Test
-	@DisplayName("Global의 단계적 호환 의존은 파일과 타입 단위로 고정한다")
-	void stagedCompatibilityDependenciesRemainExplicit() {
-		assertThat(STAGED_COMPATIBILITY_DEPENDENCIES).containsExactlyInAnyOrderEntriesOf(Map.of(
-				"src/main/java/com/pikume/back/global/util/FileUtil.java",
-				"com.pikume.back.character.domain.vo.CharacterCreationType",
-				"src/main/java/com/pikume/back/global/config/OpenApiConfig.java",
-				"com.pikume.back.security.config.AdminSecurityProperties"));
+	@DisplayName("도메인 전용 Global 파일 및 호환 이미지 Port를 제거한다")
+	void legacyDomainSpecificGlobalFilesAreRemoved() {
+		assertThat(GLOBAL.resolve("util/FileUtil.java")).doesNotExist();
+		assertThat(GLOBAL.resolve("util/FileConstants.java")).doesNotExist();
+		assertThat(GLOBAL.resolve("util/CharacterAvatarPathNormalizer.java")).doesNotExist();
+		assertThat(GLOBAL.resolve("util/ImagePathToUrlConverter.java")).doesNotExist();
+		assertThat(GLOBAL.resolve("port/out/ResolveImageUrlPort.java")).doesNotExist();
 	}
 
 	@Test
@@ -68,10 +61,18 @@ class GlobalModuleBoundaryTest {
 		assertThat(ports.resolve("ResolveObjectUrlPort.java")).exists();
 	}
 
-	private boolean isStagedCompatibilityDependency(String violation) {
-		return STAGED_COMPATIBILITY_DEPENDENCIES.entrySet().stream()
-				.anyMatch(entry -> violation.startsWith(entry.getKey() + " -> ")
-						&& contains(Path.of(entry.getKey()), entry.getValue()));
+	@Test
+	@DisplayName("중립 Object Storage Adapter가 Global 기술 Port를 구현한다")
+	void neutralObjectStorageAdapterImplementsGlobalPorts() {
+		Path adapter = GLOBAL.resolve("storage/S3ObjectStorageAdapter.java");
+
+		assertThat(adapter).exists();
+		assertThat(contains(adapter, "LoadObjectPort")).isTrue();
+		assertThat(contains(adapter, "StoreObjectPort")).isTrue();
+		assertThat(contains(adapter, "ResolveObjectUrlPort")).isTrue();
+		assertThat(Path.of(
+				"src/main/java/com/pikume/back/diary/adapter/out/storage/SharedImageStorageCompatibilityAdapter.java"))
+				.doesNotExist();
 	}
 
 	private java.util.stream.Stream<Path> javaSources(Path root) throws IOException {

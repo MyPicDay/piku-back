@@ -79,7 +79,7 @@ Security 런타임은 두 Filter Chain으로 구성한다. `Order(1)` 관리자 
 
 `global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
 
-Global의 파일·객체 저장 계약은 바이트 로드·저장과 표시 URL 해석만 표현한다. Object Key, 파일명, 공개 여부, 캐시 정책과 생명주기는 Character, Creative, Diary, Support 등 실제 소비자가 소유하며 Global은 해당 Context의 Domain 타입을 계약에 포함하지 않는다. Spring Security Principal은 Security가, Multipart와 HTTP 응답 변환은 Web Adapter가 소유한다.
+Global의 파일·객체 저장 계약은 바이트 로드·저장과 표시 URL 해석만 표현하며 중립 S3 Object Storage Adapter가 이를 구현한다. Object Key, 파일명, 공개 여부, 캐시 정책과 생명주기는 Character, Creative, Diary, Support 등 실제 소비자가 소유하며 Global은 해당 Context의 Domain 타입을 계약에 포함하지 않는다. User는 저장된 아바타 참조의 레거시 형식 호환을 소유하고 Web 또는 소비자 Cross-context Adapter가 중립 URL 해석 계약을 사용해 표시 URL로 번역한다. Spring Security Principal은 Security가, Multipart와 HTTP 응답 변환은 Web Adapter가 소유한다.
 
 ## 6. 현재 런타임 접점
 
