@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-22
+- Last Reviewed: 2026-07-23
 
 ## 목적
 
@@ -76,6 +76,8 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | **security** | 비밀번호 보호, 토큰, 보안 필터, 쿠키와 세션 저장 기술 | User와 Admin의 Application Port를 구현하는 기술 Adapter이며 Domain 모델과 유스케이스를 소유하지 않는다. |
 
 `global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
+
+Global의 파일·객체 저장 계약은 바이트 로드·저장과 표시 URL 해석만 표현한다. Object Key, 파일명, 공개 여부, 캐시 정책과 생명주기는 Character, Creative, Diary, Support 등 실제 소비자가 소유하며 Global은 해당 Context의 Domain 타입을 계약에 포함하지 않는다. Spring Security Principal은 Security가, Multipart와 HTTP 응답 변환은 Web Adapter가 소유한다.
 
 ## 6. 현재 런타임 접점
 

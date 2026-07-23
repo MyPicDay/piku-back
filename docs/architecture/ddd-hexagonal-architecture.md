@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-11
+- Last Reviewed: 2026-07-23
 
 ## 목적
 
@@ -51,6 +51,16 @@
 - 비밀번호 해시, 토큰 생성·검증, 보안 필터, 쿠키와 세션 저장은 Out Port 뒤의 Security Adapter가 구현한다.
 - Security는 여러 Context에서 재사용할 수 있는 기술 경계이며 독립된 비즈니스 Context로 간주하지 않는다.
 - 일반 사용자와 관리자는 기술 구현을 재사용할 수 있지만 계정 모델과 인증 정책을 공유하지 않는다.
+
+### Global 기술 모듈
+
+- Global은 공통 오류 표현, 페이지 값, 감사 시각 기반과 저장소 설정처럼 여러 경계에서 재사용하는 중립 기술 구성요소만 소유한다.
+- Global 타입과 기술 계약은 특정 Context의 Entity, Value Object, Application DTO와 비즈니스 Enum을 참조하거나 노출하지 않는다.
+- 여러 Context가 사용한다는 이유만으로 Global 기술 타입을 Shared Kernel의 Domain 모델로 해석하지 않는다.
+- 객체 저장소의 바이트 로드·저장·표시 URL 해석처럼 공급자 중립적인 기술 능력은 Global 계약으로 둘 수 있다.
+- Object Key, 파일명, 공개 범위, 캐시 정책과 파일 생명주기의 결정은 해당 데이터를 사용하는 Context가 소유한다.
+- Security Principal, HTTP·Multipart 변환과 이미지 표시 URL 조합은 입력 또는 출력 Adapter가 담당하며 Application 계약에 노출하지 않는다.
+- Global 설정이 특정 Context 또는 Security 설정을 알아야 하는 조합은 전환 기간의 명시적 예외로만 허용하고 최종 조합 경계로 이동한다.
 
 ## 4. 프로젝트 기본값
 
