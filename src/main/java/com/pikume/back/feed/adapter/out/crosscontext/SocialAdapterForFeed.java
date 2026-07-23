@@ -7,10 +7,10 @@ import com.pikume.back.feed.application.port.out.LoadFeedCandidateEngagementSign
 import com.pikume.back.feed.application.port.out.LoadFeedFriendshipPort;
 import com.pikume.back.feed.application.port.out.LoadFeedItemEngagementPort;
 import com.pikume.back.feed.application.readmodel.FeedEngagementView;
-import com.pikume.back.social.application.port.in.CommentUseCase;
-import com.pikume.back.social.application.port.in.FriendUseCase;
-import com.pikume.back.social.application.port.in.LikeUseCase;
-import com.pikume.back.social.domain.friend.vo.FriendStatus;
+import com.pikume.back.social.application.dto.FriendshipStatusResult;
+import com.pikume.back.social.application.port.in.QueryCommentEngagementUseCase;
+import com.pikume.back.social.application.port.in.QueryDiaryLikeEngagementUseCase;
+import com.pikume.back.social.application.port.in.QueryFriendshipUseCase;
 
 import java.util.List;
 import java.util.Map;
@@ -21,15 +21,15 @@ import java.util.Set;
 public class SocialAdapterForFeed implements LoadFeedItemEngagementPort, LoadFeedCandidateEngagementSignalsPort,
 		LoadFeedFriendshipPort {
 
-	private final FriendUseCase friendUseCase;
-	private final LikeUseCase likeUseCase;
-	private final CommentUseCase commentUseCase;
+	private final QueryFriendshipUseCase queryFriendshipUseCase;
+	private final QueryDiaryLikeEngagementUseCase queryDiaryLikeEngagementUseCase;
+	private final QueryCommentEngagementUseCase queryCommentEngagementUseCase;
 
 	@Override
 	public Map<Long, FeedEngagementView> loadEngagements(String currentUserId, List<Long> diaryIds) {
-		Map<Long, Long> commentCounts = commentUseCase.getCommentCountsForDiaries(diaryIds);
-		Map<Long, Long> likeCounts = likeUseCase.getLikeCountsForDiaries(diaryIds);
-		Set<Long> likedDiaryIds = likeUseCase.getLikedDiaryIds(currentUserId, diaryIds);
+		Map<Long, Long> commentCounts = queryCommentEngagementUseCase.queryCommentCounts(diaryIds);
+		Map<Long, Long> likeCounts = queryDiaryLikeEngagementUseCase.queryLikeCounts(diaryIds);
+		Set<Long> likedDiaryIds = queryDiaryLikeEngagementUseCase.queryLikedDiaryIds(currentUserId, diaryIds);
 
 		return diaryIds.stream()
 				.distinct()
@@ -44,7 +44,7 @@ public class SocialAdapterForFeed implements LoadFeedItemEngagementPort, LoadFee
 
 	@Override
 	public Map<String, FeedFriendStatus> loadFriendStatuses(String currentUserId, Set<String> targetUserIds) {
-		return friendUseCase.getFriendStatuses(currentUserId, targetUserIds).entrySet().stream()
+		return queryFriendshipUseCase.queryFriendshipStatuses(currentUserId, targetUserIds).entrySet().stream()
 				.collect(java.util.stream.Collectors.toMap(
 						Map.Entry::getKey,
 						entry -> toFeedFriendStatus(entry.getValue())));
@@ -52,30 +52,30 @@ public class SocialAdapterForFeed implements LoadFeedItemEngagementPort, LoadFee
 
 	@Override
 	public Map<Long, Long> loadLikeCounts(List<Long> diaryIds) {
-		return likeUseCase.getLikeCountsForDiaries(diaryIds);
+		return queryDiaryLikeEngagementUseCase.queryLikeCounts(diaryIds);
 	}
 
 	@Override
 	public Map<Long, Long> loadCommentCounts(List<Long> diaryIds) {
-		return commentUseCase.getCommentCountsForDiaries(diaryIds);
+		return queryCommentEngagementUseCase.queryCommentCounts(diaryIds);
 	}
 
 	@Override
 	public Set<Long> loadLikedDiaryIds(String currentUserId, List<Long> diaryIds) {
-		return likeUseCase.getLikedDiaryIds(currentUserId, diaryIds);
+		return queryDiaryLikeEngagementUseCase.queryLikedDiaryIds(currentUserId, diaryIds);
 	}
 
 	@Override
 	public Set<Long> loadCommentedDiaryIds(String currentUserId, List<Long> diaryIds) {
-		return commentUseCase.getCommentedDiaryIds(currentUserId, diaryIds);
+		return queryCommentEngagementUseCase.queryCommentedDiaryIds(currentUserId, diaryIds);
 	}
 
 	@Override
 	public List<String> loadFriendUserIds(String userId) {
-		return friendUseCase.getFriends(userId);
+		return queryFriendshipUseCase.queryFriendIds(userId);
 	}
 
-	private FeedFriendStatus toFeedFriendStatus(FriendStatus friendStatus) {
+	private FeedFriendStatus toFeedFriendStatus(FriendshipStatusResult friendStatus) {
 		return switch (friendStatus) {
 			case NONE -> FeedFriendStatus.NONE;
 			case REQUESTED -> FeedFriendStatus.REQUESTED;

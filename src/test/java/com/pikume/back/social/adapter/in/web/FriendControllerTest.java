@@ -4,11 +4,13 @@ import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.social.adapter.in.web.problem.SocialProblemType;
-import com.pikume.back.social.application.port.in.FriendUseCase;
-import com.pikume.back.social.domain.friend.exception.AlreadyFriendsException;
-import com.pikume.back.social.domain.friend.exception.FriendException;
-import com.pikume.back.social.domain.friend.exception.FriendNotFoundException;
-import com.pikume.back.social.domain.friend.exception.FriendRequestNotFoundException;
+import com.pikume.back.social.application.exception.SocialErrorCode;
+import com.pikume.back.social.application.exception.SocialException;
+import com.pikume.back.social.application.port.in.CancelFriendRequestUseCase;
+import com.pikume.back.social.application.port.in.QueryFriendPageUseCase;
+import com.pikume.back.social.application.port.in.RejectFriendRequestUseCase;
+import com.pikume.back.social.application.port.in.RemoveFriendshipUseCase;
+import com.pikume.back.social.application.port.in.SendFriendRequestUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,7 +44,15 @@ class FriendControllerTest {
 	private FriendController friendController;
 
 	@Mock
-	private FriendUseCase friendUseCase;
+	private SendFriendRequestUseCase sendFriendRequestUseCase;
+	@Mock
+	private RejectFriendRequestUseCase rejectFriendRequestUseCase;
+	@Mock
+	private CancelFriendRequestUseCase cancelFriendRequestUseCase;
+	@Mock
+	private RemoveFriendshipUseCase removeFriendshipUseCase;
+	@Mock
+	private QueryFriendPageUseCase queryFriendPageUseCase;
 
 	private MockMvc mockMvc;
 	private CustomUserDetails userDetails;
@@ -61,13 +72,14 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("POST /api/relation은 잘못된 친구 요청 시 400 Problem Details를 반환한다")
 	void sendFriendRequestReturnsBadRequestProblemDetail() throws Exception {
-		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
-				.willThrow(new FriendException("자신에게 요청 할 수 없습니다."));
+		given(sendFriendRequestUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
+				.willThrow(new SocialException(SocialErrorCode.SELF_FRIEND_REQUEST));
 
 		mockMvc.perform(post("/api/relation")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"toUserId\":\"user-2\"}"))
 				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type").value(SocialProblemType.INVALID_FRIEND_REQUEST.type().toString()))
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.detail").value("자신에게 요청 할 수 없습니다."));
@@ -76,8 +88,8 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("POST /api/relation은 이미 친구인 경우 409 Problem Details를 반환한다")
 	void sendFriendRequestReturnsConflictProblemDetailWhenAlreadyFriends() throws Exception {
-		given(friendUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
-				.willThrow(new AlreadyFriendsException("이미 친구입니다."));
+		given(sendFriendRequestUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
+				.willThrow(new SocialException(SocialErrorCode.ALREADY_FRIENDS));
 
 		mockMvc.perform(post("/api/relation")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -91,8 +103,8 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("DELETE /api/relation/requests/{fromUserId}는 친구 요청이 없으면 404 Problem Details를 반환한다")
 	void rejectFriendRequestReturnsNotFoundProblemDetail() throws Exception {
-		given(friendUseCase.rejectFriendRequest("user-1", "user-2"))
-				.willThrow(new FriendRequestNotFoundException("해당 친구 요청 기록을 찾을 수 없습니다."));
+		given(rejectFriendRequestUseCase.rejectFriendRequest("user-1", "user-2"))
+				.willThrow(new SocialException(SocialErrorCode.FRIEND_REQUEST_NOT_FOUND));
 
 		mockMvc.perform(delete("/api/relation/requests/user-2"))
 				.andExpect(status().isNotFound())
@@ -104,8 +116,8 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("DELETE /api/relation/cancel/{toUserId}는 보낸 친구 요청이 없으면 404 Problem Details를 반환한다")
 	void cancelFriendRequestReturnsNotFoundProblemDetail() throws Exception {
-		given(friendUseCase.cancelFriendRequest("user-1", "user-2"))
-				.willThrow(new FriendRequestNotFoundException("요청 보낸 기록이 없습니다."));
+		given(cancelFriendRequestUseCase.cancelFriendRequest("user-1", "user-2"))
+				.willThrow(new SocialException(SocialErrorCode.SENT_FRIEND_REQUEST_NOT_FOUND));
 
 		mockMvc.perform(delete("/api/relation/cancel/user-2"))
 				.andExpect(status().isNotFound())
@@ -117,8 +129,8 @@ class FriendControllerTest {
 	@Test
 	@DisplayName("DELETE /api/relation/{toUserId}는 친구 관계가 없으면 404 Problem Details를 반환한다")
 	void removeFriendReturnsNotFoundProblemDetail() throws Exception {
-		given(friendUseCase.removeFriend("user-1", "user-2"))
-				.willThrow(new FriendNotFoundException("친구 관계가 존재하지 않습니다."));
+		given(removeFriendshipUseCase.removeFriend("user-1", "user-2"))
+				.willThrow(new SocialException(SocialErrorCode.FRIEND_NOT_FOUND));
 
 		mockMvc.perform(delete("/api/relation/user-2"))
 				.andExpect(status().isNotFound())

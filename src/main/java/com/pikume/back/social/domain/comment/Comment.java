@@ -2,7 +2,7 @@ package com.pikume.back.social.domain.comment;
 
 import jakarta.persistence.*;
 import lombok.*;
-import com.pikume.back.global.entity.BaseEntity;
+import com.pikume.back.social.domain.SocialAuditableEntity;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,7 +14,7 @@ import static jakarta.persistence.FetchType.LAZY;
 @Table(name = "comments")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Comment extends BaseEntity {
+public class Comment extends SocialAuditableEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,6 +45,12 @@ public class Comment extends BaseEntity {
 	}
 
 	public void connectParent(Comment parent) {
+		if (parent != null && !this.diaryId.equals(parent.diaryId)) {
+			throw new IllegalArgumentException("부모 댓글은 같은 일기에 속해야 합니다.");
+		}
+		if (parent != null && parent.parent != null) {
+			throw new IllegalArgumentException("답글에는 답글을 연결할 수 없습니다.");
+		}
 		if (this.parent != null) {
 			this.parent.getChildren().remove(this);
 		}

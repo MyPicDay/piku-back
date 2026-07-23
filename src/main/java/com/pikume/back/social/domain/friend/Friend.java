@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import com.pikume.back.social.domain.friend.vo.FriendID;
 
 @IdClass(FriendID.class)
@@ -22,7 +21,6 @@ public class Friend {
 	@Column(name = "user_id_2")
 	private String userId2;
 
-	@CreatedDate
 	@Column(updatable = false)
 	private String createdAt;
 

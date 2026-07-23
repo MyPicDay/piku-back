@@ -150,6 +150,7 @@ class FeedArchitectureTest {
 		}
 		assertThat(javaSources(crossContextAdapters)
 				.filter(path -> contains(path, ".adapter.out.persistence")
+						|| contains(path, "com.pikume.back.social.domain")
 						|| contains(path, "com.pikume.back.diary.application.port.out")
 						|| contains(path, "com.pikume.back.social.application.port.out")
 						|| contains(path, "com.pikume.back.user.application.port.out")

@@ -2,17 +2,23 @@ package com.pikume.back.social.adapter.in.web;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.pikume.back.global.config.CustomUserDetails;
 import com.pikume.back.social.adapter.in.web.dto.LikeResponse;
 import com.pikume.back.social.application.dto.LikeResult;
-import com.pikume.back.social.application.port.in.LikeUseCase;
+import com.pikume.back.social.application.port.in.AddDiaryLikeUseCase;
+import com.pikume.back.social.application.port.in.RemoveDiaryLikeUseCase;
 
 @Tag(name = "Like", description = "좋아요 API")
 @RestController
@@ -21,25 +27,35 @@ import com.pikume.back.social.application.port.in.LikeUseCase;
 @Slf4j
 public class LikeController {
 
-	private final LikeUseCase likeUseCase;
+	private final AddDiaryLikeUseCase addDiaryLikeUseCase;
+	private final RemoveDiaryLikeUseCase removeDiaryLikeUseCase;
 
 	@Operation(summary = "좋아요 추가", description = "일기에 좋아요를 추가합니다.")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "좋아요 추가 성공"),
+			@ApiResponse(responseCode = "404", description = "조회 가능한 일기를 찾을 수 없음", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class))),
+			@ApiResponse(responseCode = "409", description = "이미 좋아요했거나 저장 충돌 발생", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+	})
 	@PostMapping("/diary/{diaryId}")
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<LikeResponse> addLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		LikeResult response = likeUseCase.addLike(userDetails.getId(), diaryId);
+		LikeResult response = addDiaryLikeUseCase.addLike(userDetails.getId(), diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
 
 	@Operation(summary = "좋아요 취소", description = "일기의 좋아요를 취소합니다.")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "좋아요 취소 성공"),
+			@ApiResponse(responseCode = "404", description = "일기 또는 좋아요 기록을 찾을 수 없음", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+	})
 	@DeleteMapping("/diary/{diaryId}")
 	@PreAuthorize("hasRole('USER')")
 	public ResponseEntity<LikeResponse> removeLike(
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
-		LikeResult response = likeUseCase.removeLike(userDetails.getId(), diaryId);
+		LikeResult response = removeDiaryLikeUseCase.removeLike(userDetails.getId(), diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
 
@@ -50,7 +66,7 @@ public class LikeController {
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		String userId = userDetails != null ? userDetails.getId() : null;
-		LikeResult response = likeUseCase.getLikeStatus(userId, diaryId);
+		LikeResult response = queryDiaryLikeEngagementUseCase.queryLikeStatus(userId, diaryId);
 		return ResponseEntity.ok(toResponse(response));
 	}
 
@@ -60,7 +76,7 @@ public class LikeController {
 			@Parameter(description = "일기 ID", required = true) @PathVariable Long diaryId,
 			@AuthenticationPrincipal CustomUserDetails userDetails) {
 		String userId = userDetails != null ? userDetails.getId() : null;
-		long count = likeUseCase.getLikeCount(userId, diaryId);
+		long count = queryDiaryLikeEngagementUseCase.queryVisibleLikeCount(userId, diaryId);
 		return ResponseEntity.ok(count);
 	}
 	*/

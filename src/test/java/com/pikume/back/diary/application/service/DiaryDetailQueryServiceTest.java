@@ -46,4 +46,17 @@ class DiaryDetailQueryServiceTest {
 
 		assertThat(service.findVisibleDiaryById(1L, "viewer")).isEmpty();
 	}
+
+	@Test
+	@DisplayName("다른 Context에 식별자·작성자·익명 여부만 공개한다")
+	void exposesMinimalVisibleDiaryReference() {
+		Diary diary = new Diary("content", DiaryVisibility.ANONYMOUS, LocalDate.now(), "owner");
+		given(loadDiaryPort.findActiveById(1L)).willReturn(Optional.of(diary));
+		given(visibilityPolicy.isHiddenFromViewer(diary, "viewer")).willReturn(false);
+
+		var reference = service.queryVisibleDiaryReference(1L, "viewer").orElseThrow();
+
+		assertThat(reference.ownerUserId()).isEqualTo("owner");
+		assertThat(reference.anonymous()).isTrue();
+	}
 }
