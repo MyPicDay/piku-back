@@ -10,6 +10,7 @@ import com.pikume.back.notification.application.port.out.LoadNotificationPagePor
 import com.pikume.back.notification.application.port.out.LoadNotificationPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationSummaryPort;
 import com.pikume.back.notification.application.port.out.MarkAllNotificationsReadPort;
+import com.pikume.back.notification.application.port.out.MarkNotificationReadPort;
 import com.pikume.back.notification.application.port.out.RecordNotificationPort;
 import com.pikume.back.notification.application.readmodel.NotificationSummaryView;
 import com.pikume.back.notification.domain.Notification;
@@ -23,6 +24,7 @@ public class NotificationPersistenceAdapter implements
 		LoadNotificationPagePort,
 		LoadNotificationSummaryPort,
 		RecordNotificationPort,
+		MarkNotificationReadPort,
 		MarkAllNotificationsReadPort,
 		DeleteNotificationsByDiaryPort {
 
@@ -51,6 +53,11 @@ public class NotificationPersistenceAdapter implements
 	@Override
 	public Notification recordNotification(Notification notification) {
 		return notificationJpaRepository.save(notification);
+	}
+
+	@Override
+	public void markNotificationReadIfActive(Long notificationId, String receiverId) {
+		notificationJpaRepository.markAsReadIfActive(notificationId, receiverId);
 	}
 
 	@Override

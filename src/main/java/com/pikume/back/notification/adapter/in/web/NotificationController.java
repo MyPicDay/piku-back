@@ -68,22 +68,14 @@ public class NotificationController {
 
 	@Operation(summary = "알림 읽음 처리", description = "특정 알림을 읽음 상태로 표시합니다.")
 	@ApiResponses({
-			@ApiResponse(responseCode = "204", description = "읽음 처리 성공"),
-			@ApiResponse(
-					responseCode = "404",
-					description = "알림을 찾을 수 없음",
-					content = @Content(
-							mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-							schema = @Schema(implementation = ProblemDetail.class)))
+			@ApiResponse(responseCode = "204", description = "읽음 처리 성공")
 	})
 	@PatchMapping("/{notificationId}")
-	public ResponseEntity<?> markAsRead(
+	public ResponseEntity<Void> markAsRead(
 			@PathVariable Long notificationId,
 			@AuthenticationPrincipal UserPrincipal userDetails) {
-		if (markNotificationReadUseCase.markNotificationRead(notificationId, userDetails.getId())) {
-			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-		}
-		return notFoundProblem("/api/sse/" + notificationId, "알림을 찾을 수 없습니다.");
+		markNotificationReadUseCase.markNotificationRead(notificationId, userDetails.getId());
+		return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 	}
 
 	@Operation(summary = "알림 모두 읽음 처리", description = "사용자의 모든 알림을 읽음 상태로 표시합니다.")

@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -79,23 +80,15 @@ class NotificationControllerTest {
 	}
 
 	@Test
-	@DisplayName("PATCH /api/sse/{notificationId}는 알림이 없으면 Problem Details를 반환한다")
-	void markAsReadReturnsProblemDetailWhenNotificationDoesNotExist() {
-		given(markNotificationReadUseCase.markNotificationRead(1L, "user1")).willReturn(false);
-
-		ResponseEntity<?> response = notificationController.markAsRead(
+	@DisplayName("PATCH /api/sse/{notificationId}는 대상이 없어도 멱등적으로 성공한다")
+	void markAsReadIsIdempotentWhenNotificationDoesNotExist() {
+		ResponseEntity<Void> response = notificationController.markAsRead(
 				1L,
 				new UserPrincipal("user1", "pikume"));
 
-		assertThat(response.getStatusCode().value()).isEqualTo(404);
-		assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
-		assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
-		ProblemDetail problemDetail = (ProblemDetail) response.getBody();
-		assertThat(problemDetail.getType().toString()).isEqualTo("https://api.pikume.com/problems/common/resource-not-found");
-		assertThat(problemDetail.getTitle()).isEqualTo("Not Found");
-		assertThat(problemDetail.getStatus()).isEqualTo(404);
-		assertThat(problemDetail.getDetail()).isEqualTo("알림을 찾을 수 없습니다.");
-		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/sse/1");
+		assertThat(response.getStatusCode().value()).isEqualTo(204);
+		assertThat(response.getBody()).isNull();
+		then(markNotificationReadUseCase).should().markNotificationRead(1L, "user1");
 	}
 
 	@Test
@@ -165,19 +158,11 @@ class NotificationControllerTest {
 	}
 
 	@Test
-	@DisplayName("MVC에서 404는 application/problem+json과 RFC 9457 필드를 반환한다")
-	void mvcReturnsProblemDetailsContentType() throws Exception {
-		given(markNotificationReadUseCase.markNotificationRead(1L, "user1")).willReturn(false);
-
+	@DisplayName("MVC에서 읽을 활성 알림이 없어도 204를 반환한다")
+	void mvcReturnsNoContentWhenActiveNotificationDoesNotExist() throws Exception {
 		mockMvc.perform(patch("/api/sse/1"))
-				.andExpect(status().isNotFound())
-				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-				.andExpect(jsonPath("$.type")
-						.value("https://api.pikume.com/problems/common/resource-not-found"))
-				.andExpect(jsonPath("$.title").value("Not Found"))
-				.andExpect(jsonPath("$.status").value(404))
-				.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다."))
-				.andExpect(jsonPath("$.instance").value("/api/sse/1"));
+				.andExpect(status().isNoContent())
+				.andExpect(content().string(""));
 	}
 
 	@Test

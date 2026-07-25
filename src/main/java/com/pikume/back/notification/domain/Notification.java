@@ -45,10 +45,6 @@ public class Notification extends BaseEntity {
 		this.isRead = false;
 	}
 
-	public void markAsRead() {
-		this.isRead = true;
-	}
-
 	public void delete() {
 		this.deletedAt = LocalDateTime.now();
 	}

@@ -43,6 +43,14 @@ class NotificationPersistenceAdapterTest {
 	}
 
 	@Test
+	@DisplayName("활성 알림 읽음 처리를 원자적 Repository 연산에 위임한다")
+	void marksNotificationReadIfActive() {
+		adapter.markNotificationReadIfActive(1L, "receiver-id");
+
+		then(notificationJpaRepository).should().markAsReadIfActive(1L, "receiver-id");
+	}
+
+	@Test
 	@DisplayName("Notification 원본 Page만 조회한다")
 	void loadsNotificationPage() {
 		Notification notification =

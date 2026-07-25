@@ -51,9 +51,9 @@ class NotificationOpenApiSchemaTest {
 	}
 
 	@Test
-	@DisplayName("읽음과 삭제의 404 응답은 application/problem+json Problem Details로 문서화한다")
-	void notFoundResponsesUseProblemDetails() throws NoSuchMethodException {
-		assertProblemDetails404(NotificationController.class.getDeclaredMethod(
+	@DisplayName("읽음은 멱등 204로, 삭제의 404는 Problem Details로 문서화한다")
+	void commandResponsesMatchRuntimeContracts() throws NoSuchMethodException {
+		assertNoContentOnly(NotificationController.class.getDeclaredMethod(
 				"markAsRead",
 				Long.class,
 				UserPrincipal.class));
@@ -61,6 +61,14 @@ class NotificationOpenApiSchemaTest {
 				"deleteNotification",
 				Long.class,
 				UserPrincipal.class));
+	}
+
+	private void assertNoContentOnly(Method method) {
+		ApiResponses responses = method.getAnnotation(ApiResponses.class);
+
+		assertThat(Arrays.stream(responses.value())
+				.map(ApiResponse::responseCode))
+				.containsExactly("204");
 	}
 
 	private void assertProblemDetails404(Method method) {

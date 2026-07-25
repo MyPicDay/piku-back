@@ -18,6 +18,20 @@ public interface NotificationJpaRepository extends JpaRepository<Notification, L
 
 	Optional<Notification> findByIdAndDeletedAtIsNull(Long notificationId);
 
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("""
+			UPDATE Notification n
+			SET n.isRead = true,
+				n.updatedAt = CURRENT_TIMESTAMP
+			WHERE n.id = :notificationId
+				AND n.receiverId = :receiverId
+				AND n.deletedAt IS NULL
+				AND n.isRead = false
+			""")
+	int markAsReadIfActive(
+			@Param("notificationId") Long notificationId,
+			@Param("receiverId") String receiverId);
+
 	@Query("""
 			SELECT COUNT(n) > 0
 			FROM Notification n

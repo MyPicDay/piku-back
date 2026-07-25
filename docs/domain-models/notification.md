@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-20
+- Last Reviewed: 2026-07-25
 
 ## 도메인 개요
 
@@ -36,6 +36,8 @@ Context 조회는 Notification이 소유한 목적별 Out Port 뒤에 둔다.
   Notification 목록 표현으로 조합한다.
 - `NotificationReadService`, `NotificationDeletionService`는 읽음과 삭제 생명주기를
   조정한다.
+- 단건 읽음 처리는 `MarkNotificationReadPort`가 표현하며, 영속성 Adapter가 알림
+  식별자·수신자·활성·미확인 조건을 하나의 원자적 변경으로 적용한다.
 - `NotificationDeliveryService`는 SSE와 Push 전달을 best-effort로 수행한다.
 - `NotificationStreamSubscriptionService`는 사용자별 SSE 연결과 초기 요약 전달을
   조정한다.
@@ -95,7 +97,6 @@ _Entity_
 ### 행위
 
 - `Notification(receiverId, senderId, type, diaryId)` : 특정 사용자에게 보낼 새로운 알림 객체를 생성한다.
-- `markAsRead()` : 해당 알림을 수신자가 읽음 처리한다.
 - `delete()` : 알림을 논리적 삭제 처리하고 삭제 일시를 기록한다.
 - `isDeleted()` : 알림이 삭제 처리되었는지 여부를 반환한다.
 
@@ -103,7 +104,11 @@ _Entity_
 
 - 알림이 최초로 생성될 때 읽음 여부(`isRead`)는 항상 `false` (안 읽음) 상태로 초기화된다.
 - 수신자(`receiverId`)는 필수 값으로 결측될 수 없다.
-- 생성된 알림 내용은 불변이며, 읽음 상태(`isRead`)는 읽음 처리(`markAsRead()`)를 통해서만 변경한다.
+- 생성된 알림 내용은 불변이다.
+- 단건 읽음 처리는 알림 식별자와 수신자가 일치하고, 삭제되지 않았으며 아직 읽지
+  않은 알림만 원자적으로 `isRead = true`와 새로운 `updatedAt`을 기록한다.
+- 단건 읽음 처리 대상이 없거나 이미 읽은 경우에는 상태를 변경하지 않으며, 외부
+  API는 리소스 존재 여부를 구분하지 않고 멱등적인 `204 No Content`로 응답한다.
 - 알림 이력 저장이 확정되지 않은 상태에서는 외부 전달을 시도하지 않는다.
 - 알림 삭제 시 물리적 데이터 삭제 대신 `deletedAt` 값을 갖는 논리적 삭제 구조를 따른다.
 

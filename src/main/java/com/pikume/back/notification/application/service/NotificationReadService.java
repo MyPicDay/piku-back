@@ -2,9 +2,8 @@ package com.pikume.back.notification.application.service;
 
 import com.pikume.back.notification.application.port.in.MarkAllNotificationsReadUseCase;
 import com.pikume.back.notification.application.port.in.MarkNotificationReadUseCase;
-import com.pikume.back.notification.application.port.out.LoadNotificationPort;
 import com.pikume.back.notification.application.port.out.MarkAllNotificationsReadPort;
-import com.pikume.back.notification.domain.Notification;
+import com.pikume.back.notification.application.port.out.MarkNotificationReadPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,26 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class NotificationReadService implements MarkNotificationReadUseCase, MarkAllNotificationsReadUseCase {
 
-	private final LoadNotificationPort loadNotificationPort;
+	private final MarkNotificationReadPort markNotificationReadPort;
 	private final MarkAllNotificationsReadPort markAllNotificationsReadPort;
 
 	@Override
 	@Transactional
-	public boolean markNotificationRead(Long notificationId, String userId) {
-		var notificationResult = loadNotificationPort.loadActiveNotification(notificationId);
-		if (notificationResult.isEmpty()) {
-			log.warn("event=notification_read_denied outcome=not_found userId={} notificationId={}",
-					userId, notificationId);
-			return false;
-		}
-		Notification notification = notificationResult.get();
-		if (!notification.getReceiverId().equals(userId)) {
-			log.warn("event=notification_read_denied outcome=denied userId={} notificationId={}",
-					userId, notificationId);
-			return false;
-		}
-		notification.markAsRead();
-		return true;
+	public void markNotificationRead(Long notificationId, String userId) {
+		markNotificationReadPort.markNotificationReadIfActive(notificationId, userId);
 	}
 
 	@Override
