@@ -7,7 +7,7 @@ import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.global.pagination.SpringPageMapper;
 import com.pikume.back.notification.application.port.out.DeleteNotificationsByDiaryPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationPagePort;
-import com.pikume.back.notification.application.port.out.LoadNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadActiveNotificationPort;
 import com.pikume.back.notification.application.port.out.LoadNotificationSummaryPort;
 import com.pikume.back.notification.application.port.out.MarkAllNotificationsReadPort;
 import com.pikume.back.notification.application.port.out.MarkNotificationReadPort;
@@ -20,7 +20,7 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class NotificationPersistenceAdapter implements
-		LoadNotificationPort,
+		LoadActiveNotificationPort,
 		LoadNotificationPagePort,
 		LoadNotificationSummaryPort,
 		RecordNotificationPort,

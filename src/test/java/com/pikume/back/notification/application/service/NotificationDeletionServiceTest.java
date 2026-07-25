@@ -1,7 +1,7 @@
 package com.pikume.back.notification.application.service;
 
 import com.pikume.back.notification.application.port.out.DeleteNotificationsByDiaryPort;
-import com.pikume.back.notification.application.port.out.LoadNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadActiveNotificationPort;
 import com.pikume.back.notification.domain.Notification;
 import com.pikume.back.notification.domain.vo.NotificationType;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +26,7 @@ class NotificationDeletionServiceTest {
 	private NotificationDeletionService service;
 
 	@Mock
-	private LoadNotificationPort loadNotificationPort;
+	private LoadActiveNotificationPort loadActiveNotificationPort;
 	@Mock
 	private DeleteNotificationsByDiaryPort deleteNotificationsByDiaryPort;
 
@@ -38,7 +38,7 @@ class NotificationDeletionServiceTest {
 		@DisplayName("수신자가 자신의 알림을 삭제한다")
 		void deletesOwnedNotification() {
 			Notification notification = notification("receiver-id");
-			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
+			given(loadActiveNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
 
 			boolean result = service.deleteNotification(1L, "receiver-id");
 
@@ -50,7 +50,7 @@ class NotificationDeletionServiceTest {
 		@DisplayName("다른 사용자의 알림은 삭제하지 않는다")
 		void rejectsAnotherUsersNotification() {
 			Notification notification = notification("receiver-id");
-			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
+			given(loadActiveNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
 
 			boolean result = service.deleteNotification(1L, "other-id");
 
@@ -61,7 +61,7 @@ class NotificationDeletionServiceTest {
 		@Test
 		@DisplayName("활성 알림이 없으면 삭제하지 않는다")
 		void rejectsMissingActiveNotification() {
-			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.empty());
+			given(loadActiveNotificationPort.loadActiveNotification(1L)).willReturn(Optional.empty());
 
 			boolean result = service.deleteNotification(1L, "receiver-id");
 

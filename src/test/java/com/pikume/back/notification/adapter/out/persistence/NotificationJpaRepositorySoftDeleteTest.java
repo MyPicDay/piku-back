@@ -62,6 +62,25 @@ class NotificationJpaRepositorySoftDeleteTest {
 	}
 
 	@Test
+	@DisplayName("레거시 null 읽음 상태도 미확인 알림으로 읽음 처리한다")
+	void marksLegacyNullReadStateNotificationRead() {
+		Notification notification = notificationJpaRepository.saveAndFlush(
+				new Notification(
+						null,
+						"receiver-id",
+						"sender-id",
+						NotificationType.COMMENT,
+						10L,
+						null,
+						null));
+
+		int updated = notificationJpaRepository.markAsReadIfActive(notification.getId(), "receiver-id");
+
+		assertThat(updated).isEqualTo(1);
+		assertThat(notificationJpaRepository.findById(notification.getId()).orElseThrow().getIsRead()).isTrue();
+	}
+
+	@Test
 	@DisplayName("다른 수신자의 알림은 읽음 처리하지 않는다")
 	void doesNotMarkAnotherReceiversNotificationRead() {
 		Notification notification = notificationJpaRepository.saveAndFlush(

@@ -26,7 +26,7 @@ public interface NotificationJpaRepository extends JpaRepository<Notification, L
 			WHERE n.id = :notificationId
 				AND n.receiverId = :receiverId
 				AND n.deletedAt IS NULL
-				AND n.isRead = false
+				AND (n.isRead = false OR n.isRead IS NULL)
 			""")
 	int markAsReadIfActive(
 			@Param("notificationId") Long notificationId,

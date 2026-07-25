@@ -4,7 +4,7 @@ import com.pikume.back.notification.domain.Notification;
 
 import java.util.Optional;
 
-public interface LoadNotificationPort {
+public interface LoadActiveNotificationPort {
 
 	Optional<Notification> loadActiveNotification(Long notificationId);
 }

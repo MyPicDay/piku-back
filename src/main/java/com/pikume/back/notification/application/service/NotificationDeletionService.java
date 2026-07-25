@@ -3,7 +3,7 @@ package com.pikume.back.notification.application.service;
 import com.pikume.back.notification.application.port.in.DeleteNotificationUseCase;
 import com.pikume.back.notification.application.port.in.DeleteNotificationsByDiaryUseCase;
 import com.pikume.back.notification.application.port.out.DeleteNotificationsByDiaryPort;
-import com.pikume.back.notification.application.port.out.LoadNotificationPort;
+import com.pikume.back.notification.application.port.out.LoadActiveNotificationPort;
 import com.pikume.back.notification.domain.Notification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,13 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class NotificationDeletionService implements DeleteNotificationUseCase, DeleteNotificationsByDiaryUseCase {
 
-	private final LoadNotificationPort loadNotificationPort;
+	private final LoadActiveNotificationPort loadActiveNotificationPort;
 	private final DeleteNotificationsByDiaryPort deleteNotificationsByDiaryPort;
 
 	@Override
 	@Transactional
 	public boolean deleteNotification(Long notificationId, String userId) {
-		var notificationResult = loadNotificationPort.loadActiveNotification(notificationId);
+		var notificationResult = loadActiveNotificationPort.loadActiveNotification(notificationId);
 		if (notificationResult.isEmpty()) {
 			log.warn("event=notification_delete_denied outcome=not_found userId={} notificationId={}",
 					userId, notificationId);

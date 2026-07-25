@@ -95,10 +95,12 @@ class NotificationArchitectureTest {
 				"DeleteNotificationPort.java",
 				"PushNotificationPort.java",
 				"NotificationStreamPort.java",
-				"LoadNotificationListViewPort.java")) {
+				"LoadNotificationListViewPort.java",
+				"LoadNotificationPort.java")) {
 			assertThat(inboundPorts.resolve(legacyPort)).doesNotExist();
 			assertThat(outboundPorts.resolve(legacyPort)).doesNotExist();
 		}
+		assertThat(outboundPorts.resolve("LoadActiveNotificationPort.java")).exists();
 		assertThat(outboundPorts.resolve("MarkNotificationReadPort.java")).exists();
 	}
 
@@ -140,6 +142,10 @@ class NotificationArchitectureTest {
 				"LoadNotificationPort")).isFalse();
 		assertThat(contains(services.resolve("NotificationDeletionService.java"),
 				"implements DeleteNotificationUseCase, DeleteNotificationsByDiaryUseCase")).isTrue();
+		assertThat(contains(services.resolve("NotificationDeletionService.java"),
+				"LoadActiveNotificationPort")).isTrue();
+		assertThat(contains(services.resolve("NotificationDeletionService.java"),
+				"LoadNotificationPort")).isFalse();
 		assertThat(contains(services.resolve("PushTokenService.java"),
 				"implements RegisterPushTokenUseCase, RevokePushTokenUseCase")).isTrue();
 		assertThat(contains(services.resolve("NotificationStreamSubscriptionService.java"),
