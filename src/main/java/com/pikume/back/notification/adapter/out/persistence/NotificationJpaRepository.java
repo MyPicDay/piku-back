@@ -8,14 +8,24 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.pikume.back.notification.domain.Notification;
 
+import java.util.Optional;
+
 public interface NotificationJpaRepository extends JpaRepository<Notification, Long> {
 
 	long countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(String userId);
 
 	Page<Notification> findAllByReceiverIdAndDeletedAtIsNull(String receiverId, Pageable pageable);
 
-	@Query("SELECT COUNT(n) > 0 FROM Notification n WHERE n.receiverId = :receiverId AND n.type = 'FRIEND_REQUEST'")
-	boolean existsFriendRequestByReceiverId(@Param("receiverId") String receiverId);
+	Optional<Notification> findByIdAndDeletedAtIsNull(Long notificationId);
+
+	@Query("""
+			SELECT COUNT(n) > 0
+			FROM Notification n
+			WHERE n.receiverId = :receiverId
+				AND n.type = 'FRIEND_REQUEST'
+				AND n.deletedAt IS NULL
+			""")
+	boolean existsActiveFriendRequestByReceiverId(@Param("receiverId") String receiverId);
 
 	@Modifying
 	@Query("UPDATE Notification n SET n.isRead = true WHERE n.receiverId = :receiverId AND n.isRead = false AND n.deletedAt IS NULL")

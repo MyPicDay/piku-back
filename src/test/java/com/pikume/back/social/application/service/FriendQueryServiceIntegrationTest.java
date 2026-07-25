@@ -126,14 +126,14 @@ class FriendQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 
 		assertThat(result.accepted()).isFalse();
 		assertThat(friendRequestJpaRepository.findById(id)).isPresent();
-		assertThat(notificationJpaRepository.existsFriendRequestByReceiverId(toUser.getId())).isTrue();
+		assertThat(notificationJpaRepository.existsActiveFriendRequestByReceiverId(toUser.getId())).isTrue();
 
 		TestTransaction.flagForRollback();
 		TestTransaction.end();
 		TestTransaction.start();
 
 		assertThat(friendRequestJpaRepository.findById(id)).isEmpty();
-		assertThat(notificationJpaRepository.existsFriendRequestByReceiverId(toUser.getId())).isFalse();
+		assertThat(notificationJpaRepository.existsActiveFriendRequestByReceiverId(toUser.getId())).isFalse();
 	}
 
 	private User saveUser(String suffix) {

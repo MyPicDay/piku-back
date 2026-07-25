@@ -13,7 +13,8 @@ import com.pikume.back.notification.application.port.out.MarkAllNotificationsRea
 import com.pikume.back.notification.application.port.out.RecordNotificationPort;
 import com.pikume.back.notification.application.readmodel.NotificationSummaryView;
 import com.pikume.back.notification.domain.Notification;
-import com.pikume.back.notification.application.exception.NotificationNotFoundException;
+
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -28,8 +29,8 @@ public class NotificationPersistenceAdapter implements
 	private final NotificationJpaRepository notificationJpaRepository;
 
 	@Override
-	public Notification loadNotification(Long notificationId) {
-		return findById(notificationId);
+	public Optional<Notification> loadActiveNotification(Long notificationId) {
+		return notificationJpaRepository.findByIdAndDeletedAtIsNull(notificationId);
 	}
 
 	@Override
@@ -44,7 +45,7 @@ public class NotificationPersistenceAdapter implements
 	public NotificationSummaryView loadNotificationSummary(String receiverId) {
 		return new NotificationSummaryView(
 				notificationJpaRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull(receiverId),
-				notificationJpaRepository.existsFriendRequestByReceiverId(receiverId));
+				notificationJpaRepository.existsActiveFriendRequestByReceiverId(receiverId));
 	}
 
 	@Override
@@ -60,10 +61,5 @@ public class NotificationPersistenceAdapter implements
 	@Override
 	public int deleteNotificationsByDiary(Long diaryId) {
 		return notificationJpaRepository.deleteByDiaryId(diaryId);
-	}
-
-	private Notification findById(Long notificationId) {
-		return notificationJpaRepository.findById(notificationId)
-				.orElseThrow(() -> new NotificationNotFoundException("알림이 존재하지 않습니다. ID: " + notificationId));
 	}
 }

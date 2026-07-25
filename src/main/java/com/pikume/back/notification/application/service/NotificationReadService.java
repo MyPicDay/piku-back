@@ -21,7 +21,13 @@ public class NotificationReadService implements MarkNotificationReadUseCase, Mar
 	@Override
 	@Transactional
 	public boolean markNotificationRead(Long notificationId, String userId) {
-		Notification notification = loadNotificationPort.loadNotification(notificationId);
+		var notificationResult = loadNotificationPort.loadActiveNotification(notificationId);
+		if (notificationResult.isEmpty()) {
+			log.warn("event=notification_read_denied outcome=not_found userId={} notificationId={}",
+					userId, notificationId);
+			return false;
+		}
+		Notification notification = notificationResult.get();
 		if (!notification.getReceiverId().equals(userId)) {
 			log.warn("event=notification_read_denied outcome=denied userId={} notificationId={}",
 					userId, notificationId);

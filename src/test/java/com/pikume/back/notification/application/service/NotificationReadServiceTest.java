@@ -12,6 +12,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -36,7 +38,7 @@ class NotificationReadServiceTest {
 		@DisplayName("수신자가 자신의 알림을 읽음 처리한다")
 		void marksOwnedNotificationRead() {
 			Notification notification = notification("receiver-id");
-			given(loadNotificationPort.loadNotification(1L)).willReturn(notification);
+			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
 
 			boolean result = service.markNotificationRead(1L, "receiver-id");
 
@@ -48,12 +50,22 @@ class NotificationReadServiceTest {
 		@DisplayName("다른 사용자의 알림은 읽음 처리하지 않는다")
 		void rejectsAnotherUsersNotification() {
 			Notification notification = notification("receiver-id");
-			given(loadNotificationPort.loadNotification(1L)).willReturn(notification);
+			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.of(notification));
 
 			boolean result = service.markNotificationRead(1L, "other-id");
 
 			assertThat(result).isFalse();
 			assertThat(notification.getIsRead()).isFalse();
+		}
+
+		@Test
+		@DisplayName("활성 알림이 없으면 읽음 처리하지 않는다")
+		void rejectsMissingActiveNotification() {
+			given(loadNotificationPort.loadActiveNotification(1L)).willReturn(Optional.empty());
+
+			boolean result = service.markNotificationRead(1L, "receiver-id");
+
+			assertThat(result).isFalse();
 		}
 	}
 

@@ -38,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -169,6 +170,22 @@ class NotificationControllerTest {
 		given(markNotificationReadUseCase.markNotificationRead(1L, "user1")).willReturn(false);
 
 		mockMvc.perform(patch("/api/sse/1"))
+				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.type")
+						.value("https://api.pikume.com/problems/common/resource-not-found"))
+				.andExpect(jsonPath("$.title").value("Not Found"))
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.detail").value("알림을 찾을 수 없습니다."))
+				.andExpect(jsonPath("$.instance").value("/api/sse/1"));
+	}
+
+	@Test
+	@DisplayName("MVC에서 삭제할 활성 알림이 없으면 RFC 9457 404를 반환한다")
+	void mvcDeleteReturnsProblemDetailsWhenActiveNotificationDoesNotExist() throws Exception {
+		given(deleteNotificationUseCase.deleteNotification(1L, "user1")).willReturn(false);
+
+		mockMvc.perform(delete("/api/sse/1"))
 				.andExpect(status().isNotFound())
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
 				.andExpect(jsonPath("$.type")

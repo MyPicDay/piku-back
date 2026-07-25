@@ -21,7 +21,13 @@ public class NotificationDeletionService implements DeleteNotificationUseCase, D
 	@Override
 	@Transactional
 	public boolean deleteNotification(Long notificationId, String userId) {
-		Notification notification = loadNotificationPort.loadNotification(notificationId);
+		var notificationResult = loadNotificationPort.loadActiveNotification(notificationId);
+		if (notificationResult.isEmpty()) {
+			log.warn("event=notification_delete_denied outcome=not_found userId={} notificationId={}",
+					userId, notificationId);
+			return false;
+		}
+		Notification notification = notificationResult.get();
 		if (!notification.getReceiverId().equals(userId)) {
 			log.warn("event=notification_delete_denied outcome=denied userId={} notificationId={}",
 					userId, notificationId);

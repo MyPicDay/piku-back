@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -29,6 +30,17 @@ class NotificationPersistenceAdapterTest {
 
 	@Mock
 	private NotificationJpaRepository notificationJpaRepository;
+
+	@Test
+	@DisplayName("삭제되지 않은 알림을 단건 조회한다")
+	void loadsActiveNotification() {
+		Notification notification =
+				new Notification("receiver-id", "sender-id", NotificationType.COMMENT, 10L);
+		given(notificationJpaRepository.findByIdAndDeletedAtIsNull(1L))
+				.willReturn(Optional.of(notification));
+
+		assertThat(adapter.loadActiveNotification(1L)).contains(notification);
+	}
 
 	@Test
 	@DisplayName("Notification 원본 Page만 조회한다")
@@ -52,7 +64,7 @@ class NotificationPersistenceAdapterTest {
 	void loadsNotificationSummary() {
 		given(notificationJpaRepository.countByReceiverIdAndIsReadFalseAndDeletedAtIsNull("receiver-id"))
 				.willReturn(3L);
-		given(notificationJpaRepository.existsFriendRequestByReceiverId("receiver-id"))
+		given(notificationJpaRepository.existsActiveFriendRequestByReceiverId("receiver-id"))
 				.willReturn(true);
 
 		NotificationSummaryView result = adapter.loadNotificationSummary("receiver-id");
