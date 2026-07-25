@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-07-25
 
 ## 목적
 
@@ -85,8 +85,8 @@
 
 ### APP-CONTRACT-001 · 계약 타입
 
-- Port는 Java 기본 타입, 같은 모델 경계의 Domain 타입과 Application 계약을 사용한다.
-- Web, JPA, Spring Data, 외부 SDK 타입과 공급자 예외를 노출하지 않는다.
+- Port의 정상 결과와 Application이 해석할 수 있는 실패 계약은 Java 기본 타입, 같은 모델 경계의 Domain 타입과 Application 계약을 사용한다.
+- Web, JPA, Spring Data, 외부 SDK 타입과 공급자 예외를 메서드 시그니처 또는 Application 오류 모델에 노출하지 않는다. 전역 fallback만 처리할 예상하지 못한 기술 장애를 위해 의미 없는 Context 전용 래퍼를 만드는 것은 요구하지 않는다.
 - Persistence 집계 결과는 배열이나 Tuple 대신 의미 있는 Read Model로 변환한다.
 - Cross-Context 계약은 소비자와 공급자의 내부 모델 중 하나를 무조건 재사용하지 않고 공개 의미와 번역 필요를 먼저 판단한다.
 
@@ -132,7 +132,11 @@
 
 ### APP-ERROR-001 · 오류 번역
 
-- 저장 기술과 외부 SDK 실패는 Outgoing Adapter가 Application 의미로 변환한다.
+- 저장 구현은 관계형 데이터베이스, 캐시 저장소와 객체 저장소처럼 상태 또는 파일을 저장하고 조회하는 Outgoing Adapter 구현을 뜻한다. 프로세스 내부·외부 여부나 SDK 사용 여부가 아니라 Port를 구현하는 역할로 판단한다.
+- 외부 시스템 연동 구현은 저장 이외의 AI, 푸시, 메일과 외부 API처럼 프로세스 밖의 능력을 SDK, HTTP 또는 다른 프로토콜로 호출하는 Outgoing Adapter 구현을 뜻한다.
+- 저장 구현과 외부 시스템 연동에서 발생한 기술 실패 중 Application이 해석하거나 복구할 수 있는 알려진 실패만 Application 결과 또는 오류로 변환한다.
+- 연결 장애, 타임아웃과 예상하지 못한 저장소·외부 시스템 오류처럼 Application 의미가 없는 장애는 Application 로직이 공급자 예외를 해석하지 않은 채 전역 기술 오류 처리 경계로 전파할 수 있다.
+- 전역 fallback은 처리되지 않은 장애를 위한 마지막 안전망으로 공통 내부 서버 오류 응답과 운영 알림만 담당한다. 예상 가능한 비즈니스 실패를 처리하거나 재시도, 보상과 Domain·Application 정책을 결정하는 제어 흐름으로 사용하지 않는다.
 - 다른 Context 실패는 필요할 때 소비자 Context의 결과 또는 오류로 변환한다.
 - Web Adapter는 Application 오류를 저장소의 API 오류 응답 표준에 따라 RFC 9457 Problem Details로 변환한다.
 - Domain과 Application은 HTTP 상태와 Problem Details 타입을 알지 않는다.

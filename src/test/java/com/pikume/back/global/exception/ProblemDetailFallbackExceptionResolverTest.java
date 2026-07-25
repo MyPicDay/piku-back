@@ -13,11 +13,16 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.servlet.ModelAndView;
 import com.pikume.back.global.error.ProblemDetailFactory;
+import com.pikume.back.global.notification.DiscordWebhookService;
 import com.pikume.back.testsupport.NonUtf8DefaultEncodingMockHttpServletResponse;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 
 @DisplayName("ProblemDetailFallbackExceptionResolver")
 class ProblemDetailFallbackExceptionResolverTest {
@@ -30,7 +35,7 @@ class ProblemDetailFallbackExceptionResolverTest {
 		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
 				objectMapper,
 				new ProblemDetailFactory(),
-				java.util.Optional.empty());
+				Optional.empty());
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test");
 		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
 
@@ -61,7 +66,7 @@ class ProblemDetailFallbackExceptionResolverTest {
 		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
 				objectMapper,
 				new ProblemDetailFactory(),
-				java.util.Optional.empty());
+				Optional.empty());
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		Logger logger = (Logger) LoggerFactory.getLogger(ProblemDetailFallbackExceptionResolver.class);
@@ -95,7 +100,7 @@ class ProblemDetailFallbackExceptionResolverTest {
 		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
 				objectMapper,
 				new ProblemDetailFactory(),
-				java.util.Optional.empty());
+				Optional.empty());
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/test");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		response.setCommitted(true);
@@ -108,5 +113,59 @@ class ProblemDetailFallbackExceptionResolverTest {
 
 		assertThat(modelAndView).isNull();
 		assertThat(response.getContentAsString()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("미처리 예외는 운영 알림에 전달하고 공통 500 Problem Details로 반환한다")
+	void unresolvedExceptionReportsOperationalAlert() throws Exception {
+		DiscordWebhookService discordWebhookService = mock(DiscordWebhookService.class);
+		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
+				objectMapper,
+				new ProblemDetailFactory(),
+				Optional.of(discordWebhookService));
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/comments");
+		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
+		IllegalStateException failure = new IllegalStateException("storage unavailable");
+
+		ModelAndView modelAndView = resolver.resolveException(
+				request,
+				response,
+				new Object(),
+				failure);
+
+		assertThat(modelAndView).isNotNull();
+		assertThat(response.getStatus()).isEqualTo(500);
+		JsonNode body = objectMapper.readTree(response.getContentAsString());
+		assertThat(body.get("type").asText())
+				.isEqualTo("https://api.pikume.com/problems/common/internal-server-error");
+		then(discordWebhookService).should().sendExceptionNotification(failure, request);
+	}
+
+	@Test
+	@DisplayName("운영 알림 요청 실패는 공통 500 Problem Details 응답을 막지 않는다")
+	void operationalAlertFailureDoesNotPreventFallbackResponse() throws Exception {
+		DiscordWebhookService discordWebhookService = mock(DiscordWebhookService.class);
+		ProblemDetailFallbackExceptionResolver resolver = new ProblemDetailFallbackExceptionResolver(
+				objectMapper,
+				new ProblemDetailFactory(),
+				Optional.of(discordWebhookService));
+		MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/comments");
+		MockHttpServletResponse response = new NonUtf8DefaultEncodingMockHttpServletResponse();
+		IllegalStateException failure = new IllegalStateException("storage unavailable");
+		willThrow(new IllegalStateException("notification unavailable"))
+				.given(discordWebhookService)
+				.sendExceptionNotification(failure, request);
+
+		ModelAndView modelAndView = resolver.resolveException(
+				request,
+				response,
+				new Object(),
+				failure);
+
+		assertThat(modelAndView).isNotNull();
+		assertThat(response.getStatus()).isEqualTo(500);
+		JsonNode body = objectMapper.readTree(response.getContentAsString());
+		assertThat(body.get("type").asText())
+				.isEqualTo("https://api.pikume.com/problems/common/internal-server-error");
 	}
 }

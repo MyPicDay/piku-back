@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-07-25
 
 ## 목적
 
@@ -48,6 +48,15 @@ public class ProblemDetailFactory {
 ```
 
 공용 Factory의 필드 구성이나 검증 오류 확장 방식이 변경되면 이 코드와 API 오류 응답 테스트를 함께 갱신한다.
+
+## 예상하지 못한 기술 장애
+
+- Domain 또는 Application 의미가 있는 예상 가능한 실패는 각 Context의 Web Adapter가 해당 의미를 보존한 Problem Details로 변환한다.
+- 저장소 연결 장애, 타임아웃과 예상하지 못한 외부 시스템 오류처럼 Application 의미가 없는 미처리 장애는 전역 fallback이 공통 내부 서버 오류 Problem Details로 변환한다.
+- 전역 fallback은 기술 원인과 내부 메시지를 응답에 노출하지 않고, 서버 로그와 구성된 운영 알림으로 장애 사실을 전달한다.
+- 운영 알림 요청의 실패는 공통 내부 서버 오류 응답 작성을 중단시키지 않는다.
+- 전역 fallback은 마지막 안전망이며 검증, 비즈니스 분기, 재시도, 보상과 같은 유스케이스 제어 흐름으로 사용하지 않는다.
+- Context 전용 오류 코드는 예상하지 못한 기술 장애의 이름을 바꾸기 위한 목적으로 추가하지 않는다.
 
 ## Filter 기반 보안 오류
 

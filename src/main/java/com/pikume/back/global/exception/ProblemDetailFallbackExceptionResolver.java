@@ -48,7 +48,7 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 
 		log.error("event=request_failed outcome=failed reason=unhandled_exception exception={}",
 				ex.getClass().getSimpleName());
-		discordWebhookService.ifPresent(service -> service.sendExceptionNotification(ex, request));
+		reportUnexpectedFailure(ex, request);
 
 		ProblemDetail problemDetail = problemDetailFactory.create(
 				CommonProblemType.INTERNAL_SERVER_ERROR,
@@ -66,6 +66,15 @@ public class ProblemDetailFallbackExceptionResolver extends AbstractHandlerExcep
 			return null;
 		}
 		return new ModelAndView();
+	}
+
+	private void reportUnexpectedFailure(Exception exception, HttpServletRequest request) {
+		try {
+			discordWebhookService.ifPresent(service -> service.sendExceptionNotification(exception, request));
+		} catch (RuntimeException notificationFailure) {
+			log.error("event=exception_notification outcome=failed exception={}",
+					notificationFailure.getClass().getSimpleName());
+		}
 	}
 
 	@Override
