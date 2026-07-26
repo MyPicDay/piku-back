@@ -33,7 +33,7 @@ class InquiryEmailAdapterTest {
 				"문의 내용",
 				new InquiryAttachment("inquiry.png", "image/png", "data".getBytes()));
 
-		assertThat(message.getSubject()).isEqualTo("[PikU] 피드백");
+		assertThat(message.getSubject()).isEqualTo("[PikUme] 피드백");
 		assertThat(message.getAllRecipients()[0].toString()).isEqualTo("admin@example.com");
 		then(mailSender).should().send(message);
 	}

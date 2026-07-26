@@ -15,7 +15,7 @@ public class FcmPushAdapter implements DeliverPushNotificationPort {
 	private void sendMessage(String targetToken, String body) throws FirebaseMessagingException {
 		Message message = Message.builder()
 				.setToken(targetToken)
-				.putData("title", "PikU 알림")
+				.putData("title", "PikUme 알림")
 				.putData("body", body)
 				.putData("url", "/notifications")
 				.build();

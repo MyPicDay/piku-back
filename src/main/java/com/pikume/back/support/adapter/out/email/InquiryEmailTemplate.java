@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class InquiryEmailTemplate {
 
-	private static final String SUBJECT = "[PikU] 피드백";
+	private static final String SUBJECT = "[PikUme] 피드백";
 	private static final String CONTENT = """
 			<html><body>
 			<h2>피드백</h2>

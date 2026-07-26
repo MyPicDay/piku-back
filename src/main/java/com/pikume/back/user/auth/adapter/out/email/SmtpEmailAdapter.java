@@ -27,7 +27,7 @@ public class SmtpEmailAdapter implements IssueVerificationEmailPort {
 	@Override
 	public String issueVerificationEmail(String email) {
 		String code = createVerificationCode();
-		String subject = "[PikU] 이메일 인증";
+		String subject = "[PikUme] 이메일 인증";
 
 		try {
 			MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -35,7 +35,7 @@ public class SmtpEmailAdapter implements IssueVerificationEmailPort {
 
 			String htmlContent = String.format(EmailConstants.AUTH_CODE_CONTENT, code);
 
-			helper.setFrom(adminEmail, "PikU | 피쿠");
+			helper.setFrom(adminEmail, "PikUme | 피쿠");
 			helper.setTo(email);
 			helper.setSubject(subject);
 			helper.setText(htmlContent, true);

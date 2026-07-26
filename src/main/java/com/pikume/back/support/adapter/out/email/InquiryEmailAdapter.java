@@ -30,7 +30,7 @@ public class InquiryEmailAdapter implements SendInquiryNotificationPort {
 			MimeMessage mimeMessage = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "utf-8");
 
-			helper.setFrom(adminEmail, "PikU | 피쿠");
+			helper.setFrom(adminEmail, "PikUme | 피쿠");
 			helper.setTo(adminEmail);
 			helper.setSubject(emailTemplate.subject());
 			helper.setText(emailTemplate.render(content), true);
