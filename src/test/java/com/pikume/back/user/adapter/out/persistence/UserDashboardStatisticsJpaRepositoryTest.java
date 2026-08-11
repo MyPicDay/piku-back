@@ -56,13 +56,14 @@ class UserDashboardStatisticsJpaRepositoryTest {
 
 	private void insertUser(String suffix, LocalDateTime createdAt, LocalDateTime deletedAt) {
 		jdbcTemplate.update("""
-				INSERT INTO users (id, email, password, nickname, created_at, updated_at, deleted_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
+					INSERT INTO users (id, email, password, nickname, character_id, created_at, updated_at, deleted_at)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 				""",
 				"user-" + suffix,
 				suffix + "@example.com",
-				"password",
-				"nick-" + suffix,
+					"password",
+					"nick-" + suffix,
+					1L,
 				Timestamp.valueOf(createdAt),
 				Timestamp.valueOf(createdAt),
 				deletedAt == null ? null : Timestamp.valueOf(deletedAt));

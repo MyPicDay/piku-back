@@ -56,10 +56,10 @@ class LikeCommandServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 
 	@BeforeEach
 	void setUp() {
-		User owner = userJpaRepository.save(new User("owner@example.com", "password", "owner"));
-		User liker = userJpaRepository.save(new User("liker@example.com", "password", "liker"));
-		User friend = userJpaRepository.save(new User("friend@example.com", "password", "friend"));
-		User stranger = userJpaRepository.save(new User("stranger@example.com", "password", "stranger"));
+		User owner = userJpaRepository.save(new User("owner@example.com", "password", "owner", 1L));
+		User liker = userJpaRepository.save(new User("liker@example.com", "password", "liker", 1L));
+		User friend = userJpaRepository.save(new User("friend@example.com", "password", "friend", 1L));
+		User stranger = userJpaRepository.save(new User("stranger@example.com", "password", "stranger", 1L));
 		Diary diary = diaryJpaRepository.save(new Diary("content", DiaryVisibility.PUBLIC, LocalDate.now(), owner.getId()));
 		Diary friendsDiary = diaryJpaRepository.save(new Diary("friends", DiaryVisibility.FRIENDS, LocalDate.now(), owner.getId()));
 		friendJpaRepository.save(new Friend(owner.getId(), friend.getId()));

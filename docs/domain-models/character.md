@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-08-11
 
 ## 도메인 개요
 
@@ -13,6 +13,7 @@ Character는 사용자가 프로필과 AI 이미지 생성에 참조할 수 있�
 
 - 서비스가 제공하는 고정 캐릭터 카탈로그를 조회하고 저장소 자산과 동기화한다.
 - 선택된 고정 캐릭터 식별자를 canonical 이미지 Object Key로 해석한다.
+- 여러 사용자·캐릭터 선택 쌍의 이미지 참조를 생성 유형과 소유권에 맞게 한 번에 해석한다.
 - 사용자별 AI 생성 캐릭터와 소유 사용자의 관계를 기록한다.
 - User와 Creative가 저장소 구현이나 Character 영속 모델을 직접 사용하지 않도록 공개 Application 계약을 제공한다.
 
@@ -47,6 +48,8 @@ _Aggregate Root_
 
 경로 이탈, 빈 경로와 역슬래시가 포함된 고정 캐릭터 참조는 유효한 Object Key로 해석하지 않는다. 저장소 접두사, 지원 확장자와 URL 생성은 Character의 Storage 또는 Web Adapter가 담당하며 Domain Aggregate는 공급자 URL을 생성하지 않는다.
 
+Character의 공개 조회 결과는 정규화된 참조와 함께 절대 URL 여부와 공개 Object Key 여부를 제공한다. 고정 캐릭터의 비절대 참조는 공개 Object Key이며, AI 생성 캐릭터의 비절대 참조는 기본적으로 비공개 Object Key다. 이미 완성된 절대 URL은 Object Storage URL 해석 없이 그대로 표시할 수 있는 참조로 분류한다.
+
 ## 고정 캐릭터 카탈로그
 
 - 공개 목록은 같은 기본 이름의 PNG와 WebP가 함께 있으면 WebP를 우선한다.
@@ -61,8 +64,10 @@ _Aggregate Root_
 ## 경계와 소유권
 
 - Character는 생성 유형, 캐릭터 소유자, 이미지 참조와 고정 카탈로그 선택·동기화 정책을 소유한다.
-- User는 사용자가 선택한 아바타 참조를 소유하고 Character의 고정 참조 해석 계약을 사용한다.
-- Creative는 이미지 생성 입력을 소유하고 Character 또는 User가 제공한 참조를 생성 요청 표현으로 번역한다.
+- User는 사용자가 선택한 캐릭터 식별자만 소유하고 사용자 식별자와 캐릭터 식별자 쌍으로 Character의 공개 이미지 참조 일괄 조회 계약을 사용한다.
+- 고정 캐릭터는 모든 사용자 선택에 허용하며, AI 생성 캐릭터는 Character에 기록된 소유 사용자와 조회 쌍의 사용자 식별자가 일치할 때만 반환한다.
+- User는 Character가 반환한 이미지 참조와 접근 속성을 변경하거나 파일명·접두사로 캐릭터 유형을 추론하지 않는다.
+- Creative는 이미지 생성 입력을 소유하고 Character 또는 User가 제공한 참조를 경로 정규화나 캐릭터 유형 추론 없이 생성 요청 표현으로 번역한다.
 - Global은 저장소 설정과 객체 URL 해석 같은 중립 기술 능력만 제공하며 Character 접두사와 카탈로그 정책을 소유하지 않는다.
 - Object Storage Provider, 버킷과 SDK 타입은 Character Application과 Domain에 노출하지 않는다.
 
@@ -70,13 +75,15 @@ _Aggregate Root_
 
 - 고정 캐릭터 카탈로그 조회
 - 캐릭터 식별자에 대한 고정 이미지 Object Key 해석
+- 여러 사용자·캐릭터 선택 쌍에 대한 이미지 참조 일괄 조회. 고정 캐릭터는 canonical Object Key로, 소유권이 확인된 AI 생성 캐릭터는 Character가 저장한 참조로 반환한다. 결과에는 표시 Adapter가 사용할 절대 URL·공개 Object Key 속성을 포함한다.
 - 시작 시 고정 카탈로그 동기화
 
-User가 사용하는 기존 조회 계약은 소비자 전환 전까지 고정 참조 해석만 제공하는 호환 계약으로 유지한다. 사용되지 않는 AI 캐릭터 로컬 저장과 직접 고정 캐릭터 저장 계약은 공개 유스케이스로 간주하지 않는다.
+고정 참조 해석 계약은 회원가입과 현재 프로필 변경의 고정 캐릭터 검증에 사용한다. 유형 중립 일괄 조회 계약은 User 같은 소비자가 Character 생성 유형을 알지 않고 이미지 참조를 해석하도록 제공한다. 사용되지 않는 AI 캐릭터 로컬 저장과 직접 고정 캐릭터 저장 계약은 공개 유스케이스로 간주하지 않는다.
 
 ## 오류와 API 표현
 
 - 잘못된 고정 캐릭터 식별자와 참조는 참조 없음으로 처리한다.
+- 일괄 조회는 존재하지 않거나 해석할 수 없거나 AI 소유자가 일치하지 않는 선택 쌍을 결과에서 제외하고, 필수 참조 누락의 실패 정책은 소비 유스케이스가 결정한다.
 - 공개 카탈로그 저장소 조회 실패는 기술 중립 Character 오류로 변환한다.
 - Web Adapter는 Character 오류를 RFC 9457 Problem Details로 변환하며 저장소 내부 정보와 Object Key 오류 원인을 노출하지 않는다.
 - 표시 URL 생성은 Web Adapter가 수행하므로 Application Result는 저장 참조를 반환한다.

@@ -46,6 +46,22 @@ class ArchitectureBoundaryTest {
 	}
 
 	@Test
+	@DisplayName("user application은 Character 내부 모델에 직접 의존하지 않는다.")
+	void userApplicationDependsOnCharacterOnlyThroughAdapters() throws IOException {
+		Path userApplication = Path.of("src/main/java/com/pikume/back/user/application");
+		Path userAuthApplication = Path.of("src/main/java/com/pikume/back/user/auth/application");
+
+		assertThat(findJavaSourceViolations(
+				userApplication,
+				path -> sourceContains(path, "com.pikume.back.character.")))
+				.isEmpty();
+		assertThat(findJavaSourceViolations(
+				userAuthApplication,
+				path -> sourceContains(path, "com.pikume.back.character.")))
+				.isEmpty();
+	}
+
+	@Test
 	@DisplayName("creative application은 웹 보안 principal에 의존하지 않는다.")
 	void creativeApplicationDoesNotDependOnWebSecurityPrincipal() throws IOException {
 		Path creativeApplication = Path.of("src/main/java/com/pikume/back/creative/application");
@@ -272,6 +288,7 @@ class ArchitectureBoundaryTest {
 		Path userCrossContextAdapters = Path.of("src/main/java/com/pikume/back/user/adapter/out/crosscontext");
 
 		assertThat(Files.exists(userOutboundPorts.resolve("ResolveFixedCharacterAvatarPort.java"))).isTrue();
+		assertThat(Files.exists(userOutboundPorts.resolve("ResolveAvatarCharacterReferencesPort.java"))).isTrue();
 		assertThat(Files.exists(userOutboundPorts.resolve("LoadFixedCharacterPort.java"))).isFalse();
 
 		List<String> obsoleteNames = List.of(
@@ -288,6 +305,9 @@ class ArchitectureBoundaryTest {
 		assertThat(sourceContains(
 				userCrossContextAdapters.resolve("CharacterAdapterForUser.java"),
 				"ResolveFixedCharacterAvatarPort")).isTrue();
+		assertThat(sourceContains(
+				userCrossContextAdapters.resolve("CharacterAdapterForUser.java"),
+				"ResolveAvatarCharacterReferencesPort")).isTrue();
 	}
 
 	@Test
@@ -312,7 +332,7 @@ class ArchitectureBoundaryTest {
 		Path userAuthOutboundPorts = Path.of("src/main/java/com/pikume/back/user/auth/application/port/out");
 
 		for (String portFile : List.of(
-				"ResolveSignUpAvatarPort.java",
+				"CheckSignUpCharacterSelectionPort.java",
 				"LoadCompletedEmailVerificationPort.java",
 				"ManageVerificationPort.java",
 				"RecordCompletedEmailVerificationPort.java",
@@ -320,6 +340,7 @@ class ArchitectureBoundaryTest {
 			assertThat(Files.exists(userAuthOutboundPorts.resolve(portFile))).isTrue();
 		}
 		for (String obsoleteFile : List.of(
+				"ResolveSignUpAvatarPort.java",
 				"LoadFixedCharacterForSignUpPort.java",
 				"LoadVerifiedEmailPort.java",
 				"SaveVerificationPort.java",

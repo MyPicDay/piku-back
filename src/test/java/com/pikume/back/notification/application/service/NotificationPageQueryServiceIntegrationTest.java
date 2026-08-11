@@ -72,7 +72,7 @@ class NotificationPageQueryServiceIntegrationTest extends AbstractJpaQueryCountI
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + suffix,
-				"avatars/" + suffix + ".png"));
+				1L));
 	}
 
 	private Diary saveDiary(String userId, String content) {

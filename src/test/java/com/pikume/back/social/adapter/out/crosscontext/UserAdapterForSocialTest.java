@@ -3,6 +3,7 @@ package com.pikume.back.social.adapter.out.crosscontext;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.application.dto.UserReferenceView;
 import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,11 @@ class UserAdapterForSocialTest {
 	@Test
 	void translatesPublicUserContractsToSocialProfile() {
 		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user")))
-				.willReturn(Map.of("user", new UserSummaryView("user", "닉네임", "avatars/user.png")));
+				.willReturn(Map.of(
+						"user",
+						new UserSummaryView(
+								"user", "닉네임",
+								new UserAvatarReference("avatars/user.png", false, false))));
 		given(resolveObjectUrlPort.resolveObjectUrl("avatars/user.png", false))
 				.willReturn("https://cdn/avatar.png");
 

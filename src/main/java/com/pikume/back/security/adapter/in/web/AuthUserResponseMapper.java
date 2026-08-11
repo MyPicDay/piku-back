@@ -21,7 +21,7 @@ public class AuthUserResponseMapper {
 		return new UserInfo(
 				userInfo.id(),
 				userInfo.nickname(),
-				resolveAvatarUrl(userInfo.avatarPath()));
+				resolveAvatarUrl(userInfo.avatarReference()));
 	}
 
 	public UserInfo toDisplayUserInfo(UserPrincipal userDetails) {
@@ -31,12 +31,14 @@ public class AuthUserResponseMapper {
 		return new UserInfo(
 				userDetails.getId(),
 				userDetails.getNickname(),
-				resolveAvatarUrl(userDetails.getAvatarPath()));
+				resolveAvatarUrl(userDetails.getAvatarReference()));
 	}
 
-	private String resolveAvatarUrl(String storedPath) {
-		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
-		if (reference.isEmpty() || reference.absoluteUrl()) {
+	private String resolveAvatarUrl(UserAvatarReference reference) {
+		if (reference == null) {
+			return null;
+		}
+		if (reference.absoluteUrl()) {
 			return reference.value();
 		}
 		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());

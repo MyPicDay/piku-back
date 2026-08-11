@@ -3,14 +3,16 @@ package com.pikume.back.user.application.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.pikume.back.user.application.dto.AvatarCharacterSelection;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.dto.UserSummaryView;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 import com.pikume.back.user.application.port.out.LoadUserReferencePort;
 import com.pikume.back.user.domain.User;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class UserSummaryQueryService implements QueryUserSummaryUseCase {
 
 	private final LoadUserReferencePort loadUserReferencePort;
+	private final UserAvatarReferenceResolver userAvatarReferenceResolver;
 
 	@Override
 	public Map<String, UserSummaryView> queryUserSummaries(Set<String> userIds) {
@@ -26,10 +29,20 @@ public class UserSummaryQueryService implements QueryUserSummaryUseCase {
 			return Map.of();
 		}
 
-		return loadUserReferencePort.loadReferences(userIds).stream()
+		List<User> users = loadUserReferencePort.loadReferences(userIds);
+		Map<AvatarCharacterSelection, UserAvatarReference> avatarReferences = userAvatarReferenceResolver
+				.resolveRequired(users.stream()
+						.map(user -> new AvatarCharacterSelection(user.getId(), user.getCharacterId()))
+						.toList());
+
+		return users.stream()
 				.collect(Collectors.toMap(
 						User::getId,
-						user -> new UserSummaryView(user.getId(), user.getNickname(), user.getAvatar()),
+						user -> new UserSummaryView(
+								user.getId(),
+								user.getNickname(),
+								avatarReferences.get(new AvatarCharacterSelection(
+										user.getId(), user.getCharacterId()))),
 						(left, right) -> left));
 	}
 }

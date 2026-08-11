@@ -22,9 +22,9 @@ public class UserDetailsServiceAdapter implements UserDetailsService {
 		UserIdentityView user = queryUserIdentityUseCase.queryUserIdentityById(userId)
 				.orElseThrow(() -> new UsernameNotFoundException("사용자 없음"));
 
-		return UserPrincipal.withAvatarPath(
+		return UserPrincipal.withAvatarReference(
 				user.id(),
 				user.nickname(),
-				user.avatarPath());
+				user.avatarReference());
 	}
 }

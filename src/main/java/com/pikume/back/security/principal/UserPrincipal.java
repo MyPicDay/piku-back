@@ -1,5 +1,6 @@
 package com.pikume.back.security.principal;
 
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -13,20 +14,23 @@ public class UserPrincipal implements UserDetails {
 
 	private final String id;
 	private final String nickname;
-	private final String avatarPath;
+	private final UserAvatarReference avatarReference;
 
 	public UserPrincipal(String id, String nickname) {
 		this(id, nickname, null);
 	}
 
-	public static UserPrincipal withAvatarPath(String id, String nickname, String avatarPath) {
-		return new UserPrincipal(id, nickname, avatarPath);
+	public static UserPrincipal withAvatarReference(
+			String id,
+			String nickname,
+			UserAvatarReference avatarReference) {
+		return new UserPrincipal(id, nickname, avatarReference);
 	}
 
-	private UserPrincipal(String id, String nickname, String avatarPath) {
+	private UserPrincipal(String id, String nickname, UserAvatarReference avatarReference) {
 		this.id = id;
 		this.nickname = nickname;
-		this.avatarPath = avatarPath;
+		this.avatarReference = avatarReference;
 	}
 
 	@Override

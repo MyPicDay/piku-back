@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-08-11
 
 ## 목적
 
@@ -47,7 +47,7 @@ Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력�
 | **Recommendation** | Working Context | Supporting | 일기 분석 메타데이터, 사용자 주제 친화도와 후보 점수 | 향후 추천 정책이 제품 차별화의 핵심으로 성장하면 전략 분류를 다시 평가해야 하는가? |
 | **Social** | Working Context | 미분류 | 친구 요청·관계, 댓글, 답글과 좋아요 | 친구 관계와 일기 반응이 하나의 언어와 모델에 속하는가? |
 | **Support** | Working Context | Supporting | 사용자 문의, 선택적 첨부 참조와 운영 알림 | 문의 답변·상태 워크플로가 추가되면 현재 단일 Aggregate 경계를 어떻게 확장할 것인가? |
-| **User** | Working Context | 미분류 | 일반 사용자 계정 생명주기, 자격 증명, 이메일 검증, 인증 유스케이스, 프로필과 닉네임 점유 | 계정·인증 Application과 Security Adapter의 기술 책임이 분리되어 있는가? |
+| **User** | Working Context | 미분류 | 일반 사용자 계정 생명주기, 자격 증명, 이메일 검증, 인증 유스케이스, 선택된 캐릭터 식별자, 프로필과 닉네임 점유 | 계정·인증 Application과 Security Adapter의 기술 책임이 분리되어 있는가? |
 
 `미분류`는 중요도가 낮다는 의미가 아니라 제품 전략과 모델 근거를 대화로 더 확인해야 한다는 뜻이다. 코드 규모, 트래픽과 현재 패키지 구조만으로 전략 분류를 대신하지 않는다.
 
@@ -79,7 +79,7 @@ Security 런타임은 두 Filter Chain으로 구성한다. `Order(1)` 관리자 
 
 `global`을 여러 Context가 사용한다는 이유로 Shared Kernel이라고 부르지 않는다. Shared Kernel은 팀이 의도적으로 공유하고 공동 변경하는 작은 도메인 모델이며, 일반 기술 유틸리티와는 다르다.
 
-Global의 파일·객체 저장 계약은 바이트 로드·저장과 표시 URL 해석만 표현하며 중립 S3 Object Storage Adapter가 이를 구현한다. Object Key, 파일명, 공개 여부, 캐시 정책과 생명주기는 Character, Creative, Diary, Support 등 실제 소비자가 소유하며 Global은 해당 Context의 Domain 타입을 계약에 포함하지 않는다. User는 저장된 아바타 참조의 레거시 형식 호환을 소유하고 Web 또는 소비자 Cross-context Adapter가 중립 URL 해석 계약을 사용해 표시 URL로 번역한다. Spring Security Principal은 Security가, Multipart와 HTTP 응답 변환은 Web Adapter가 소유한다.
+Global의 파일·객체 저장 계약은 바이트 로드·저장과 표시 URL 해석만 표현하며 중립 S3 Object Storage Adapter가 이를 구현한다. Object Key, 파일명, 공개 여부, 캐시 정책과 생명주기는 Character, Creative, Diary, Support 등 실제 소비자가 소유하며 Global은 해당 Context의 Domain 타입을 계약에 포함하지 않는다. User는 선택된 캐릭터 식별자만 저장하고 사용자·캐릭터 선택 쌍으로 Character 공개 계약을 조회한다. Character가 정규화한 참조와 접근 속성을 User 조회 모델이 변경 없이 전달하고, Web 또는 소비자 Cross-context Adapter는 필요한 경우 중립 URL 해석 계약을 사용해 표시 URL로 번역한다. Spring Security Principal은 Security가, Multipart와 HTTP 응답 변환은 Web Adapter가 소유한다.
 
 ## 6. 현재 런타임 접점
 
@@ -118,7 +118,7 @@ flowchart LR
 | 소비자·요청자 | 공급자·수행자 | 현재 목적 | 현재 경계 상태 |
 | --- | --- | --- | --- |
 | Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | Admin 소유 목적별 Out Port와 Cross-context Adapter가 공급자의 공개 Application 계약을 `AdminDailyCount`와 관리자 대시보드 의미로 변환한다. 공급자의 Domain, Out Port와 Persistence 타입은 노출하지 않는다. |
-| Creative | Character, User | 이미지 생성용 사용자 아바타 참조 조회 | User 공개 조회 계약을 Creative 참조로 번역하고 Character 참조 형식과 Object Storage 로드는 Creative의 목적별 경계에서 분리한다. |
+| Creative | Character, User | 이미지 생성용 캐릭터 또는 사용자 아바타 참조 조회 | 공급자의 공개 조회 계약을 Creative 참조로 번역하고 Character의 유형·소유권 모델과 User의 저장 모델을 Creative에 노출하지 않는다. Object Storage 로드는 Creative의 목적별 경계에서 분리한다. |
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
 | Diary | User | 작성자 확인 | 현재 Diary 생성·조회 흐름에는 User 조회가 필요하지 않다. 필요 시 Diary 소유 Out Port와 User 공개 참조 계약을 사용한다. |
 | Diary | Social | 친구 관계와 알림 대상 조회 | Diary 소유 친구 관계 Out Port와 Cross-context Adapter가 Social 공개 계약을 Diary 의미로 변환한다. |
@@ -130,7 +130,7 @@ flowchart LR
 | Social | User, Diary | 친구·댓글·좋아요 대상 검증과 응답 정보 조회 | Social 소유 목적별 Out Port와 Cross-context Adapter가 User·Diary 공개 Application 계약을 참가자 프로필과 일기 상호작용 맥락으로 번역한다. 공급자의 Domain·Out Port·Persistence 타입은 Social에 노출하지 않는다. |
 | Social | Notification | 친구·댓글·좋아요 알림 기록 요청 | Social Application의 공개 `SocialNotificationEvent`를 Notification 입력 Adapter가 Notification 기록 명령으로 번역한다. 사건 수신과 이력 저장은 현재 Social 상태 변경 트랜잭션에 동기로 참여하고, SSE·FCM 외부 전달만 이력 커밋 이후 best-effort로 수행한다. |
 | Support | User | 문의 제출 사용자 확인 | Support 소유 제출자 확인 Out Port와 Cross-context Adapter가 User 공개 참조 계약을 문의 제출자 존재 의미로 번역한다. |
-| User | Character, Diary, Social | 프로필 아바타와 일기·친구 정보 조회 | User 소유 목적 중심 Out Port와 공급자 공개 계약을 사용하며 조회 결과만 Application Read Model로 조합한다. |
+| User | Character, Diary, Social | 선택된 캐릭터 이미지 참조와 일기·친구 정보 조회 | User는 `characterId`만 저장한다. User 소유 목적 중심 Out Port와 Cross-context Adapter가 사용자 식별자·캐릭터 식별자 쌍으로 Character 공개 일괄 조회 계약을 호출한다. Character는 고정·AI 생성 유형, AI 소유권과 이미지 참조 접근 속성을 결정하고 User 조회 모델은 결과를 변경 없이 전달한다. 목록은 선택 쌍을 모아 일괄 해석하고 필수 참조가 누락되면 데이터 정합성 오류로 실패한다. |
 | User | Notification | 로그아웃 기기의 푸시 토큰 해제 | User 소유 Out Port와 Notification 공개 계약을 사용한다. 푸시 토큰 해제 실패는 로그아웃 세션 삭제를 되돌리지 않는 부가 작업으로 취급한다. |
 
 ## 8. 전략 관계 해석
@@ -166,5 +166,6 @@ flowchart LR
 - 새 최상위 패키지를 추가했다고 Context Map에 즉시 Bounded Context로 등록하지 않는다.
 - 경계 상태를 변경할 때 모델, 언어, 불변식, 소유권과 통합 근거를 함께 기록한다.
 - 새로운 Cross-Context 접점을 추가하면 소비자·공급자, 계약, 번역 위치와 실패 정책을 기록한다.
+- Context 간 참조는 식별자와 공개 Application 계약으로 유지하고 다른 Context 테이블에 대한 데이터베이스 외래 키를 추가하지 않는다.
 - 현재 지형과 목표 구조를 한 그림에 섞지 않는다.
 - 전용 Domain Model 문서를 추가하면 Domain Models Index도 함께 갱신한다.

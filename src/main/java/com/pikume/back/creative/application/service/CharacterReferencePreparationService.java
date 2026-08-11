@@ -25,7 +25,6 @@ public class CharacterReferencePreparationService implements PrepareCharacterRef
 	public Optional<CharacterReferenceImage> prepareCharacterReference(String userId) {
 		try {
 			return loadUserAvatarReferencePort.loadUserAvatarReference(userId)
-					.map(characterReferencePolicy::canonicalize)
 					.filter(reference -> !reference.isBlank())
 					.filter(reference -> !characterReferencePolicy.isAbsoluteUrl(reference))
 					.flatMap(this::loadReferenceImage);

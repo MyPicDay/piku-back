@@ -10,6 +10,7 @@ import com.pikume.back.character.domain.vo.CharacterCreationType;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Character Persistence Adapter
@@ -25,6 +26,11 @@ public class CharacterPersistenceAdapter
 	@Override
 	public Optional<Character> loadCharacterReference(Long id) {
 		return characterJpaRepository.findById(id);
+	}
+
+	@Override
+	public List<Character> loadCharacterReferences(Set<Long> characterIds) {
+		return characterJpaRepository.findAllById(characterIds);
 	}
 
 	@Override

@@ -59,6 +59,7 @@ class CharacterArchitectureTest {
 
 		for (String port : List.of(
 				"QueryFixedCharacterCatalogUseCase.java",
+				"QueryCharacterImageReferencesUseCase.java",
 				"ResolveFixedCharacterReferenceUseCase.java",
 				"SynchronizeFixedCharacterCatalogUseCase.java")) {
 			assertThat(inboundPorts.resolve(port)).exists();
@@ -73,6 +74,7 @@ class CharacterArchitectureTest {
 
 		for (String service : List.of(
 				"FixedCharacterCatalogQueryService.java",
+				"CharacterImageReferenceQueryService.java",
 				"FixedCharacterReferenceService.java",
 				"FixedCharacterCatalogSynchronizationService.java")) {
 			assertThat(services.resolve(service)).exists();

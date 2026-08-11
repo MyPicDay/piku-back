@@ -36,14 +36,13 @@ public class UserAdapterForSocial implements VerifySocialParticipantPort, LoadSo
 						user -> new SocialParticipantProfile(
 								user.id(),
 								user.nickname(),
-								user.avatarPath() != null
-										? resolveAvatarUrl(user.avatarPath())
+								user.avatarReference() != null
+										? resolveAvatarUrl(user.avatarReference())
 										: null)));
 	}
 
-	private String resolveAvatarUrl(String storedPath) {
-		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
-		if (reference.isEmpty() || reference.absoluteUrl()) {
+	private String resolveAvatarUrl(UserAvatarReference reference) {
+		if (reference.absoluteUrl()) {
 			return reference.value();
 		}
 		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());

@@ -22,7 +22,10 @@ public class UserExceptionHandler {
 	@ExceptionHandler(UserException.class)
 	public ResponseEntity<ProblemDetail> handleUserException(UserException ex, HttpServletRequest request) {
 		UserProblemType problemType = UserProblemType.from(ex.getErrorCode());
-		ProblemDetail problemDetail = problemDetailFactory.create(problemType, ex.getMessage(), request.getRequestURI());
+		String detail = problemType.status().is5xxServerError()
+				? ex.getErrorCode().getMessage()
+				: ex.getMessage();
+		ProblemDetail problemDetail = problemDetailFactory.create(problemType, detail, request.getRequestURI());
 		return ResponseEntity.status(problemType.status()).body(problemDetail);
 	}
 

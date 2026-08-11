@@ -10,7 +10,7 @@ import com.pikume.back.user.auth.application.port.in.QueryAllowedEmailUseCase;
 import com.pikume.back.user.auth.application.port.in.ResetPasswordUseCase;
 import com.pikume.back.user.auth.application.port.in.SignUpUseCase;
 import com.pikume.back.user.auth.application.port.in.VerifyEmailUseCase;
-import com.pikume.back.user.auth.application.port.out.ResolveSignUpAvatarPort;
+import com.pikume.back.user.auth.application.port.out.CheckSignUpCharacterSelectionPort;
 import com.pikume.back.user.auth.application.port.out.LoadVerificationPort;
 import com.pikume.back.user.auth.application.port.out.LoadCompletedEmailVerificationPort;
 import com.pikume.back.user.auth.application.port.out.PasswordProtectionPort;
@@ -51,7 +51,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	private final RecordCompletedEmailVerificationPort recordCompletedEmailVerificationPort;
 	private final IssueVerificationEmailPort issueVerificationEmailPort;
 	private final PasswordProtectionPort passwordProtectionPort;
-	private final ResolveSignUpAvatarPort resolveSignUpAvatarPort;
+	private final CheckSignUpCharacterSelectionPort checkSignUpCharacterSelectionPort;
 	private final QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	private final EmailVerificationPolicy emailVerificationPolicy;
 	private final PasswordPolicy passwordPolicy;
@@ -66,12 +66,12 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		}
 
 		VerifiedEmail verified = getValidVerifiedEmail(command.email(), VerificationType.SIGN_UP);
-		String avatarObjectKey = requireFixedCharacterObjectKey(command.fixedCharacterId());
+		requireSelectableFixedCharacter(command.fixedCharacterId());
 		User user = new User(
 				command.email(),
 				passwordProtectionPort.protect(command.password()),
-				command.nickname());
-		user.changeAvatar(avatarObjectKey);
+				command.nickname(),
+				command.fixedCharacterId());
 
 		verified.markUsed();
 		recordCompletedEmailVerificationPort.recordCompletedVerification(verified);
@@ -172,12 +172,13 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		return latest;
 	}
 
-	private String requireFixedCharacterObjectKey(Long fixedCharacterId) {
+	private void requireSelectableFixedCharacter(Long fixedCharacterId) {
 		if (fixedCharacterId == null || fixedCharacterId <= 0) {
 			throw new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND);
 		}
-		return resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(fixedCharacterId)
-				.orElseThrow(() -> new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND));
+		if (!checkSignUpCharacterSelectionPort.isSelectableFixedCharacter(fixedCharacterId)) {
+			throw new AuthException(AuthErrorCode.FIXED_CHARACTER_NOT_FOUND);
+		}
 	}
 
 	private void requireValidEmail(String rawEmail) {

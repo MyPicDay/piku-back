@@ -58,7 +58,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("현재 자신의 닉네임이면 사용 가능")
 		void ownNicknameIsAvailable() {
-			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "현재닉", 1L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 
 			boolean result = service.reserveIfAvailable("현재닉", "user-1");
@@ -69,7 +69,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("이미 DB에 존재하는 닉네임이면 사용 불가")
 		void existingNicknameIsUnavailable() {
-			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "현재닉", 1L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(checkUserUniquenessPort.isNicknameInUse("중복닉")).willReturn(true);
 
@@ -81,7 +81,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("사용 가능한 닉네임 점유를 목적 중심 Port에 위임한다")
 		void delegatesNicknameAcquisitionToHoldPort() {
-			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "현재닉", 1L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(nicknameHoldPort.tryAcquire(eq("새닉"), eq("user-1"), any(Instant.class))).willReturn(true);
 
@@ -128,7 +128,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("존재하지 않는 캐릭터면 RESOURCE_NOT_FOUND 실패 응답")
 		void nonExistentCharacterReturnsResourceNotFoundFailure() {
-			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", 1L);
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 999L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
@@ -141,28 +141,27 @@ class UserProfileCommandServiceTest {
 		}
 
 		@Test
-		@DisplayName("캐릭터 변경 시 canonical object key를 아바타로 저장한다")
-		void storesCanonicalObjectKeyWhenCharacterChanges() {
-			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
-			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 1L);
+		@DisplayName("캐릭터 변경 시 식별자를 저장하고 canonical object key는 응답한다")
+		void storesCharacterIdentifierWhenCharacterChanges() {
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", 1L);
+			UpdateProfileCommand command = new UpdateProfileCommand("user-1", null, 2L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
-			given(fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
+			given(fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(2L))
+					.willReturn(Optional.of("public/characters/fixed/base_image_2.webp"));
 			given(recordUserAccountPort.recordUserAccount(any(User.class))).willReturn(user);
 
 			UpdateProfileResult result = service.updateProfile(command);
 
 			assertThat(result.success()).isTrue();
-			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_1.webp");
+			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_2.webp");
 			verify(recordUserAccountPort).recordUserAccount(same(user));
-			verify(recordUserAccountPort).recordUserAccount(argThat(savedUser ->
-					"public/characters/fixed/base_image_1.webp".equals(savedUser.getAvatar())));
+			verify(recordUserAccountPort).recordUserAccount(argThat(savedUser -> savedUser.getCharacterId() == 2L));
 		}
 
 		@Test
 		@DisplayName("닉네임 변경 성공 후 점유를 해제한다")
 		void releasesNicknameHoldAfterSuccessfulUpdate() {
-			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "현재닉", 1L);
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", "새닉", null);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(nicknameHoldPort.isHeldBy(eq("새닉"), eq("user-1"), any(Instant.class))).willReturn(true);
@@ -177,7 +176,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("닉네임 저장 충돌 시 예외를 전파하고 점유를 유지한다")
 		void keepsNicknameHoldAfterPersistenceConflict() {
-			User user = new User("user-1", "test@test.com", "pw", "현재닉", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "현재닉", 1L);
 			UpdateProfileCommand command = new UpdateProfileCommand("user-1", "새닉", null);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(nicknameHoldPort.isHeldBy(eq("새닉"), eq("user-1"), any(Instant.class))).willReturn(true);
@@ -197,7 +196,7 @@ class UserProfileCommandServiceTest {
 		@Test
 		@DisplayName("유효한 캐릭터 ID로 프로필 이미지를 변경한다")
 		void validCharacterIdUpdatesImage() {
-			User user = new User("user-1", "test@test.com", "pw", "닉네임", "old-avatar");
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", 1L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(1L))
 					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
@@ -205,14 +204,13 @@ class UserProfileCommandServiceTest {
 
 			service.updateProfileImage("user-1", 1L);
 
-			verify(recordUserAccountPort).recordUserAccount(argThat(savedUser ->
-					"public/characters/fixed/base_image_1.webp".equals(savedUser.getAvatar())));
+			verify(recordUserAccountPort).recordUserAccount(argThat(savedUser -> savedUser.getCharacterId() == 1L));
 		}
 
 		@Test
 		@DisplayName("존재하지 않는 캐릭터 이미지면 ProfileImageNotFoundException 발생")
 		void nonExistentCharacterThrowsNotFound() {
-			User user = new User("user-1", "test@test.com", "pw", "닉네임", "avatar");
+			User user = new User("user-1", "test@test.com", "pw", "닉네임", 1L);
 			given(loadUserForProfilePort.loadProfileUser("user-1")).willReturn(Optional.of(user));
 			given(fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
 

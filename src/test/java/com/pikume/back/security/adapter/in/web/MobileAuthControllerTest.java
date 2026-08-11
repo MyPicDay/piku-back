@@ -4,6 +4,7 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.exception.GlobalExceptionHandler;
 import com.pikume.back.user.auth.application.dto.LoginCommand;
 import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.auth.application.dto.ReissueSessionResult;
 import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
 import com.pikume.back.user.auth.application.port.in.LoginUseCase;
@@ -73,7 +74,8 @@ class MobileAuthControllerTest {
 				new LoginResult.UserInfo(
 						"user-1",
 						"pikume",
-						"public/characters/fixed/base_image_1.webp"));
+						new UserAvatarReference(
+								"public/characters/fixed/base_image_1.webp", false, true)));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
 				"pikume",

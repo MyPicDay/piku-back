@@ -1,20 +1,18 @@
 package com.pikume.back.user.auth.adapter.out.character;
 
 import com.pikume.back.character.application.port.in.GetCharacterUseCase;
-import com.pikume.back.user.auth.application.port.out.ResolveSignUpAvatarPort;
+import com.pikume.back.user.auth.application.port.out.CheckSignUpCharacterSelectionPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
-
 @Component
 @RequiredArgsConstructor
-public class CharacterAdapterForAuth implements ResolveSignUpAvatarPort {
+public class CharacterAdapterForAuth implements CheckSignUpCharacterSelectionPort {
 
 	private final GetCharacterUseCase getCharacterUseCase;
 
 	@Override
-	public Optional<String> resolveFixedCharacterObjectKey(Long characterId) {
-		return getCharacterUseCase.findFixedCharacterObjectKey(characterId);
+	public boolean isSelectableFixedCharacter(Long characterId) {
+		return getCharacterUseCase.findFixedCharacterObjectKey(characterId).isPresent();
 	}
 }

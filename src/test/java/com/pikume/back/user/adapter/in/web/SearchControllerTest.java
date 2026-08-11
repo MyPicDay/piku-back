@@ -14,6 +14,7 @@ import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.global.pagination.PageResult;
 import com.pikume.back.user.application.dto.UserSearchResult;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.SearchUserUseCase;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 
@@ -54,13 +55,16 @@ class SearchControllerTest {
 	void searchUsersReturnsPagedResults() throws Exception {
 		PageQuery pageQuery = PageQuery.of(0, 20);
 		PageResult<UserSearchResult> result = new PageResult<>(
-				List.of(new UserSearchResult("user-1", "테스트유저", "avatar-object-key")),
+				List.of(new UserSearchResult(
+						"user-1",
+						"테스트유저",
+						new UserAvatarReference("avatar-object-key", false, true))),
 				0,
 				20,
 				1);
 		given(searchUserUseCase.searchUsers("test", pageQuery)).willReturn(result);
 		given(resolveObjectUrlPort.resolveObjectUrl(
-				"public/characters/fixed/avatar-object-key",
+				"avatar-object-key",
 				true))
 				.willReturn("https://cdn.example/avatar.png");
 
