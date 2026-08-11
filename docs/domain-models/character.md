@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-08-11
 
 ## 도메인 개요
 
@@ -12,7 +12,7 @@ Character는 사용자가 프로필과 AI 이미지 생성에 참조할 수 있�
 ### 목적
 
 - 서비스가 제공하는 고정 캐릭터 카탈로그를 조회하고 저장소 자산과 동기화한다.
-- 선택된 고정 캐릭터 식별자를 canonical 이미지 Object Key로 해석한다.
+- 요청 사용자가 사용할 수 있는 캐릭터 식별자를 이미지 생성용 canonical Object Key로 해석한다.
 - 사용자별 AI 생성 캐릭터와 소유 사용자의 관계를 기록한다.
 - User와 Creative가 저장소 구현이나 Character 영속 모델을 직접 사용하지 않도록 공개 Application 계약을 제공한다.
 
@@ -47,6 +47,15 @@ _Aggregate Root_
 
 경로 이탈, 빈 경로와 역슬래시가 포함된 고정 캐릭터 참조는 유효한 Object Key로 해석하지 않는다. 저장소 접두사, 지원 확장자와 URL 생성은 Character의 Storage 또는 Web Adapter가 담당하며 Domain Aggregate는 공급자 URL을 생성하지 않는다.
 
+이미지 생성용 공개 참조는 절대 URL, 경로 이탈과 역슬래시가 없는 상대 Object Key만 허용한다. 고정 캐릭터 참조는 기존 형식을 canonical 고정 Object Key로 정규화하고, AI 생성 캐릭터 참조는 Character가 저장한 안전한 Object Key를 유지한다. 다운로드 정책이 없는 절대 URL은 표시 호환 참조일 수 있지만 이미지 생성용 공개 참조로는 제공하지 않는다.
+
+## 사용자 기준 사용 가능성
+
+- 고정 캐릭터는 모든 인증 사용자가 이미지 생성 참조로 사용할 수 있다.
+- AI 생성 캐릭터는 `userId`가 일치하는 소유 사용자만 사용할 수 있다.
+- 존재하지 않는 캐릭터와 다른 사용자 소유 AI 생성 캐릭터는 공개 계약에서 같은 사용 불가 결과로 표현한다.
+- 공개 결과에는 정규 저장 참조만 포함하고 생성 유형과 소유 사용자 식별자를 포함하지 않는다.
+
 ## 고정 캐릭터 카탈로그
 
 - 공개 목록은 같은 기본 이름의 PNG와 WebP가 함께 있으면 WebP를 우선한다.
@@ -62,7 +71,7 @@ _Aggregate Root_
 
 - Character는 생성 유형, 캐릭터 소유자, 이미지 참조와 고정 카탈로그 선택·동기화 정책을 소유한다.
 - User는 사용자가 선택한 아바타 참조를 소유하고 Character의 고정 참조 해석 계약을 사용한다.
-- Creative는 이미지 생성 입력을 소유하고 Character 또는 User가 제공한 참조를 생성 요청 표현으로 번역한다.
+- Creative는 이미지 생성 입력과 참조 출처 선택을 소유하고 Character 또는 User가 제공한 참조를 생성 요청 표현으로 번역한다. Character의 유형과 소유권 정책은 알지 않는다.
 - Global은 저장소 설정과 객체 URL 해석 같은 중립 기술 능력만 제공하며 Character 접두사와 카탈로그 정책을 소유하지 않는다.
 - Object Storage Provider, 버킷과 SDK 타입은 Character Application과 Domain에 노출하지 않는다.
 
@@ -70,6 +79,7 @@ _Aggregate Root_
 
 - 고정 캐릭터 카탈로그 조회
 - 캐릭터 식별자에 대한 고정 이미지 Object Key 해석
+- 요청 사용자가 사용할 수 있는 캐릭터 식별자에 대한 이미지 생성용 저장 참조 해석
 - 시작 시 고정 카탈로그 동기화
 
 User가 사용하는 기존 조회 계약은 소비자 전환 전까지 고정 참조 해석만 제공하는 호환 계약으로 유지한다. 사용되지 않는 AI 캐릭터 로컬 저장과 직접 고정 캐릭터 저장 계약은 공개 유스케이스로 간주하지 않는다.
@@ -77,6 +87,8 @@ User가 사용하는 기존 조회 계약은 소비자 전환 전까지 고정 �
 ## 오류와 API 표현
 
 - 잘못된 고정 캐릭터 식별자와 참조는 참조 없음으로 처리한다.
+- 이미지 생성용 조회에서 존재하지 않는 캐릭터, 다른 사용자 소유 캐릭터와 잘못된 저장 참조는 같은 사용 불가 결과로 처리한다.
+- Character 조회의 예상하지 못한 저장 기술 장애는 사용 불가 결과로 축소하지 않는다.
 - 공개 카탈로그 저장소 조회 실패는 기술 중립 Character 오류로 변환한다.
 - Web Adapter는 Character 오류를 RFC 9457 Problem Details로 변환하며 저장소 내부 정보와 Object Key 오류 원인을 노출하지 않는다.
 - 표시 URL 생성은 Web Adapter가 수행하므로 Application Result는 저장 참조를 반환한다.

@@ -41,6 +41,15 @@ class CharacterTest {
 			assertThatThrownBy(() -> Character.aiGenerated(" ", "generated.png"))
 					.isInstanceOf(IllegalArgumentException.class);
 		}
+
+		@Test
+		@DisplayName("AI 생성 캐릭터는 소유 사용자만 사용할 수 있다")
+		void isAvailableOnlyToOwner() {
+			Character character = Character.aiGenerated("owner-1", "private/characters/generated.webp");
+
+			assertThat(character.isAvailableTo("owner-1")).isTrue();
+			assertThat(character.isAvailableTo("user-2")).isFalse();
+		}
 	}
 
 	@Nested
@@ -62,6 +71,15 @@ class CharacterTest {
 		void requiresImageReference() {
 			assertThatThrownBy(() -> Character.fixed(" "))
 					.isInstanceOf(IllegalArgumentException.class);
+		}
+
+		@Test
+		@DisplayName("고정 캐릭터는 요청 사용자와 관계없이 사용할 수 있다")
+		void isAvailableToEveryUser() {
+			Character character = Character.fixed("base_image_1.webp");
+
+			assertThat(character.isAvailableTo("user-1")).isTrue();
+			assertThat(character.isAvailableTo("user-2")).isTrue();
 		}
 	}
 }

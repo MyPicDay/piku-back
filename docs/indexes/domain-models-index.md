@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-08-11
 
 ## 목적
 
@@ -13,7 +13,7 @@
 
 - [Domain Models Overview](../domain-models/README.md): Domain Model 문서의 책임과 작성 원칙
 - [Admin](../domain-models/admin.md): 관리자 계정·인증·세션, 감사와 운영 통계
-- [Character](../domain-models/character.md): 고정 캐릭터 카탈로그와 이미지 참조
+- [Character](../domain-models/character.md): 고정·사용자별 캐릭터, 소유권과 이미지 참조
 - [Creative](../domain-models/creative.md): AI 일기 이미지 생성과 생성 이력
 - [Diary](../domain-models/diary.md): 감정 일기 기록과 시각적 회고 모델
 - [Feed](../domain-models/feed.md): 피드 구성, 정렬과 열람 이력

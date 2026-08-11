@@ -4,6 +4,7 @@ import com.pikume.back.creative.application.dto.AiGenerationQuotaConsumption;
 import com.pikume.back.creative.application.dto.CharacterReferenceImage;
 import com.pikume.back.creative.application.dto.GeneratedIllustrationPayload;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
+import com.pikume.back.creative.application.dto.GenerateDiaryImageCommand;
 import com.pikume.back.creative.application.exception.AiGenerationQuotaExceededException;
 import com.pikume.back.creative.application.exception.CreativeErrorCode;
 import com.pikume.back.creative.application.exception.CreativeException;
@@ -67,7 +68,7 @@ class ImageGenerationServiceTest {
 			String content = "Taking a walk in the park";
 			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId, null))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt(content)).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
@@ -82,7 +83,8 @@ class ImageGenerationServiceTest {
 			given(recordGenerationPort.recordGeneration(any(DiaryImageGeneration.class)))
 					.willAnswer(inv -> inv.getArgument(0));
 
-			GeneratedImageResult result = imageGenerationService.generateDiaryImage(content, userId);
+			GeneratedImageResult result = imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand(content, userId, null));
 
 			assertThat(result.filePath()).isEqualTo(privateObjectKey);
 			assertThat(result.imageUrl()).isEqualTo("http://url/generated.png");
@@ -106,7 +108,8 @@ class ImageGenerationServiceTest {
 			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(false, 3, 0));
 
-			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand("content", userId, null)))
 					.isInstanceOf(AiGenerationQuotaExceededException.class)
 					.hasMessageContaining("일일 생성 횟수");
 
@@ -123,9 +126,10 @@ class ImageGenerationServiceTest {
 			String userId = "user-1";
 			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId)).willReturn(Optional.empty());
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId, null)).willReturn(Optional.empty());
 
-			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand("content", userId, null)))
 					.isInstanceOf(CreativeException.class)
 					.hasMessageContaining("참조 캐릭터 이미지");
 
@@ -140,13 +144,14 @@ class ImageGenerationServiceTest {
 			String userId = "user-1";
 			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId, null))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt("content")).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
 					.willThrow(new CreativeException(CreativeErrorCode.IMAGE_GENERATION_FAILED));
 
-			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand("content", userId, null)))
 					.isInstanceOf(CreativeException.class)
 					.hasMessageContaining("AI 이미지 생성에 실패했습니다.");
 
@@ -161,7 +166,7 @@ class ImageGenerationServiceTest {
 			String userId = "user-1";
 			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
 					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
-			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId))
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId, null))
 					.willReturn(Optional.of(new CharacterReferenceImage("avatar_path", "base64_avatar")));
 			given(diaryIllustrationPromptPolicy.createPrompt("content")).willReturn("generated prompt");
 			given(generateDiaryIllustrationPort.generate(any()))
@@ -169,13 +174,35 @@ class ImageGenerationServiceTest {
 			given(creativeImageStoragePort.storeGeneratedImage("base64_generated_image", userId, "png"))
 					.willThrow(new CreativeException(CreativeErrorCode.IMAGE_STORAGE_FAILED));
 
-			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage("content", userId))
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand("content", userId, null)))
 					.isInstanceOf(CreativeException.class)
 					.hasMessageContaining("저장");
 
 			then(consumeAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
 			then(recordAiPhotoStatisticsUseCase).should().recordFailure(userId);
 			then(recordGenerationPort).should(never()).recordGeneration(any());
+		}
+
+		@Test
+		@DisplayName("선택 캐릭터 사용 불가 시 선차감과 실패 통계를 보상하고 외부 생성을 호출하지 않는다")
+		void compensatesWhenSelectedCharacterIsUnavailable() {
+			String userId = "user-1";
+			given(consumeAiGenerationQuotaUseCase.tryConsumeForGeneration(userId))
+					.willReturn(new AiGenerationQuotaConsumption(true, 3, 2));
+			given(prepareCharacterReferenceUseCase.prepareCharacterReference(userId, 7L))
+					.willThrow(new CreativeException(CreativeErrorCode.SELECTED_CHARACTER_UNAVAILABLE));
+
+			assertThatThrownBy(() -> imageGenerationService.generateDiaryImage(
+					new GenerateDiaryImageCommand("content", userId, 7L)))
+					.isInstanceOf(CreativeException.class)
+					.hasMessage("선택한 캐릭터를 사용할 수 없습니다.");
+
+			then(consumeAiGenerationQuotaUseCase).should().releaseGenerationConsumption(userId);
+			then(recordAiPhotoStatisticsUseCase).should().recordFailure(userId);
+			then(generateDiaryIllustrationPort).shouldHaveNoInteractions();
+			then(creativeImageStoragePort).shouldHaveNoInteractions();
+			then(recordGenerationPort).shouldHaveNoInteractions();
 		}
 	}
 }

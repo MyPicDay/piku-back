@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-23
+- Last Reviewed: 2026-08-11
 
 ## 목적
 
@@ -92,6 +92,7 @@ flowchart LR
     Admin --> Creative
     Creative --> Character
     Creative --> Admin
+    Creative --> User
     Diary --> User
     Diary --> Social
     Diary --> Creative
@@ -118,7 +119,7 @@ flowchart LR
 | 소비자·요청자 | 공급자·수행자 | 현재 목적 | 현재 경계 상태 |
 | --- | --- | --- | --- |
 | Admin | User, Diary, Creative | 회원·일기·AI 이미지 운영 통계 조회 | Admin 소유 목적별 Out Port와 Cross-context Adapter가 공급자의 공개 Application 계약을 `AdminDailyCount`와 관리자 대시보드 의미로 변환한다. 공급자의 Domain, Out Port와 Persistence 타입은 노출하지 않는다. |
-| Creative | Character, User | 이미지 생성용 사용자 아바타 참조 조회 | User 공개 조회 계약을 Creative 참조로 번역하고 Character 참조 형식과 Object Storage 로드는 Creative의 목적별 경계에서 분리한다. |
+| Creative | Character, User | 이미지 생성용 선택 캐릭터 또는 현재 사용자 아바타 참조 조회 | Creative 소유 목적별 Out Port와 Cross-context Adapter가 Character의 사용자 기준 사용 가능 참조와 User의 현재 아바타 공개 계약을 Creative 생성 참조로 번역한다. 캐릭터 식별자가 있으면 Character만, 없으면 User만 조회하며 Character 유형·소유권과 공급자 내부 모델을 노출하지 않는다. |
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
 | Diary | User | 작성자 확인 | 현재 Diary 생성·조회 흐름에는 User 조회가 필요하지 않다. 필요 시 Diary 소유 Out Port와 User 공개 참조 계약을 사용한다. |
 | Diary | Social | 친구 관계와 알림 대상 조회 | Diary 소유 친구 관계 Out Port와 Cross-context Adapter가 Social 공개 계약을 Diary 의미로 변환한다. |

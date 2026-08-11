@@ -6,5 +6,5 @@ import java.util.Optional;
 
 public interface PrepareCharacterReferenceUseCase {
 
-	Optional<CharacterReferenceImage> prepareCharacterReference(String userId);
+	Optional<CharacterReferenceImage> prepareCharacterReference(String userId, Long characterId);
 }

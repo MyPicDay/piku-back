@@ -4,6 +4,7 @@ import com.pikume.back.creative.adapter.in.web.dto.AiDiaryResponse;
 import com.pikume.back.creative.adapter.in.web.dto.AiGenerationQuotaResponse;
 import com.pikume.back.creative.adapter.in.web.dto.GenerateDiaryImageRequest;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
+import com.pikume.back.creative.application.dto.GenerateDiaryImageCommand;
 import com.pikume.back.creative.application.port.in.GenerateImageUseCase;
 import com.pikume.back.creative.application.port.in.QueryAiGenerationQuotaUseCase;
 import com.pikume.back.security.principal.UserPrincipal;
@@ -45,6 +46,12 @@ public class AiGeneratorController {
 							mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
 							schema = @Schema(implementation = ProblemDetail.class))),
 			@ApiResponse(
+					responseCode = "404",
+					description = "선택 캐릭터 사용 불가",
+					content = @Content(
+							mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+							schema = @Schema(implementation = ProblemDetail.class))),
+			@ApiResponse(
 					responseCode = "429",
 					description = "일일 생성 한도 초과",
 					content = @Content(
@@ -63,7 +70,8 @@ public class AiGeneratorController {
 			@AuthenticationPrincipal UserPrincipal userPrincipal) {
 
 		String userId = userPrincipal.getId();
-		GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(request.content(), userId);
+		GeneratedImageResult generation = generateImageUseCase.generateDiaryImage(
+				new GenerateDiaryImageCommand(request.content(), userId, request.characterId()));
 		return ResponseEntity.ok(new AiDiaryResponse(generation.generationId(), generation.imageUrl(), null));
 	}
 

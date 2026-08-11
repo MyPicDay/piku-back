@@ -11,6 +11,10 @@ public enum CreativeProblemType implements ApiProblemType {
 			"https://api.pikume.com/problems/common/rate-limit-exceeded",
 			HttpStatus.TOO_MANY_REQUESTS,
 			"Too Many Requests"),
+	SELECTED_CHARACTER_UNAVAILABLE(
+			"https://api.pikume.com/problems/creative/selected-character-unavailable",
+			HttpStatus.NOT_FOUND,
+			"Not Found"),
 	CHARACTER_REFERENCE_UNAVAILABLE(
 			"https://api.pikume.com/problems/creative/character-reference-unavailable",
 			HttpStatus.INTERNAL_SERVER_ERROR,
@@ -56,6 +60,7 @@ public enum CreativeProblemType implements ApiProblemType {
 	public static CreativeProblemType from(CreativeErrorCode errorCode) {
 		return switch (errorCode) {
 			case QUOTA_EXCEEDED -> QUOTA_EXCEEDED;
+			case SELECTED_CHARACTER_UNAVAILABLE -> SELECTED_CHARACTER_UNAVAILABLE;
 			case CHARACTER_REFERENCE_UNAVAILABLE -> CHARACTER_REFERENCE_UNAVAILABLE;
 			case IMAGE_GENERATION_FAILED -> IMAGE_GENERATION_FAILED;
 			case IMAGE_STORAGE_FAILED -> IMAGE_STORAGE_FAILED;
