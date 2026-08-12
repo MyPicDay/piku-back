@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers, Operators
 - Source of Truth: Yes
-- Last Reviewed: 2026-07-15
+- Last Reviewed: 2026-08-12
 
 ## 목적
 
@@ -50,7 +50,23 @@ legacy object key에는 사용자 식별자가 포함될 수 있다. 로그, 이
 | 복사 성공 후 DB 갱신 또는 commit 실패 | 새로 복사된 object를 rollback cleanup 대상으로 삭제하고 이전 object 참조를 유지한다. |
 | DB commit 성공 후 이전 object 삭제 실패 | 사용자-facing 결과와 새 참조는 유지하고, 실패 로그를 후속 운영 정리 대상으로 본다. |
 
-## 저장 흐름
+## 사진 없는 일기 생성 흐름
+
+사진 정보와 업로드 파일이 모두 없으면 Diary는 일기 본문과 메타데이터만 저장한다. 이 경로에서는 `StoreDiaryPhotoPort`, `RecordDiaryPhotoPort`, `RelocateDiaryPhotoPort`, `ManageGeneratedImageForDiaryPort`를 호출하지 않는다. 이미지가 없더라도 일기 저장 이후의 알림과 본문 분석 흐름은 기존 정책대로 수행한다.
+
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant Diary as Diary UseCase
+    participant DB as Diary DB
+
+    Client->>Diary: 사진 없는 일기 생성 요청
+    Diary->>DB: Diary 저장
+    Note over Diary: 이미지 저장·기록·이동·생성 이력 연결 없음
+    Diary-->>Client: 생성 결과 반환
+```
+
+## 사용자 업로드 이미지 저장 흐름
 
 ```mermaid
 sequenceDiagram

@@ -5,6 +5,8 @@ import com.pikume.back.support.adapter.in.web.problem.SupportProblemType;
 import com.pikume.back.support.application.exception.SupportException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -13,6 +15,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice(basePackages = "com.pikume.back.support")
 @RequiredArgsConstructor
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class SupportExceptionHandler {
 
 	private final ProblemDetailFactory problemDetailFactory;

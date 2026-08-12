@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-08-11
+- Last Reviewed: 2026-08-12
 
 ## 목적
 
@@ -15,13 +15,13 @@ Context Map은 Java 패키지 목록이나 런타임 호출 그래프와 같지 
 
 ## 1. Domain Vision과 Core Domain
 
-Piku는 사용자가 하루의 감정과 상황을 일기 내용과 생성 이미지로 기록하고, 시간이 지나 쌓인 기록을 달력·일기 수·사진 모아보기로 다시 발견하면서 자신의 변화와 성취를 느끼도록 돕는다.
+Piku는 사용자가 하루의 감정과 상황을 일기 내용과 선택적인 시각적 표현으로 기록하고, 시간이 지나 쌓인 기록을 달력·일기 수·사진 모아보기로 다시 발견하면서 자신의 변화와 성취를 느끼도록 돕는다.
 
 현재 Core Domain은 **감정 일기 기록과 시각적 회고**다. Diary Context가 일기 내용, 날짜, 생성 이미지와 사용자 사진의 연결, 공개 범위, 기록 생명주기, 달력과 기록 조회 정책을 소유한다.
 
-현재 모델은 감정을 별도 값이나 통계로 저장하지 않는다. 감정은 사용자가 작성한 일기 내용과 AI 생성 이미지로 표현된다. 감정 입력과 통계는 향후 제품 결정이 있기 전까지 현재 모델과 규칙에 포함하지 않는다.
+현재 모델은 감정을 별도 값이나 통계로 저장하지 않는다. 감정은 사용자가 작성한 일기 내용과, 사용자가 선택한 경우 AI 생성 이미지 또는 사용자 사진으로 표현된다. 감정 입력과 통계는 향후 제품 결정이 있기 전까지 현재 모델과 규칙에 포함하지 않는다.
 
-Creative는 AI 이미지 생성이 현재 일기 작성의 필수 선행 능력이더라도 Supporting Subdomain으로 분류한다. Creative는 이미지 생성 과정과 이력을 소유하고, 기록과 회고의 의미 및 정책은 Diary가 소유한다.
+Creative는 사용자가 시각적 표현을 원할 때 사용하는 AI 이미지 생성 능력을 제공하며 Supporting Subdomain으로 분류한다. Creative는 이미지 생성 과정과 이력을 소유하고, 이미지 유무와 관계없는 기록과 회고의 의미 및 정책은 Diary가 소유한다.
 
 ## 2. 경계 상태
 
@@ -123,7 +123,7 @@ flowchart LR
 | Creative | Admin | AI 이미지 요청·실패 통계 기록 | 동기 Application 계약 호출이며 전략 관계는 미분류다. |
 | Diary | User | 작성자 확인 | 현재 Diary 생성·조회 흐름에는 User 조회가 필요하지 않다. 필요 시 Diary 소유 Out Port와 User 공개 참조 계약을 사용한다. |
 | Diary | Social | 친구 관계와 알림 대상 조회 | Diary 소유 친구 관계 Out Port와 Cross-context Adapter가 Social 공개 계약을 Diary 의미로 변환한다. |
-| Diary | Creative | 일기에 필수인 생성 이미지 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 기록에 사용할 이미지 연결과 표시 정책을 소유한다. |
+| Diary | Creative | 사용자가 선택한 생성 이미지의 조회와 기록 연결 | Creative는 생성 과정·이력을, Diary는 선택된 이미지를 기록에 연결하는 규칙과 표시 정책을 소유한다. 이미지가 없는 일기 생성에서는 이 접점을 사용하지 않는다. |
 | Diary | Notification | 친구 공개 일기 알림 요청 | Diary 소유 알림 Out Port가 일기 식별자와 공개 의미만 전달하고 Cross-context Adapter가 Notification 계약으로 변환한다. |
 | Diary | Recommendation | 일기 본문 메타데이터 분석 요청 | Diary 소유 분석 Out Port가 저장 성공 이후의 best-effort 작업으로 요청하고 Cross-context Adapter가 Recommendation 공개 계약을 호출한다. |
 | Feed | User, Diary, Social, Recommendation | 피드 상세·후보·목록 조합용 정보 조회와 클릭 선호도 기록 | Feed 소유 목적별 Out Port와 `adapter/out/crosscontext`의 Provider별 Adapter가 공급자의 공개 Application 계약을 Feed Read Model과 클릭 의도로 변환한다. Feed Application에는 공급자 타입을 노출하지 않으며 친구 고정 슬롯과 후보 정렬은 Feed가 소유한다. |

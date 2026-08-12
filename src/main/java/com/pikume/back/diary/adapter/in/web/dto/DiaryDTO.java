@@ -26,10 +26,11 @@ public class DiaryDTO {
 	@Size(max = 500, message = "일기 내용은 최대 500자까지 입력할 수 있습니다.")
 	private String content;
 
-	@NotNull
-	@Valid
-	@Schema(description = "일기 이미지 정보들")
-	private List<DiaryImageInfo> imageInfos;
+	@Schema(
+			description = "일기 이미지 정보. 생략, null 또는 빈 목록이면 사진 없이 등록합니다.",
+			nullable = true,
+			types = { "array", "null" })
+	private List<@NotNull(message = "이미지 정보는 null일 수 없습니다.") @Valid DiaryImageInfo> imageInfos;
 
 	@NotNull
 	@Schema(description = "일기날짜 ")

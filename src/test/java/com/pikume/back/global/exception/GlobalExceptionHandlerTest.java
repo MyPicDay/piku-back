@@ -27,6 +27,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 
@@ -39,7 +40,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -62,6 +65,20 @@ class GlobalExceptionHandlerTest {
 				.setControllerAdvice(exceptionHandler)
 				.setValidator(validator)
 				.build();
+	}
+
+	@Test
+	@DisplayName("필수 multipart 파트 누락은 validation Problem Details로 변환된다")
+	void missingMultipartPartReturnsValidationProblem() throws Exception {
+		mockMvc.perform(multipart("/test/multipart"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.type").value("https://api.pikume.com/problems/validation/invalid-request"))
+				.andExpect(jsonPath("$.title").value("Bad Request"))
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value("요청 값이 올바르지 않습니다."))
+				.andExpect(jsonPath("$.instance").value("/test/multipart"))
+				.andExpect(jsonPath("$.fieldErrors.requiredPart").value("필수 요청 파트가 없습니다."));
 	}
 
 	@Test
@@ -314,6 +331,10 @@ class GlobalExceptionHandlerTest {
 
 		@PostMapping("/test/validation")
 		void validation(@Valid @RequestBody TestRequest request) {
+		}
+
+		@PostMapping(value = "/test/multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+		void multipart(@RequestPart("requiredPart") String requiredPart) {
 		}
 	}
 
