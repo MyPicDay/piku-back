@@ -183,6 +183,6 @@ class CommentQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegratio
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + nicknameSuffix,
-				"avatars/" + suffix + ".png"));
+				1L));
 	}
 }

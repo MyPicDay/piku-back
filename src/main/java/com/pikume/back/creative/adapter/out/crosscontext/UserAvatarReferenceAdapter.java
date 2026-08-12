@@ -20,9 +20,9 @@ public class UserAvatarReferenceAdapter implements LoadUserAvatarReferencePort {
 	public Optional<String> loadUserAvatarReference(String userId) {
 		Map<String, UserSummaryView> usersById = queryUserSummaryUseCase.queryUserSummaries(Set.of(userId));
 		UserSummaryView user = usersById != null ? usersById.get(userId) : null;
-		if (user == null || user.avatarPath() == null || user.avatarPath().isBlank()) {
+		if (user == null || user.avatarReference() == null) {
 			return Optional.empty();
 		}
-		return Optional.of(user.avatarPath());
+		return Optional.of(user.avatarReference().value());
 	}
 }

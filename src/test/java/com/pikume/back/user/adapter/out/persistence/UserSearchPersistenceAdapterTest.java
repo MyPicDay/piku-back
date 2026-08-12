@@ -29,12 +29,12 @@ class UserSearchPersistenceAdapterTest {
 				"active@example.com",
 				"password",
 				"pikume-active",
-				"avatars/active.png");
+				1L);
 		User withdrawnUser = new User(
 				"withdrawn@example.com",
 				"password",
 				"pikume-withdrawn",
-				"avatars/withdrawn.png");
+				1L);
 		withdrawnUser.withdraw();
 		userJpaRepository.saveAllAndFlush(List.of(activeUser, withdrawnUser));
 		entityManager.clear();

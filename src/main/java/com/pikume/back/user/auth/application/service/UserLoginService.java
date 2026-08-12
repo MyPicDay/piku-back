@@ -38,7 +38,7 @@ public class UserLoginService implements LoginUseCase {
 				user.id() + "-" + command.deviceId(), refreshToken, user.id()));
 		log.info("event=login_completed outcome=success userId={}", user.id());
 		return new LoginResult(accessToken, refreshToken,
-				new LoginResult.UserInfo(user.id(), user.nickname(), user.avatarPath()));
+				new LoginResult.UserInfo(user.id(), user.nickname(), user.avatarReference()));
 	}
 
 	private void validateEmail(String email) {

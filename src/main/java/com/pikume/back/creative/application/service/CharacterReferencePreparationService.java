@@ -9,7 +9,6 @@ import com.pikume.back.creative.application.port.out.LoadReferenceImageObjectPor
 import com.pikume.back.creative.application.port.out.LoadSelectedCharacterReferencePort;
 import com.pikume.back.creative.application.port.out.LoadUserAvatarReferencePort;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Base64;
@@ -17,7 +16,6 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class CharacterReferencePreparationService implements PrepareCharacterReferenceUseCase {
 
 	private final LoadUserAvatarReferencePort loadUserAvatarReferencePort;
@@ -34,18 +32,9 @@ public class CharacterReferencePreparationService implements PrepareCharacterRef
 	}
 
 	private Optional<String> loadUserAvatarObjectKey(String userId) {
-		Optional<String> storedReference = loadUserAvatarReferencePort.loadUserAvatarReference(userId);
-		try {
-			return storedReference
-					.map(characterReferencePolicy::canonicalize)
+		return loadUserAvatarReferencePort.loadUserAvatarReference(userId)
 					.filter(reference -> !reference.isBlank())
 					.filter(reference -> !characterReferencePolicy.isAbsoluteUrl(reference));
-		} catch (IllegalArgumentException exception) {
-			log.warn("event=character_reference_prepare_failed outcome=skipped userId={} reason={}",
-					userId,
-					exception.getClass().getSimpleName());
-			return Optional.empty();
-		}
 	}
 
 	private String loadSelectedCharacterObjectKey(String userId, Long characterId) {

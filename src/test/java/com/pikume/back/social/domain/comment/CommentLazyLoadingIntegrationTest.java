@@ -83,6 +83,6 @@ class CommentLazyLoadingIntegrationTest extends AbstractJpaQueryCountIntegration
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + suffix,
-				"avatars/" + suffix + ".png"));
+				1L));
 	}
 }

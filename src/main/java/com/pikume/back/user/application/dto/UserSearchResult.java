@@ -6,5 +6,5 @@ package com.pikume.back.user.application.dto;
 public record UserSearchResult(
 		String id,
 		String nickname,
-		String avatarObjectKey) {
+		UserAvatarReference avatarReference) {
 }

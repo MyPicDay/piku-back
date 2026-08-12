@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.pikume.back.security.adapter.out.token.JwtTokenProvider;
 import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.user.application.dto.UserIdentityView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
@@ -142,7 +143,11 @@ class BearerTokenAuthenticationFilterTest {
 	void validUserJwtAuthenticatesAndContinuesFilterChain() throws Exception {
 		MockHttpServletRequest request = bearerRequest("access-token");
 		MockHttpServletResponse response = new MockHttpServletResponse();
-		UserIdentityView user = new UserIdentityView("user-1", "password", "nickname", "avatar.webp");
+		UserIdentityView user = new UserIdentityView(
+				"user-1",
+				"password",
+				"nickname",
+				new UserAvatarReference("avatar.webp", false, false));
 		given(jwtTokenProvider.validateToken("access-token")).willReturn(true);
 		given(jwtTokenProvider.getUserIdFromToken("access-token")).willReturn("user-1");
 		given(queryUserIdentityUseCase.queryUserIdentityById("user-1")).willReturn(Optional.of(user));

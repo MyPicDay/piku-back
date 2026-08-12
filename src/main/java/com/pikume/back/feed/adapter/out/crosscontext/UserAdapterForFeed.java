@@ -27,14 +27,13 @@ public class UserAdapterForFeed implements LoadFeedAuthorsPort {
 						entry -> new FeedAuthorView(
 								entry.getKey(),
 								entry.getValue().nickname(),
-								entry.getValue().avatarPath() != null
-										? resolveAvatarUrl(entry.getValue().avatarPath())
+								entry.getValue().avatarReference() != null
+										? resolveAvatarUrl(entry.getValue().avatarReference())
 										: null)));
 	}
 
-	private String resolveAvatarUrl(String storedPath) {
-		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
-		if (reference.isEmpty() || reference.absoluteUrl()) {
+	private String resolveAvatarUrl(UserAvatarReference reference) {
+		if (reference.absoluteUrl()) {
 			return reference.value();
 		}
 		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());

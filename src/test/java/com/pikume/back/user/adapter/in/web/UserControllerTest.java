@@ -18,6 +18,7 @@ import com.pikume.back.user.application.dto.ProfilePreviewResult;
 import com.pikume.back.user.application.dto.UpdateProfileFailureReason;
 import com.pikume.back.user.application.dto.UpdateProfileResult;
 import com.pikume.back.user.application.dto.UserProfileResult;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.exception.ProfileImageNotFoundException;
 import com.pikume.back.user.application.port.in.ReserveNicknameUseCase;
 import com.pikume.back.user.application.port.in.QueryUserProfileUseCase;
@@ -62,13 +63,13 @@ class UserControllerTest {
 		ProfilePreviewResult result = new ProfilePreviewResult(
 				"user1",
 				"pikume",
-				"avatar-object-key",
+				new UserAvatarReference("avatar-object-key", false, true),
 				3,
 				12L,
 				"NONE");
 		given(queryUserProfileUseCase.queryProfilePreview("user1", null)).willReturn(result);
 		given(resolveObjectUrlPort.resolveObjectUrl(
-				"public/characters/fixed/avatar-object-key",
+				"avatar-object-key",
 				true))
 				.willReturn("https://assets.example.com/avatar.webp");
 
@@ -84,7 +85,7 @@ class UserControllerTest {
 		UserProfileResult result = new UserProfileResult(
 				"user1",
 				"pikume",
-				"avatar-object-key",
+				new UserAvatarReference("avatar-object-key", false, true),
 				3,
 				12L,
 				"FRIEND",
@@ -92,7 +93,7 @@ class UserControllerTest {
 				List.of(new UserProfileResult.MonthlyDiaryCount(2026, 7, 4L)));
 		given(queryUserProfileUseCase.queryUserProfile("user1", "user1")).willReturn(result);
 		given(resolveObjectUrlPort.resolveObjectUrl(
-				"public/characters/fixed/avatar-object-key",
+				"avatar-object-key",
 				true))
 				.willReturn("https://assets.example.com/avatar.webp");
 

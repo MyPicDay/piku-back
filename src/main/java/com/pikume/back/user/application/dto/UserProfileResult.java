@@ -8,7 +8,7 @@ import java.util.List;
 public record UserProfileResult(
 		String id,
 		String nickname,
-		String avatarObjectKey,
+		UserAvatarReference avatarReference,
 		int friendCount,
 		long diaryCount,
 		String friendStatus,

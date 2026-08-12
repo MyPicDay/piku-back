@@ -60,7 +60,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		User user = loadUserForProfilePort.loadProfileUser(command.userId())
 				.orElseThrow(UserNotFoundException::new);
 		String oldNickname = user.getNickname();
-		String oldAvatarObjectKey = user.getAvatar();
+		Long oldCharacterId = user.getCharacterId();
 
 		String targetNickname;
 		try {
@@ -69,15 +69,19 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
-		String targetAvatarObjectKey;
+		String targetAvatarObjectKey = null;
+		Long targetCharacterId = oldCharacterId;
 		try {
-			targetAvatarObjectKey = getUpdatedAvatarObjectKey(command.characterId(), oldAvatarObjectKey);
+			if (command.characterId() != null) {
+				targetAvatarObjectKey = resolveFixedCharacterObjectKey(command.characterId());
+				targetCharacterId = command.characterId();
+			}
 		} catch (UpdateProfileFailureException e) {
 			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
 		boolean nicknameChanged = !targetNickname.equals(oldNickname);
-		boolean characterChanged = !targetAvatarObjectKey.equals(oldAvatarObjectKey);
+		boolean characterChanged = !targetCharacterId.equals(oldCharacterId);
 
 		if (!nicknameChanged && !characterChanged) {
 			return UpdateProfileResult.success("변경 사항이 없습니다.", oldNickname, targetAvatarObjectKey);
@@ -87,7 +91,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 			user.changeNickname(targetNickname);
 		}
 		if (characterChanged) {
-			user.changeAvatar(targetAvatarObjectKey);
+			user.changeCharacter(targetCharacterId);
 		}
 		recordUserAccountPort.recordUserAccount(user);
 		if (nicknameChanged) {
@@ -103,13 +107,13 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		User user = loadUserForProfilePort.loadProfileUser(userId)
 				.orElseThrow(UserNotFoundException::new);
 
-		String avatarObjectKey = fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(imageId)
+		fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(imageId)
 				.orElseThrow(() -> {
 					log.warn("event=profile_image_update outcome=denied reason=character_not_found characterId={}", imageId);
 					return new ProfileImageNotFoundException(imageId);
 				});
 
-		user.changeAvatar(avatarObjectKey);
+		user.changeCharacter(imageId);
 		recordUserAccountPort.recordUserAccount(user);
 	}
 
@@ -131,24 +135,20 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		return newNickname;
 	}
 
-	private String getUpdatedAvatarObjectKey(Long characterId, String oldAvatarObjectKey) {
-		if (characterId == null) {
-			return oldAvatarObjectKey;
-		}
+	private String resolveFixedCharacterObjectKey(Long characterId) {
 		if (characterId <= 0) {
 			log.warn("event=profile_update outcome=denied reason=invalid_character_id characterId={}", characterId);
 			throw new UpdateProfileFailureException(
 					UpdateProfileFailureReason.INVALID_REQUEST,
 					"유효하지 않은 캐릭터 ID입니다.");
 		}
-		String newAvatarObjectKey = fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(characterId)
+		return fixedCharacterAvatarPort.resolveFixedCharacterObjectKey(characterId)
 				.orElseThrow(() -> {
 					log.warn("event=profile_update outcome=denied reason=character_not_found characterId={}", characterId);
 					return new UpdateProfileFailureException(
 							UpdateProfileFailureReason.RESOURCE_NOT_FOUND,
 							"존재하지 않는 캐릭터입니다.");
 				});
-		return newAvatarObjectKey.equals(oldAvatarObjectKey) ? oldAvatarObjectKey : newAvatarObjectKey;
 	}
 
 	private UpdateProfileResult buildSuccessResult(boolean nicknameChanged, boolean characterChanged, String nickname,

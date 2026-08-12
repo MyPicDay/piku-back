@@ -28,19 +28,18 @@ public class UserAdapterForNotification implements LoadNotificationSendersPort {
 				.collect(Collectors.toMap(
 						Map.Entry::getKey,
 						entry -> {
-							String avatarPath = entry.getValue().avatarPath();
+							UserAvatarReference avatarReference = entry.getValue().avatarReference();
 							return new NotificationSenderView(
 									entry.getKey(),
 									entry.getValue().nickname(),
-									avatarPath == null
+									avatarReference == null
 											? null
-											: resolveAvatarUrl(avatarPath));
+											: resolveAvatarUrl(avatarReference));
 						}));
 	}
 
-	private String resolveAvatarUrl(String storedPath) {
-		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
-		if (reference.isEmpty() || reference.absoluteUrl()) {
+	private String resolveAvatarUrl(UserAvatarReference reference) {
+		if (reference.absoluteUrl()) {
 			return reference.value();
 		}
 		return resolveObjectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());

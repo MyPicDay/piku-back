@@ -24,13 +24,13 @@ class CharacterAdapterForAuthTest {
 	private GetCharacterUseCase getCharacterUseCase;
 
 	@Test
-	@DisplayName("회원가입용 고정 캐릭터 object key 조회를 character use case에 위임한다")
-	void delegatesFixedCharacterObjectKeyLookup() {
+	@DisplayName("회원가입에서 선택 가능한 고정 캐릭터인지 Character 공개 계약으로 확인한다")
+	void checksSelectableFixedCharacter() {
 		given(getCharacterUseCase.findFixedCharacterObjectKey(1L))
 				.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
 
-		Optional<String> result = characterAdapterForAuth.resolveFixedCharacterObjectKey(1L);
+		boolean result = characterAdapterForAuth.isSelectableFixedCharacter(1L);
 
-		assertThat(result).contains("public/characters/fixed/base_image_1.webp");
+		assertThat(result).isTrue();
 	}
 }

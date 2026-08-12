@@ -9,7 +9,11 @@ import java.net.URI;
 public enum UserProblemType implements ApiProblemType {
 	NOT_FOUND("https://api.pikume.com/problems/user/not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	NICKNAME_CONFLICT("https://api.pikume.com/problems/user/nickname-conflict", HttpStatus.CONFLICT, "Conflict"),
-	PROFILE_CONFLICT("https://api.pikume.com/problems/user/profile-conflict", HttpStatus.CONFLICT, "Conflict");
+	PROFILE_CONFLICT("https://api.pikume.com/problems/user/profile-conflict", HttpStatus.CONFLICT, "Conflict"),
+	AVATAR_REFERENCE_INTEGRITY(
+			"https://api.pikume.com/problems/user/avatar-reference-integrity",
+			HttpStatus.INTERNAL_SERVER_ERROR,
+			"Internal Server Error");
 
 	private final URI type;
 	private final HttpStatus status;
@@ -39,6 +43,7 @@ public enum UserProblemType implements ApiProblemType {
 	public static UserProblemType from(UserErrorCode errorCode) {
 		return switch (errorCode) {
 			case USER_NOT_FOUND -> NOT_FOUND;
+			case AVATAR_CHARACTER_REFERENCE_INTEGRITY_VIOLATION -> AVATAR_REFERENCE_INTEGRITY;
 		};
 	}
 }

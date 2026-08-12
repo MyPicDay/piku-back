@@ -117,7 +117,7 @@ _Domain Policy_
 - Creative Application은 캐릭터 식별자 유무에 따라 선택 캐릭터와 User 아바타 중 하나의 출처만 조회한다.
 - 선택 캐릭터 조회는 Creative 소유 Out Port와 Cross-context Adapter가 Character의 공개 사용 가능 참조 계약을 호출해 수행한다.
 - Character는 생성 유형, 소유권과 유형별 저장 참조 정규화를 소유하며 Creative에는 정규 저장 참조만 제공한다.
-- User 공개 조회 계약은 사용자가 선택한 현재 아바타 저장 참조를 제공하고, Creative는 기존 레거시 참조를 생성 입력용 canonical 참조로 번역한다.
+- User 공개 조회 계약은 Character가 해석한 현재 아바타 저장 참조를 제공하고, Creative는 이를 다시 정규화하거나 캐릭터 유형을 추론하지 않고 생성 입력으로 사용한다.
 - Character 조회, User 조회와 Object Storage 로드는 목적별 Out Port와 Adapter가 담당한다.
 - 다운로드 정책이 없는 절대 URL은 외부 AI의 참조 이미지로 사용하지 않는다.
 - 고정 캐릭터 Object는 Storage Adapter의 제한된 캐시를 사용할 수 있다.

@@ -3,6 +3,7 @@ package com.pikume.back.security.adapter.in.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pikume.back.PikuBackApplication;
 import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.auth.application.port.in.LoginUseCase;
 import com.pikume.back.user.auth.application.port.in.LogoutUseCase;
 import com.pikume.back.user.auth.application.port.in.ReissueSessionUseCase;
@@ -49,7 +50,8 @@ class MobileAuthSecurityConfigTest {
 				new LoginResult.UserInfo(
 						"user-1",
 						"pikume",
-						"https://assets.example.com/avatar.png"));
+						new UserAvatarReference(
+								"https://assets.example.com/avatar.png", true, false)));
 		given(loginUseCase.login(any())).willReturn(result);
 
 		mockMvc.perform(post("/api/mobile/auth/login")

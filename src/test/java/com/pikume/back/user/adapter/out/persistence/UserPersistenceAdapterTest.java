@@ -26,7 +26,7 @@ class UserPersistenceAdapterTest {
 	@Test
 	@DisplayName("nickname 유일 제약 위반을 도메인 충돌 의미로 번역한다")
 	void translatesNicknameConstraintViolation() {
-		User user = new User("user@example.com", "password", "duplicate-nickname");
+		User user = new User("user@example.com", "password", "duplicate-nickname", 1L);
 		given(userJpaRepository.saveAndFlush(user)).willThrow(uniqueConstraintFailure(
 				"UK2ty1xmrrgtn89xt7kyxx6ta7h"));
 
@@ -38,7 +38,7 @@ class UserPersistenceAdapterTest {
 	@Test
 	@DisplayName("email 유일 제약 위반을 계정 충돌 의미로 번역한다")
 	void translatesEmailConstraintViolation() {
-		User user = new User("user@example.com", "password", "nickname");
+		User user = new User("user@example.com", "password", "nickname", 1L);
 		DataIntegrityViolationException failure = uniqueConstraintFailure(
 				"UK6dotkott2kjsp8vw4d0m25fb7");
 		given(userJpaRepository.saveAndFlush(user)).willThrow(failure);
@@ -50,7 +50,7 @@ class UserPersistenceAdapterTest {
 	@Test
 	@DisplayName("알 수 없는 유일 제약 위반은 저장 기술 예외를 임의로 번역하지 않는다")
 	void preservesUnknownConstraintViolation() {
-		User user = new User("user@example.com", "password", "nickname");
+		User user = new User("user@example.com", "password", "nickname", 1L);
 		DataIntegrityViolationException failure = uniqueConstraintFailure("uk_users_unknown");
 		given(userJpaRepository.saveAndFlush(user)).willThrow(failure);
 

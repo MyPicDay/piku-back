@@ -59,6 +59,7 @@ class CharacterArchitectureTest {
 
 		for (String port : List.of(
 				"QueryFixedCharacterCatalogUseCase.java",
+				"QueryCharacterImageReferencesUseCase.java",
 				"ResolveFixedCharacterReferenceUseCase.java",
 				"ResolveUsableCharacterReferenceUseCase.java",
 				"SynchronizeFixedCharacterCatalogUseCase.java")) {
@@ -74,6 +75,7 @@ class CharacterArchitectureTest {
 
 		for (String service : List.of(
 				"FixedCharacterCatalogQueryService.java",
+				"CharacterImageReferenceQueryService.java",
 				"FixedCharacterReferenceService.java",
 				"UsableCharacterReferenceService.java",
 				"FixedCharacterCatalogSynchronizationService.java")) {
