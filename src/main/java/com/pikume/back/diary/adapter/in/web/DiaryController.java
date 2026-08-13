@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Encoding;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,7 +42,13 @@ public class DiaryController {
 	@Operation(
 			summary = "일기 생성",
 			description = "필수 일기 데이터와 선택 사진을 받아 새로운 일기를 생성합니다. 사진과 이미지 정보를 생략하면 사진 없이 등록하며 `multipart/form-data` 형식으로 요청해야 합니다.",
-			requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true))
+			requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.MULTIPART_FORM_DATA_VALUE,
+							encoding = @Encoding(
+									name = "diary",
+									contentType = MediaType.APPLICATION_JSON_VALUE))))
 	@ApiResponse(
 			responseCode = "201",
 			description = "일기 생성 성공",

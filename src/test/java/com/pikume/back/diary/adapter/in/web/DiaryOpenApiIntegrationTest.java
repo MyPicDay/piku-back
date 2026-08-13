@@ -77,6 +77,23 @@ class DiaryOpenApiIntegrationTest {
 				.contains("diaryId", "content");
 	}
 
+	@Test
+	@DisplayName("생성된 일기 등록 명세는 diary multipart 파트를 application/json으로 인코딩한다")
+	void generatedCreateSchemaDocumentsDiaryJsonPartEncoding() throws Exception {
+		JsonNode document = generatedOpenApi();
+
+		JsonNode diaryEncoding = document.path("paths")
+				.path("/api/diary")
+				.path("post")
+				.path("requestBody")
+				.path("content")
+				.path("multipart/form-data")
+				.path("encoding")
+				.path("diary");
+
+		assertThat(diaryEncoding.path("contentType").asText()).isEqualTo("application/json");
+	}
+
 	private JsonNode generatedOpenApi() throws Exception {
 		String response = mockMvc.perform(get("/v3/api-docs"))
 				.andExpect(status().isOk())
