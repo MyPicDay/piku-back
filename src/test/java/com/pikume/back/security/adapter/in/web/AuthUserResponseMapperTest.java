@@ -3,6 +3,7 @@ package com.pikume.back.security.adapter.in.web;
 import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.auth.application.dto.LoginResult;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,8 @@ class AuthUserResponseMapperTest {
 		LoginResult.UserInfo rawUserInfo = new LoginResult.UserInfo(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.webp");
+				new UserAvatarReference(
+						"public/characters/fixed/base_image_1.webp", false, true));
 		given(resolveObjectUrlPort.resolveObjectUrl(
 				"public/characters/fixed/base_image_1.webp",
 				true))
@@ -45,18 +47,18 @@ class AuthUserResponseMapperTest {
 	@Test
 	@DisplayName("인증 principal의 avatar path를 display URL로 변환한다")
 	void convertsCurrentUserPrincipalAvatarPathToDisplayUrl() {
-		UserPrincipal userDetails = UserPrincipal.withAvatarPath(
+		UserPrincipal userDetails = UserPrincipal.withAvatarReference(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.webp");
+				new UserAvatarReference("generated.webp", false, false));
 		given(resolveObjectUrlPort.resolveObjectUrl(
-				"public/characters/fixed/base_image_1.webp",
-				true))
-				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
+				"generated.webp",
+				false))
+				.willReturn("https://assets.example.com/private/generated.webp");
 
 		UserInfo result = authUserResponseMapper.toDisplayUserInfo(userDetails);
 
 		assertThat(result.getAvatarUrl())
-				.isEqualTo("https://assets.example.com/piku/public/characters/fixed/base_image_1.webp");
+				.isEqualTo("https://assets.example.com/private/generated.webp");
 	}
 }

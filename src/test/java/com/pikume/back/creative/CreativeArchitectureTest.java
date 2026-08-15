@@ -92,10 +92,15 @@ class CreativeArchitectureTest {
 		Path crossContext = CREATIVE.resolve("adapter/out/crosscontext");
 
 		assertThat(crossContext.resolve("CharacterReferenceAdapter.java")).doesNotExist();
+		assertThat(crossContext.resolve("CharacterReferenceAdapterForCreative.java")).exists();
 		assertThat(crossContext.resolve("UserAvatarReferenceAdapter.java")).exists();
 		assertThat(CREATIVE.resolve("adapter/out/storage/ReferenceImageObjectAdapter.java")).exists();
 		assertThat(javaSources(crossContext)
 				.filter(path -> contains(path, "com.pikume.back.admin.domain.")
+						|| contains(path, "com.pikume.back.character.domain.")
+						|| contains(path, "com.pikume.back.character.application.service.")
+						|| contains(path, "com.pikume.back.character.application.port.out.")
+						|| contains(path, "com.pikume.back.character.adapter.")
 						|| contains(path, "com.pikume.back.global.util.CharacterAvatarPathNormalizer"))
 				.map(Path::toString)
 				.toList()).isEmpty();

@@ -64,7 +64,7 @@ class AuthServiceTest {
 	@Mock
 	private PasswordProtectionPort passwordProtectionPort;
 	@Mock
-	private ResolveSignUpAvatarPort resolveSignUpAvatarPort;
+	private CheckSignUpCharacterSelectionPort checkSignUpCharacterSelectionPort;
 	@Mock
 	private QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	@Spy
@@ -121,14 +121,13 @@ class AuthServiceTest {
 					loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
 			given(passwordProtectionPort.protect("abc@123")).willReturn("encodedPw");
-			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
+			given(checkSignUpCharacterSelectionPort.isSelectableFixedCharacter(1L)).willReturn(true);
 			given(recordUserAccountPort.recordUserAccount(any(User.class))).willReturn(null);
 
 			authService.signUp(dto);
 
 			then(recordUserAccountPort).should().recordUserAccount(argThat(user ->
-					"public/characters/fixed/base_image_1.webp".equals(user.getAvatar())));
+					Long.valueOf(1L).equals(user.getCharacterId())));
 			then(recordCompletedEmailVerificationPort).should().recordCompletedVerification(verified);
 		}
 
@@ -146,7 +145,7 @@ class AuthServiceTest {
 			given(
 					loadCompletedEmailVerificationPort.loadLatestVerification("test@piku.store", VerificationType.SIGN_UP))
 					.willReturn(Optional.of(verified));
-			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(999L)).willReturn(Optional.empty());
+			given(checkSignUpCharacterSelectionPort.isSelectableFixedCharacter(999L)).willReturn(false);
 
 			assertThatThrownBy(() -> authService.signUp(dto))
 					.isInstanceOfSatisfying(AuthException.class,
@@ -176,8 +175,7 @@ class AuthServiceTest {
 			given(checkUserUniquenessPort.isEmailRegistered("race@piku.store")).willReturn(false);
 			given(loadCompletedEmailVerificationPort.loadLatestVerification(
 					"race@piku.store", VerificationType.SIGN_UP)).willReturn(Optional.of(verified));
-			given(resolveSignUpAvatarPort.resolveFixedCharacterObjectKey(1L))
-					.willReturn(Optional.of("public/characters/fixed/base_image_1.webp"));
+			given(checkSignUpCharacterSelectionPort.isSelectableFixedCharacter(1L)).willReturn(true);
 			given(passwordProtectionPort.protect("abc@123")).willReturn("encodedPw");
 			given(recordUserAccountPort.recordUserAccount(any(User.class))).willThrow(new EmailAlreadyExistsException());
 
@@ -358,7 +356,7 @@ class AuthServiceTest {
 		@DisplayName("비밀번호 재설정에 성공한다")
 		void resetSuccess() throws Exception {
 			ResetPasswordCommand dto = new ResetPasswordCommand("test@piku.store", "newPwd@1");
-			User user = new User("test@piku.store", "oldPw", "nick");
+			User user = new User("test@piku.store", "oldPw", "nick", 1L);
 			given(loadUserForPasswordResetPort.loadPasswordResetUser("test@piku.store")).willReturn(Optional.of(user));
 
 			VerifiedEmail verified = new VerifiedEmail("test@piku.store", VerificationType.PASSWORD_RESET);

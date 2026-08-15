@@ -25,5 +25,8 @@ jobs:
       - name: Lint docs structure
         run: bash scripts/docs-lint.sh
 
+      - name: Test MySQL character id migration
+        run: ./gradlew mysqlMigrationTest
+
       - name: Build with Gradle
         run: ./gradlew clean build -x test

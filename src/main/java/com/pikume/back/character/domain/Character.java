@@ -48,4 +48,15 @@ public class Character extends BaseEntity {
 		}
 		return new Character(userId.trim(), CharacterImageReference.of(imageReference), CharacterCreationType.AI_GENERATED);
 	}
+
+	public boolean isAvailableTo(String requestingUserId) {
+		if (type == CharacterCreationType.FIXED) {
+			return true;
+		}
+		return type == CharacterCreationType.AI_GENERATED
+				&& requestingUserId != null
+				&& !requestingUserId.isBlank()
+				&& userId != null
+				&& userId.equals(requestingUserId);
+	}
 }

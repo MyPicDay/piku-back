@@ -1,6 +1,7 @@
 package com.pikume.back.creative.adapter.out.crosscontext;
 
 import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,10 @@ class UserAvatarReferenceAdapterTest {
 		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user-1")))
 				.willReturn(Map.of(
 						"user-1",
-						new UserSummaryView("user-1", "피쿠", "public/characters/fixed/base.webp")));
+						new UserSummaryView(
+								"user-1", "피쿠",
+								new UserAvatarReference(
+										"public/characters/fixed/base.webp", false, true))));
 		UserAvatarReferenceAdapter adapter = new UserAvatarReferenceAdapter(queryUserSummaryUseCase);
 
 		assertThat(adapter.loadUserAvatarReference("user-1"))

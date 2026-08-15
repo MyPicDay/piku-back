@@ -10,7 +10,10 @@ import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.user.adapter.in.web.problem.UserProblemType;
 import com.pikume.back.user.application.exception.UserErrorCode;
 import com.pikume.back.user.application.exception.UserNotFoundException;
+import com.pikume.back.user.application.exception.UserAvatarReferenceIntegrityException;
 import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
+
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -47,6 +50,20 @@ class UserExceptionHandlerTest {
 				.andExpect(jsonPath("$.instance").value("/test/nickname-conflict"));
 	}
 
+	@Test
+	@DisplayName("아바타 캐릭터 정합성 오류는 내부 식별자를 숨긴 Problem Details로 변환된다")
+	void avatarReferenceIntegrityFailure() throws Exception {
+		mockMvc.perform(get("/test/avatar-reference-integrity"))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.type").value(
+						UserProblemType.AVATAR_REFERENCE_INTEGRITY.type().toString()))
+				.andExpect(jsonPath("$.status").value(500))
+				.andExpect(jsonPath("$.detail").value(
+						UserErrorCode.AVATAR_CHARACTER_REFERENCE_INTEGRITY_VIOLATION.getMessage()))
+				.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.not(
+						org.hamcrest.Matchers.containsString("42"))));
+	}
+
 	@RestController
 	static class TestController {
 
@@ -58,6 +75,11 @@ class UserExceptionHandlerTest {
 		@GetMapping("/test/nickname-conflict")
 		void nicknameConflict() {
 			throw new NicknameAlreadyExistsException("duplicate-nickname");
+		}
+
+		@GetMapping("/test/avatar-reference-integrity")
+		void avatarReferenceIntegrityFailure() {
+			throw new UserAvatarReferenceIntegrityException(List.of(42L));
 		}
 	}
 }

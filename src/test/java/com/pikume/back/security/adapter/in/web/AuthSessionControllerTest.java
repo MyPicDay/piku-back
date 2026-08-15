@@ -1,6 +1,7 @@
 package com.pikume.back.security.adapter.in.web;
 
 import com.pikume.back.security.principal.UserPrincipal;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.adapter.in.web.dto.response.UserInfo;
@@ -28,10 +29,11 @@ class AuthSessionControllerTest {
 	@Test
 	@DisplayName("GET /api/auth/me는 인증 사용자를 LoginResponse 형태로 반환한다")
 	void getCurrentUserReturnsLoginResponseShape() throws Exception {
-		UserPrincipal userDetails = UserPrincipal.withAvatarPath(
+		UserPrincipal userDetails = UserPrincipal.withAvatarReference(
 				"user-1",
 				"pikume",
-				"public/characters/fixed/base_image_1.webp");
+				new UserAvatarReference(
+						"public/characters/fixed/base_image_1.webp", false, true));
 		UserInfo displayUserInfo = new UserInfo(
 				"user-1",
 				"pikume",

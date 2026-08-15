@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
+import com.pikume.back.user.application.dto.AvatarCharacterSelection;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.dto.UserProfileResult;
 import com.pikume.back.user.application.exception.UserNotFoundException;
 import com.pikume.back.user.application.port.in.QueryUserProfileUseCase;
@@ -28,6 +30,7 @@ public class UserProfileQueryService implements QueryUserProfileUseCase {
 	private final LoadUserForProfilePort loadUserForProfilePort;
 	private final QueryProfileSocialMetricsPort socialMetricsPort;
 	private final QueryProfileDiaryMetricsPort diaryMetricsPort;
+	private final UserAvatarReferenceResolver userAvatarReferenceResolver;
 
 	@Override
 	public ProfilePreviewResult queryProfilePreview(String profileId, String currentUserId) {
@@ -37,11 +40,14 @@ public class UserProfileQueryService implements QueryUserProfileUseCase {
 		int friendCount = socialMetricsPort.queryFriendCount(profileId);
 		long diaryCount = diaryMetricsPort.queryVisibleDiaryCount(profileId, currentUserId);
 		String friendshipStatus = socialMetricsPort.queryFriendshipStatus(currentUserId, profileId);
+		AvatarCharacterSelection selection = new AvatarCharacterSelection(profile.getId(), profile.getCharacterId());
+		UserAvatarReference avatarReference = userAvatarReferenceResolver.resolveRequired(List.of(selection))
+				.get(selection);
 
 		log.info("event=profile_preview_loaded outcome=success userId={} friendCount={} diaryCount={} friendStatus={}",
 				profileId, friendCount, diaryCount, friendshipStatus);
 
-		return new ProfilePreviewResult(profileId, profile.getNickname(), profile.getAvatar(), friendCount, diaryCount,
+		return new ProfilePreviewResult(profileId, profile.getNickname(), avatarReference, friendCount, diaryCount,
 				friendshipStatus);
 	}
 
@@ -58,7 +64,7 @@ public class UserProfileQueryService implements QueryUserProfileUseCase {
 		return new UserProfileResult(
 				preview.id(),
 				preview.nickname(),
-				preview.avatarObjectKey(),
+				preview.avatarReference(),
 				preview.friendCount(),
 				preview.diaryCount(),
 				preview.friendStatus(),

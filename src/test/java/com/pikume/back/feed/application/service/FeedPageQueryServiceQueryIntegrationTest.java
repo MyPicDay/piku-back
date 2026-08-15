@@ -307,7 +307,7 @@ class FeedPageQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountInte
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + nicknameSuffix,
-				"avatars/" + suffix + ".png"));
+				1L));
 	}
 
 	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDateTime createdAt) {

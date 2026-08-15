@@ -27,8 +27,8 @@ class CreativeOpenApiTest {
 		Map<String, ApiResponse> responses = Arrays.stream(method.getAnnotation(ApiResponses.class).value())
 				.collect(Collectors.toMap(ApiResponse::responseCode, Function.identity()));
 
-		assertThat(responses.keySet()).contains("200", "400", "429", "500");
-		for (String status : java.util.List.of("400", "429", "500")) {
+		assertThat(responses.keySet()).contains("200", "400", "404", "429", "500");
+		for (String status : java.util.List.of("400", "404", "429", "500")) {
 			assertThat(responses.get(status).content()[0].mediaType())
 					.isEqualTo("application/problem+json");
 			assertThat(responses.get(status).content()[0].schema().implementation())

@@ -5,7 +5,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
-import com.pikume.back.user.domain.vo.Avatar;
 import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.domain.vo.Nickname;
 import java.time.LocalDateTime;
@@ -34,32 +33,25 @@ public class User extends BaseEntity {
 	@Getter(AccessLevel.NONE)
 	private Nickname nickname;
 
-	@Getter(AccessLevel.NONE)
-	private Avatar avatar;
+	@Column(name = "character_id", nullable = false)
+	private Long characterId;
 
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
-	public User(String email, String password, String nickname, String avatar) {
+	public User(String email, String password, String nickname, Long characterId) {
 		this.email = new Email(email);
 		this.password = password;
 		this.nickname = new Nickname(nickname);
-		this.avatar = new Avatar(avatar);
+		this.characterId = requireCharacterId(characterId);
 	}
 
-	public User(String email, String password, String nickname) {
-		this.email = new Email(email);
-		this.password = password;
-		this.nickname = new Nickname(nickname);
-		this.avatar = new Avatar(null);
-	}
-
-	public User(String id, String email, String password, String newNickname, String avatar) {
+	public User(String id, String email, String password, String newNickname, Long characterId) {
 		this.id = id;
 		this.email = new Email(email);
 		this.password = password;
 		this.nickname = new Nickname(newNickname);
-		this.avatar = new Avatar(avatar);
+		this.characterId = requireCharacterId(characterId);
 	}
 
 	/**
@@ -71,13 +63,8 @@ public class User extends BaseEntity {
 		this.nickname = new Nickname(newNickname);
 	}
 
-	/**
-	 * 아바타를 변경합니다.
-	 * 
-	 * @param avatar 변경할 아바타 경로
-	 */
-	public void changeAvatar(String avatar) {
-		this.avatar = new Avatar(avatar);
+	public void changeCharacter(Long characterId) {
+		this.characterId = requireCharacterId(characterId);
 	}
 
 	public String getEmail() {
@@ -88,8 +75,11 @@ public class User extends BaseEntity {
 		return nickname == null ? null : nickname.value();
 	}
 
-	public String getAvatar() {
-		return avatar == null ? null : avatar.path();
+	private Long requireCharacterId(Long characterId) {
+		if (characterId == null || characterId <= 0) {
+			throw new IllegalArgumentException("캐릭터 식별자는 양수여야 합니다.");
+		}
+		return characterId;
 	}
 
 	/**

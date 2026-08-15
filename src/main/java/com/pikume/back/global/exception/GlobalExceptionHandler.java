@@ -16,6 +16,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import com.pikume.back.global.error.ApiProblemType;
@@ -75,6 +76,14 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = Map.of(
                 ex.getParameterName(),
                 String.format("'%s' parameter of type '%s' is missing", ex.getParameterName(), ex.getParameterType()));
+        return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ProblemDetail> handleMissingRequestPart(MissingServletRequestPartException ex,
+            HttpServletRequest request) {
+        Map<String, String> errors = Map.of(ex.getRequestPartName(), "필수 요청 파트가 없습니다.");
+        log.debug("event=request_validation_failed outcome=denied reason=missing_request_part fieldCount=1");
         return buildValidationProblem("요청 값이 올바르지 않습니다.", errors, request);
     }
 

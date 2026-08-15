@@ -8,6 +8,7 @@ import com.pikume.back.creative.application.dto.DiaryIllustrationRequest;
 import com.pikume.back.creative.application.dto.AiGenerationQuotaConsumption;
 import com.pikume.back.creative.application.dto.GeneratedImageResult;
 import com.pikume.back.creative.application.dto.GeneratedIllustrationPayload;
+import com.pikume.back.creative.application.dto.GenerateDiaryImageCommand;
 import com.pikume.back.creative.application.exception.AiGenerationQuotaExceededException;
 import com.pikume.back.creative.application.exception.CreativeErrorCode;
 import com.pikume.back.creative.application.exception.CreativeException;
@@ -39,7 +40,9 @@ public class ImageGenerationService implements GenerateImageUseCase {
 
 	@Override
 	@Transactional
-	public GeneratedImageResult generateDiaryImage(String content, String userId) {
+	public GeneratedImageResult generateDiaryImage(GenerateDiaryImageCommand command) {
+		String content = command.content();
+		String userId = command.userId();
 		log.info("사용자 ID '{}' 일기 이미지 생성 요청", userId);
 		recordAiPhotoStatisticsUseCase.recordRequest(userId);
 
@@ -50,7 +53,8 @@ public class ImageGenerationService implements GenerateImageUseCase {
 
 		GeneratedImageResult result;
 		try {
-			String characterImageBase64 = prepareCharacterReferenceUseCase.prepareCharacterReference(userId)
+			String characterImageBase64 = prepareCharacterReferenceUseCase
+					.prepareCharacterReference(userId, command.characterId())
 					.map(reference -> reference.imageBase64())
 					.orElseThrow(() -> new CreativeException(
 							CreativeErrorCode.CHARACTER_REFERENCE_UNAVAILABLE));

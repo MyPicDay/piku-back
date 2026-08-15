@@ -76,6 +76,6 @@ class UserAccountPersistenceAdapterTest {
 	}
 
 	private User user(String userId, String email) {
-		return new User(userId, email, "password", "nickname", "avatar");
+		return new User(userId, email, "password", "nickname", 1L);
 	}
 }

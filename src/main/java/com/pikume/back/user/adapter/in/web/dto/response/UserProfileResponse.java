@@ -24,7 +24,7 @@ public record UserProfileResponse(
 		return new UserProfileResponse(
 				result.id(),
 				result.nickname(),
-				resolveAvatarUrl(result.avatarObjectKey(), objectUrlPort),
+				resolveAvatarUrl(result.avatarReference(), objectUrlPort),
 				result.friendCount(),
 				result.diaryCount(),
 				result.friendStatus(),
@@ -32,9 +32,13 @@ public record UserProfileResponse(
 				monthlyCounts);
 	}
 
-	private static String resolveAvatarUrl(String storedPath, ResolveObjectUrlPort objectUrlPort) {
-		UserAvatarReference reference = UserAvatarReference.fromStoredPath(storedPath);
-		if (reference.isEmpty() || reference.absoluteUrl()) {
+	private static String resolveAvatarUrl(
+			UserAvatarReference reference,
+			ResolveObjectUrlPort objectUrlPort) {
+		if (reference == null) {
+			return null;
+		}
+		if (reference.absoluteUrl()) {
 			return reference.value();
 		}
 		return objectUrlPort.resolveObjectUrl(reference.value(), reference.publiclyAccessible());

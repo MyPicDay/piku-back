@@ -3,6 +3,7 @@ package com.pikume.back.diary.application.service;
 import com.pikume.back.diary.application.dto.CreateDiaryCommand;
 import com.pikume.back.diary.application.dto.DiaryImageCommand;
 import com.pikume.back.diary.application.dto.DiaryPhotoUpload;
+import com.pikume.back.diary.application.exception.DiaryInvalidRequestException;
 import com.pikume.back.diary.application.exception.DuplicateDiaryException;
 import com.pikume.back.diary.application.policy.DiaryImageFilePolicy;
 import com.pikume.back.diary.application.port.out.*;
@@ -50,6 +51,75 @@ class DiaryCreationServiceTest {
 	@Mock private AnalyzeDiaryContentPort analysisPort;
 	@Mock private TransactionCompletionPort transactionCompletionPort;
 	@Spy private DiaryImageFilePolicy imageFilePolicy = new DiaryImageFilePolicy();
+
+	@Test
+	@DisplayName("사진 없는 일기는 Diary만 저장하고 이미지 협력을 호출하지 않는다")
+	void createsDiaryWithoutPhotos() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of());
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+		var result = service.createDiary(command, List.of(), USER_ID);
+
+		assertThat(result.content()).isEqualTo(command.content());
+		then(recordDiaryPort).should(times(1)).record(argThat(diary ->
+				diary.getContent().equals(command.content())
+						&& diary.getStatus() == DiaryVisibility.PUBLIC
+						&& diary.getUserId().equals(USER_ID)));
+		then(storeDiaryPhotoPort).shouldHaveNoInteractions();
+		then(recordDiaryPhotoPort).shouldHaveNoInteractions();
+		then(relocateDiaryPhotoPort).shouldHaveNoInteractions();
+		then(generatedImagePort).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("명시적인 빈 사진 파일은 저장소 조회와 Diary 기록 전에 거부한다")
+	void rejectsExplicitEmptyPhotoBeforePersistence() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC,
+				List.of(new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0)));
+		DiaryPhotoUpload emptyUpload = new DiaryPhotoUpload("empty.jpg", "image/jpeg", new byte[0]);
+
+		assertThatThrownBy(() -> service.createDiary(command, List.of(emptyUpload), USER_ID))
+				.isInstanceOf(DiaryInvalidRequestException.class)
+				.hasMessageContaining("비어");
+
+		then(loadDiaryPort).shouldHaveNoInteractions();
+		then(recordDiaryPort).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("사용자 사진과 AI 사진의 순서와 대표 여부를 함께 기록한다")
+	void createsDiaryWithMixedPhotos() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of(
+				new DiaryImageCommand(DiaryPhotoType.AI_IMAGE, 0, 10L, null),
+				new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 1, null, 0)));
+		DiaryPhotoUpload upload = new DiaryPhotoUpload("photo.jpg", "image/jpeg", new byte[] { 1 });
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+		given(generatedImagePort.isGeneratedImageAvailableForDiary(10L, USER_ID)).willReturn(true);
+		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(generatedImagePort.loadGeneratedImagePath(10L)).willReturn("private/ai.png");
+		given(relocateDiaryPhotoPort.copyToVisibilityScope(
+				"private/ai.png",
+				DiaryVisibility.PUBLIC,
+				DiaryPhotoType.AI_IMAGE)).willReturn("public/ai.png");
+		given(storeDiaryPhotoPort.store(upload, DiaryVisibility.PUBLIC)).willReturn("public/photo.jpg");
+		ArgumentCaptor<com.pikume.back.diary.domain.Photo> photoCaptor =
+				ArgumentCaptor.forClass(com.pikume.back.diary.domain.Photo.class);
+
+		service.createDiary(command, List.of(upload), USER_ID);
+
+		then(recordDiaryPhotoPort).should(times(2)).record(photoCaptor.capture());
+		assertThat(photoCaptor.getAllValues())
+				.extracting(
+						photo -> photo.getSourceType(),
+						photo -> photo.getPhotoOrder(),
+						photo -> photo.getRepresent(),
+						photo -> photo.getUrl())
+				.containsExactly(
+						org.assertj.core.groups.Tuple.tuple(DiaryPhotoType.AI_IMAGE, 0, true, "public/ai.png"),
+						org.assertj.core.groups.Tuple.tuple(DiaryPhotoType.USER_IMAGE, 1, false, "public/photo.jpg"));
+		then(generatedImagePort).should().attachGeneratedImageToDiary(10L, null);
+	}
 
 	@Test
 	@DisplayName("사용자 사진을 포함한 일기를 저장한다")
@@ -180,6 +250,38 @@ class DiaryCreationServiceTest {
 	}
 
 	@Test
+	@DisplayName("같은 이미지 순서를 두 번 사용하면 생성하지 않는다")
+	void rejectsDuplicateImageOrders() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of(
+				new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 0),
+				new DiaryImageCommand(DiaryPhotoType.USER_IMAGE, 0, null, 1)));
+		List<DiaryPhotoUpload> uploads = List.of(
+				new DiaryPhotoUpload("first.jpg", "image/jpeg", new byte[] { 1 }),
+				new DiaryPhotoUpload("second.jpg", "image/jpeg", new byte[] { 2 }));
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.createDiary(command, uploads, USER_ID))
+				.isInstanceOf(DiaryInvalidRequestException.class)
+				.hasMessageContaining("순서");
+
+		then(recordDiaryPort).shouldHaveNoInteractions();
+	}
+
+	@Test
+	@DisplayName("업로드 사진 수와 이미지 정보 수가 다르면 생성하지 않는다")
+	void rejectsMismatchedUploadCount() {
+		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of());
+		DiaryPhotoUpload upload = new DiaryPhotoUpload("photo.jpg", "image/jpeg", new byte[] { 1 });
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+
+		assertThatThrownBy(() -> service.createDiary(command, List.of(upload), USER_ID))
+				.isInstanceOf(DiaryInvalidRequestException.class)
+				.hasMessageContaining("개수");
+
+		then(recordDiaryPort).shouldHaveNoInteractions();
+	}
+
+	@Test
 	@DisplayName("같은 AI 사진 ID를 두 번 참조하면 생성하지 않는다")
 	void rejectsDuplicateAiPhotoIds() {
 		CreateDiaryCommand command = command(DiaryVisibility.PUBLIC, List.of(
@@ -228,7 +330,7 @@ class DiaryCreationServiceTest {
 	}
 
 	@Test
-	@DisplayName("친구 공개 알림과 본문 분석은 커밋 이후 실행한다")
+	@DisplayName("사진 없는 친구 공개 일기의 알림과 본문 분석은 커밋 이후 실행한다")
 	void runsNotificationAndAnalysisAfterCommit() {
 		CreateDiaryCommand command = command(DiaryVisibility.FRIENDS, List.of());
 		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
@@ -247,6 +349,31 @@ class DiaryCreationServiceTest {
 		then(analysisPort).shouldHaveNoInteractions();
 
 		taskCaptor.getAllValues().get(1).run();
+		then(analysisPort).should().analyze(null, command.content());
+	}
+
+	@Test
+	@DisplayName("친구 알림 실패는 생성 결과와 본문 분석을 실패시키지 않는다")
+	void notificationFailureDoesNotFailCreationOrAnalysis() {
+		CreateDiaryCommand command = command(DiaryVisibility.FRIENDS, List.of());
+		given(loadDiaryPort.findActiveByUserIdAndDate(USER_ID, command.date())).willReturn(Optional.empty());
+		given(recordDiaryPort.record(any(Diary.class))).willAnswer(invocation -> invocation.getArgument(0));
+		given(friendshipPort.findFriendIds(USER_ID)).willReturn(List.of("friend-1"));
+		willThrow(new RuntimeException("notification failed"))
+				.given(notificationPort).notifyFriendsOfNewDiary(List.of("friend-1"), USER_ID, null);
+		willAnswer(invocation -> {
+			try {
+				((Runnable) invocation.getArgument(0)).run();
+			} catch (RuntimeException exception) {
+				Consumer<RuntimeException> failureHandler = invocation.getArgument(1);
+				failureHandler.accept(exception);
+			}
+			return null;
+		}).given(transactionCompletionPort).runAfterCommit(any(Runnable.class), any());
+
+		var result = service.createDiary(command, List.of(), USER_ID);
+
+		assertThat(result.content()).isEqualTo(command.content());
 		then(analysisPort).should().analyze(null, command.content());
 	}
 

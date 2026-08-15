@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.pikume.back.feed.application.readmodel.FeedAuthorView;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 
 import java.util.Map;
@@ -36,7 +37,9 @@ class UserAdapterForFeedTest {
 		given(queryUserSummaryUseCase.queryUserSummaries(userIds))
 				.willReturn(Map.of(
 						"writer-id",
-						new UserSummaryView("writer-id", "writer", "avatars/writer.png")));
+						new UserSummaryView(
+								"writer-id", "writer",
+								new UserAvatarReference("avatars/writer.png", false, false))));
 		given(resolveObjectUrlPort.resolveObjectUrl("avatars/writer.png", false))
 				.willReturn("https://cdn.example/avatar.png");
 

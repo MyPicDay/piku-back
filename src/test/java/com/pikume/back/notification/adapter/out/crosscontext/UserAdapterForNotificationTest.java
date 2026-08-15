@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.application.dto.UserSummaryView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserSummaryUseCase;
 
 import java.util.Map;
@@ -28,7 +29,9 @@ class UserAdapterForNotificationTest {
 		given(queryUserSummaryUseCase.queryUserSummaries(Set.of("user-1", "missing")))
 				.willReturn(Map.of(
 						"user-1",
-						new UserSummaryView("user-1", "피쿠", "avatars/user-1.png")));
+						new UserSummaryView(
+								"user-1", "피쿠",
+								new UserAvatarReference("avatars/user-1.png", false, false))));
 		given(resolveObjectUrlPort.resolveObjectUrl("avatars/user-1.png", false))
 				.willReturn("avatar-url");
 

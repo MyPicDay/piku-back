@@ -30,26 +30,26 @@ class UserValueObjectMappingTest {
 	private JdbcTemplate jdbcTemplate;
 
 	@Test
-	@DisplayName("값 객체 상태를 기존 users 문자열 컬럼에 저장하고 복원한다")
-	void persistsValueObjectsUsingExistingColumns() {
+	@DisplayName("값 객체와 캐릭터 식별자를 users 컬럼에 저장하고 복원한다")
+	void persistsValueObjectsAndCharacterIdentifier() {
 		User saved = userJpaRepository.saveAndFlush(new User(
 				"user@example.com",
 				"password-hash",
 				"pikume",
-				"public/characters/fixed/base.webp"));
+				1L));
 		entityManager.clear();
 
 		User restored = userJpaRepository.findById(saved.getId()).orElseThrow();
 		Map<String, Object> row = jdbcTemplate.queryForMap(
-				"SELECT email, nickname, avatar FROM users WHERE id = ?",
+				"SELECT email, nickname, character_id FROM users WHERE id = ?",
 				saved.getId());
 
 		assertThat(restored.getEmail()).isEqualTo("user@example.com");
 		assertThat(restored.getNickname()).isEqualTo("pikume");
-		assertThat(restored.getAvatar()).isEqualTo("public/characters/fixed/base.webp");
+		assertThat(restored.getCharacterId()).isEqualTo(1L);
 		assertThat(row.get("email")).isEqualTo("user@example.com");
 		assertThat(row.get("nickname")).isEqualTo("pikume");
-		assertThat(row.get("avatar")).isEqualTo("public/characters/fixed/base.webp");
+		assertThat(((Number) row.get("character_id")).longValue()).isEqualTo(1L);
 	}
 
 	@Test
@@ -59,7 +59,7 @@ class UserValueObjectMappingTest {
 				"user@example.com",
 				"password-hash",
 				"pikume-user",
-				"public/characters/fixed/base.webp"));
+				1L));
 		entityManager.clear();
 
 		UserAccountPersistenceAdapter accountAdapter = new UserAccountPersistenceAdapter(userJpaRepository);
@@ -77,9 +77,9 @@ class UserValueObjectMappingTest {
 	@DisplayName("실제 nickname 유일 제약 위반을 User 충돌 의미로 번역한다")
 	void translatesNicknameConstraintViolationAtPersistenceBoundary() {
 		userJpaRepository.saveAndFlush(new User(
-				"first@example.com", "password", "duplicate-nickname", "avatar"));
+				"first@example.com", "password", "duplicate-nickname", 1L));
 		User duplicate = new User(
-				"second@example.com", "password", "duplicate-nickname", "avatar");
+				"second@example.com", "password", "duplicate-nickname", 1L);
 
 		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(duplicate))
 				.isInstanceOf(NicknameAlreadyExistsException.class);
@@ -89,9 +89,9 @@ class UserValueObjectMappingTest {
 	@DisplayName("실제 email 유일 제약 위반을 User 계정 충돌 의미로 번역한다")
 	void translatesEmailConstraintViolationAtPersistenceBoundary() {
 		userJpaRepository.saveAndFlush(new User(
-				"duplicate@example.com", "password", "first-nickname", "avatar"));
+				"duplicate@example.com", "password", "first-nickname", 1L));
 		User duplicate = new User(
-				"duplicate@example.com", "password", "second-nickname", "avatar");
+				"duplicate@example.com", "password", "second-nickname", 1L);
 
 		assertThatThrownBy(() -> new UserPersistenceAdapter(userJpaRepository).recordUserAccount(duplicate))
 				.isInstanceOf(EmailAlreadyExistsException.class);

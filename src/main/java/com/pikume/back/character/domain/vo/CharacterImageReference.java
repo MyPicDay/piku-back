@@ -1,5 +1,7 @@
 package com.pikume.back.character.domain.vo;
 
+import java.util.Optional;
+
 public record CharacterImageReference(String value) {
 
 	public CharacterImageReference {
@@ -15,5 +17,17 @@ public record CharacterImageReference(String value) {
 
 	public boolean isAbsoluteUrl() {
 		return value.startsWith("http://") || value.startsWith("https://");
+	}
+
+	public Optional<String> toUsableObjectKey() {
+		if (isAbsoluteUrl() || value.startsWith("/") || value.contains("\\")) {
+			return Optional.empty();
+		}
+		for (String segment : value.split("/", -1)) {
+			if (segment.isBlank() || segment.equals(".") || segment.equals("..")) {
+				return Optional.empty();
+			}
+		}
+		return Optional.of(value);
 	}
 }

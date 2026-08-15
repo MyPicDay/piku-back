@@ -89,7 +89,7 @@ class AuthSessionSecurityIntegrationTest {
 				"session-user@example.com",
 				"encoded-password",
 				"session-user",
-				"public/characters/fixed/base_image_1.webp"));
+				1L));
 		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/auth/me")
@@ -125,7 +125,7 @@ class AuthSessionSecurityIntegrationTest {
 				"admin-boundary-user@example.com",
 				"encoded-password",
 				"boundary-user",
-				"public/characters/fixed/base_image_1.webp"));
+				1L));
 		String accessToken = jwtProvider.generateAccessToken(user.getId());
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")

@@ -51,4 +51,22 @@ class CreativeExceptionHandlerTest {
 		assertThat(response.getBody().getDetail()).isEqualTo("AI 이미지 생성에 실패했습니다.");
 		assertThat(response.getBody().getDetail()).doesNotContain("provider secret response");
 	}
+
+	@Test
+	@DisplayName("선택 캐릭터 사용 불가를 존재와 소유권을 숨긴 404 Problem Details로 변환한다")
+	void mapsSelectedCharacterUnavailableToProblemDetails() {
+		MockHttpServletRequest request = new MockHttpServletRequest();
+		request.setRequestURI("/api/diary/ai/generate");
+
+		ResponseEntity<ProblemDetail> response = handler.handleCreativeException(
+				new CreativeException(CreativeErrorCode.SELECTED_CHARACTER_UNAVAILABLE),
+				request);
+
+		assertThat(response.getStatusCode().value()).isEqualTo(404);
+		assertThat(response.getBody()).isNotNull();
+		assertThat(response.getBody().getType().toString())
+				.isEqualTo("https://api.pikume.com/problems/creative/selected-character-unavailable");
+		assertThat(response.getBody().getDetail()).isEqualTo("선택한 캐릭터를 사용할 수 없습니다.");
+		assertThat(response.getBody().getInstance().toString()).isEqualTo("/api/diary/ai/generate");
+	}
 }

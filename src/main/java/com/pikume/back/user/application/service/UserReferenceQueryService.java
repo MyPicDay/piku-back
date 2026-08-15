@@ -1,5 +1,7 @@
 package com.pikume.back.user.application.service;
 
+import com.pikume.back.user.application.dto.AvatarCharacterSelection;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.dto.UserReferenceView;
 import com.pikume.back.user.application.port.in.QueryUserReferenceUseCase;
 import com.pikume.back.user.application.port.out.LoadUserReferencePort;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +19,7 @@ import java.util.Optional;
 public class UserReferenceQueryService implements QueryUserReferenceUseCase {
 
 	private final LoadUserReferencePort loadUserReferencePort;
+	private final UserAvatarReferenceResolver userAvatarReferenceResolver;
 
 	@Override
 	public Optional<UserReferenceView> queryUserReference(String userId) {
@@ -23,6 +27,9 @@ public class UserReferenceQueryService implements QueryUserReferenceUseCase {
 	}
 
 	private UserReferenceView toReferenceView(User user) {
-		return new UserReferenceView(user.getId(), user.getNickname(), user.getAvatar());
+		AvatarCharacterSelection selection = new AvatarCharacterSelection(user.getId(), user.getCharacterId());
+		UserAvatarReference avatarReference = userAvatarReferenceResolver.resolveRequired(List.of(selection))
+				.get(selection);
+		return new UserReferenceView(user.getId(), user.getNickname(), avatarReference);
 	}
 }

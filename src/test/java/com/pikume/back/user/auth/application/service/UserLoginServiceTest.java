@@ -1,6 +1,7 @@
 package com.pikume.back.user.auth.application.service;
 
 import com.pikume.back.user.application.dto.UserIdentityView;
+import com.pikume.back.user.application.dto.UserAvatarReference;
 import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
 import com.pikume.back.user.auth.application.dto.LoginCommand;
 import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
@@ -31,7 +32,9 @@ class UserLoginServiceTest {
 	@DisplayName("계정 확인부터 토큰과 갱신 세션 저장까지 로그인 순서를 조정한다")
 	void logsInUserAndStoresRefreshSession() {
 		given(users.queryUserIdentityByEmail("user@example.com")).willReturn(Optional.of(
-				new UserIdentityView("user-1", "protected", "pikume", "avatar")));
+				new UserIdentityView(
+						"user-1", "protected", "pikume",
+						new UserAvatarReference("avatar", false, false))));
 		given(passwords.matches("raw", "protected")).willReturn(true);
 		given(tokens.generateAccessToken("user-1")).willReturn("access");
 		given(tokens.generateRefreshToken()).willReturn("refresh");
@@ -48,7 +51,9 @@ class UserLoginServiceTest {
 	@DisplayName("비밀번호가 다르면 자격 증명 오류를 반환하고 토큰을 발급하지 않는다")
 	void rejectsInvalidPassword() {
 		given(users.queryUserIdentityByEmail("user@example.com")).willReturn(Optional.of(
-				new UserIdentityView("user-1", "protected", "pikume", "avatar")));
+				new UserIdentityView(
+						"user-1", "protected", "pikume",
+						new UserAvatarReference("avatar", false, false))));
 		given(passwords.matches("wrong", "protected")).willReturn(false);
 
 		assertThatThrownBy(() -> service.login(new LoginCommand("user@example.com", "wrong", "device-1")))
