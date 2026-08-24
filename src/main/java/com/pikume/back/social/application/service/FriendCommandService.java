@@ -58,10 +58,11 @@ public class FriendCommandService implements SendFriendRequestUseCase, RejectFri
 
 		boolean recorded = recordFriendRequestPort.tryRecordPendingRequest(
 				new FriendRequest(fromUserId, toUserId));
-		if (recorded) {
-			publishSocialNotificationEventPort.publish(
-					new SocialNotificationEvent.FriendRequest(toUserId, fromUserId));
+		if (!recorded) {
+			throw new SocialException(SocialErrorCode.DUPLICATE_FRIEND_REQUEST);
 		}
+		publishSocialNotificationEventPort.publish(
+				new SocialNotificationEvent.FriendRequest(toUserId, fromUserId));
 		return new FriendRequestResult(false, "친구 요청을 보냈습니다.");
 	}
 

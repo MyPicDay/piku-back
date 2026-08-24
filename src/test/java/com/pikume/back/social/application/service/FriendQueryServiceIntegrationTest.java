@@ -8,6 +8,8 @@ import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.notification.adapter.out.persistence.NotificationJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendRequestJpaRepository;
+import com.pikume.back.social.application.exception.SocialErrorCode;
+import com.pikume.back.social.application.exception.SocialException;
 import com.pikume.back.social.application.port.out.RecordFriendRequestPort;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
@@ -17,6 +19,7 @@ import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FriendQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegrationTest {
 
@@ -134,6 +137,21 @@ class FriendQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 
 		assertThat(friendRequestJpaRepository.findById(id)).isEmpty();
 		assertThat(notificationJpaRepository.existsActiveFriendRequestByReceiverId(toUser.getId())).isFalse();
+	}
+
+	@Test
+	@DisplayName("같은 방향의 중복 친구 요청은 트랜잭션 내부에서 Social 오류로 종료된다")
+	void duplicateFriendRequestEndsWithSocialErrorInsideTransaction() {
+		User fromUser = saveUser("dup-flow-from");
+		User toUser = saveUser("dup-flow-to");
+
+		friendCommandService.sendFriendRequest(fromUser.getId(), toUser.getId());
+
+		assertThatThrownBy(() -> friendCommandService.sendFriendRequest(fromUser.getId(), toUser.getId()))
+				.isInstanceOfSatisfying(SocialException.class, exception -> {
+					assertThat(exception.getErrorCode()).isEqualTo(SocialErrorCode.DUPLICATE_FRIEND_REQUEST);
+					assertThat(exception).hasMessage("이미 친구 요청을 보냈습니다.");
+				});
 	}
 
 	private User saveUser(String suffix) {

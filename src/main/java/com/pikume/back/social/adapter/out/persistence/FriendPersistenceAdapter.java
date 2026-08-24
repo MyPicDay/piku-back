@@ -13,8 +13,10 @@ import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +26,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class FriendPersistenceAdapter implements LoadFriendshipsPort, RecordFriendshipPort,
 		LoadPendingFriendRequestsPort, RecordFriendRequestPort {
+	private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
+	private static final int MYSQL_DUPLICATE_KEY_ERROR_CODE = 1062;
 
 	private final FriendJpaRepository friendJpaRepository;
 	private final FriendRequestJpaRepository friendRequestJpaRepository;
@@ -103,8 +107,28 @@ public class FriendPersistenceAdapter implements LoadFriendshipsPort, RecordFrie
 			friendRequestJpaRepository.insert(friendRequest.getFromUserId(), friendRequest.getToUserId());
 			return true;
 		} catch (DataIntegrityViolationException exception) {
-			return false;
+			if (isDuplicateKeyViolation(exception)) {
+				return false;
+			}
+			throw exception;
 		}
+	}
+
+	private boolean isDuplicateKeyViolation(DataIntegrityViolationException exception) {
+		if (exception instanceof DuplicateKeyException) {
+			return true;
+		}
+		Throwable current = exception;
+		while (current != null) {
+			if (current instanceof SQLException sqlException
+					&& (UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())
+					|| sqlException.getErrorCode() == MYSQL_DUPLICATE_KEY_ERROR_CODE)) {
+				return true;
+			}
+			Throwable cause = current.getCause();
+			current = cause == current ? null : cause;
+		}
+		return false;
 	}
 
 	@Override

@@ -101,6 +101,25 @@ class FriendControllerTest {
 	}
 
 	@Test
+	@DisplayName("POST /api/relation은 중복 친구 요청 시 409 Problem Details를 반환한다")
+	void sendFriendRequestReturnsConflictProblemDetailWhenRequestIsDuplicate() throws Exception {
+		given(sendFriendRequestUseCase.sendFriendRequest(eq("user-1"), eq("user-2")))
+				.willThrow(new SocialException(SocialErrorCode.DUPLICATE_FRIEND_REQUEST));
+
+		mockMvc.perform(post("/api/relation")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"toUserId\":\"user-2\"}"))
+				.andExpect(status().isConflict())
+				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.type")
+						.value("https://api.pikume.com/problems/social/duplicate-friend-request"))
+				.andExpect(jsonPath("$.title").value("Conflict"))
+				.andExpect(jsonPath("$.status").value(409))
+				.andExpect(jsonPath("$.detail").value("이미 친구 요청을 보냈습니다."))
+				.andExpect(jsonPath("$.instance").value("/api/relation"));
+	}
+
+	@Test
 	@DisplayName("DELETE /api/relation/requests/{fromUserId}는 친구 요청이 없으면 404 Problem Details를 반환한다")
 	void rejectFriendRequestReturnsNotFoundProblemDetail() throws Exception {
 		given(rejectFriendRequestUseCase.rejectFriendRequest("user-1", "user-2"))

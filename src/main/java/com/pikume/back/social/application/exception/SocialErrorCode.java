@@ -5,6 +5,7 @@ public enum SocialErrorCode {
 	INVALID_COMMENT_PARTICIPANT("다이어리 정보가 유효하지 않습니다."),
 	SELF_FRIEND_REQUEST("자신에게 요청 할 수 없습니다."),
 	ALREADY_FRIENDS("이미 친구입니다."),
+	DUPLICATE_FRIEND_REQUEST("이미 친구 요청을 보냈습니다."),
 	FRIEND_REQUEST_NOT_FOUND("해당 친구 요청 기록을 찾을 수 없습니다."),
 	SENT_FRIEND_REQUEST_NOT_FOUND("요청 보낸 기록이 없습니다."),
 	FRIEND_NOT_FOUND("친구 관계가 존재하지 않습니다."),

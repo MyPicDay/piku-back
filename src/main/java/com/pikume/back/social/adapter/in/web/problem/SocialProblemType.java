@@ -19,6 +19,8 @@ public enum SocialProblemType implements ApiProblemType {
 	DUPLICATE_LIKE("https://api.pikume.com/problems/social/duplicate-like", HttpStatus.CONFLICT, "Conflict"),
 	INVALID_FRIEND_REQUEST("https://api.pikume.com/problems/social/invalid-friend-request", HttpStatus.BAD_REQUEST, "Bad Request"),
 	ALREADY_FRIENDS("https://api.pikume.com/problems/social/already-friends", HttpStatus.CONFLICT, "Conflict"),
+	DUPLICATE_FRIEND_REQUEST(
+			"https://api.pikume.com/problems/social/duplicate-friend-request", HttpStatus.CONFLICT, "Conflict"),
 	FRIEND_REQUEST_NOT_FOUND("https://api.pikume.com/problems/social/friend-request-not-found", HttpStatus.NOT_FOUND, "Not Found"),
 	FRIEND_NOT_FOUND("https://api.pikume.com/problems/social/friend-not-found", HttpStatus.NOT_FOUND, "Not Found");
 
@@ -37,6 +39,7 @@ public enum SocialProblemType implements ApiProblemType {
 			case INVALID_FRIEND_PARTICIPANT, SELF_FRIEND_REQUEST -> INVALID_FRIEND_REQUEST;
 			case INVALID_COMMENT_PARTICIPANT -> INVALID_COMMENT_REQUEST;
 			case ALREADY_FRIENDS -> ALREADY_FRIENDS;
+			case DUPLICATE_FRIEND_REQUEST -> DUPLICATE_FRIEND_REQUEST;
 			case FRIEND_REQUEST_NOT_FOUND, SENT_FRIEND_REQUEST_NOT_FOUND -> FRIEND_REQUEST_NOT_FOUND;
 			case FRIEND_NOT_FOUND -> FRIEND_NOT_FOUND;
 			case DIARY_NOT_FOUND -> DIARY_NOT_FOUND;

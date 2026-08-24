@@ -51,14 +51,18 @@ public class FriendController {
 					@ExampleObject(name = "요청 보냄", value = "{\"accepted\": false, \"message\": \"친구 요청을 보냈습니다.\"}"),
 					@ExampleObject(name = "요청 수락", value = "{\"accepted\": true, \"message\": \"친구 요청을 수락했습니다.\"}")
 			})),
-			@ApiResponse(responseCode = "409", description = "이미 친구인 상태", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/already-friends\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 친구입니다.\",\"instance\":\"/api/relation\"}"))),
+			@ApiResponse(responseCode = "409", description = "이미 친구이거나 같은 방향의 친구 요청이 대기 중인 상태", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = {
+					@ExampleObject(name = "이미 친구", value = "{\"type\":\"https://api.pikume.com/problems/social/already-friends\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 친구입니다.\",\"instance\":\"/api/relation\"}"),
+					@ExampleObject(name = "중복 친구 요청", value = "{\"type\":\"https://api.pikume.com/problems/social/duplicate-friend-request\",\"title\":\"Conflict\",\"status\":409,\"detail\":\"이미 친구 요청을 보냈습니다.\",\"instance\":\"/api/relation\"}")
+			})),
 			@ApiResponse(responseCode = "400", description = "잘못된 요청 (자신에게 요청 등)", content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class), examples = @ExampleObject(value = "{\"type\":\"https://api.pikume.com/problems/social/invalid-friend-request\",\"title\":\"Bad Request\",\"status\":400,\"detail\":\"자신에게 요청 할 수 없습니다.\",\"instance\":\"/api/relation\"}")))
 	})
 	@PostMapping
 	public ResponseEntity<FriendRequestResponseDto> sendFriendRequest(
 			@AuthenticationPrincipal UserPrincipal userPrincipal,
 			@RequestBody FriendRequestDto requestDto) {
-		log.info("친구 요청(수락) 요청 {} 가 {}에게", userPrincipal.getId(), requestDto.getToUserId());
+		log.debug("event=friend_request_requested outcome=accepted userId={} targetUserId={}",
+				userPrincipal.getId(), requestDto.getToUserId());
 		FriendRequestResult response = sendFriendRequestUseCase.sendFriendRequest(userPrincipal.getId(),
 				requestDto.getToUserId());
 		return ResponseEntity.ok(toResponseDto(response));

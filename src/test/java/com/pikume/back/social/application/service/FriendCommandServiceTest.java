@@ -69,13 +69,17 @@ class FriendCommandServiceTest {
 	}
 
 	@Test
-	void duplicatePendingRequestDoesNotPublishAgain() {
+	void rejectsDuplicatePendingRequestWithoutPublishingAgain() {
 		given(verifySocialParticipantPort.participantExists("from")).willReturn(true);
 		given(verifySocialParticipantPort.participantExists("to")).willReturn(true);
 		given(loadPendingFriendRequestsPort.loadPendingRequest(any())).willReturn(Optional.empty());
 		given(recordFriendRequestPort.tryRecordPendingRequest(any())).willReturn(false);
 
-		service.sendFriendRequest("from", "to");
+		assertThatThrownBy(() -> service.sendFriendRequest("from", "to"))
+				.isInstanceOfSatisfying(SocialException.class, exception -> {
+					assertThat(exception.getErrorCode()).isEqualTo(SocialErrorCode.DUPLICATE_FRIEND_REQUEST);
+					assertThat(exception).hasMessage("이미 친구 요청을 보냈습니다.");
+				});
 
 		verify(eventPort, never()).publish(any());
 	}
