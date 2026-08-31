@@ -111,7 +111,7 @@ public class UserController {
 				updateProfileRequest.characterId());
 		UpdateProfileResult result = updateUserProfileUseCase.updateProfile(command);
 		if (result.success()) {
-			return ResponseEntity.ok(NicknameChangeResponse.from(result));
+			return ResponseEntity.ok(NicknameChangeResponse.from(result, resolveObjectUrlPort));
 		}
 
 		return buildUpdateProfileFailureResponse(result);

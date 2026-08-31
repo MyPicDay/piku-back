@@ -12,6 +12,7 @@ import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.global.error.ProblemDetailFactory;
 import com.pikume.back.global.port.out.ResolveObjectUrlPort;
 import com.pikume.back.user.adapter.in.web.dto.request.UpdateProfileRequest;
+import com.pikume.back.user.adapter.in.web.dto.response.NicknameChangeResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.ProfilePreviewResponse;
 import com.pikume.back.user.adapter.in.web.dto.response.UserProfileResponse;
 import com.pikume.back.user.application.dto.ProfilePreviewResult;
@@ -28,6 +29,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserController")
@@ -144,6 +146,74 @@ class UserControllerTest {
 		assertThat(problemDetail.getStatus()).isEqualTo(409);
 		assertThat(problemDetail.getDetail()).isEqualTo("이미 사용 중인 닉네임입니다.");
 		assertThat(problemDetail.getInstance().toString()).isEqualTo("/api/users/nickname/availability");
+	}
+
+	@Test
+	@DisplayName("PATCH /api/users/profile는 변경된 아바타를 스토리지 URL로 반환한다")
+	void changeNicknameReturnsResolvedAvatarUrl() {
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+				.willReturn(UpdateProfileResult.success(
+						"캐릭터가 성공적으로 변경되었습니다.",
+						"pikume",
+						"public/characters/fixed/base_image_2.webp"));
+		given(resolveObjectUrlPort.resolveObjectUrl(
+				"public/characters/fixed/base_image_2.webp",
+				true))
+				.willReturn("https://assets.example.com/piku/public/characters/fixed/base_image_2.webp");
+
+		ResponseEntity<?> response = userController.changeNickname(
+				new UserPrincipal("user1", "pikume"),
+				new UpdateProfileRequest(null, 2L));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isEqualTo(new NicknameChangeResponse(
+				true,
+				"캐릭터가 성공적으로 변경되었습니다.",
+				"pikume",
+				"https://assets.example.com/piku/public/characters/fixed/base_image_2.webp"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/users/profile는 절대 아바타 URL을 변경하지 않는다")
+	void changeNicknamePreservesAbsoluteAvatarUrl() {
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+				.willReturn(UpdateProfileResult.success(
+						"캐릭터가 성공적으로 변경되었습니다.",
+						"pikume",
+						"https://legacy-assets.example.com/base_image_2.webp"));
+
+		ResponseEntity<?> response = userController.changeNickname(
+				new UserPrincipal("user1", "pikume"),
+				new UpdateProfileRequest(null, 2L));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isEqualTo(new NicknameChangeResponse(
+				true,
+				"캐릭터가 성공적으로 변경되었습니다.",
+				"pikume",
+				"https://legacy-assets.example.com/base_image_2.webp"));
+	}
+
+	@Test
+	@DisplayName("PATCH /api/users/profile는 닉네임만 변경하면 아바타 URL을 반환하지 않는다")
+	void changeNicknameWithoutCharacterReturnsNullAvatar() {
+		given(updateUserProfileUseCase.updateProfile(org.mockito.ArgumentMatchers.any()))
+				.willReturn(UpdateProfileResult.success(
+						"닉네임이 성공적으로 변경되었습니다.",
+						"new-nickname",
+						null));
+
+		ResponseEntity<?> response = userController.changeNickname(
+				new UserPrincipal("user1", "pikume"),
+				new UpdateProfileRequest("new-nickname", null));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(200);
+		assertThat(response.getBody()).isEqualTo(new NicknameChangeResponse(
+				true,
+				"닉네임이 성공적으로 변경되었습니다.",
+				"new-nickname",
+				null));
+		then(resolveObjectUrlPort).shouldHaveNoInteractions();
 	}
 
 	@Test

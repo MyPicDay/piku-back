@@ -153,7 +153,7 @@ class UserProfileCommandServiceTest {
 			UpdateProfileResult result = service.updateProfile(command);
 
 			assertThat(result.success()).isTrue();
-			assertThat(result.avatar()).isEqualTo("public/characters/fixed/base_image_2.webp");
+			assertThat(result.avatarReference()).isEqualTo("public/characters/fixed/base_image_2.webp");
 			verify(recordUserAccountPort).recordUserAccount(same(user));
 			verify(recordUserAccountPort).recordUserAccount(argThat(savedUser -> savedUser.getCharacterId() == 2L));
 		}
@@ -170,6 +170,7 @@ class UserProfileCommandServiceTest {
 			UpdateProfileResult result = service.updateProfile(command);
 
 			assertThat(result.success()).isTrue();
+			assertThat(result.avatarReference()).isNull();
 			verify(nicknameHoldPort).release("새닉", "user-1");
 		}
 

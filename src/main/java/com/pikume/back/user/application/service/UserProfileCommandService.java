@@ -69,11 +69,11 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 			return UpdateProfileResult.failure(e.getReason(), e.getMessage(), oldNickname);
 		}
 
-		String targetAvatarObjectKey = null;
+		String targetAvatarReference = null;
 		Long targetCharacterId = oldCharacterId;
 		try {
 			if (command.characterId() != null) {
-				targetAvatarObjectKey = resolveFixedCharacterObjectKey(command.characterId());
+				targetAvatarReference = resolveFixedCharacterReference(command.characterId());
 				targetCharacterId = command.characterId();
 			}
 		} catch (UpdateProfileFailureException e) {
@@ -84,7 +84,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		boolean characterChanged = !targetCharacterId.equals(oldCharacterId);
 
 		if (!nicknameChanged && !characterChanged) {
-			return UpdateProfileResult.success("변경 사항이 없습니다.", oldNickname, targetAvatarObjectKey);
+			return UpdateProfileResult.success("변경 사항이 없습니다.", oldNickname, targetAvatarReference);
 		}
 
 		if (nicknameChanged) {
@@ -98,7 +98,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 			nicknameHoldPort.release(targetNickname, command.userId());
 		}
 
-		return buildSuccessResult(nicknameChanged, characterChanged, targetNickname, targetAvatarObjectKey);
+		return buildSuccessResult(nicknameChanged, characterChanged, targetNickname, targetAvatarReference);
 	}
 
 	@Override
@@ -135,7 +135,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		return newNickname;
 	}
 
-	private String resolveFixedCharacterObjectKey(Long characterId) {
+	private String resolveFixedCharacterReference(Long characterId) {
 		if (characterId <= 0) {
 			log.warn("event=profile_update outcome=denied reason=invalid_character_id characterId={}", characterId);
 			throw new UpdateProfileFailureException(
@@ -152,7 +152,7 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 	}
 
 	private UpdateProfileResult buildSuccessResult(boolean nicknameChanged, boolean characterChanged, String nickname,
-			String avatar) {
+			String avatarReference) {
 		String message;
 		if (nicknameChanged && characterChanged) {
 			message = "닉네임과 캐릭터가 성공적으로 변경되었습니다.";
@@ -161,6 +161,6 @@ public class UserProfileCommandService implements UpdateUserProfileUseCase, Rese
 		} else {
 			message = "캐릭터가 성공적으로 변경되었습니다.";
 		}
-		return UpdateProfileResult.success(message, nickname, characterChanged ? avatar : null);
+		return UpdateProfileResult.success(message, nickname, characterChanged ? avatarReference : null);
 	}
 }
