@@ -10,13 +10,16 @@ import com.pikume.back.admin.application.port.out.AdminSessionCredentialPort;
 import com.pikume.back.admin.application.port.out.AdminSessionCachePort;
 import com.pikume.back.security.adapter.in.web.problem.SecurityProblemType;
 import com.pikume.back.security.adapter.out.token.JwtTokenProvider;
-import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
-import com.pikume.back.user.domain.User;
+import com.pikume.back.testsupport.FixedCharacterCatalogIsolationConfiguration;
+import com.pikume.back.user.application.dto.UserAvatarReference;
+import com.pikume.back.user.application.dto.UserIdentityView;
+import com.pikume.back.user.application.port.in.QueryUserIdentityUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -28,10 +31,12 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.Map;
+import java.util.Optional;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(FixedCharacterCatalogIsolationConfiguration.class)
 @DisplayName("Auth session security")
 class AuthSessionSecurityIntegrationTest {
 
@@ -49,9 +55,6 @@ class AuthSessionSecurityIntegrationTest {
 
 	@Autowired
 	private JwtTokenProvider jwtProvider;
-
-	@Autowired
-	private UserJpaRepository userJpaRepository;
 
 	@Autowired
 	private AdminSessionJpaRepository adminSessionJpaRepository;
@@ -64,6 +67,9 @@ class AuthSessionSecurityIntegrationTest {
 
 	@MockitoBean
 	private AdminSessionCachePort adminSessionCachePort;
+
+	@MockitoBean
+	private QueryUserIdentityUseCase queryUserIdentityUseCase;
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -85,21 +91,26 @@ class AuthSessionSecurityIntegrationTest {
 	@Test
 	@DisplayName("GET /api/auth/me는 유효한 Bearer 토큰의 사용자 정보를 반환한다")
 	void getCurrentUserReturnsUserForBearerTokenSubjectUserId() throws Exception {
-		User user = userJpaRepository.saveAndFlush(new User(
-				"session-user@example.com",
+		String userId = "session-user-id";
+		UserIdentityView user = new UserIdentityView(
+				userId,
 				"encoded-password",
 				"session-user",
-				1L));
-		String accessToken = jwtProvider.generateAccessToken(user.getId());
+				new UserAvatarReference(
+						"public/characters/fixed/base_image_1.webp",
+						false,
+						true));
+		given(queryUserIdentityUseCase.queryUserIdentityById(userId)).willReturn(Optional.of(user));
+		String accessToken = jwtProvider.generateAccessToken(userId);
 
 		mockMvc.perform(get("/api/auth/me")
 						.header(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + accessToken)
 						.accept(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("토큰 검증 성공"))
-				.andExpect(jsonPath("$.user.id").value(user.getId()))
+				.andExpect(jsonPath("$.user.id").value(userId))
 				.andExpect(jsonPath("$.user.email").doesNotExist())
-				.andExpect(jsonPath("$.user.nickname").value(user.getNickname()))
+				.andExpect(jsonPath("$.user.nickname").value(user.nickname()))
 				.andExpect(jsonPath("$.user.avatarUrl")
 						.value("http://localhost:9000/piku/public/characters/fixed/base_image_1.webp"));
 	}
@@ -121,12 +132,17 @@ class AuthSessionSecurityIntegrationTest {
 	@Test
 	@DisplayName("사용자 토큰으로 관리자 API에 접근할 수 없다")
 	void userTokenCannotAccessAdminApi() throws Exception {
-		User user = userJpaRepository.saveAndFlush(new User(
-				"admin-boundary-user@example.com",
+		String userId = "admin-boundary-user-id";
+		UserIdentityView user = new UserIdentityView(
+				userId,
 				"encoded-password",
 				"boundary-user",
-				1L));
-		String accessToken = jwtProvider.generateAccessToken(user.getId());
+				new UserAvatarReference(
+						"public/characters/fixed/boundary-user.webp",
+						false,
+						true));
+		given(queryUserIdentityUseCase.queryUserIdentityById(userId)).willReturn(Optional.of(user));
+		String accessToken = jwtProvider.generateAccessToken(userId);
 
 		mockMvc.perform(get("/api/admin/statistics/dashboard")
 						.header(HttpHeaders.AUTHORIZATION, AuthWebConstants.BEARER_PREFIX + accessToken)

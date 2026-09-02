@@ -1,8 +1,10 @@
 package com.pikume.back.social.application.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.pikume.back.character.adapter.out.persistence.CharacterJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.domain.Diary;
 import com.pikume.back.diary.domain.vo.DiaryVisibility;
@@ -12,6 +14,7 @@ import com.pikume.back.social.application.dto.CommentListItemResult;
 import com.pikume.back.social.adapter.out.persistence.CommentJpaRepository;
 import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
+import com.pikume.back.testsupport.FixedCharacterTestFixture;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 
@@ -33,6 +36,16 @@ class CommentQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegratio
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
+
+	@Autowired
+	private CharacterJpaRepository characterJpaRepository;
+
+	private Long characterId;
+
+	@BeforeEach
+	void setUp() {
+		characterId = FixedCharacterTestFixture.save(characterJpaRepository);
+	}
 
 	@Test
 	@DisplayName("루트 댓글 목록 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
@@ -183,6 +196,6 @@ class CommentQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegratio
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + nicknameSuffix,
-				1L));
+				characterId));
 	}
 }

@@ -1,5 +1,6 @@
 package com.pikume.back.feed.application.service;
 
+import com.pikume.back.character.adapter.out.persistence.CharacterJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
 import com.pikume.back.diary.domain.Diary;
@@ -19,6 +20,7 @@ import com.pikume.back.social.domain.comment.Comment;
 import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.like.Like;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
+import com.pikume.back.testsupport.FixedCharacterTestFixture;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 import jakarta.persistence.EntityManager;
@@ -42,6 +44,9 @@ class FeedPageQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountInte
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
+
+	@Autowired
+	private CharacterJpaRepository characterJpaRepository;
 
 	@Autowired
 	private DiaryJpaRepository diaryJpaRepository;
@@ -78,9 +83,11 @@ class FeedPageQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountInte
 	private Diary publicHigh;
 	private Diary publicLow;
 	private Diary nonFriendFriendsDiary;
+	private Long characterId;
 
-    @BeforeEach
+	@BeforeEach
 	void setUp() {
+		characterId = FixedCharacterTestFixture.save(characterJpaRepository);
 		LocalDateTime baseTime = LocalDateTime.of(2026, 3, 8, 12, 0);
 		LocalDate baseDate = LocalDate.of(2026, 3, 8);
 
@@ -307,7 +314,7 @@ class FeedPageQueryServiceQueryIntegrationTest extends AbstractJpaQueryCountInte
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + nicknameSuffix,
-				1L));
+				characterId));
 	}
 
 	private Diary saveDiary(String userId, String content, DiaryVisibility visibility, LocalDateTime createdAt) {

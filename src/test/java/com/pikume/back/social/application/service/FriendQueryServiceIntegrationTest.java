@@ -1,9 +1,11 @@
 package com.pikume.back.social.application.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.transaction.TestTransaction;
+import com.pikume.back.character.adapter.out.persistence.CharacterJpaRepository;
 import com.pikume.back.global.pagination.PageQuery;
 import com.pikume.back.notification.adapter.out.persistence.NotificationJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
@@ -15,6 +17,7 @@ import com.pikume.back.social.domain.friend.Friend;
 import com.pikume.back.social.domain.friend.FriendRequest;
 import com.pikume.back.social.domain.friend.vo.FriendRequestID;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
+import com.pikume.back.testsupport.FixedCharacterTestFixture;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 
@@ -43,6 +46,16 @@ class FriendQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
+
+	@Autowired
+	private CharacterJpaRepository characterJpaRepository;
+
+	private Long characterId;
+
+	@BeforeEach
+	void setUp() {
+		characterId = FixedCharacterTestFixture.save(characterJpaRepository);
+	}
 
 	@Test
 	@DisplayName("친구 목록 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
@@ -159,6 +172,6 @@ class FriendQueryServiceIntegrationTest extends AbstractJpaQueryCountIntegration
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + suffix,
-				1L));
+				characterId));
 	}
 }

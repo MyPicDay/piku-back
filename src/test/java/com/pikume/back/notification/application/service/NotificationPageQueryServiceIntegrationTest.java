@@ -1,8 +1,10 @@
 package com.pikume.back.notification.application.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.pikume.back.character.adapter.out.persistence.CharacterJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.DiaryJpaRepository;
 import com.pikume.back.diary.adapter.out.persistence.PhotoJpaRepository;
 import com.pikume.back.diary.domain.Diary;
@@ -13,6 +15,7 @@ import com.pikume.back.notification.adapter.out.persistence.NotificationJpaRepos
 import com.pikume.back.notification.domain.Notification;
 import com.pikume.back.notification.domain.vo.NotificationType;
 import com.pikume.back.testsupport.AbstractJpaQueryCountIntegrationTest;
+import com.pikume.back.testsupport.FixedCharacterTestFixture;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 
@@ -32,10 +35,20 @@ class NotificationPageQueryServiceIntegrationTest extends AbstractJpaQueryCountI
 	private UserJpaRepository userJpaRepository;
 
 	@Autowired
+	private CharacterJpaRepository characterJpaRepository;
+
+	@Autowired
 	private DiaryJpaRepository diaryJpaRepository;
 
 	@Autowired
 	private PhotoJpaRepository photoJpaRepository;
+
+	private Long characterId;
+
+	@BeforeEach
+	void setUp() {
+		characterId = FixedCharacterTestFixture.save(characterJpaRepository);
+	}
 
 	@Test
 	@DisplayName("알림 목록 조회는 row 수가 커져도 쿼리 수가 일정하게 유지된다")
@@ -72,7 +85,7 @@ class NotificationPageQueryServiceIntegrationTest extends AbstractJpaQueryCountI
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + suffix,
-				1L));
+				characterId));
 	}
 
 	private Diary saveDiary(String userId, String content) {
