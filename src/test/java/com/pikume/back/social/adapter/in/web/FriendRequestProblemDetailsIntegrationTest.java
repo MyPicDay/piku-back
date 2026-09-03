@@ -1,10 +1,13 @@
 package com.pikume.back.social.adapter.in.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pikume.back.character.adapter.out.persistence.CharacterJpaRepository;
 import com.pikume.back.notification.adapter.out.persistence.NotificationJpaRepository;
 import com.pikume.back.security.principal.UserPrincipal;
 import com.pikume.back.social.adapter.out.persistence.FriendJpaRepository;
 import com.pikume.back.social.adapter.out.persistence.FriendRequestJpaRepository;
+import com.pikume.back.testsupport.FixedCharacterCatalogIsolationConfiguration;
+import com.pikume.back.testsupport.FixedCharacterTestFixture;
 import com.pikume.back.user.adapter.out.persistence.UserJpaRepository;
 import com.pikume.back.user.domain.User;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(FixedCharacterCatalogIsolationConfiguration.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DisplayName("Friend request Problem Details integration")
 class FriendRequestProblemDetailsIntegrationTest {
@@ -52,9 +57,15 @@ class FriendRequestProblemDetailsIntegrationTest {
 	@Autowired
 	private NotificationJpaRepository notificationJpaRepository;
 
+	@Autowired
+	private CharacterJpaRepository characterJpaRepository;
+
+	private Long characterId;
+
 	@BeforeEach
-	void clearDataBeforeTest() {
+	void setUp() {
 		clearData();
+		characterId = FixedCharacterTestFixture.save(characterJpaRepository);
 	}
 
 	@AfterEach
@@ -101,7 +112,7 @@ class FriendRequestProblemDetailsIntegrationTest {
 				suffix + "@example.com",
 				"encoded-password",
 				"nick-" + suffix,
-				1L));
+				characterId));
 	}
 
 	private void clearData() {
@@ -109,5 +120,6 @@ class FriendRequestProblemDetailsIntegrationTest {
 		friendRequestJpaRepository.deleteAll();
 		friendJpaRepository.deleteAll();
 		userJpaRepository.deleteAll();
+		characterJpaRepository.deleteAll();
 	}
 }
