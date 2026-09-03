@@ -11,11 +11,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.sql.DataSource;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -81,9 +84,17 @@ class UserCharacterIdMigrationTest {
 	}
 
 	private long insertCharacter(String imageReference, String type) {
-		jdbcTemplate.update(
-				"INSERT INTO characters (image_url, type) VALUES (?, ?)", imageReference, type);
-		return jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+		GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
+		jdbcTemplate.update(connection -> {
+			PreparedStatement statement = connection.prepareStatement(
+					"INSERT INTO characters (image_url, type) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+			statement.setString(1, imageReference);
+			statement.setString(2, type);
+			return statement;
+		}, keyHolder);
+		Number characterId = keyHolder.getKey();
+		assertThat(characterId).as("생성된 캐릭터 식별자").isNotNull();
+		return characterId.longValue();
 	}
 
 	private void insertUser(String userId, String avatar) {
