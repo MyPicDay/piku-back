@@ -4,6 +4,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,10 +30,12 @@ import com.pikume.back.user.domain.vo.Nickname;
 
 import java.util.Optional;
 import java.time.Instant;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 
@@ -67,8 +72,8 @@ class UserProfileCommandServiceTest {
 			boolean result = service.reserveIfAvailable(" \u2003현재닉\u3000 ", "user-1");
 
 			assertThat(result).isTrue();
-			verify(checkUserUniquenessPort, never()).isNicknameInUse(any(Nickname.class));
-			verify(nicknameHoldPort, never()).tryAcquire(any(Nickname.class), anyString(), any(Instant.class));
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(nicknameHoldPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -77,7 +82,9 @@ class UserProfileCommandServiceTest {
 			assertThatThrownBy(() -> service.reserveIfAvailable(" \u2003\u3000 ", "user-1"))
 					.isInstanceOf(InvalidNicknameException.class);
 
-			verify(loadUserForProfilePort, never()).loadProfileUser(anyString());
+			then(loadUserForProfilePort).shouldHaveNoInteractions();
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(nicknameHoldPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -128,26 +135,29 @@ class UserProfileCommandServiceTest {
 			assertThat(result.failureReason()).isEqualTo(UpdateProfileFailureReason.INVALID_REQUEST);
 		}
 
-		@Test
-		@DisplayName("빈 닉네임은 캐릭터 변경이 있어도 거절한다")
-		void emptyNicknameIsRejectedWhenCharacterAlsoChanges() {
-			UpdateProfileCommand command = new UpdateProfileCommand("user-1", "", 2L);
+		@ParameterizedTest(name = "{0}")
+		@MethodSource("invalidNicknameCommands")
+		@DisplayName("빈 닉네임은 캐릭터 변경 여부와 무관하게 거절한다")
+		void invalidNicknameIsRejectedRegardlessOfCharacterChange(
+				String scenario, String newNickname, Long characterId) {
+			UpdateProfileCommand command = new UpdateProfileCommand("user-1", newNickname, characterId);
 
 			assertThatThrownBy(() -> service.updateProfile(command))
 					.isInstanceOf(InvalidNicknameException.class);
 
-			verify(loadUserForProfilePort, never()).loadProfileUser(anyString());
+			then(loadUserForProfilePort).shouldHaveNoInteractions();
+			then(recordUserAccountPort).shouldHaveNoInteractions();
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(nicknameHoldPort).shouldHaveNoInteractions();
+			then(fixedCharacterAvatarPort).shouldHaveNoInteractions();
 		}
 
-		@Test
-		@DisplayName("공백 닉네임은 캐릭터 변경이 있어도 거절한다")
-		void whitespaceNicknameIsRejectedWhenCharacterAlsoChanges() {
-			UpdateProfileCommand command = new UpdateProfileCommand("user-1", " \u2003\u3000 ", 2L);
-
-			assertThatThrownBy(() -> service.updateProfile(command))
-					.isInstanceOf(InvalidNicknameException.class);
-
-			verify(loadUserForProfilePort, never()).loadProfileUser(anyString());
+		private static Stream<Arguments> invalidNicknameCommands() {
+			return Stream.of(
+					Arguments.of("빈 닉네임과 캐릭터 변경 없음", "", null),
+					Arguments.of("빈 닉네임과 캐릭터 변경 있음", "", 2L),
+					Arguments.of("Unicode 공백 닉네임과 캐릭터 변경 없음", " \u2003\u3000 ", null),
+					Arguments.of("Unicode 공백 닉네임과 캐릭터 변경 있음", " \u2003\u3000 ", 2L));
 		}
 
 		@Test
@@ -161,8 +171,9 @@ class UserProfileCommandServiceTest {
 
 			assertThat(result.success()).isTrue();
 			assertThat(result.newNickname()).isEqualTo("현재닉");
-			verify(nicknameHoldPort, never()).isHeldBy(any(Nickname.class), anyString(), any(Instant.class));
-			verify(recordUserAccountPort, never()).recordUserAccount(any());
+			then(checkUserUniquenessPort).shouldHaveNoInteractions();
+			then(nicknameHoldPort).shouldHaveNoInteractions();
+			then(recordUserAccountPort).shouldHaveNoInteractions();
 		}
 
 		@Test
@@ -179,7 +190,7 @@ class UserProfileCommandServiceTest {
 			assertThat(result.success()).isTrue();
 			assertThat(result.newNickname()).isEqualTo("새닉");
 			assertThat(user.getNickname()).isEqualTo("새닉");
-			verify(nicknameHoldPort).release(new Nickname("새닉"), "user-1");
+			then(nicknameHoldPort).should().release(new Nickname("새닉"), "user-1");
 		}
 
 		@Test
