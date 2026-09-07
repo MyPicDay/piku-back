@@ -148,6 +148,25 @@ class OffsetPageMvcIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("답글은 파라미터가 없으면 0페이지·10개·작성일 오름차순을 적용한다")
+	void repliesBindEndpointDefaults() throws Exception {
+		LocalDateTime createdAt = LocalDateTime.of(2026, 9, 7, 11, 10);
+		PageQuery expectedQuery = PageQuery.of(0, 10, List.of(SortQuery.asc("createdAt")));
+		given(queryCommentPageUseCase.queryReplyPage(101L, expectedQuery, "viewer-id"))
+				.willReturn(new PageResult<>(List.of(
+						new CommentListItemResult(203L, 41L, "writer-3", "셋째", "/avatar-3", "기본 정렬 답글", 101L,
+								createdAt, createdAt, 0, true, false, false)), 0, 10, 1));
+
+		JsonNode json = performWithFreshPageModule(get("/api/comments/101/replies")
+				.with(user(new UserPrincipal("viewer-id", "viewer"))));
+
+		assertPage(json, 0, 10, 1, 1, 1, true, true, false, true);
+		assertThat(json.at("/content/0/id").asLong()).isEqualTo(203L);
+		assertThat(json.at("/content/0/content").asText()).isEqualTo("기본 정렬 답글");
+		then(queryCommentPageUseCase).should().queryReplyPage(101L, expectedQuery, "viewer-id");
+	}
+
+	@Test
 	@DisplayName("친구 목록은 기본 식별자 내림차순과 프로필 값을 반환한다")
 	void friendsPreserveIdentifiersAndProfileValues() throws Exception {
 		PageQuery expectedQuery = PageQuery.of(0, 10, List.of(SortQuery.desc("userId1")));
@@ -202,6 +221,28 @@ class OffsetPageMvcIntegrationTest {
 		assertThat(json.at("/content/1/userId").asText()).isEqualTo("user-1");
 		assertThat(json.at("/content/1/avatar").asText()).isEqualTo("https://cdn.example/one.png");
 		then(searchUserUseCase).should().searchUsers("테스트", expectedQuery);
+	}
+
+	@Test
+	@DisplayName("검색은 명시한 페이지·크기·정렬과 키워드를 그대로 적용한다")
+	void searchBindsExplicitPaginationSortAndKeyword() throws Exception {
+		PageQuery expectedQuery = PageQuery.of(2, 7, List.of(SortQuery.asc("nickname")));
+		given(searchUserUseCase.searchUsers("명시 검색", expectedQuery)).willReturn(new PageResult<>(List.of(
+				new UserSearchResult("user-14", "가나다", new UserAvatarReference("https://cdn.example/14.png", true, true)),
+				new UserSearchResult("user-15", "라마바", new UserAvatarReference("https://cdn.example/15.png", true, true))),
+				2, 7, 30));
+
+		JsonNode json = performWithFreshPageModule(get("/api/search")
+				.param("keyword", "명시 검색")
+				.param("page", "2")
+				.param("size", "7")
+				.param("sort", "nickname,asc"));
+
+		assertPage(json, 2, 7, 30, 5, 2, false, false, false, true);
+		assertThat(json.at("/content/0/userId").asText()).isEqualTo("user-14");
+		assertThat(json.at("/content/0/nickname").asText()).isEqualTo("가나다");
+		assertThat(json.at("/content/1/userId").asText()).isEqualTo("user-15");
+		then(searchUserUseCase).should().searchUsers("명시 검색", expectedQuery);
 	}
 
 	private JsonNode performWithFreshPageModule(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request)
