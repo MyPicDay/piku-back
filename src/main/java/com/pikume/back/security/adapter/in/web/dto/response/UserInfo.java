@@ -11,4 +11,9 @@ public class UserInfo {
 	private String id;
 	private String nickname;
 	private String avatarUrl;
+	private String profileSetupStatus;
+
+	public UserInfo(String id, String nickname, String avatarUrl) {
+		this(id, nickname, avatarUrl, "COMPLETED");
+	}
 }

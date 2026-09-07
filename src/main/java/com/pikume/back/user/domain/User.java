@@ -8,6 +8,7 @@ import com.pikume.back.global.entity.BaseEntity;
 import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.domain.vo.Nickname;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
+	private static final String TEMPORARY_NICKNAME_PREFIX = "가입대기_";
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
@@ -36,6 +38,10 @@ public class User extends BaseEntity {
 	@Column(name = "character_id", nullable = false)
 	private Long characterId;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "profile_setup_status", nullable = false, length = 20)
+	private ProfileSetupStatus profileSetupStatus = ProfileSetupStatus.COMPLETED;
+
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
 
@@ -54,17 +60,52 @@ public class User extends BaseEntity {
 		this.characterId = requireCharacterId(characterId);
 	}
 
+	public static User pending(String email, String passwordHash, String temporaryNickname, Long characterId) {
+		User user = new User(email, passwordHash, temporaryNickname, characterId);
+		user.profileSetupStatus = ProfileSetupStatus.REQUIRED;
+		return user;
+	}
+
 	/**
 	 * 닉네임을 변경합니다.
 	 * 
 	 * @param newNickname 변경할 닉네임
 	 */
 	public void changeNickname(String newNickname) {
-		this.nickname = new Nickname(newNickname);
+		this.nickname = requireFinalNickname(newNickname);
 	}
 
 	public void changeCharacter(Long characterId) {
 		this.characterId = requireCharacterId(characterId);
+	}
+
+	public boolean isProfileSetupRequired() {
+		return profileSetupStatus == ProfileSetupStatus.REQUIRED;
+	}
+
+	public void completeProfile(String nickname, Long characterId) {
+		if (isWithdrawn()) {
+			throw new IllegalStateException("탈퇴한 사용자는 프로필 설정을 완료할 수 없습니다.");
+		}
+		if (profileSetupStatus == ProfileSetupStatus.COMPLETED) {
+			if (Objects.equals(getNickname(), nickname) && Objects.equals(this.characterId, characterId)) {
+				return;
+			}
+			throw new IllegalStateException("이미 완료된 프로필은 완료 요청으로 변경할 수 없습니다.");
+		}
+
+		Nickname completedNickname = requireFinalNickname(nickname);
+		Long completedCharacterId = requireCharacterId(characterId);
+		this.nickname = completedNickname;
+		this.characterId = completedCharacterId;
+		this.profileSetupStatus = ProfileSetupStatus.COMPLETED;
+	}
+
+	private Nickname requireFinalNickname(String nickname) {
+		if (nickname != null && nickname.startsWith(TEMPORARY_NICKNAME_PREFIX)) {
+			throw new IllegalArgumentException("가입 대기 닉네임은 최종 닉네임으로 사용할 수 없습니다.");
+		}
+		return new Nickname(nickname);
 	}
 
 	public String getEmail() {

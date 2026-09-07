@@ -15,6 +15,13 @@ public class UserPrincipal implements UserDetails {
 	private final String id;
 	private final String nickname;
 	private final UserAvatarReference avatarReference;
+	private String profileSetupStatus = "COMPLETED";
+
+	public static UserPrincipal withProfileState(String id, String nickname, UserAvatarReference avatarReference, String status) {
+		UserPrincipal principal = new UserPrincipal(id, nickname, avatarReference);
+		principal.profileSetupStatus = status;
+		return principal;
+	}
 
 	public UserPrincipal(String id, String nickname) {
 		this(id, nickname, null);

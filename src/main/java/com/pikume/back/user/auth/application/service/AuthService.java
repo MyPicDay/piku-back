@@ -1,6 +1,9 @@
 package com.pikume.back.user.auth.application.service;
 
 import com.pikume.back.user.application.port.out.CheckUserUniquenessPort;
+import com.pikume.back.user.application.port.out.NicknameHoldPort;
+import com.pikume.back.user.domain.vo.Nickname;
+import java.time.Instant;
 import com.pikume.back.user.application.port.out.LoadUserForPasswordResetPort;
 import com.pikume.back.user.application.port.out.RecordUserAccountPort;
 import com.pikume.back.user.auth.application.dto.ResetPasswordCommand;
@@ -55,16 +58,24 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	private final QueryAllowedEmailUseCase queryAllowedEmailUseCase;
 	private final EmailVerificationPolicy emailVerificationPolicy;
 	private final PasswordPolicy passwordPolicy;
+	private final NicknameHoldPort nicknameHoldPort;
 
 	@Override
 	@Transactional
 	public void signUp(SignUpCommand command) {
+		nicknameHoldPort.lockNicknameWrites();
 		requireValidEmail(command.email());
 		requireValidPassword(command.password());
 		if (checkUserUniquenessPort.isEmailRegistered(command.email())) {
 			throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
 		}
 
+        new Nickname(command.nickname());
+        if (command.nickname().startsWith("가입대기_")
+                || checkUserUniquenessPort.isNicknameInUse(command.nickname())
+                || nicknameHoldPort.isHeld(command.nickname(), Instant.now())) {
+            throw new AuthException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
+        }
 		VerifiedEmail verified = getValidVerifiedEmail(command.email(), VerificationType.SIGN_UP);
 		requireSelectableFixedCharacter(command.fixedCharacterId());
 		User user = new User(
@@ -138,6 +149,9 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		requireValidPassword(command.newPassword());
 		User user = loadUserForPasswordResetPort.loadPasswordResetUser(command.email())
 				.orElseThrow(() -> new AuthException(AuthErrorCode.USER_NOT_FOUND));
+		if (user.isWithdrawn() || user.getPassword() == null) {
+			throw new com.pikume.back.user.auth.application.exception.InvalidCredentialsException();
+		}
 		VerifiedEmail verified = getValidVerifiedEmail(command.email(), VerificationType.PASSWORD_RESET);
 
 		verified.markUsed();
