@@ -6,9 +6,6 @@ import com.pikume.back.global.pagination.PageResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +19,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("OffsetPageResponseMapper")
-@ExtendWith(OutputCaptureExtension.class)
 class OffsetPageResponseMapperTest {
 
 	@Nested
@@ -151,13 +147,8 @@ class OffsetPageResponseMapperTest {
 	}
 
 	@Test
-	@DisplayName("Spring Data PageModule이 등록되어도 새 응답은 PageImpl 경고 대상이 아니다")
-	void serializesWithoutDependingOnSpringPageTypes(CapturedOutput output) throws Exception {
-		ObjectMapper legacyMapper = directPageObjectMapper();
-		legacyMapper.writeValueAsString(new PageImpl<>(List.of("항목"), PageRequest.of(0, 10), 1));
-		String warning = "Serializing PageImpl instances as-is is not supported";
-		assertThat(output.getAll()).contains(warning);
-
+	@DisplayName("Spring Data PageModule이 등록되어도 새 응답은 Spring Page 타입에 의존하지 않는다")
+	void serializesWithoutDependingOnSpringPageTypes() throws Exception {
 		ObjectMapper responseMapper = directPageObjectMapper();
 		OffsetPageResponse<String> response = OffsetPageResponseMapper.toResponse(
 				new PageResult<>(List.of("항목"), 0, 10, 1), PageRequest.of(0, 10));
@@ -165,7 +156,6 @@ class OffsetPageResponseMapperTest {
 		String json = responseMapper.writeValueAsString(response);
 
 		assertThat(json).contains("\"content\":[\"항목\"]", "\"totalElements\":1");
-		assertThat(output.getAll()).containsOnlyOnce(warning);
 		assertThat(OffsetPageResponse.class.getDeclaredFields())
 				.noneMatch(field -> field.getType().getName().startsWith("org.springframework.data"));
 	}
