@@ -109,7 +109,7 @@ _Entity_
 - 이메일 challenge는 호출자·시도·목적·소셜 증명을 결속하고 실패 횟수와 발송 제한을 DB에서 관리한다. 레거시 이메일 확인 기록만으로 새 가입을 허용하지 않는다.
 - `OAuthAuthorizationRequest`는 외부 로그인 요청을 결속하고 재사용을 차단한다. 암호화와 Google SDK 검증은 Out Adapter의 책임이다.
 
-가입 증명·회원·외부 연결·동의·닉네임 예약의 원본은 DB다. Redis를 회원 저장소 또는 필수 가입 상태 저장소로 사용하지 않는다. 상세 연결 규칙은 [제품 계약](../product-specs/google-login-signup.md), 기술 경계는 [일반 회원 인증 흐름](../architecture/user-signup-authentication-flow.md)을 따른다.
+가입 증명·회원·외부 연결·동의·닉네임 예약의 원본은 DB다. Redis를 회원 저장소 또는 필수 가입 상태 저장소로 사용하지 않는다.
 
 ---
 

@@ -29,7 +29,7 @@ Character는 가입 기본값과 선택 가능한 고정 캐릭터를 해석한�
 
 Google Out Adapter는 공식 SDK의 서명·발급자·시간 검증에 더해 서버 등록에 대한 audience·authorized party와 nonce를 확인한다. Application은 검증된 `GoogleIdentity`만 소비하며 클라이언트가 제시한 이메일이나 subject를 신원으로 신뢰하지 않는다. nonce·PKCE 암호화와 요청 제한은 각각 기술 Out Adapter와 DB 저장소에 둔다.
 
-기존 `(provider, subject)`가 있으면 같은 User로 로그인한다. 신규 subject의 Gmail 자동 연결, 기존 로그인 후 명시적 연결, 이메일 보완과 신규 증명 생성은 User가 소유한다. 상세 정책은 [제품 계약](../product-specs/google-login-signup.md)을 따른다.
+기존 `(provider, subject)`가 있으면 같은 User로 로그인한다. 신규 subject의 Gmail 자동 연결, 기존 로그인 후 명시적 연결, 이메일 보완과 신규 증명 생성은 User가 소유한다.
 
 웹 콜백은 성공·예상 가능한 실패 모두 서버 설정의 고정 HTTPS 프론트 주소로 복귀한다. 실패는 제한된 서버 오류 코드만 query에 전달하며 토큰·증명·원문 제공자 오류를 넣지 않는다. 일반 JSON API 오류는 공용 `ProblemDetailFactory`를 통한 RFC 9457 응답으로 번역한다.
 
@@ -54,4 +54,4 @@ V16–V19는 기존 회원을 `COMPLETED`로 보존하고 새 가입 자료 구�
 
 신규 가입과 Google 프로토콜 스위치는 독립이다. 신규 가입 중지 중에도 Google이 활성화되어 있으면 기존 subject 연결 로그인은 유지한다. `REQUIRED`가 생성된 뒤에는 상태 제한을 모르는 과거 바이너리로 롤백하지 않는다.
 
-공개 필드·오류·화면 복구 계약은 [프론트·모바일 전달 문서](../handoffs/google-login-signup-handoff.md), 실제 설정과 전환 순서는 [운영 문서](../runbooks/google-login-signup-rollout.md)를 따른다. 다른 저장소의 구현은 이 백엔드 변경에 포함하지 않는다.
+다른 저장소의 구현은 이 백엔드 변경에 포함하지 않는다.

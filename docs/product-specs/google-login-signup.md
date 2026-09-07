@@ -1,8 +1,9 @@
 # Google 로그인과 단계별 회원가입
 
-- 상태: 구현 계약, 기본 비활성화
-- 대상: 백엔드 개발자
-- 기준일: 2026-09-07
+- Status: 구현 계약, 기본 비활성화
+- Audience: 백엔드 개발자
+- Source of Truth: Yes
+- Last Reviewed: 2026-09-07
 
 ## 가입과 기존 계정
 
@@ -66,4 +67,4 @@ User의 Application 유스케이스가 인증·가입·세션 발행을 조정�
 
 소셜 계정 테이블은 Apple·Naver·Kakao 같은 후속 제공자를 수용할 수 있다. 이번 구현에서 검증 어댑터와 실제 API 지원은 Google뿐이다. 제공자 추가 시 이메일 보증, subject 범위, 토큰 검증, 연결 해제·회수 정책을 별도 정의해야 한다.
 
-백엔드 계약은 [클라이언트 전달 문서](../handoffs/google-login-signup-handoff.md), 활성화·중지 절차는 [운영 문서](../runbooks/google-login-signup-rollout.md)를 따른다. 프론트·모바일 저장소의 구현 작업은 이 문서 범위에 포함하지 않는다.
+프론트·모바일 저장소의 구현 작업은 이 문서 범위에 포함하지 않는다.
