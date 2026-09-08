@@ -137,10 +137,10 @@ class GoogleAuthenticationServiceTest {
     static class MemoryStore implements OAuthAuthorizationRequestStorePort {
         final Map<String, OAuthAuthorizationRequest> requests = new HashMap<>();
         public void create(OAuthAuthorizationRequest request, String originHash, int callerLimit, int originLimit) { requests.put(request.stateHash(), request); }
-        public synchronized OAuthAuthorizationRequest claim(String hash, String bindingHash, OAuthAuthorizationRequest.Channel channel, Instant now) {
+        public synchronized OAuthAuthorizationRequest claim(String hash, String bindingHash, OAuthAuthorizationRequest.Channel channel, Clock clock) {
             var request = requests.get(hash);
             if (request == null) throw new OAuthRequestException(OAuthRequestException.Reason.NOT_FOUND);
-            request.requireClaimable(bindingHash, channel, now);
+            request.requireClaimable(bindingHash, channel, clock.instant());
             var claimed = request.withStatus(OAuthAuthorizationRequest.Status.PROCESSING);
             requests.put(hash, claimed);
             return claimed;

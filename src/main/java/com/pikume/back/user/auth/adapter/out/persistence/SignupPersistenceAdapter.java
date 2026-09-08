@@ -13,6 +13,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -89,10 +92,11 @@ public class SignupPersistenceAdapter implements SignupStorePort {
     }
 
     @Override
-    public void reserveEmailSend(String emailHash, String originHash, Instant now, int emailLimit, int originLimit, int resendSeconds) {
+    public Instant reserveEmailSend(String emailHash, String originHash, int emailLimit, int originLimit, int resendSeconds) {
         // Migration supplies a permanent mutex: first use of an absent bucket is serialized across instances.
         if (em.find(SignupRateLimit.class, "guard", LockModeType.PESSIMISTIC_WRITE)==null)
         throw new IllegalStateException("Signup rate limit guard is missing");
+        Instant now=Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         SignupRateLimit email=bucket("email:"+emailHash, now), origin=bucket("ip:"+originHash, now);
         if (email.getSendCount()>=emailLimit || origin.getSendCount()>=originLimit)
         throw new SignupFlowException(SignupFailure.RATE_LIMITED);
@@ -101,6 +105,7 @@ public class SignupPersistenceAdapter implements SignupStorePort {
         }
         email.increment(now);
         origin.increment(now);
+        return now;
     }
     private SignupRateLimit bucket(String key, Instant now) {
         SignupRateLimit bucket=em.find(SignupRateLimit.class, key);
@@ -113,7 +118,9 @@ public class SignupPersistenceAdapter implements SignupStorePort {
     }
 
     @Override
+    @Transactional(propagation=Propagation.REQUIRES_NEW, isolation=Isolation.READ_COMMITTED)
     public void purgeExpired(Instant now) {
+        // Cleanup must not hold range gap locks that block a concurrent proof insert while waiting for its challenge.
         em.createQuery("delete from SignupAuthentication p where p.expiresAt<=:now").setParameter("now", now).executeUpdate();
         em.createQuery("delete from Verification v where v.challengeId is not null and v.expiresAt<=:now")
         .setParameter("now", LocalDateTime.ofInstant(now, ZoneOffset.UTC)).executeUpdate();

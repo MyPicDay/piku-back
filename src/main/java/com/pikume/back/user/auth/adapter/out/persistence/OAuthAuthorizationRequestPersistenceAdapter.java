@@ -10,6 +10,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import static com.pikume.back.user.auth.domain.OAuthAuthorizationRequest.*;
@@ -66,12 +67,12 @@ public class OAuthAuthorizationRequestPersistenceAdapter implements OAuthAuthori
             jdbc.update("UPDATE oauth_start_rate_limits SET request_count=request_count+1 WHERE bucket_key=?", bucket);
         }
     }
-    @Override public OAuthAuthorizationRequest claim(String stateHash, String bindingHash, Channel channel, Instant now) {
+    @Override public OAuthAuthorizationRequest claim(String stateHash, String bindingHash, Channel channel, Clock clock) {
         return transaction.execute(tx -> {
             var matches = jdbc.query("SELECT * FROM oauth_authorization_requests WHERE state_hash=? FOR UPDATE", ROW, stateHash);
             if (matches.isEmpty()) throw new OAuthRequestException(NOT_FOUND);
             var request = matches.get(0);
-            request.requireClaimable(bindingHash, channel, now);
+            request.requireClaimable(bindingHash, channel, clock.instant());
             int changed = jdbc.update("UPDATE oauth_authorization_requests SET status='PROCESSING' WHERE id=? AND status='PENDING'", request.id());
             if (changed != 1) throw new OAuthRequestException(REPLAY);
             return request.withStatus(Status.PROCESSING);

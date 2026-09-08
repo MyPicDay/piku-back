@@ -115,7 +115,7 @@ public class GoogleAuthenticationService implements GoogleAuthenticationUseCase 
         policy.requireEnabled();
         if (state == null || !state.matches("[A-Za-z0-9_-]{43}")) throw new OAuthRequestException(INVALID_REQUEST);
         requireValue(binding, 512);
-        return store.claim(hash(state), hash(binding), channel, clock.instant());
+        return store.claim(hash(state), hash(binding), channel, clock);
     }
     private String randomToken() { byte[] bytes = new byte[32]; random.nextBytes(bytes); return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); }
     private static String hash(String value) { return HexFormat.of().formatHex(digest(value)); }

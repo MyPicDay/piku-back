@@ -11,6 +11,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.*;
 import java.time.Instant;
+import java.time.Clock;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.*;
 import static com.pikume.back.user.auth.domain.OAuthAuthorizationRequest.*;
@@ -38,7 +40,7 @@ class OAuthAuthorizationRequestPersistenceAdapterTest {
     @Test void concurrentCallbacksOnlyOneClaimSucceeds() throws Exception {
         store.create(request("state", "caller"), "source", 20, 100);
         var results = race(8, () -> {
-            try { store.claim("state", "caller", Channel.WEB, now); return true; }
+            try { store.claim("state", "caller", Channel.WEB, Clock.fixed(now, ZoneOffset.UTC)); return true; }
             catch (OAuthRequestException e) { assertThat(e.getReason()).isEqualTo(OAuthRequestException.Reason.REPLAY); return false; }
         });
         assertThat(results.stream().filter(Boolean::booleanValue).count()).isEqualTo(1);
@@ -64,9 +66,9 @@ class OAuthAuthorizationRequestPersistenceAdapterTest {
     @Test void wrongBindingOrExpiredRequestStaysUnclaimedAndCleanupIsBounded() {
         store.create(request("state-1", "caller"), "source", 20, 100);
         store.create(request("state-2", "caller"), "source", 20, 100);
-        assertThatThrownBy(() -> store.claim("state-1", "wrong", Channel.WEB, now)).isInstanceOf(OAuthRequestException.class);
-        assertThatThrownBy(() -> store.claim("state-1", "caller", Channel.MOBILE, now)).isInstanceOf(OAuthRequestException.class);
-        assertThatThrownBy(() -> store.claim("state-1", "caller", Channel.WEB, now.plusSeconds(600))).isInstanceOf(OAuthRequestException.class);
+        assertThatThrownBy(() -> store.claim("state-1", "wrong", Channel.WEB, Clock.fixed(now, ZoneOffset.UTC))).isInstanceOf(OAuthRequestException.class);
+        assertThatThrownBy(() -> store.claim("state-1", "caller", Channel.MOBILE, Clock.fixed(now, ZoneOffset.UTC))).isInstanceOf(OAuthRequestException.class);
+        assertThatThrownBy(() -> store.claim("state-1", "caller", Channel.WEB, Clock.fixed(now.plusSeconds(600), ZoneOffset.UTC))).isInstanceOf(OAuthRequestException.class);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth_authorization_requests WHERE status='PENDING'", Integer.class)).isEqualTo(2);
         assertThat(store.cleanup(now.plusSeconds(4000), 1)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM oauth_authorization_requests", Integer.class)).isEqualTo(1);
@@ -75,10 +77,10 @@ class OAuthAuthorizationRequestPersistenceAdapterTest {
     @Test void terminalStatesCannotBeOverwrittenOrClaimedAgain() {
         var request = request("state", "caller");
         store.create(request, "source", 20, 100);
-        store.claim("state", "caller", Channel.WEB, now);
+        store.claim("state", "caller", Channel.WEB, Clock.fixed(now, ZoneOffset.UTC));
         store.finish(request.id(), Status.CONSUMED);
         assertThatThrownBy(() -> store.finish(request.id(), Status.FAILED)).isInstanceOf(OAuthRequestException.class);
-        assertThatThrownBy(() -> store.claim("state", "caller", Channel.WEB, now)).isInstanceOf(OAuthRequestException.class);
+        assertThatThrownBy(() -> store.claim("state", "caller", Channel.WEB, Clock.fixed(now, ZoneOffset.UTC))).isInstanceOf(OAuthRequestException.class);
     }
     private List<Boolean> race(int count, Callable<Boolean> call) throws Exception {
         var pool = Executors.newFixedThreadPool(count);

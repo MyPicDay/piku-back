@@ -22,40 +22,7 @@ import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@DataJpaTest
-@Import({SignupPersistenceAdapter.class,SignupTransactionAdapter.class,SignupFlowService.class,PasswordPolicy.class})
-@Transactional(propagation=Propagation.NOT_SUPPORTED)
-class SignupPersistenceIntegrationTest {
- @Autowired SignupFlowService service;
- @Autowired SignupStorePort store;
- @Autowired SignupTransactionPort tx;
- @Autowired EntityManager em;
- @MockitoBean SignupPolicyPort policy;
- @MockitoBean PasswordProtectionPort passwords;
- @MockitoBean IssueVerificationEmailPort sender;
- @MockitoBean ResolveDefaultSignupCharacterPort characters;
- @MockitoBean SignUpUseCase legacy;
- @MockitoBean QueryAllowedEmailUseCase allowed;
- final List<AgreementAcceptance> agreements=List.of(new AgreementAcceptance("TERMS","v1",true));
- @BeforeEach void setup() {
-  tx.required(() -> {
-   em.createQuery("delete from UserAgreement").executeUpdate();em.createQuery("delete from UserOAuthAccount").executeUpdate();
-   em.createQuery("delete from SignupAuthentication").executeUpdate();em.createQuery("delete from Verification").executeUpdate();
-   em.createQuery("delete from User").executeUpdate();em.createQuery("delete from SignupRateLimit").executeUpdate();
-   em.persist(new SignupRateLimit("guard",Instant.EPOCH));return null;
-  });
-  when(policy.enabled()).thenReturn(true);when(policy.maxCodeAttempts()).thenReturn(2);when(policy.resendSeconds()).thenReturn(60);
-  when(policy.emailHourlyLimit()).thenReturn(5);when(policy.originHourlyLimit()).thenReturn(30);
-  when(policy.agreements()).thenReturn(List.of(new SignupAgreementDocument("TERMS","v1","immutable actual content",true)));
-  when(characters.resolveDefaultSignupCharacter()).thenReturn(5L);when(allowed.isEmailAllowed(anyString())).thenReturn(true);
-  when(sender.issueVerificationEmail(anyString())).thenReturn("123456");when(passwords.protect(anyString())).thenReturn("password-hash");
- }
- String emailProof(String email) {
-  String raw=UUID.randomUUID().toString();
-  tx.required(() -> {store.saveProof(SignupAuthentication.email(SignupFlowService.hash(raw),SignupFlowService.hash("caller"),email,"password-hash",Instant.now()));return null;});
-  return raw;
- }
- long count(String entity) {return tx.required(() -> em.createQuery("select count(e) from "+entity+" e",Long.class).getSingleResult());}
+class SignupPersistenceIntegrationTest extends SignupPersistenceTestSupport {
  @Test void failedCodeAttemptsCommitDespitePublicExceptionAndCorrectCodeThenCannotBypassLimit() {
   var c=service.sendEmailCode(new EmailSignupChallengeCommand("a@gmail.com","caller","origin",null,null));
   for(int i=0;i<2;i++)assertThatThrownBy(() -> service.authenticateEmail(new EmailSignupAuthenticationCommand(c.challengeId(),"a@gmail.com","000000","Password!","caller")))

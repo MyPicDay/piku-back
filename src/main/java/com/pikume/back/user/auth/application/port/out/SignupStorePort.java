@@ -16,6 +16,7 @@ public interface SignupStorePort {
     Optional<UserOAuthAccount> findUserAccount(String userId, String provider);
     void createAccount(UserOAuthAccount account);
     void recordAgreement(UserAgreement agreement);
-    void reserveEmailSend(String emailHash, String originHash, Instant now, int emailLimit, int originLimit, int resendSeconds);
+    /** Returns the reservation time sampled after acquiring the shared rate-limit lock. */
+    Instant reserveEmailSend(String emailHash, String originHash, int emailLimit, int originLimit, int resendSeconds);
     void purgeExpired(Instant now);
 }

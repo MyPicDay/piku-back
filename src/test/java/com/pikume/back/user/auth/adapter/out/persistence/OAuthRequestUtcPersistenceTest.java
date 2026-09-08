@@ -36,7 +36,7 @@ class OAuthRequestUtcPersistenceTest {
             assertThat(jdbc.queryForObject("SELECT window_started_at FROM oauth_start_rate_limits WHERE bucket_key='origin:origin'", LocalDateTime.class))
                 .isEqualTo(LocalDateTime.of(2026, 9, 7, 0, 0));
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Seoul"));
-            assertThat(store.claim("state", "caller", Channel.WEB, now.plusSeconds(599)).expiresAt()).isEqualTo(now.plusSeconds(600));
+            assertThat(store.claim("state", "caller", Channel.WEB, java.time.Clock.fixed(now.plusSeconds(599), java.time.ZoneOffset.UTC)).expiresAt()).isEqualTo(now.plusSeconds(600));
         } finally { TimeZone.setDefault(original); }
     }
 }
