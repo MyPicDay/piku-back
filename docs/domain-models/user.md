@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-09-06
+- Last Reviewed: 2026-09-08
 
 ## 도메인 개요
 
@@ -70,7 +70,8 @@ _Entity_
 
 ### 행위
 
-- `changeNickname` : 검증된 `Nickname` 값 객체로 닉네임을 변경한다.
+- `changeNickname(String newNickname)` : 입력을 `Nickname` 값 객체로 변환하여 닉네임을 변경한다.
+- `changeNickname(Nickname newNickname)` : 검증된 `Nickname` 값 객체로 닉네임을 변경한다.
 - `changeCharacter(Long characterId)` : 현재 아바타 캐릭터 식별자를 변경한다.
 - `updatePassword(String newHashedPassword)` : 암호화된 새로운 비밀번호로 변경한다.
 - `withdraw()` : 사용자를 회원 탈퇴 처리하고 `deletedAt`을 현재 시각으로 설정한다.
@@ -98,19 +99,13 @@ _Value Object_
 
 ### 행위
 
-- `Nickname` 생성은 앞뒤 whitespace 제거, 필수 값 검사와 길이 검사를 순서대로 수행한다.
+- `Nickname(String value)` : 앞뒤 whitespace를 제거하고 필수 값과 길이를 검증하여 객체를 생성한다.
 
 ### 규칙
 
 - 정규화는 Java의 Unicode-aware whitespace 판정에 따라 앞뒤 공백을 제거한다. 중간 whitespace, 대소문자와 기존 문자 정책은 유지한다.
 - 정규화된 닉네임은 비어 있지 않은 필수 값이며 길이는 최소 1자에서 최대 20자까지 허용한다. 필수 값이나 길이 조건을 만족하지 않으면 `InvalidNicknameException`이 발생한다.
 - 앞뒤 whitespace만 다른 입력은 같은 `Nickname` 값으로 비교된다.
-- 회원가입, 닉네임 사용 가능 확인과 프로필 변경은 Application 진입 시 닉네임을 값 객체로 변환한다. 이후 중복 검사, 점유와 저장에는 정규화된 값을 사용한다.
-- 프로필 변경에서 닉네임이 null이면 닉네임 변경 의도가 없다. 빈 문자열과 whitespace만 있는 문자열은 캐릭터 변경이 함께 요청되어도 거절한다.
-- 정규화 후 현재 닉네임과 같으면 사용 가능 확인은 성공하고, 프로필 변경은 닉네임 변경 없음으로 처리하며 새 점유를 요구하지 않는다.
-- Web Adapter는 잘못된 닉네임을 공용 Validation Problem Type의 400 Problem Details로 번역한다. 닉네임 중복은 기존 닉네임 충돌 문제 유형의 409 응답을 유지한다.
-- 프로필 변경 성공 응답은 실제 저장된 정규화 닉네임을 반환한다. 회원가입과 사용 가능 확인의 정상 응답 구조는 유지한다.
-- 기존 DB 닉네임의 일괄 정규화나 충돌 해소는 수행하지 않으며 기존 비정규화 데이터의 후속 조회·갱신 호환성은 보장하지 않는다.
 
 ---
 
@@ -147,3 +142,22 @@ _Domain Policy와 Application Port_
 - 현재 `ConcurrentHashMap` 기반 Adapter는 단일 애플리케이션 인스턴스에서만 점유를 공유한다.
 - 서버 재시작 시 점유가 사라지고 여러 인스턴스 사이에는 공유되지 않는다.
 - `users.nickname` 유일 제약은 최종 동시성 방어선이며, 위반은 User의 닉네임 충돌 의미로 번역한다.
+
+---
+
+## 닉네임 처리 정책
+
+### Application 정책
+
+- 회원가입, 닉네임 사용 가능 확인과 프로필 변경은 Application 진입 시 닉네임을 값 객체로 변환한다. 이후 중복 검사, 점유와 저장에는 정규화된 값을 사용한다.
+- 프로필 변경에서 닉네임이 null이면 닉네임 변경 의도가 없다. 빈 문자열과 whitespace만 있는 문자열은 캐릭터 변경이 함께 요청되어도 거절한다.
+- 정규화 후 현재 닉네임과 같으면 사용 가능 확인은 성공하고, 프로필 변경은 닉네임 변경 없음으로 처리하며 새 점유를 요구하지 않는다.
+
+### API 계약
+
+- Web Adapter는 잘못된 닉네임을 공용 Validation Problem Type의 400 Problem Details로 번역한다. 닉네임 중복은 기존 닉네임 충돌 문제 유형의 409 응답을 유지한다.
+- 프로필 변경 성공 응답은 실제 저장된 정규화 닉네임을 반환한다. 회원가입과 사용 가능 확인의 정상 응답 구조는 유지한다.
+
+### 호환성
+
+- 기존 DB 닉네임의 일괄 정규화나 충돌 해소는 수행하지 않으며 기존 비정규화 데이터의 후속 조회·갱신 호환성은 보장하지 않는다.
