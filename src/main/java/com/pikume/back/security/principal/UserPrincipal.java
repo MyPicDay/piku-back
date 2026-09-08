@@ -16,10 +16,16 @@ public class UserPrincipal implements UserDetails {
 	private final String nickname;
 	private final UserAvatarReference avatarReference;
 	private String profileSetupStatus = "COMPLETED";
+	private Long characterId;
 
 	public static UserPrincipal withProfileState(String id, String nickname, UserAvatarReference avatarReference, String status) {
+		return withProfileState(id, nickname, avatarReference, status, null);
+	}
+
+	public static UserPrincipal withProfileState(String id, String nickname, UserAvatarReference avatarReference, String status, Long characterId) {
 		UserPrincipal principal = new UserPrincipal(id, nickname, avatarReference);
 		principal.profileSetupStatus = status;
+		principal.characterId = characterId;
 		return principal;
 	}
 

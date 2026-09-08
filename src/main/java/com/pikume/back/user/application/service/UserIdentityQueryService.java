@@ -43,6 +43,6 @@ public class UserIdentityQueryService implements QueryUserIdentityUseCase {
 				user.getId(),
 				user.getPassword(),
 				user.getNickname(),
-				avatarReference, user.getProfileSetupStatus().name());
+				avatarReference, user.getProfileSetupStatus().name(), user.getCharacterId());
 	}
 }

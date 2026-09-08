@@ -13,7 +13,7 @@
 
 | nextAction | 화면의 다음 동작 |
 | --- | --- |
-| `AUTHENTICATE` | 이메일 또는 Google 인증 |
+| `AUTHENTICATE` | 인증 시작. `userId`가 있으면 이미 생성된 회원이므로 기존 이메일 로그인 또는 Google 로그인으로 세션 복구 |
 | `VERIFY_EMAIL` | 소셜 신원은 확인됨. 서비스 이메일을 코드로 인증 |
 | `AGREEMENTS` | 최신 필수 약관 표시와 동의 제출 |
 | `PROFILE` | 닉네임 점유 후 닉네임·고정 캐릭터 함께 제출 |
@@ -21,7 +21,7 @@
 
 `progress`에는 `nextAction`, `email`, `userId`, `profileSetupStatus`, `expiresAt`가 있다. 값이 없는 필드는 null일 수 있다. `expiresAt`는 회원 생성 전 가입 인증 증명의 만료 시각이며, 프로필 설정 기한이 아니다.
 
-이 문서는 현재 백엔드 구현 계약이다. 운영 API 주소, Google 등록 이름과 복귀 주소, 실제 약관 본문·버전, 기본 캐릭터의 숫자 ID는 환경별 확정값으로 별도 전달해야 한다. 현재 기본 캐릭터 ID를 클라이언트에 알려주는 응답 필드는 구현되어 있지 않다. 아래의 설정값 예시는 운영 확정값으로 사용하지 않는다.
+이 문서는 현재 백엔드 구현 계약이다. 운영 API 주소, Google 등록 이름과 복귀 주소, 실제 약관 본문·버전은 환경별 확정값으로 별도 전달해야 한다. 캐릭터 ID는 동의·로그인·본인 조회의 `user.characterId`와 캐릭터 목록에서 읽는다. 아래의 설정값 예시는 운영 확정값으로 사용하지 않는다.
 
 ## API와 인증 전달
 
@@ -71,7 +71,7 @@ Google 인증 API는 위 가입 API의 하위 경로가 아니다. 명시적 기
 | --- | --- | --- |
 | GET `/progress` | 로그인했다면 Bearer 토큰. 진행 중 증명은 아래 전달 규칙 적용 | `enabled`, `progress`, 웹 `csrfToken` 또는 모바일 `callerBinding`. 페이지 진입으로 DB 가입 레코드를 생성하지 않음 |
 | GET `/agreements` | 없음 | 문서 배열: `type`, `version`, `content`, `required` |
-| POST `/email/code` | `email`, 선택 `challengeId` | `challengeId`, `expiresAt`, `resendAvailableAt`. 소셜 이메일 인증이면 가입 증명도 전달 |
+| POST `/email/code` | `email`, 선택 `challengeId`, 선택 `restartAuthentication` | `challengeId`, `expiresAt`, `resendAvailableAt`. 기본 동작은 기존 소셜 증명의 이메일 보완. `restartAuthentication: true`면 이전 증명·challenge와 분리된 이메일 가입 인증 시작 |
 | POST `/email` | `challengeId`, `email`, `code`, `password` | 이메일 인증·비밀번호 검증 후 `progress`와 가입 증명 전달 |
 | POST `/social/email` | `challengeId`, `email`, `code`와 기존 가입 증명 | 같은 소셜 가입 증명의 이메일 인증 완료 |
 | POST `/agreements` | `agreements` 배열의 `type`, `version`, `agreed`; 가입 증명과 `Device-Id` 필수 | 회원 생성 후 `progress`, `user`, 로그인 자격 전달 |
@@ -81,6 +81,8 @@ Google 인증 API는 위 가입 API의 하위 경로가 아니다. 명시적 기
 
 닉네임은 최대 20자이며 `가입대기_` 접두어를 선택할 수 없다. 같은 닉네임의 중복 확인은 기존 예약 시간을 연장하지 않는다. 예약이 만료되면 중복 확인을 다시 수행한다. 새 닉네임 예약 실패 시 이전 예약은 유지된다. 캐릭터는 기존 GET `/api/characters/fixed`의 실제 ID를 사용한다. 기본 캐릭터를 그대로 선택해도 완료할 수 있다.
 
+인증 화면으로 돌아가 다른 이메일로 가입하거나 소셜 가입을 이메일 가입으로 바꾸면 코드 발송에 `restartAuthentication: true`를 보낸다. 서버는 이전 증명과 `challengeId`를 사용하지 않으며, 발송 성공 후 웹의 이전 증명 쿠키를 지운다. 모바일은 성공 후 저장한 `proof`를 지우고 새 `challengeId`를 사용한다. 실패 시 이전 증명을 유지한다. 이어지는 일반 재발송에는 새 `challengeId`와 기본값 false를 사용한다. 소셜 신원 연결을 유지하면서 이메일만 보완할 때는 이 옵션을 사용하지 않는다. 옵션으로 기존 회원이나 가입 자료를 삭제하지 않으며 발송 제한도 우회하지 않는다.
+
 ### 필드 형식과 공통 응답
 
 별도 표기한 303·204를 제외한 위 API의 성공 상태는 200이다. POST 본문은 `Content-Type: application/json`으로 전송한다. 서비스 회원 ID·서비스 토큰·이메일을 query에 넣지 않는다. `challengeId`와 `userId`는 문자열, `characterId`와 캐릭터 목록의 `id`는 양의 정수다. `expiresAt`, `resendAvailableAt`은 UTC ISO 8601 시각이며 클라이언트에서 화면용 남은 시간을 계산한다.
@@ -89,6 +91,7 @@ Google 인증 API는 위 가입 API의 하위 경로가 아니다. 명시적 기
 | --- | --- |
 | `email` | 이메일 문자열. 코드 발송 요청은 최대 255자. Gmail의 점이나 `+tag`를 제거하지 않음 |
 | `challengeId` | 서버 발송 응답의 문자열. 재발송 시 직전 값을 전달하며 인증 화면 제출에서는 필수 |
+| `restartAuthentication` | 선택 boolean, 기본 false. true는 소셜 이메일 보완을 중단하고 별도의 이메일 가입 인증 시작 |
 | `code` | 숫자 6자리 문자열. 앞자리 0을 유지 |
 | 이메일 가입 `password` | 길이 1~72자. 영문·숫자·`!@#$%^&*`만 허용하며 해당 특수문자 최소 1개 포함 |
 | 연결 요청 `password` | 기존 계정 비밀번호. `link: true`일 때 본인 확인에 필수이며 최대 72자 |
@@ -110,7 +113,7 @@ Google 인증 API는 위 가입 API의 하위 경로가 아니다. 명시적 기
 | `progress.userId` | 문자열 또는 null. 회원이 정해지기 전에는 null |
 | `progress.profileSetupStatus` | `REQUIRED`, `COMPLETED` 또는 null |
 | `progress.expiresAt` | 가입 증명 만료 시각 또는 null. 회원 생성 이후에도 증명에서 이어진 응답이면 시각이 남을 수 있음 |
-| `user` | 회원이 결정되면 `{id: string, nickname: string, avatarUrl: string 또는 null, profileSetupStatus: string}`. `characterId`, 이메일, Google 연결 여부는 현재 포함하지 않음 |
+| `user` | 회원이 결정되면 `{id: string, nickname: string, avatarUrl: string 또는 null, profileSetupStatus: string, characterId: number 또는 null}`. `characterId`는 현재 회원에 저장된 선택이며 신규 회원은 기본 캐릭터 ID. 이메일과 Google 연결 여부는 포함하지 않음 |
 | `tokens` | 모바일에서 회원이 결정됐을 때만 포함. `tokenType: "Bearer"`, `accessToken: string`, `refreshToken: string`, `accessTokenExpiresIn: number`, `refreshTokenExpiresIn: number`. 만료 기간 단위는 초 |
 | `proof` | 모바일에서 가입 증명이 생성되거나 전달될 때 문자열로 포함. 동의 후 회원 생성 응답에도 남을 수 있음. 웹은 본문에 포함하지 않음 |
 
@@ -128,7 +131,7 @@ Google 인증 API는 위 가입 API의 하위 경로가 아니다. 명시적 기
 }
 ```
 
-같은 단계의 모바일 응답은 최상위 `proof`를 추가한다. 동의로 신규 회원을 처음 생성하면 `progress.nextAction: PROFILE`, `user.profileSetupStatus: REQUIRED`와 임시 닉네임·기본 캐릭터 이미지 URL을 반환하며 모바일에서는 `tokens`도 추가한다. 재시도나 기존 연결 회원으로 복구된 응답에서는 실제 `progress`를 따른다. 프로필 완료 API의 응답은 이 단계 응답과 달리 최상위 `{userId, nickname, characterId, profileSetupStatus}`이며 새 토큰을 발급하지 않는다.
+같은 단계의 모바일 응답은 최상위 `proof`를 추가한다. 동의로 신규 회원을 처음 생성하면 `progress.nextAction: PROFILE`, `user.profileSetupStatus: REQUIRED`와 임시 닉네임·기본 캐릭터의 `characterId`·이미지 URL을 반환하며 모바일에서는 `tokens`도 추가한다. 재시도나 기존 연결 회원으로 복구된 응답에서는 실제 `progress`를 따른다. 프로필 완료 API의 응답은 이 단계 응답과 달리 최상위 `{userId, nickname, characterId, profileSetupStatus}`이며 새 토큰을 발급하지 않는다.
 
 ### 동의 문서와 기본 캐릭터
 
@@ -154,9 +157,9 @@ GET `/api/auth/signup/agreements` 또는 `/api/mobile/auth/signup/agreements`는
 | --- | --- | --- |
 | 선택 가능한 캐릭터 ID와 이미지 | GET `/api/characters/fixed`의 `id`, `displayImageUrl`, `type` | 사용자가 고른 실제 `id`를 프로필 완료에 제출 |
 | 가입 직후 기본 캐릭터 이미지 | 동의 응답의 `user.avatarUrl` | 가입 프로필 화면의 초기 이미지 표시 가능 |
-| 가입 직후 기본 캐릭터 ID | **현재 미제공**. 동의·본인 조회 응답에는 `characterId`가 없고 목록에도 기본값 표시가 없음 | 초기 선택과 변경 없는 완료를 구현하려면 백엔드 응답 보완 필요. 첫 항목·파일명·이미지 URL로 ID를 추론하거나 숫자를 하드코딩하지 않음 |
+| 가입 직후 기본 캐릭터 ID와 현재 선택 | 동의·로그인·웹 및 모바일 본인 조회의 `user.characterId` | 목록의 `id`와 비교해 선택 복구. 변경 없이 완료할 때도 이 ID를 제출 |
 
-서버는 기본 캐릭터의 실제 ID로도 완료를 허용하지만, 현재 공개 계약만으로는 그 기본 ID를 확정할 수 없다. 이 항목은 운영 숫자 전달만으로 끝낼 설정 문제와 구분되는 API 보완 사항이다.
+새로고침 후 세션을 복구하고 본인 조회의 `user.characterId`로 선택을 복원한다. 이미지 URL·목록 순서·파일명에서 ID를 추론하거나 숫자를 하드코딩하지 않는다. 기존 데이터에서 ID가 null이거나 현재 고정 목록에 없으면 목록에서 사용자가 선택하게 한다. 신규 회원의 기본 ID 누락을 클라이언트 임의 값으로 보충하지 않는다.
 
 ## 웹
 
@@ -173,15 +176,15 @@ GET `/progress`로 받은 `csrfToken`을 이후 신규 가입 쓰기와 Google �
 | POST `/nickname`, POST·DELETE `/profile` | 허용 Origin + 호출자·CSRF 쿠키 + `X-Signup-CSRF` + Bearer |
 | POST `/api/auth/oauth/google/start` | 허용 Origin + 호출자·CSRF 쿠키 + `X-Signup-CSRF` + `Device-Id`. `link: true`에는 Bearer 추가 |
 
-이 표의 가입 하위 경로 기준은 `/api/auth/signup`이다. 호출자 쿠키는 `__Host-pk-signup-binding`, CSRF 쿠키는 `__Host-pk-signup-csrf`이며 각각 최대 24시간이다. 가입 증명 쿠키는 최대 10분이고 최종 유효성은 서버가 판단한다. CORS는 `Authorization` 응답 헤더를 프론트가 읽도록 노출한다.
+이 표의 가입 하위 경로 기준은 `/api/auth/signup`이다. 호출자 쿠키는 `__Host-pk-signup-binding`, CSRF 쿠키는 `__Host-pk-signup-csrf`이며 각각 최대 24시간이다. 가입 증명 쿠키의 Max-Age는 DB 증명의 실제 남은 초로 설정한다. 재응답으로 10분이 다시 시작되지 않으며 이미 만료됐으면 삭제한다. 최종 유효성은 서버가 판단한다. CORS는 `Authorization` 응답 헤더를 프론트가 읽도록 노출한다.
 
 현재 허용 Origin은 `https://pikume.com`, `https://www.pikume.com`, `http://localhost:3000`, `http://localhost:3001`이다. HTTPS 로컬 주소나 별도 스테이징 주소는 자동 허용되지 않는다. 개발·스테이징에서는 실제 사용할 Origin의 허용과 Secure·SameSite 쿠키 전달을 함께 확인해야 하며, HTTPS만 준비했다고 호출 가능한 것으로 간주하지 않는다.
 
 웹 가입 증명은 `__Host-pk-signup-proof` 쿠키로 전달되며 응답 본문에 노출하지 않는다. 호출자 결합·CSRF 쿠키도 서버가 관리한다. 증명·세션 토큰을 URL, 로컬 저장소 또는 로그에 복사하지 않는다.
 
-회원 생성 또는 기존 회원 로그인 성공 시 액세스 토큰은 `Authorization: Bearer …` 응답 헤더, 갱신 토큰은 기존 `rn` HttpOnly 쿠키로 전달한다. `user`는 기존 `id`, `nickname`, `avatarUrl`에 `profileSetupStatus`가 추가된다. 일반 로그인과 GET `/api/auth/me`도 이 상태를 반환한다.
+회원 생성 또는 기존 회원 로그인 성공 시 액세스 토큰은 `Authorization: Bearer …` 응답 헤더, 갱신 토큰은 기존 `rn` HttpOnly 쿠키로 전달한다. `user`는 기존 `id`, `nickname`, `avatarUrl`에 `profileSetupStatus`, `characterId`가 추가된다. 일반 로그인과 GET `/api/auth/me`도 이 값을 반환한다.
 
-현재 동의 완료 응답에는 임시 닉네임과 기본 캐릭터의 이미지 URL이 포함되며 `characterId`는 포함되지 않는다. 캐릭터 ID를 응답만으로 기본 선택값에 연결하려면 후속 계약 보완이 필요하다. 이미지 URL을 파싱해 캐릭터 ID를 추론하지 않는다.
+이메일 로그인·기존 Google 회원 로그인 성공과 웹 로그아웃 성공 시 이전 가입 증명 쿠키를 정리한다. 호출자·CSRF 쿠키는 유지한다. 동의 후 회원 생성 응답에서는 동일 요청 복구에 필요한 증명을 원래 만료 시각까지 유지한다.
 
 Google 로그인 버튼에서는 POST `/api/auth/oauth/google/start`에 `link: false`와 `Device-Id`를 보낸다. 응답 `authorizationUrl`로 이동한다. 서버 콜백은 설정된 프론트 복귀 주소로 303 이동하며 URL에 가입 증명·서비스 토큰을 넣지 않는다.
 
@@ -217,6 +220,8 @@ challenge 본문은 `{"registration": "<환경별 등록 이름>", "link": false
 
 앱 재실행 시 진행 중인 `callerBinding`을 `X-Signup-Binding`으로 다시 보내고 보관한 `proof`도 전달해 GET `/api/mobile/auth/signup/progress`로 복구한다. 로그인 회원은 유효한 Bearer로 조회하고 액세스 토큰이 만료됐으면 POST `/api/mobile/auth/reissue`에 `{"refreshToken": "<저장한 갱신 토큰>"}`을 보내 새 `tokens`를 적용한다. 가입 인증 결과에 `tokens` 없이 `proof`만 있으면 이전 회원의 토큰을 해당 가입에 사용하지 않는다. 동의·프로필 응답 유실 시 상태 조회와 동일 입력 재시도를 사용하고, OAuth 완료 응답 유실은 소비된 state를 반복 제출하지 말고 Google 인증을 다시 시작한다.
 
+진행 조회가 `AUTHENTICATE`이고 `userId`가 없으면 앱에 남은 `proof`를 삭제한다. 기존 이메일 로그인, `proof` 없는 기존 Google 회원 로그인, 프로필 완료·가입 중 탈퇴·로그아웃 성공 시에도 저장한 proof를 정리한다. `AUTHENTICATE`에 `userId`가 있으면 아래 세션 유실 복구를 따른다.
+
 명시적 연결은 인증된 Bearer 토큰과 `link: true`, 기존 비밀번호를 challenge 요청에 추가한다. 앱은 개발 중이므로 새 계약을 적용하며 구형 모바일 가입 계약을 장기 유지하지 않는다.
 
 ## 기존 계정의 Google 연결
@@ -246,6 +251,10 @@ Workspace 주소를 포함한 다른 도메인의 동일 이메일은 이 자동
 현재 재인증 방식은 기존 비밀번호다. 비밀번호가 없는 소셜 전용 회원에게 이 연결 UI를 비밀번호 입력으로 진행시키지 않는다. 연결 목록 조회·연결 해제·다른 Google 계정으로 교체하는 별도 API는 이번 계약에 없다. 본인 조회 응답에도 연결 여부 필드가 없으므로 설정 화면에서 연결 상태를 지속적으로 표시하려면 별도 응답 보완이 필요하다.
 
 ## 실패와 재시도
+
+진행 조회는 화면 복구 API다. 로그인 토큰이 없고 가입 증명이 만료·무효이거나 구 가입 흐름의 증명, 탈퇴·삭제된 회원의 잔존 증명이면, 웹은 남은 증명 쿠키를 지우고 200 `AUTHENTICATE`와 `csrfToken`을 반환한다. 모바일은 같은 상태와 `callerBinding`을 반환하며 쿠키를 설정하지 않는다. 증명을 요구하는 쓰기는 계속 400 또는 410 Problem Details로 거절하므로, 오류 후 진행 조회를 거쳐 재인증한다. DB 장애 등 예상하지 못한 서버 오류를 인증 초기화 성공으로 바꾸지 않는다.
+
+동의로 회원을 생성했지만 로그인 세션을 잃었다면 먼저 갱신 토큰으로 재발급을 시도한다. 복구되지 않아 Bearer 없이 진행을 조회하면, 유효한 소비 증명에 대해 `AUTHENTICATE`와 기존 `userId`·`profileSetupStatus`를 반환한다. 이때는 가입 코드 인증부터 반복하지 말고 기존 이메일·비밀번호 로그인 또는 Google 로그인으로 같은 회원의 세션을 복구한다. 진행 조회 자체는 세션을 발급하지 않는다. 원래 동의 내용과 유효 증명을 보관했다면 동일 동의 제출 재시도도 가능하다. 이미 인증된 회원의 진행 조회는 증명보다 현재 회원 상태를 우선해 `PROFILE` 또는 `COMPLETE`를 반환한다.
 
 JSON API 오류는 RFC 9457 `application/problem+json`이며 `type`, `title`, `status`, `detail`, `instance`를 확인한다. 신규 가입의 비즈니스 오류에는 `code`가 추가된다. 요청 형식·필드 검증 오류는 기존 공통 검증 응답을 사용하므로 `code`가 없을 수 있다. 회원 기능의 접근 제한은 `type`이 `https://api.pikume.com/problems/signup/profile-setup-required`인 403으로 구분한다. 이 응답은 보안 필터에서 만들어질 수도 있으므로 `code`나 `nextAction`이 항상 존재한다고 가정하지 않는다.
 
@@ -327,7 +336,7 @@ Google 전용 신규 회원은 비밀번호가 없으며 비밀번호 재설정�
 | Google 웹 프론트 복귀 | 서버 `signup.web.completion-uri` 설정값. HTTPS, query·fragment 없는 고정 주소 | 프론트가 구현할 실제 복귀 URL |
 | 모바일 Google 등록 | 서버 `signup.google.mobile-registrations`에 등록된 이름 사용. 현재 고정 이름 없음 | 플랫폼·환경별 `registration`과 앱의 Google client ID, 서버가 검증할 audience·authorized party의 대응 |
 | 필수 동의 문서 | 운영 확정 본문·버전은 저장소에 없음 | 문서별 `type`, `version`, 실제 `content`, `required`. 설정 후 실제 GET 응답으로 확인 |
-| 기본 캐릭터 ID | 환경별 DB 값이며 현재 공개 응답에서 식별 불가 | 응답의 기본 캐릭터 ID 제공 보완과 환경별 카탈로그 확인 |
+| 기본 캐릭터 ID | 환경별 DB 값. 동의·로그인·본인 조회의 `user.characterId`로 제공 | 환경별 기본 카탈로그 준비 후 응답 ID와 캐릭터 목록의 일치 확인 |
 | 기존 Gmail 자동 연결 | 기본 비활성화 | 기존 이메일 가입의 인증 출처 확인 후 활성화 여부 |
 | Google 연결 상태 표시 | 본인 조회에 연결 목록·여부 없음 | 계정 설정 화면에 필요하면 조회 계약 보완 |
 

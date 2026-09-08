@@ -7,6 +7,8 @@ import com.pikume.back.user.application.dto.SignupProfileResult;
 import com.pikume.back.user.application.port.in.*;
 import com.pikume.back.user.auth.application.dto.*;
 import com.pikume.back.user.auth.application.exception.InvalidCredentialsException;
+import com.pikume.back.user.auth.application.exception.SignupFailure;
+import com.pikume.back.user.auth.application.exception.SignupFlowException;
 import com.pikume.back.user.auth.application.port.in.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +37,8 @@ public class SignupController {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ProgressResponse(boolean enabled, SignupProgress progress, String callerBinding, String csrfToken) {}
-    public record EmailCodeRequest(@NotBlank @Email @Size(max=255) String email, @Size(max=36) String challengeId) {}
+    public record EmailCodeRequest(@NotBlank @Email @Size(max=255) String email, @Size(max=36) String challengeId,
+        boolean restartAuthentication) {}
     public record EmailAuthenticationRequest(@NotBlank String challengeId, @NotBlank @Email String email,
         @Pattern(regexp="[0-9]{6}") @NotNull String code, @NotBlank @Size(max=72) String password) {}
     public record SocialEmailRequest(@NotBlank String challengeId, @NotBlank @Email String email,
@@ -58,8 +61,30 @@ public class SignupController {
             boolean pending = "REQUIRED".equals(user.profileSetupStatus().name());
             progress = new SignupProgress(pending ? SignupNextAction.PROFILE : SignupNextAction.COMPLETE,
                 null, user.id(), user.profileSetupStatus().name(), null);
-        } else progress = signup.progress(credentials.proof(request), binding);
+        } else progress = anonymousProgress(request, response, binding);
         return new ProgressResponse(configuration.querySignupConfiguration().enabled(), progress, mobile ? binding : null, csrf);
+    }
+
+    private SignupProgress anonymousProgress(HttpServletRequest request, HttpServletResponse response, String binding) {
+        String proof = credentials.proof(request);
+        try {
+            SignupProgress progress = signup.progress(proof, binding);
+            if (!SignupWebCredentials.mobile(request) && proof == null && credentials.hasProofCookie(request)) {
+                credentials.clearProof(response);
+            }
+            if (progress.userId() != null) {
+                return new SignupProgress(SignupNextAction.AUTHENTICATE, progress.email(), progress.userId(),
+                    progress.profileSetupStatus(), progress.expiresAt());
+            }
+            return progress;
+        } catch (SignupFlowException failure) {
+            if (failure.getReason() != SignupFailure.PROOF_INVALID && failure.getReason() != SignupFailure.PROOF_EXPIRED
+                && failure.getReason() != SignupFailure.FLOW_MISMATCH && failure.getReason() != SignupFailure.USER_UNAVAILABLE) {
+                throw failure;
+            }
+            if (!SignupWebCredentials.mobile(request)) credentials.clearProof(response);
+            return new SignupProgress(SignupNextAction.AUTHENTICATE, null, null, null, null);
+        }
     }
 
     @GetMapping("/agreements")
@@ -71,7 +96,10 @@ public class SignupController {
     @PostMapping("/email/code")
     public EmailSignupChallengeResult sendCode(@Valid @RequestBody EmailCodeRequest body, HttpServletRequest request, HttpServletResponse response) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        return signup.sendEmailCode(new EmailSignupChallengeCommand(body.email(), bindingForWrite(request), request.getRemoteAddr(), body.challengeId(), credentials.proof(request)));
+        var result = signup.sendEmailCode(new EmailSignupChallengeCommand(body.email(), bindingForWrite(request), request.getRemoteAddr(),
+            body.restartAuthentication() ? null : body.challengeId(), body.restartAuthentication() ? null : credentials.proof(request)));
+        if (body.restartAuthentication() && !SignupWebCredentials.mobile(request)) credentials.clearProof(response);
+        return result;
     }
 
     @PostMapping("/email")

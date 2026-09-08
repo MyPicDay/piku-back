@@ -12,13 +12,15 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.time.Duration;
+import java.time.Instant;
 import static com.pikume.back.user.auth.adapter.in.web.SignupWebException.Reason.*;
 
 @Component
 public class SignupWebCredentials {
     public static final String BINDING = "__Host-pk-signup-binding";
     public static final String CSRF = "__Host-pk-signup-csrf";
-    public static final String PROOF = "__Host-pk-signup-proof";
+    public static final String PROOF = com.pikume.back.security.adapter.in.web.AuthWebConstants.SIGNUP_PROOF_COOKIE;
     public static final String BINDING_HEADER = "X-Signup-Binding";
     public static final String PROOF_HEADER = "X-Signup-Proof";
     public static final String CSRF_HEADER = "X-Signup-CSRF";
@@ -86,8 +88,15 @@ public class SignupWebCredentials {
         return validOpaque(current) ? current : randomToken();
     }
 
-    public void storeProof(HttpServletResponse response, String proof) { setCookie(response, PROOF, proof, 600); }
-    public void clearProof(HttpServletResponse response) { setCookie(response, PROOF, "", 0); }
+    public boolean hasProofCookie(HttpServletRequest request) { return cookie(request, PROOF) != null; }
+    public void storeProof(HttpServletResponse response, String proof, Instant expiresAt) {
+        long remainingSeconds = Math.max(0, Duration.between(Instant.now(), expiresAt).getSeconds());
+        if (remainingSeconds == 0) clearProof(response);
+        else setCookie(response, PROOF, proof, remainingSeconds);
+    }
+    public void clearProof(HttpServletResponse response) {
+        response.addHeader(HttpHeaders.SET_COOKIE, com.pikume.back.security.adapter.in.web.SignupProofCookie.expired().toString());
+    }
     public static boolean mobile(HttpServletRequest request) { return request.getRequestURI().startsWith("/api/mobile/"); }
     public static boolean validOpaque(String value) { return value != null && value.matches("[A-Za-z0-9_-]{32,128}"); }
     public static String randomToken() { byte[] bytes = new byte[32]; RANDOM.nextBytes(bytes); return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes); }

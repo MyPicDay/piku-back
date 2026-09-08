@@ -3,7 +3,7 @@
 - Status: Active
 - Audience: Engineers
 - Source of Truth: Yes
-- Last Reviewed: 2026-09-07
+- Last Reviewed: 2026-09-08
 
 ## 책임과 경계
 
@@ -20,6 +20,12 @@ Character는 가입 기본값과 선택 가능한 고정 캐릭터를 해석한�
 웹은 Secure·HttpOnly·host-only 쿠키와 허용 Origin·CSRF 검증으로 증명과 호출자를 결속한다. 모바일은 전용 호출자·증명 헤더와 응답 본문을 사용한다. Application은 Servlet, Cookie, 제공자 SDK와 응답 상태 코드를 알지 않는다.
 
 인증 성공 결과는 고정 10분짜리 DB 증명이다. 이메일 보완이 필요하면 같은 증명에서 인증한다. 이메일과 필수 동의가 준비되면 실제 User를 임시 닉네임·기본 캐릭터·`REQUIRED` 상태로 생성한다. 이후 진행은 User 상태를 기준으로 하며 증명 만료 때문에 회원을 삭제하거나 프로필 설정 기한을 제한하지 않는다.
+
+진행 조회의 HTTP Adapter는 만료·무효·구 가입 증명 또는 탈퇴·삭제 회원의 잔존 증명을 인증 시작 응답과 웹 쿠키 정리로 번역한다. Application이 보고한 저장소 장애는 그대로 실패 처리한다. 소비된 증명에 회원이 있어도 현재 요청이 인증되지 않았다면 기존 회원 ID와 재인증 동작을 안내하며, 조회 요청만으로 세션을 발행하지 않는다. 기존 로그인이나 같은 유효 증명·동의 내용의 재제출이 세션 복구를 담당한다.
+
+이메일 인증 재시작 의도는 기존 코드 발송 입력에서 구분한다. HTTP Adapter가 이전 증명·challenge를 제외한 새 인증 요청을 전달하고, 발송 성공 후 클라이언트의 이전 증명을 정리한다. 웹 로그인·로그아웃의 증명 삭제 쿠키는 Security의 공통 HTTP 계약을 사용하며 Security에서 User의 입력 Adapter를 역참조하지 않는다.
+
+본인 조회의 캐릭터 식별자는 공개 회원 신원 조회를 통해 현재 User에서 읽는다. 세션 응답과 요청 Principal로 전달하며 토큰의 과거 캐릭터 상태나 이미지 URL에서 복원하지 않는다.
 
 `ReserveSignupNicknameUseCase`는 3분 DB 예약을 만들고 `CompleteSignupProfileUseCase`는 닉네임·캐릭터·완료 상태·예약 해제를 함께 확정한다. 회원 조회 계약은 `REQUIRED` 회원을 공개 프로필·참조·요약에서 제외하되 본인 인증과 가입 재개를 유지한다.
 

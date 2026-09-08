@@ -98,7 +98,7 @@ public class AuthController {
 		verifyEmailUseCase.verifyCode(new VerifyEmailCommand(dto.getEmail(), dto.getCode(), dto.getType()));
 		if (callerBinding != null) {
 			var proof = legacySignupProofUseCase.issueLegacyProof(dto.getEmail(), callerBinding);
-			signupCredentials.storeProof(response, proof.proof());
+			signupCredentials.storeProof(response, proof.proof(), proof.progress().expiresAt());
 		}
 		return ResponseEntity.ok(new MessageResponse("이메일 인증이 완료되었습니다."));
 	}

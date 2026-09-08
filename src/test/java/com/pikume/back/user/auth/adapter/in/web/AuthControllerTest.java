@@ -74,7 +74,11 @@ class AuthControllerTest {
 		org.mockito.Mockito.lenient().when(signupConfiguration.querySignupConfiguration()).thenReturn(new com.pikume.back.user.auth.application.dto.SignupConfiguration(false,true));
         org.mockito.Mockito.lenient().when(credentials.requireBinding(any())).thenReturn("binding");
         org.mockito.Mockito.lenient().when(credentials.requireProof(any())).thenReturn("proof");
-        org.mockito.Mockito.lenient().when(legacySignup.issueLegacyProof(any(),any())).thenReturn(new com.pikume.back.user.auth.application.dto.SignupProofResult("proof",null));
+        org.mockito.Mockito.lenient().when(legacySignup.issueLegacyProof(any(),any())).thenReturn(
+            new com.pikume.back.user.auth.application.dto.SignupProofResult("proof",
+                new com.pikume.back.user.auth.application.dto.SignupProgress(
+                    com.pikume.back.user.auth.application.dto.SignupNextAction.AGREEMENTS,"user@example.com",null,null,
+                    java.time.Instant.now().plusSeconds(600))));
         ProblemDetailFactory problemDetailFactory = new ProblemDetailFactory();
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();

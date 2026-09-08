@@ -26,7 +26,7 @@ public class SignupSessionResponseWriter {
 
     public StepResponse write(SignupProofResult result, String deviceId, boolean mobile, HttpServletResponse response) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        if (!mobile && result.proof() != null) credentials.storeProof(response, result.proof());
+        if (!mobile && result.proof() != null) credentials.storeProof(response, result.proof(), result.progress().expiresAt());
         if (result.progress().userId() == null) {
             if (!mobile) clearRefresh(response);
             return new StepResponse(result.progress(), null, null, mobile ? result.proof() : null);
@@ -36,6 +36,7 @@ public class SignupSessionResponseWriter {
         if (mobile) return new StepResponse(result.progress(), user,
             new MobileTokenBundle("Bearer", session.accessToken(), session.refreshToken(),
                 UserTokenSettings.ACCESS_TOKEN_EXPIRATION_MILLIS / 1000L, UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS / 1000L), result.proof());
+        if (result.proof() == null) credentials.clearProof(response);
         response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + session.accessToken());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken(), UserTokenSettings.REFRESH_TOKEN_EXPIRATION_MILLIS / 1000L));
         return new StepResponse(result.progress(), user, null, null);

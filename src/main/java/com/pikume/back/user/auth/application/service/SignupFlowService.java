@@ -303,7 +303,11 @@ public class SignupFlowService implements SignupFlowUseCase, QuerySignupAgreemen
     @Override
     public SignupProgress progress(String proof, String callerBinding) {
         if (proof==null || proof.isBlank()) return new SignupProgress(SignupNextAction.AUTHENTICATE, null, null, null, null);
-        return tx(() -> proofProgress(loadProof(proof, callerBinding, Instant.now())));
+        return tx(() -> {
+            var authentication = loadProof(proof, callerBinding, Instant.now());
+            if (!"CHAPTERED".equals(authentication.getFlowType())) throw fail(FLOW_MISMATCH);
+            return proofProgress(authentication);
+        });
     }
 
     @Override

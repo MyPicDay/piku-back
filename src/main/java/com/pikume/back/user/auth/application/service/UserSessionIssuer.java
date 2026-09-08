@@ -33,7 +33,7 @@ public class UserSessionIssuer implements IssueUserSessionUseCase, Reauthenticat
         String refreshToken = tokens.generateRefreshToken();
         sessions.storeSession(new RefreshSessionPort.RefreshSession(userId + "-" + deviceId, refreshToken, userId));
         return new LoginResult(accessToken, refreshToken, new LoginResult.UserInfo(userId,
-            identity.nickname(), identity.avatarReference(), user.profileSetupStatus().name()));
+            identity.nickname(), identity.avatarReference(), user.profileSetupStatus().name(), identity.characterId()));
     }
 
     @Override
