@@ -1,5 +1,6 @@
 package com.pikume.back.user.application.service;
 
+import com.pikume.back.user.domain.vo.Nickname;
 import com.pikume.back.user.application.exception.SignupProfileException;
 import com.pikume.back.user.application.exception.SignupProfileFailure;
 import com.pikume.back.user.application.port.out.*;
@@ -25,15 +26,15 @@ class SignupProfileServiceTest {
 	@Mock ResolveFixedCharacterAvatarPort characters;
 	@Mock NicknameHoldPort holds;
 
-	@Test void reserveReturnsOriginalExpiryWithoutTrimming() {
+	@Test void reserveReturnsNormalizedNicknameWithOriginalExpiry() {
 		given(users.loadProfileUserForUpdate("user-1")).willReturn(Optional.of(pending()));
 		Instant expiry = Instant.now().plusSeconds(60);
-		given(holds.tryAcquire(eq(" nick "), eq("user-1"), any())).willReturn(true);
-		given(holds.heldUntil(eq(" nick "), eq("user-1"), any())).willReturn(Optional.of(expiry));
+		given(holds.tryAcquire(eq(new Nickname(" nick ")), eq("user-1"), any())).willReturn(true);
+		given(holds.heldUntil(eq(new Nickname(" nick ")), eq("user-1"), any())).willReturn(Optional.of(expiry));
 
 		var result = service.reserveSignupNickname("user-1", " nick ");
 
-		assertThat(result.nickname()).isEqualTo(" nick ");
+		assertThat(result.nickname()).isEqualTo("nick");
 		assertThat(result.expiresAt()).isEqualTo(expiry);
 		var order = inOrder(holds, users);
 		order.verify(holds).lockNicknameWrites();
@@ -41,7 +42,7 @@ class SignupProfileServiceTest {
 	}
 
 	@Test void reserveRejectsReservedPrefix() {
-		assertFailure(() -> service.reserveSignupNickname("user-1", "가입대기_123"), SignupProfileFailure.INVALID_NICKNAME);
+		assertFailure(() -> service.reserveSignupNickname("user-1", "  가입대기_123　 "), SignupProfileFailure.INVALID_NICKNAME);
 		verify(holds, never()).tryAcquire(any(), any(), any());
 	}
 
@@ -59,7 +60,7 @@ class SignupProfileServiceTest {
 	@Test void invalidCharacterPreservesHoldAndPendingState() {
 		User user = pending();
 		given(users.loadProfileUserForUpdate("user-1")).willReturn(Optional.of(user));
-		given(holds.isHeldBy(eq("nick"), eq("user-1"), any())).willReturn(true);
+		given(holds.isHeldBy(eq(new Nickname("nick")), eq("user-1"), any())).willReturn(true);
 
 		assertFailure(() -> service.completeSignupProfile("user-1", "nick", 9L), SignupProfileFailure.INVALID_CHARACTER);
 
@@ -70,7 +71,7 @@ class SignupProfileServiceTest {
 	@Test void completionAllowsDefaultCharacterAndReleasesAfterSaving() {
 		User user = pending();
 		given(users.loadProfileUserForUpdate("user-1")).willReturn(Optional.of(user));
-		given(holds.isHeldBy(eq("nick"), eq("user-1"), any())).willReturn(true);
+		given(holds.isHeldBy(eq(new Nickname("nick")), eq("user-1"), any())).willReturn(true);
 		given(characters.resolveFixedCharacterObjectKey(1L)).willReturn(Optional.of("default.webp"));
 
 		var result = service.completeSignupProfile("user-1", "nick", 1L);
@@ -80,9 +81,9 @@ class SignupProfileServiceTest {
 		var order = inOrder(holds, users, accounts);
 		order.verify(holds).lockNicknameWrites();
 		order.verify(users).loadProfileUserForUpdate("user-1");
-		order.verify(holds).isHeldBy(eq("nick"), eq("user-1"), any());
+		order.verify(holds).isHeldBy(eq(new Nickname("nick")), eq("user-1"), any());
 		order.verify(accounts).recordUserAccount(user);
-		order.verify(holds).release("nick", "user-1");
+		order.verify(holds).release(new Nickname("nick"), "user-1");
 	}
 
 	@Test void identicalCompletedRetryNeedsNoHoldOrCharacterLookup() {

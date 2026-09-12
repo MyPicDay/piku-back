@@ -1,5 +1,6 @@
 package com.pikume.back.user.adapter.out.persistence;
 
+import com.pikume.back.user.domain.vo.Nickname;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,11 +33,11 @@ class NicknameHoldPersistenceAdapterTest {
 	@Test void duplicateReservationKeepsFixedExpiryAndExactBoundaryExpires() {
 		tx.executeWithoutResult(status -> {
 			holds.lockNicknameWrites();
-			assertThat(holds.tryAcquire("nick", "user-1", now)).isTrue();
-			assertThat(holds.tryAcquire("nick", "user-1", now.plusSeconds(60))).isTrue();
-			assertThat(holds.heldUntil("nick", "user-1", now.plusSeconds(60))).contains(now.plusSeconds(180));
-			assertThat(holds.isHeldBy("nick", "user-1", now.plusSeconds(180))).isFalse();
-			assertThat(holds.tryAcquire("nick", "user-2", now.plusSeconds(180))).isTrue();
+			assertThat(holds.tryAcquire(new Nickname("nick"), "user-1", now)).isTrue();
+			assertThat(holds.tryAcquire(new Nickname("nick"), "user-1", now.plusSeconds(60))).isTrue();
+			assertThat(holds.heldUntil(new Nickname("nick"), "user-1", now.plusSeconds(60))).contains(now.plusSeconds(180));
+			assertThat(holds.isHeldBy(new Nickname("nick"), "user-1", now.plusSeconds(180))).isFalse();
+			assertThat(holds.tryAcquire(new Nickname("nick"), "user-2", now.plusSeconds(180))).isTrue();
 		});
 	}
 
@@ -44,7 +45,7 @@ class NicknameHoldPersistenceAdapterTest {
 		source.setUrl(source.getUrl() + ";INIT=SET TIME ZONE 'Pacific/Honolulu'");
 		tx.executeWithoutResult(status -> {
 			holds.lockNicknameWrites();
-			holds.tryAcquire("timezone", "user-1", now);
+			holds.tryAcquire(new Nickname("timezone"), "user-1", now);
 		});
 		java.time.LocalDateTime stored = jdbc.queryForObject(
 			"SELECT expires_at FROM nickname_holds WHERE user_id = 'user-1'", java.time.LocalDateTime.class);
@@ -54,25 +55,25 @@ class NicknameHoldPersistenceAdapterTest {
 	@Test void conflictKeepsPreviousHoldWhileSuccessfulChangeReplacesIt() {
 		tx.executeWithoutResult(status -> {
 			holds.lockNicknameWrites();
-			holds.tryAcquire("first", "user-1", now);
-			holds.tryAcquire("taken", "user-2", now);
-			assertThat(holds.tryAcquire("taken", "user-1", now.plusSeconds(30))).isFalse();
-			assertThat(holds.isHeldBy("first", "user-1", now.plusSeconds(30))).isTrue();
-			assertThat(holds.tryAcquire("replacement", "user-1", now.plusSeconds(40))).isTrue();
-			assertThat(holds.isHeldBy("first", "user-1", now.plusSeconds(40))).isFalse();
-			assertThat(holds.heldUntil("replacement", "user-1", now.plusSeconds(40))).contains(now.plusSeconds(220));
+			holds.tryAcquire(new Nickname("first"), "user-1", now);
+			holds.tryAcquire(new Nickname("taken"), "user-2", now);
+			assertThat(holds.tryAcquire(new Nickname("taken"), "user-1", now.plusSeconds(30))).isFalse();
+			assertThat(holds.isHeldBy(new Nickname("first"), "user-1", now.plusSeconds(30))).isTrue();
+			assertThat(holds.tryAcquire(new Nickname("replacement"), "user-1", now.plusSeconds(40))).isTrue();
+			assertThat(holds.isHeldBy(new Nickname("first"), "user-1", now.plusSeconds(40))).isFalse();
+			assertThat(holds.heldUntil(new Nickname("replacement"), "user-1", now.plusSeconds(40))).contains(now.plusSeconds(220));
 		});
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_holds WHERE user_id = 'user-1'", Integer.class)).isEqualTo(1);
 	}
 
 	@Test void failedTransactionRestoresReleasedHold() {
-		tx.executeWithoutResult(status -> { holds.lockNicknameWrites(); holds.tryAcquire("nick", "user-1", now); });
+		tx.executeWithoutResult(status -> { holds.lockNicknameWrites(); holds.tryAcquire(new Nickname("nick"), "user-1", now); });
 		assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
 			holds.lockNicknameWrites();
-			holds.release("nick", "user-1");
+			holds.release(new Nickname("nick"), "user-1");
 			throw new IllegalStateException("save failed");
 		})).isInstanceOf(IllegalStateException.class);
-		Boolean stillHeld = tx.execute(status -> holds.isHeldBy("nick", "user-1", now));
+		Boolean stillHeld = tx.execute(status -> holds.isHeldBy(new Nickname("nick"), "user-1", now));
 		assertThat(stillHeld).isTrue();
 	}
 
@@ -87,7 +88,7 @@ class NicknameHoldPersistenceAdapterTest {
 				if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("barrier timed out");
 				return tx.execute(status -> {
 					holds.lockNicknameWrites();
-					return holds.tryAcquire("shared", "user-" + index, now);
+					return holds.tryAcquire(new Nickname("shared"), "user-" + index, now);
 				});
 			})).toList();
 			assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();

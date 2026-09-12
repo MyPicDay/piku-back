@@ -186,6 +186,45 @@ class SignupJourneyIntegrationTest {
         assertThat(resumed.at("/progress/nextAction").asText()).isEqualTo("PROFILE");
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans={false,true})
+    void normalizedNicknameReservationCompletionAndRetryShareTheSameValue(boolean mobile) throws Exception {
+        Client client=new Client(mobile);
+        authenticate(client,"nickname@gmail.com");
+        JsonNode consent=client.request(post(client.base+"/signup/agreements").content(body(Map.of("agreements",List.of(Map.of(
+            "type","TERMS","version","v1","agreed",true))))),200);
+        String expected="12345678901234567890";
+        JsonNode reservation=client.request(post(client.base+"/signup/nickname").content(body(Map.of("nickname","  "+expected+"　 "))),200);
+        assertThat(reservation.get("nickname").asText()).isEqualTo(expected);
+        JsonNode repeated=client.request(post(client.base+"/signup/nickname").content(body(Map.of("nickname","\t"+expected+"\n"))),200);
+        assertThat(repeated.get("expiresAt")).isEqualTo(reservation.get("expiresAt"));
+        JsonNode completed=client.request(post(client.base+"/signup/profile").content(body(Map.of("nickname"," "+expected+" ","characterId",defaultCharacterId))),200);
+        JsonNode retried=client.request(post(client.base+"/signup/profile").content(body(Map.of("nickname","\t"+expected+"\n","characterId",defaultCharacterId))),200);
+        assertThat(completed.get("nickname").asText()).isEqualTo(expected);
+        assertThat(retried).isEqualTo(completed);
+        assertThat(jdbc.queryForObject("SELECT nickname FROM users WHERE id=?",String.class,consent.at("/user/id").asText())).isEqualTo(expected);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_holds",Integer.class)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans={false,true})
+    void invalidNormalizedSignupNicknamesKeepThePendingUserAndProblemContract(boolean mobile) throws Exception {
+        Client client=new Client(mobile);
+        authenticate(client,"invalidnickname@gmail.com");
+        JsonNode consent=client.request(post(client.base+"/signup/agreements").content(body(Map.of("agreements",List.of(Map.of(
+            "type","TERMS","version","v1","agreed",true))))),200);
+        for(String nickname:List.of("", "  　 ", "  가입대기_123　 ", "123456789012345678901")) {
+            for(String endpoint:List.of("nickname","profile")) {
+                JsonNode error=client.request(post(client.base+"/signup/"+endpoint).content(body(Map.of("nickname",nickname,"characterId",defaultCharacterId))),400);
+                assertThat(error.path("code").asText()).isEqualTo("INVALID_NICKNAME");
+                assertThat(error.get("type").asText()).isEqualTo("https://api.pikume.com/problems/signup/invalid-nickname");
+                assertThat(error.get("detail").asText()).isNotBlank();
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT profile_setup_status FROM users WHERE id=?",String.class,consent.at("/user/id").asText())).isEqualTo("REQUIRED");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_holds",Integer.class)).isZero();
+    }
+
     private void authenticate(Client client,String email) throws Exception {
         client.request(get(client.base+"/signup/progress"),200);
         JsonNode challenge=client.request(post(client.base+"/signup/email/code").content(body(Map.of("email",email))),200);

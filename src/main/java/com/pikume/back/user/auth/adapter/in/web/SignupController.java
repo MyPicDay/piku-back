@@ -44,8 +44,8 @@ public class SignupController {
     public record SocialEmailRequest(@NotBlank String challengeId, @NotBlank @Email String email,
         @Pattern(regexp="[0-9]{6}") @NotNull String code) {}
     public record AgreementsRequest(@NotEmpty @Size(max=20) List<@NotNull AgreementAcceptance> agreements) {}
-    public record NicknameRequest(@NotBlank @Size(max=20) String nickname) {}
-    public record ProfileRequest(@NotBlank @Size(max=20) String nickname, @NotNull @Positive Long characterId) {}
+    public record NicknameRequest(@io.swagger.v3.oas.annotations.media.Schema(requiredMode=io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, description="앞뒤 공백 정리 후 1~20자의 닉네임") String nickname) {}
+    public record ProfileRequest(@io.swagger.v3.oas.annotations.media.Schema(requiredMode=io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, description="예약한 닉네임. 앞뒤 공백 정리 후 1~20자") String nickname, @NotNull @Positive Long characterId) {}
 
     @GetMapping("/progress")
     public ProgressResponse progress(@AuthenticationPrincipal UserPrincipal principal, HttpServletRequest request, HttpServletResponse response) {

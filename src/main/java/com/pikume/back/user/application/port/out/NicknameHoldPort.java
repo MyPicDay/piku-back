@@ -1,5 +1,6 @@
 package com.pikume.back.user.application.port.out;
 
+import com.pikume.back.user.domain.vo.Nickname;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -9,15 +10,15 @@ public interface NicknameHoldPort {
 	 * Always acquire before locking a user or reading nickname availability. */
 	void lockNicknameWrites();
 
-	boolean tryAcquire(String nickname, String userId, Instant requestedAt);
+	boolean tryAcquire(Nickname nickname, String userId, Instant requestedAt);
 
-	boolean isHeldBy(String nickname, String userId, Instant checkedAt);
+	boolean isHeldBy(Nickname nickname, String userId, Instant checkedAt);
 
-	boolean isHeld(String nickname, Instant checkedAt);
+	boolean isHeld(Nickname nickname, Instant checkedAt);
 
-	Optional<Instant> heldUntil(String nickname, String userId, Instant checkedAt);
+	Optional<Instant> heldUntil(Nickname nickname, String userId, Instant checkedAt);
 
-	void release(String nickname, String userId);
+	void release(Nickname nickname, String userId);
 
 	void releaseForUser(String userId);
 }

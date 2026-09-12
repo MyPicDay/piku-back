@@ -58,6 +58,31 @@ class SignupProfilePersistenceIntegrationTest {
 		users.deleteAll();
 	}
 
+	@Test void completedProfileUsesTheSameNormalizedDatabaseHoldForReservationAndUpdate() {
+		User user=users.saveAndFlush(new User("profile@example.com","hash","현재닉",1L));
+		assertThat(service.reserveIfAvailable("  새닉　 ",user.getId())).isTrue();
+		var result=service.updateProfile(new com.pikume.back.user.application.dto.UpdateProfileCommand(user.getId(),"\t새닉\n",null));
+		assertThat(result.success()).isTrue();assertThat(result.newNickname()).isEqualTo("새닉");
+		assertThat(jdbc.queryForObject("SELECT nickname FROM users WHERE id=?",String.class,user.getId())).isEqualTo("새닉");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_holds",Integer.class)).isZero();
+	}
+
+	@Test void normalizedSignupHoldRejectsAnotherMemberAndSupportsCompletionRetry() {
+		User first=users.saveAndFlush(User.pending("first@example.com",null,"가입대기_first",1L));
+		User second=users.saveAndFlush(User.pending("second@example.com",null,"가입대기_second",1L));
+		var reserved=service.reserveSignupNickname(first.getId(),"  완료닉　 ");
+		assertThat(reserved.nickname()).isEqualTo("완료닉");
+		assertThat(jdbc.queryForObject("SELECT nickname FROM nickname_holds",String.class)).isEqualTo("완료닉");
+		assertThatThrownBy(()->service.reserveSignupNickname(second.getId(),"\t완료닉\n"))
+			.isInstanceOfSatisfying(SignupProfileException.class,e->assertThat(e.getFailure()).isEqualTo(SignupProfileFailure.NICKNAME_UNAVAILABLE));
+		assertThat(service.reserveSignupNickname(first.getId(),"완료닉").expiresAt()).isEqualTo(reserved.expiresAt());
+		given(characters.resolveFixedCharacterObjectKey(1L)).willReturn(Optional.of("default.webp"));
+		var completed=service.completeSignupProfile(first.getId(),"\t완료닉\n",1L);
+		assertThat(service.completeSignupProfile(first.getId()," 완료닉 ",1L)).isEqualTo(completed);
+		assertThat(jdbc.queryForObject("SELECT nickname FROM users WHERE id=?",String.class,first.getId())).isEqualTo("완료닉");
+		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_holds",Integer.class)).isZero();
+	}
+
 	@Test void failedCharacterSelectionKeepsHoldAndPendingAccountThenRetryCompletes() {
 		User user = users.saveAndFlush(User.pending("user@example.com", null, "가입대기_123", 1L));
 		var reservation = service.reserveSignupNickname(user.getId(), "final");

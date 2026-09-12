@@ -33,6 +33,7 @@ import com.pikume.back.user.domain.exception.InvalidPasswordException;
 import com.pikume.back.user.domain.exception.NicknameAlreadyExistsException;
 import com.pikume.back.user.domain.service.PasswordPolicy;
 import com.pikume.back.user.domain.vo.Email;
+import com.pikume.back.user.domain.vo.Nickname;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -63,6 +64,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 	@Override
 	@Transactional
 	public void signUp(SignUpCommand command) {
+		Nickname nickname = new Nickname(command.nickname());
 		nicknameHoldPort.lockNicknameWrites();
 		requireValidEmail(command.email());
 		requireValidPassword(command.password());
@@ -70,10 +72,9 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 			throw new AuthException(AuthErrorCode.EMAIL_ALREADY_EXISTS);
 		}
 
-        new Nickname(command.nickname());
-        if (command.nickname().startsWith("가입대기_")
-                || checkUserUniquenessPort.isNicknameInUse(command.nickname())
-                || nicknameHoldPort.isHeld(command.nickname(), Instant.now())) {
+        if (nickname.value().startsWith("가입대기_")
+                || checkUserUniquenessPort.isNicknameInUse(nickname)
+                || nicknameHoldPort.isHeld(nickname, Instant.now())) {
             throw new AuthException(AuthErrorCode.NICKNAME_ALREADY_EXISTS);
         }
 		VerifiedEmail verified = getValidVerifiedEmail(command.email(), VerificationType.SIGN_UP);
@@ -81,7 +82,7 @@ public class AuthService implements SignUpUseCase, VerifyEmailUseCase, ResetPass
 		User user = new User(
 				command.email(),
 				passwordProtectionPort.protect(command.password()),
-				command.nickname(),
+				nickname,
 				command.fixedCharacterId());
 
 		verified.markUsed();

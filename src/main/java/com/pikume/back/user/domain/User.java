@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import com.pikume.back.global.entity.BaseEntity;
+import com.pikume.back.user.domain.exception.InvalidNicknameException;
 import com.pikume.back.user.domain.vo.Email;
 import com.pikume.back.user.domain.vo.Nickname;
 import java.time.LocalDateTime;
@@ -46,9 +47,13 @@ public class User extends BaseEntity {
 	private LocalDateTime deletedAt;
 
 	public User(String email, String password, String nickname, Long characterId) {
+		this(email, password, new Nickname(nickname), characterId);
+	}
+
+	public User(String email, String password, Nickname nickname, Long characterId) {
 		this.email = new Email(email);
 		this.password = password;
-		this.nickname = new Nickname(nickname);
+		this.nickname = requireNickname(nickname);
 		this.characterId = requireCharacterId(characterId);
 	}
 
@@ -72,6 +77,10 @@ public class User extends BaseEntity {
 	 * @param newNickname 변경할 닉네임
 	 */
 	public void changeNickname(String newNickname) {
+		changeNickname(new Nickname(newNickname));
+	}
+
+	public void changeNickname(Nickname newNickname) {
 		this.nickname = requireFinalNickname(newNickname);
 	}
 
@@ -84,11 +93,16 @@ public class User extends BaseEntity {
 	}
 
 	public void completeProfile(String nickname, Long characterId) {
+		completeProfile(new Nickname(nickname), characterId);
+	}
+
+	public void completeProfile(Nickname nickname, Long characterId) {
+		requireNickname(nickname);
 		if (isWithdrawn()) {
 			throw new IllegalStateException("탈퇴한 사용자는 프로필 설정을 완료할 수 없습니다.");
 		}
 		if (profileSetupStatus == ProfileSetupStatus.COMPLETED) {
-			if (Objects.equals(getNickname(), nickname) && Objects.equals(this.characterId, characterId)) {
+			if (Objects.equals(getNickname(), nickname.value()) && Objects.equals(this.characterId, characterId)) {
 				return;
 			}
 			throw new IllegalStateException("이미 완료된 프로필은 완료 요청으로 변경할 수 없습니다.");
@@ -101,11 +115,12 @@ public class User extends BaseEntity {
 		this.profileSetupStatus = ProfileSetupStatus.COMPLETED;
 	}
 
-	private Nickname requireFinalNickname(String nickname) {
-		if (nickname != null && nickname.startsWith(TEMPORARY_NICKNAME_PREFIX)) {
-			throw new IllegalArgumentException("가입 대기 닉네임은 최종 닉네임으로 사용할 수 없습니다.");
+	private Nickname requireFinalNickname(Nickname nickname) {
+		requireNickname(nickname);
+		if (nickname.value().startsWith(TEMPORARY_NICKNAME_PREFIX)) {
+			throw new InvalidNicknameException("가입 대기 닉네임은 최종 닉네임으로 사용할 수 없습니다.");
 		}
-		return new Nickname(nickname);
+		return nickname;
 	}
 
 	public String getEmail() {
@@ -121,6 +136,13 @@ public class User extends BaseEntity {
 			throw new IllegalArgumentException("캐릭터 식별자는 양수여야 합니다.");
 		}
 		return characterId;
+	}
+
+	private Nickname requireNickname(Nickname nickname) {
+		if (nickname == null) {
+			throw new InvalidNicknameException("닉네임은 필수 값입니다.");
+		}
+		return nickname;
 	}
 
 	/**

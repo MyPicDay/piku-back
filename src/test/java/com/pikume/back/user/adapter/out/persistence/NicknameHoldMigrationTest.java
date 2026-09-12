@@ -1,5 +1,6 @@
 package com.pikume.back.user.adapter.out.persistence;
 
+import com.pikume.back.user.domain.vo.Nickname;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -42,10 +43,10 @@ class NicknameHoldMigrationTest {
 		Instant now = Instant.parse("2026-09-07T00:00:00Z");
 		tx.executeWithoutResult(status -> {
 			holds.lockNicknameWrites();
-			assertThat(holds.tryAcquire("Résumé", "user-1", now)).isTrue();
-			assertThat(holds.tryAcquire("RESUME", "user-1", now.plusSeconds(60))).isTrue();
-			assertThat(holds.heldUntil("resume", "user-1", now.plusSeconds(60))).contains(now.plusSeconds(180));
-			assertThat(holds.tryAcquire("resume", "user-2", now.plusSeconds(60))).isFalse();
+			assertThat(holds.tryAcquire(new Nickname("Résumé"), "user-1", now)).isTrue();
+			assertThat(holds.tryAcquire(new Nickname("RESUME"), "user-1", now.plusSeconds(60))).isTrue();
+			assertThat(holds.heldUntil(new Nickname("resume"), "user-1", now.plusSeconds(60))).contains(now.plusSeconds(180));
+			assertThat(holds.tryAcquire(new Nickname("resume"), "user-2", now.plusSeconds(60))).isFalse();
 		});
 		assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM nickname_write_mutex", Integer.class)).isEqualTo(1);
 	}
@@ -61,7 +62,7 @@ class NicknameHoldMigrationTest {
 				String nickname = names.get(index);
 				ready.countDown();
 				if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("barrier timed out");
-				return tx.execute(status -> { holds.lockNicknameWrites(); return holds.tryAcquire(nickname, "user-" + index, now); });
+				return tx.execute(status -> { holds.lockNicknameWrites(); return holds.tryAcquire(new Nickname("  " + nickname + "　 "), "user-" + index, now); });
 			})).toList();
 			assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
 			start.countDown();
